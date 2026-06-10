@@ -1,0 +1,437 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "tw-animate-css";
+
+/* =============================================================================
+   QUICKIN DESIGN SYSTEM
+   ============================================================================= 
+   Warm boutique booking platform aesthetic
+   "Browsing a travel magazine, not filling a booking form."
+   ============================================================================= */
+
+@custom-variant dark (&:is(.dark *));
+
+/* -----------------------------------------------------------------------------
+   QUICKIN THEME - Tailwind v4 Configuration
+   ----------------------------------------------------------------------------- */
+@theme inline {
+  /* QuickIn Color Palette */
+  --color-background: #F6F1E6;
+  --color-background-secondary: #EFE6D8;
+  --color-foreground: #2B2B2B;
+
+  /* Primary - Burgundy */
+  --color-primary: #5B0F16;
+  --color-primary-foreground: #F6F1E6;
+
+  /* Secondary */
+  --color-secondary: #EFE6D8;
+  --color-secondary-foreground: #2B2B2B;
+
+  /* Card */
+  --color-card: #FFFFFF;
+  --color-card-foreground: #2B2B2B;
+
+  /* Popover */
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #2B2B2B;
+
+  /* Muted */
+  --color-muted: #EFE6D8;
+  --color-muted-foreground: #7A746A;
+
+  /* Accent */
+  --color-accent: #EFE6D8;
+  --color-accent-foreground: #2B2B2B;
+
+  /* Destructive */
+  --color-destructive: #DC2626;
+
+  /* Border & Input */
+  --color-border: #E2D8C8;
+  --color-input: #E2D8C8;
+  --color-ring: #5B0F16;
+
+  /* Chart colors */
+  --color-chart-1: #5B0F16;
+  --color-chart-2: #8B4513;
+  --color-chart-3: #A0522D;
+  --color-chart-4: #CD853F;
+  --color-chart-5: #DEB887;
+
+  /* Sidebar */
+  --color-sidebar: #F6F1E6;
+  --color-sidebar-foreground: #2B2B2B;
+  --color-sidebar-primary: #5B0F16;
+  --color-sidebar-primary-foreground: #F6F1E6;
+  --color-sidebar-accent: #EFE6D8;
+  --color-sidebar-accent-foreground: #2B2B2B;
+  --color-sidebar-border: #E2D8C8;
+  --color-sidebar-ring: #5B0F16;
+
+  /* Typography */
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-noto-sans-arabic: var(--font-noto-sans-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Radius tokens - QuickIn Design Spec */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  --radius-card: 1.75rem;    /* 28px - for cards */
+  --radius-button: 1.25rem;  /* 20px - for buttons */
+  --radius-input: 1.125rem;  /* 18px - for inputs */
+  --radius-modal: 2rem;      /* 32px - for modals */
+}
+
+/* -----------------------------------------------------------------------------
+   CSS Custom Properties for JS access (Shadcn components)
+   ----------------------------------------------------------------------------- */
+:root {
+  --radius: 0.625rem;
+  --background: #F6F1E6;
+  --background-secondary: #EFE6D8;
+  --foreground: #2B2B2B;
+  --card: #FFFFFF;
+  --card-foreground: #2B2B2B;
+  --popover: #FFFFFF;
+  --popover-foreground: #2B2B2B;
+  --primary: #5B0F16;
+  --primary-foreground: #F6F1E6;
+  --secondary: #EFE6D8;
+  --secondary-foreground: #2B2B2B;
+  --muted: #EFE6D8;
+  --muted-foreground: #7A746A;
+  --accent: #EFE6D8;
+  --accent-foreground: #2B2B2B;
+  --destructive: #DC2626;
+  --border: #E2D8C8;
+  --input: #E2D8C8;
+  --ring: #5B0F16;
+  --chart-1: #5B0F16;
+  --chart-2: #8B4513;
+  --chart-3: #A0522D;
+  --chart-4: #CD853F;
+  --chart-5: #DEB887;
+  --sidebar: #F6F1E6;
+  --sidebar-foreground: #2B2B2B;
+  --sidebar-primary: #5B0F16;
+  --sidebar-primary-foreground: #F6F1E6;
+  --sidebar-accent: #EFE6D8;
+  --sidebar-accent-foreground: #2B2B2B;
+  --sidebar-border: #E2D8C8;
+  --sidebar-ring: #5B0F16;
+}
+
+/* Dark mode kept for compatibility */
+.dark {
+  --background: #1A1512;
+  --background-secondary: #242018;
+  --foreground: #F6F1E6;
+  --card: #242018;
+  --card-foreground: #F6F1E6;
+  --popover: #242018;
+  --popover-foreground: #F6F1E6;
+  --primary: #D4A574;
+  --primary-foreground: #1A1512;
+  --secondary: #2D2820;
+  --secondary-foreground: #F6F1E6;
+  --muted: #2D2820;
+  --muted-foreground: #A09080;
+  --accent: #2D2820;
+  --accent-foreground: #F6F1E6;
+  --destructive: #EF4444;
+  --border: rgba(246, 241, 230, 0.1);
+  --input: rgba(246, 241, 230, 0.15);
+  --ring: #D4A574;
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+/* -----------------------------------------------------------------------------
+   BASE STYLES
+   ----------------------------------------------------------------------------- */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* Locale-aware font stacks */
+
+  html[lang='ar'] body,
+  html[lang='ar'] .font-sans {
+    font-family: var(--font-noto-sans-arabic), ui-sans-serif, system-ui, sans-serif !important;
+  }
+
+  html[lang='ar'] .font-serif,
+  html[lang='ar'] .text-hero {
+    font-family: var(--font-amiri), Georgia, serif !important;
+  }
+
+  .ar-font-hero {
+    font-family: var(--font-amiri), Georgia, serif;
+  }
+
+  .ar-font-body {
+    font-family: var(--font-noto-sans-arabic), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  html, body {
+    background-color: #F6F1E6;
+    color: #2B2B2B;
+  }
+
+  body {
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Ensure proper cursor for interactive elements */
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"],
+  a[href],
+  select,
+  [tabindex]:not([tabindex="-1"]) {
+    cursor: pointer;
+  }
+
+  /* Disabled elements */
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [disabled] {
+    cursor: not-allowed;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   QUICKIN UTILITIES
+   ----------------------------------------------------------------------------- */
+@layer utilities {
+  /* Glass UI - for floating elements (search bar, sticky nav, modals) */
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+
+  /* Card shadow - per design spec */
+  .card-shadow {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Glass card wrapper - outer frosted glass border */
+  .glass-card-wrapper {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2rem;
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.08),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  }
+
+  /* Inner solid card - ivory/cream background */
+  .glass-card-inner {
+    background: #FDFBF7;
+    border-radius: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Hero text styling - Playfair Display (EN) / Amiri (AR) */
+  .text-hero {
+    font-family: var(--font-serif);
+  }
+
+  /* QuickIn specific border radius */
+  .rounded-card {
+    border-radius: 1.75rem;
+  }
+
+  .rounded-button {
+    border-radius: 1.25rem;
+  }
+
+  .rounded-input {
+    border-radius: 1.125rem;
+  }
+
+  .rounded-modal {
+    border-radius: 2rem;
+  }
+
+  /* Cream background override */
+  .bg-background {
+    background-color: #F6F1E6;
+  }
+
+  /* Primary button override */
+  .bg-primary {
+    background-color: #5B0F16;
+  }
+
+  .text-primary {
+    color: #5B0F16;
+  }
+
+  .border-primary {
+    border-color: #5B0F16;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   COMPONENT OVERRIDES - Ensure warm theme applies
+   ----------------------------------------------------------------------------- */
+/* Header/Navbar */
+header {
+  background-color: #F6F1E6;
+}
+
+/* Category bar */
+.sticky.top-20 {
+  background-color: rgba(246, 241, 230, 0.95);
+}
+
+/* Cards should be white on cream background */
+.bg-card {
+  background-color: #FFFFFF;
+}
+
+/* Muted backgrounds */
+.bg-muted {
+  background-color: #EFE6D8;
+}
+
+.bg-secondary {
+  background-color: #EFE6D8;
+}
+
+/* Border color */
+.border-border {
+  border-color: #E2D8C8;
+}
+
+/* -----------------------------------------------------------------------------
+   REACT PHONE NUMBER INPUT - QuickIn Theme
+   ----------------------------------------------------------------------------- */
+.PhoneInput {
+  --PhoneInputCountrySelectArrow-color: #7A746A;
+  --PhoneInput-color--focus: #5B0F16;
+}
+
+.PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.PhoneInputInput::placeholder {
+  color: #7A746A;
+}
+
+.PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid #E2D8C8;
+}
+
+.PhoneInputCountryIcon {
+  width: 1.25rem;
+  height: auto;
+  border-radius: 2px;
+}
+
+.PhoneInputCountrySelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.PhoneInputCountrySelectArrow {
+  width: 0.35rem;
+  margin-left: 0.35rem;
+}
+
+/* -----------------------------------------------------------------------------
+   LOADING BAR ANIMATION
+   ----------------------------------------------------------------------------- */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* -----------------------------------------------------------------------------
+   SCROLLBAR - Custom QuickIn Styling
+   ----------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E2D8C8; /* border color */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7A746A; /* muted-foreground */
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #E2D8C8 transparent;
+}
+
+/* -----------------------------------------------------------------------------
+   LEAFLET MAP OVERRIDES
+   ----------------------------------------------------------------------------- */
+.listing-popup-card .leaflet-popup-content-wrapper,
+.listing-popup-card .leaflet-popup-tip {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.listing-popup-card .leaflet-popup-content {
+  margin: 0 !important;
+}
+
+/* -----------------------------------------------------------------------------
+   Arabic Custom Variant
+   ----------------------------------------------------------------------------- */
+@custom-variant ar (&:is(html[lang="ar"] *));

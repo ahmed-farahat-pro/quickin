@@ -1,0 +1,68 @@
+-- Update the function to lower Guest Favorite requirements for easier testing/visibility
+CREATE OR REPLACE FUNCTION public.update_listing_guest_favorite_status()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_listing_id UUID;
+  v_review_count INT;
+  v_avg_rating NUMERIC;
+  v_avg_accuracy NUMERIC;
+  v_avg_cleanliness NUMERIC;
+  v_avg_communication NUMERIC;
+  v_avg_location NUMERIC;
+  v_avg_check_in NUMERIC;
+  v_avg_value NUMERIC;
+  v_is_guest_favorite BOOLEAN := FALSE;
+BEGIN
+  -- Determine which listing_id to update based on the operation
+  IF TG_OP = 'DELETE' THEN
+    v_listing_id := OLD.listing_id;
+  ELSE
+    v_listing_id := NEW.listing_id;
+  END IF;
+
+  -- Calculate aggregates for the listing, ignoring hidden reviews
+  SELECT 
+    COUNT(id),
+    COALESCE(ROUND(AVG(rating)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_accuracy)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_cleanliness)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_communication)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_location)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_check_in)::numeric, 2), 0),
+    COALESCE(ROUND(AVG(rating_value)::numeric, 2), 0)
+  INTO 
+    v_review_count,
+    v_avg_rating,
+    v_avg_accuracy,
+    v_avg_cleanliness,
+    v_avg_communication,
+    v_avg_location,
+    v_avg_check_in,
+    v_avg_value
+  FROM public.reviews
+  WHERE listing_id = v_listing_id AND is_hidden = false;
+
+  -- UPDATED LOGIC FOR PHASE 3:
+  -- We're lowering v_review_count to >= 1 and avg_rating >= 4.8 for easier testing/demo
+  IF v_review_count >= 1 AND 
+     v_avg_rating >= 4.80 AND
+     v_avg_accuracy >= 4.50 AND
+     v_avg_cleanliness >= 4.50 AND
+     v_avg_communication >= 4.50 AND
+     v_avg_location >= 4.50 AND
+     v_avg_check_in >= 4.50 AND
+     v_avg_value >= 4.50 
+  THEN
+    v_is_guest_favorite := TRUE;
+  ELSE
+    v_is_guest_favorite := FALSE;
+  END IF;
+
+  -- Update the listing's guest favorite status
+  UPDATE public.listings
+  SET is_guest_favorite = v_is_guest_favorite
+  WHERE id = v_listing_id;
+
+  RETURN NULL; -- AFTER trigger
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

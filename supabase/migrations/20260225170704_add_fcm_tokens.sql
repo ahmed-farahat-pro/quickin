@@ -1,0 +1,2 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+ALTER TABLE staff_profiles ADD COLUMN IF NOT EXISTS fcm_token TEXT;;

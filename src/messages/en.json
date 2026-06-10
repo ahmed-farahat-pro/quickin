@@ -1,0 +1,1357 @@
+{
+  "common": {
+    "brand": "QuickIn",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "search": "Search",
+    "night": "night",
+    "nights": "nights",
+    "guest": "guest",
+    "guests": "guests",
+    "languageToggle": "العربية",
+    "languageLabel": "English (US)"
+  },
+  "nav": {
+    "anywhere": "Anywhere",
+    "listings": "Listings",
+    "servicesManagement": "Services Management",
+    "becomeHost": "Become a Host",
+    "rent": "Rent",
+    "dashboard": "Dashboard",
+    "trips": "Trips",
+    "wishlists": "Wishlists",
+    "manageListings": "Manage listings",
+    "bookings": "Bookings",
+    "account": "Account",
+    "helpCenter": "Help Center",
+    "logout": "Log out",
+    "signup": "Sign up",
+    "login": "Log in",
+    "hostYourHome": "Host your home",
+    "pleaseLoginFirst": "Please log in first",
+    "userFallback": "User"
+  },
+  "footer": {
+    "tagline": "Find it. Book it. Live it.",
+    "description": "Curated stays for slow travelers. Handpicked homes designed for comfort, beauty, and calm.",
+    "legalCompanyName": "QuickIn, Inc.",
+    "support": "Support",
+    "hosting": "Hosting",
+    "company": "QuickIn",
+    "terms": "Terms",
+    "sitemap": "Sitemap",
+    "privacy": "Privacy",
+    "currency": "EGP",
+    "supportLinks": {
+      "helpCenter": "Help Center",
+      "safetyInfo": "Safety Information",
+      "cancellation": "Cancellation Options",
+      "reportConcern": "Report a Concern"
+    },
+    "hostingLinks": {
+      "becomeHost": "Become a Host",
+      "hostResources": "Host Resources",
+      "communityForum": "Community Forum",
+      "hostResponsibly": "Host Responsibly"
+    },
+    "companyLinks": {
+      "about": "About Us",
+      "newsroom": "Newsroom",
+      "careers": "Careers",
+      "contact": "Contact"
+    }
+  },
+  "auth": {
+    "loginTitle": "Log in",
+    "signupTitle": "Sign up",
+    "loginDescription": "Welcome back to QuickIn",
+    "signupDescription": "Create an account to start booking",
+    "resetTitle": "Reset your password",
+    "resetDescription": "Enter your email and we'll send you a reset link",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "forgotPassword": "Forgot password?",
+    "sendResetLink": "Send reset link",
+    "backToLogin": "Back to login",
+    "checkYourEmail": "Check your email",
+    "checkEmailDescription": "We've sent a confirmation link to {email}. Please verify your account to continue.",
+    "mfaTitle": "Two-Factor Authentication",
+    "mfaDescription": "Enter the code from your authenticator app to continue.",
+    "mfaPlaceholder": "000000",
+    "mfaVerifyButton": "Verify",
+    "mfaEnrollTitle": "Set up Two-Factor Authentication",
+    "mfaEnrollDescription": "Scan the QR code with your authenticator app (like Google Authenticator or Authy).",
+    "mfaEnrollSuccess": "MFA enabled successfully!",
+    "mfaEnrollFailure": "Failed to enable MFA. Please try again.",
+    "mfaUnenrollTitle": "Disable Two-Factor Authentication",
+    "mfaUnenrollDescription": "Are you sure you want to disable MFA? This will make your account less secure.",
+    "mfaUnenrollButton": "Disable MFA",
+    "resetEmailSent": "Password reset email sent!",
+    "retry": "Retry",
+    "unexpectedError": "An unexpected error occurred",
+    "failedProvider": "Failed to connect to provider",
+    "welcomeBack": "Welcome back!",
+    "verificationSuccess": "Email verified successfully! You're now ready to use QuickIn.",
+    "signupSuccess": "Account created! Check your email to confirm.",
+    "pleaseEnterEmail": "Please enter your email address",
+    "continueGoogle": "Continue with Google",
+    "continueApple": "Continue with Apple",
+    "or": "or",
+    "acceptTermsPrefix": "I accept the ",
+    "acceptTermsLink": "Terms and Conditions",
+    "changeInfoTip": "You won't be able to change your name or email later without contacting support.",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "placeholderEmail": "you@example.com",
+    "placeholderPassword": "••••••••",
+    "placeholderFullName": "John Doe",
+    "loginButton": "Log in",
+    "signupButton": "Sign up",
+    "resetEmailHelp": "Enter the email address associated with your account and we'll send you a link to reset your password.",
+    "resetLinkSentTo": "We sent a password reset link to {email}"
+  },
+  "loginPage": {
+    "title": "Log in to QuickIn",
+    "subtitle": "Welcome back! Please sign in to continue.",
+    "instruction": "Use the menu in the top right corner to log in or sign up.",
+    "goHome": "Go to homepage"
+  },
+  "chat": {
+    "title": "QuickIn AI",
+    "poweredBy": "Powered by Gemini",
+    "welcome": "Hi! I'm your QuickIn assistant. I can help you find the perfect place to stay, answer questions about listings, or give travel recommendations. How can I help you today?",
+    "placeholder": "Ask me anything...",
+    "suggested": {
+      "beach": "Find beachfront properties",
+      "included": "What's included in this listing?",
+      "destination": "Recommend a vacation destination",
+      "plan": "Help me plan a trip"
+    },
+    "networkError": "Sorry, I had trouble connecting. Please try again.",
+    "fallbackError": "Sorry, something went wrong.",
+    "ariaOpenChat": "Open chat",
+    "ariaCloseChat": "Close chat",
+    "ariaSendMessage": "Send message"
+  },
+  "bookingPage": {
+    "title": "Confirm and Request",
+    "yourTrip": "Your Trip",
+    "dates": "Dates",
+    "guests": "Guests",
+    "listingCode": "Code",
+    "priceDetails": "Price Details",
+    "baseRate": "Base rate",
+    "subtotal": "Subtotal",
+    "viewAllNights": "View all nights",
+    "hideNightlyBreakdown": "Hide nightly breakdown",
+    "serviceFee": "Service fee",
+    "total": "Total"
+  },
+  "bookingConfirm": {
+    "title": "Confirm Your Booking",
+    "agreeConditions": "Please agree to all host conditions before booking",
+    "retry": "Retry",
+    "success": "Booking request sent! The host will review your request.",
+    "viewTrips": "View Trips",
+    "failed": "Failed to submit booking request",
+    "sending": "Sending Request...",
+    "requestToBook": "Request to Book",
+    "termsNotice": "By selecting the button, you agree to the reservation terms. The host has 24 hours to respond to your request.",
+    "paymentOptions": "Payment options",
+    "platformBalance": "Platform Balance",
+    "mobileWallet": "Mobile Wallet",
+    "cashDisabled": "Cash (Disabled)",
+    "walletInstructions": "Select your preferred mobile wallet provider.",
+    "walletInfoDesc1": "Your available balance is",
+    "walletInfoDesc2": "The total amount of",
+    "walletInfoDesc3": "will be deducted instantly from your platform wallet and your booking will be confirmed immediately.",
+    "sendToNumber": "Send to Number",
+    "uploadReceipt": "Upload Receipt",
+    "uploadReceiptDesc": "Please upload a screenshot of your successful transaction to confirm your booking.",
+    "receiptAttached": "Receipt attached successfully",
+    "receiptReady": "You can now proceed.",
+    "uploadViaMobile": "Upload via mobile",
+    "scanOrSend": "Scan or Send to Pay",
+    "scanOnly": "Scan to Pay",
+    "sendOnly": "Send to Pay",
+    "scanOrSendDesc": "Scan the QR code or send money to the number above to pay",
+    "scanOnlyDesc": "Scan and pay",
+    "sendOnlyDesc": "Send money to the number above to pay",
+    "hostRequirements": "Host Requirements",
+    "hostRequirementsDesc": "Please agree to the following conditions to proceed with your booking:",
+    "cancellationPolicy": "Cancellation Policy",
+    "acceptCancellationPolicy": "I accept the cancellation and refund policy",
+    "loadingCancellationPolicy": "Loading cancellation policy...",
+    "handoffTitle": "Upload via mobile",
+    "handoffDesc": "Scan this QR code with your phone to upload the receipt and finish your booking.",
+    "waitingForUpload": "Waiting for receipt upload...",
+    "leavePageOpen": "Leave this page open. It will automatically proceed once you upload the receipt on your phone.",
+    "payWithBalance": "Pay with Balance",
+    "cashDisabledDesc": "Cash payments are currently disabled for this property."
+  },
+  "bookingWidget": {
+    "fields": {
+      "checkIn": "Check-in",
+      "checkOut": "Checkout",
+      "addDate": "Add date",
+      "guests": "Guests"
+    },
+    "actions": {
+      "logIn": "Log In",
+      "requestToBook": "Request to Book",
+      "checking": "Checking..."
+    },
+    "errors": {
+      "selectDates": "Please select your dates",
+      "minStay": "Minimum stay is {count} {unit}",
+      "selectedDatesUnavailable": "Some of your selected dates are not available",
+      "loginToBook": "Please log in to book"
+    },
+    "messages": {
+      "minStayNotice": "Minimum stay: {count} {unit}",
+      "selectedDatesUnavailable": "Some selected dates are not available",
+      "notChargedYet": "You won't be charged yet"
+    },
+    "pricing": {
+      "serviceFee": "Service fee",
+      "total": "Total"
+    }
+  },
+  "listingsExplorer": {
+    "empty": {
+      "title": "No listings found",
+      "description": "Try adjusting your search or filters."
+    },
+    "actions": {
+      "showList": "Show list",
+      "showMap": "Show map",
+      "showMore": "Show more"
+    },
+    "errors": {
+      "loadMoreFailed": "Failed to load more listings"
+    }
+  },
+  "listingCard": {
+    "guestFavorite": "Guest favorite",
+    "bestOffer": "Best Offer",
+    "night": "night",
+    "nights": "nights",
+    "total": "total",
+    "pleaseLoginToSave": "Please log in to save listings",
+    "logIn": "Log In",
+    "guests": "{count} guests",
+    "bed": "bed",
+    "beds": "beds",
+    "bath": "bath",
+    "baths": "baths",
+    "guestCount": "{count, plural, =1 {1 guest} other {# guests}}",
+    "bedCount": "{count, plural, =1 {1 bed} other {# beds}}",
+    "bathCount": "{count, plural, =1 {1 bathroom} other {# bathrooms}}",
+    "nightCount": "{count, plural, =0 {no nights} =1 {1 night} other {# nights}}",
+    "viewDetails": "View Details"
+  },
+  "reviews": {
+    "categories": {
+      "rating_cleanliness": {
+        "label": "Cleanliness",
+        "guest_desc": "Was the place as clean as you expected it to be? This covers all rooms and surfaces.",
+        "stat_desc": "How clean guests found this home to be, covering all rooms and surfaces."
+      },
+      "rating_accuracy": {
+        "label": "Accuracy",
+        "guest_desc": "How accurately did the listing photos and description represent the actual place?",
+        "stat_desc": "How accurately guests felt the photos and description represented the actual place."
+      },
+      "rating_communication": {
+        "label": "Communication",
+        "guest_desc": "How responsive and helpful was the host before and during your stay?",
+        "stat_desc": "How responsive and helpful guests found the host to be before and during their stay."
+      },
+      "rating_location": {
+        "label": "Location",
+        "guest_desc": "Did the area meet your expectations and was the listed location accurate?",
+        "stat_desc": "How guests rated the accuracy of the location and whether the area met their expectations."
+      },
+      "rating_check_in": {
+        "label": "Check-in",
+        "guest_desc": "How easy was the check-in process? Did the host provide clear instructions?",
+        "stat_desc": "How easy guests found the check-in process and the clarity of instructions provided."
+      },
+      "rating_value": {
+        "label": "Value",
+        "guest_desc": "Was the stay worth the price paid compared to the experience provided?",
+        "stat_desc": "Whether guests felt the stay was a good value relative to the price and experience."
+      }
+    },
+    "list": {
+      "noReviews": "No reviews yet. Be the first to review!",
+      "anonymous": "Anonymous",
+      "userAlt": "User"
+    },
+    "form": {
+      "writeReview": "Write a review",
+      "editReview": "Edit your review",
+      "title": "Write a review",
+      "overallExperience": "Overall experience",
+      "categoryRatings": "Category Ratings",
+      "writtenReview": "Your written review",
+      "placeholderComment": "Tell others about your stay...",
+      "privateFeedback": "Private feedback to host",
+      "continuePrivateFeedback": "Continue private feedback to host",
+      "visibleOnlyToHost": "Only visible to host",
+      "privatePlaceholder": "Share details you'd prefer to keep private from the public...",
+      "privatePlaceholderMore": "Send another private message...",
+      "previousPrivateSaved": "* Your previous private messages are saved in the host chat.",
+      "onlyPastGuests": "Only past guests can review",
+      "submit": "Submit Review",
+      "cancel": "Cancel",
+      "errors": {
+        "overallRating": "Please provide an overall rating",
+        "subRating": "Please rate {category}",
+        "comment": "Please write a comment"
+      },
+      "success": {
+        "submitted": "Review submitted successfully!",
+        "updated": "Review updated!"
+      }
+    },
+    "chat": {
+      "threadTitle": "Private Feedback Thread",
+      "visibilityInfo": "Visible to host & guest",
+      "noFeedback": "No private feedback yet.",
+      "typeReply": "Type your reply...",
+      "send": "Message sent"
+    }
+  },
+  "listingSubNav": {
+    "photos": "Photos",
+    "overview": "Overview",
+    "about": "About",
+    "amenities": "Amenities",
+    "location": "Location",
+    "reviews": "Reviews",
+    "book": "Book"
+  },
+  "comments": {
+    "warningLabel": "Warning:",
+    "phoneWarning": "Sharing phone numbers or contact information in comments will result in an immediate account ban.",
+    "tabLabel": "Comments & Q&A",
+    "qaWithCount": "Q&A ({count})",
+    "noComments": "No comments yet. Be the first to ask a question!",
+    "loginPrompt": "You must be logged in to ask a question or leave a comment.",
+    "placeholder": "Ask a question or leave a comment...",
+    "post": "Post Comment",
+    "reply": "Reply",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "saveChanges": "Save Changes",
+    "reportToAdmin": "Report to Admin",
+    "adminBadge": "Admin",
+    "mustBeLoggedInToVote": "You must be logged in to vote.",
+    "reportedToAdmins": "Comment reported to administrators.",
+    "confirmModerate": "Are you sure you want to {action} this comment?",
+    "moderateSuccess": "Comment {action} successfully.",
+    "confirmDelete": "Are you sure you want to delete your comment?",
+    "deleteSuccess": "Your comment was deleted.",
+    "hostBadge": "Host",
+    "reportedBadge": "Reported",
+    "hiddenComment": "Comment hidden or flagged due to feedback.",
+    "showAnyway": "Show anyway",
+    "hide": "Hide",
+    "makeVisible": "Make Visible",
+    "commentUpdated": "Comment updated successfully",
+    "replyPosted": "Reply posted successfully",
+    "commentPosted": "Comment posted successfully",
+    "anonymous": "Anonymous"
+  },
+  "listingDetail": {
+    "actions": {
+      "share": "Share",
+      "save": "Save",
+      "saved": "Saved",
+      "logIn": "Log in",
+      "requestToBook": "Request to Book",
+      "checkAvailability": "Check availability"
+    },
+    "errors": {
+      "rangeIncludesUnavailable": "Selected range includes blocked or booked dates",
+      "selectDates": "Please select check-in and check-out dates",
+      "invalidDateOrder": "Check-out must be after check-in",
+      "loginToBook": "Please log in to book this place",
+      "cannotBookOwnListing": "You cannot book your own listing",
+      "loginToSaveWishlist": "Please log in to save to your wishlist"
+    },
+    "rating": {
+      "new": "New"
+    },
+    "reviews": {
+      "one": "review",
+      "many": "reviews",
+      "count": "{count, plural, =1 {1 review} other {# reviews}}"
+    },
+    "guestFavorite": {
+      "title": "Guest favorite",
+      "subtitle": "One of the most loved homes on QuickIn based on reviews"
+    },
+    "brandName": "Quick-In",
+    "hostedBy": "Hosted by {host}",
+    "hostFallback": "Host",
+    "propertyTypeFallback": "Home",
+    "locationFormat": "{city}, {country}",
+    "units": {
+      "bedroom": "bedroom",
+      "bedrooms": "bedrooms",
+      "bed": "bed",
+      "beds": "beds",
+      "bath": "bath",
+      "baths": "baths",
+      "guestCount": "{count, plural, =1 {1 guest} other {# guests}}",
+      "bedroomCount": "{count, plural, =1 {1 bedroom} other {# bedrooms}}",
+      "bedCount": "{count, plural, =1 {1 bed} other {# beds}}",
+      "bathCount": "{count, plural, =1 {1 bathroom} other {# bathrooms}}"
+    },
+    "sections": {
+      "aboutPlace": "About this place",
+      "whatPlaceOffers": "What this place offers",
+      "whereYoullBe": "Where you'll be"
+    },
+    "fallbacks": {
+      "description": "A beautiful place to stay.",
+      "noAmenities": "No amenities listed"
+    },
+    "booking": {
+      "checkIn": "Check-in",
+      "checkOut": "Checkout",
+      "addDate": "Add date",
+      "clearDates": "Clear dates",
+      "existingBookingTitle": "You already have a booking request for this listing",
+      "existingBookingPrefix": "Check your",
+      "tripsLink": "Trips",
+      "existingBookingSuffix": "page for status",
+      "activeBookingTitle": "You are currently staying at this listing",
+      "activeBookingPrefix": "Check your",
+      "activeBookingSuffix": "page for details",
+      "notChargedYet": "You won't be charged yet",
+      "serviceFee": "Service fee",
+      "total": "Total"
+    },
+    "calendarLegend": {
+      "title": "Calendar Legend",
+      "booked": "Booked",
+      "blocked": "Blocked",
+      "adjusted": "Adjusted",
+      "custom": "Custom",
+      "bestOffer": "Best Offer"
+    },
+    "priceBreakdown": {
+      "baseRate": "Base rate",
+      "subtotal": "Subtotal",
+      "hideNightlyBreakdown": "Hide nightly breakdown",
+      "viewAllNights": "View all nights"
+    }
+  },
+  "ai": {
+    "system": {
+      "assistantRole": "You are a helpful travel assistant for QuickIn, an Airbnb-like vacation rental platform.",
+      "languageInstructionEn": "Respond in clear English.",
+      "languageInstructionAr": "Respond in Arabic."
+    }
+  },
+  "navUser": {
+    "personalInfo": "Personal Info",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "helpCenter": "Help Center",
+    "logout": "Log out"
+  },
+  "dashboard": {
+    "yourDashboard": "Your Dashboard",
+    "groups": {
+      "dashboard": "Dashboard",
+      "account": "Account",
+      "guest": "Guest",
+      "host": "Host",
+      "admin": "Admin",
+      "staff": "Staff"
+    },
+    "items": {
+      "overview": "Overview",
+      "personalInfo": "Personal Info",
+      "trips": "Trips",
+      "wishlists": "Wishlists",
+      "myListings": "My Listings",
+      "allListings": "All Listings",
+      "createNew": "Create New",
+      "bookings": "Bookings",
+      "adminDashboard": "Admin Dashboard",
+      "moderatorPanel": "Moderator Panel",
+      "balance": "Earnings & Balance"
+    }
+  },
+  "dashboardPage": {
+    "title": "Dashboard",
+    "welcome": "Welcome back! Here's an overview of your account.",
+    "links": {
+      "myListings": {
+        "title": "My Listings",
+        "description": "Manage your properties",
+        "activeCount": "{count, plural, =1 {1 active listing} other {# active listings}}"
+      },
+      "myTrips": {
+        "title": "My Trips",
+        "description": "View your reservations",
+        "upcomingCount": "{count, plural, =1 {1 upcoming trip} other {# upcoming trips}}"
+      },
+      "wishlists": {
+        "title": "Wishlists",
+        "description": "Places you saved",
+        "savedCount": "{count, plural, =1 {1 saved list} other {# saved lists}}"
+      },
+      "accountSettings": {
+        "title": "Account Settings",
+        "description": "Profile & verification"
+      }
+    },
+    "hostCta": {
+      "title": "Become a Host",
+      "description": "Earn extra income by sharing your space with travelers",
+      "button": "List Your Property"
+    }
+  },
+  "dashboardBookings": {
+    "title": "Booking Requests",
+    "description": "Manage booking requests for your properties",
+    "searchPlaceholder": "Find by reservation code...",
+    "tabs": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "all": "All"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected",
+      "completed": "Completed"
+    },
+    "empty": {
+      "pending": "No pending booking requests",
+      "confirmed": "No confirmed bookings",
+      "all": "No booking requests yet"
+    },
+    "card": {
+      "resBadge": "Res",
+      "listBadge": "List",
+      "nights": "{count, plural, =1 {1 night} other {# nights}}",
+      "guests": "{count, plural, =1 {1 guest} other {# guests}}",
+      "guestLabel": "Guest:",
+      "totalLabel": "Total:",
+      "requestedAt": "Requested {date}",
+      "unknownListing": "Unknown listing",
+      "guestFallback": "Guest",
+      "chatButton": "Chat with Host"
+    },
+    "actions": {
+      "approve": "Approve",
+      "decline": "Decline",
+      "approveSuccess": "Booking confirmed!",
+      "approveError": "Failed to approve booking",
+      "rejectSuccess": "Booking request rejected",
+      "rejectError": "Failed to reject booking",
+      "retry": "Retry",
+      "undo": "Undo",
+      "dialog": {
+        "title": "Decline this booking?",
+        "description": "This will notify the guest that their booking request was not approved. This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Decline Booking"
+      }
+    },
+    "chatWithGuest": "Chat with Guest"
+  },
+  "dashboardListings": {
+    "title": "Your listings",
+    "description": "Manage your properties and keep track of reservations.",
+    "addListing": "Add listing",
+    "empty": {
+      "title": "Start hosting today",
+      "description": "Share your space and earn extra income. List your property and connect with travelers from around the world.",
+      "button": "Create your first listing"
+    },
+    "card": {
+      "codeBadge": "Code",
+      "published": "Published",
+      "draft": "Draft",
+      "options": "Options",
+      "viewListing": "View listing",
+      "manage": "Manage",
+      "unpublish": "Unpublish",
+      "publish": "Publish",
+      "offerRequested": "Offer Requested ({start} - {end})",
+      "offerActive": "Offer Active ({start} - {end})",
+      "offerRejected": "Add to Offers Rejected",
+      "listedOn": "Listed {date}",
+      "perNight": "/ night"
+    },
+    "actions": {
+      "unpublishSuccess": "Listing unpublished successfully",
+      "publishSuccess": "Listing published successfully",
+      "unpublishError": "Failed to unpublish listing",
+      "publishError": "Failed to publish listing"
+    },
+    "unpublishDialog": {
+      "title": "Unpublish Listing?",
+      "description": "This will hide your listing from guests. You can publish it again later.",
+      "blockedTitle": "Cannot Unpublish",
+      "blockedDescription": "This listing has current or requested bookings and cannot be unpublished until they are resolved.",
+      "adminGuidance": "As an admin, you must first resolve these bookings (e.g., force-cancel, reject requested, or wait for completion) before unpublishing.",
+      "cancel": "Cancel",
+      "confirm": "Unpublish Listing"
+    },
+
+    "sort": {
+      "placeholder": "Sort by",
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "priceHigh": "Price: High to Low",
+      "priceLow": "Price: Low to High"
+    }
+  },
+  "dashboardProfile": {
+    "title": "Account",
+    "description": "Manage your profile, verification, and account settings.",
+    "tabs": {
+      "personal": "Personal Info",
+      "verification": "Verification",
+      "settings": "Settings"
+    },
+    "header": {
+      "memberSince": "Member since",
+      "verified": "Verified",
+      "email": "Email",
+      "identity": "Identity",
+      "notVerified": "Not verified",
+      "staff": "Staff",
+      "cannotBeVerified": "Cannot Be Verified (Admin)"
+    },
+    "status": {
+      "verified": {
+        "label": "Verified",
+        "description": "Your identity has been verified"
+      },
+      "pending": {
+        "label": "Pending Review",
+        "description": "Your documents are being reviewed (1-2 business days)"
+      },
+      "rejected": {
+        "label": "Rejected",
+        "description": "Your verification was not approved. Please resubmit."
+      },
+      "unverified": {
+        "label": "Not Verified",
+        "description": "Verify your identity to book or list properties"
+      }
+    },
+    "personal": {
+      "legalName": {
+        "title": "Legal Name",
+        "description": "Contact support to change your name",
+        "notProvided": "Not provided"
+      },
+      "emailAddress": {
+        "title": "Email Address",
+        "description": "Contact support to change your email"
+      },
+      "contactInfo": {
+        "title": "Contact Information",
+        "description": "Update your phone number and address",
+        "phone": "Phone Number",
+        "phoneHelp": "Select your country code from the dropdown",
+        "address": "Address",
+        "addressPlaceholder": "Your address",
+        "saving": "Saving...",
+        "saveChanges": "Save Changes",
+        "success": "Profile updated successfully",
+        "error": "Failed to update profile",
+        "retry": "Retry"
+      }
+    },
+    "verification": {
+      "internalAccount": {
+        "title": "Internal Account",
+        "description": "As a staff member, your account is automatically verified for all actions.",
+        "bypassed": "Verification Bypassed",
+        "bypassedDesc": "You can list properties and make bookings without identity verification."
+      },
+      "identityVerification": "Identity Verification",
+      "rejectionReason": "Rejection Reason:",
+      "requirements": {
+        "title": "Verification Requirements",
+        "description": "Complete all steps to become fully verified",
+        "email": "Email Verification",
+        "emailVerified": "Your email is verified",
+        "emailNotVerified": "Please verify your email address",
+        "identity": "Identity Documents",
+        "identityVerified": "Your identity is verified",
+        "identityPending": "Under review",
+        "identityNotVerified": "Upload ID and selfie for verification"
+      },
+      "submit": {
+        "title": "Submit Documents",
+        "description": "Upload your ID documents and a selfie photo for verification"
+      }
+    },
+    "settings": {
+      "loginSecurity": {
+        "title": "Login & Security",
+        "description": "Update your password and secure your account"
+      },
+      "paymentsPayouts": {
+        "title": "Payments & Payouts",
+        "description": "Review payments, payouts, and taxes"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Choose notification preferences"
+      },
+      "privacySharing": {
+        "title": "Privacy & Sharing",
+        "description": "Manage your personal data and sharing"
+      }
+    }
+  },
+  "promoBanner": {
+    "title": "Best Offers of the Week",
+    "description": "— Explore curated deals on handpicked stays"
+  },
+  "dashboardTrips": {
+    "title": "Trips",
+    "description": "Your booking requests and reservations.",
+    "searchPlaceholder": "Find by reservation code...",
+    "tabs": {
+      "pending": "Pending",
+      "upcoming": "Upcoming",
+      "history": "History"
+    },
+    "status": {
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rejected": "Declined by Host",
+      "pending": "Pending",
+      "active": "In Check-in"
+    },
+    "empty": {
+      "pendingTitle": "No pending requests",
+      "pendingDesc": "Your booking requests that are awaiting host approval will appear here",
+      "upcomingTitle": "No upcoming trips",
+      "upcomingDesc": "Time to plan your next adventure",
+      "historyTitle": "No past trips",
+      "historyDesc": "Your completed and cancelled trips will appear here",
+      "browse": "Browse listings",
+      "startSearching": "Start searching"
+    },
+    "card": {
+      "resBadge": "Res",
+      "nights": "{count, plural, =1 {1 night} other {# nights}}",
+      "guests": "{count, plural, =1 {1 guest} other {# guests}}",
+      "total": "total",
+      "rate": "Rate",
+      "viewListing": "View listing",
+      "chatButton": "Chat with Host"
+    },
+    "actions": {
+      "cancelRequest": "Cancel Request",
+      "cancelling": "Cancelling...",
+      "cancelSuccess": "Booking request cancelled",
+      "cancelError": "Failed to cancel booking request",
+      "statusChanged": "Booking status has changed to {status}. Please refresh.",
+      "retry": "Retry",
+      "undo": "Undo",
+      "dialog": {
+        "title": "Cancel booking request?",
+        "description": "This will withdraw your request. You won't be charged.",
+        "keep": "Keep Request",
+        "confirm": "Cancel Request"
+      },
+      "checkedIn": "Checked In",
+      "processingPayment": "Processing Payment",
+      "processingPaymentDesc": "The platform is currently holding the funds and verifying your payment. Action required from admin.",
+      "checkinConfirmed": "Check-in Confirmed",
+      "confirmCheckinBtn": "Confirm Check-in",
+      "scanQrBtn": "Scan QR Code",
+      "cancelPolicy": "Cancellation policy",
+      "daysBefore": "Days before check-in",
+      "refundLabel": "Refund",
+      "checkinSuccess": "Check-in confirmed! The platform will now release funds to the host.",
+      "checkinError": "Failed to confirm check-in. Please try again.",
+      "invalidQr": "Invalid QR Code for this booking",
+      "scanQrTitle": "Scan Host's QR Code",
+      "scanQrDesc": "Point your camera at the QR code displayed on the host's device to automatically confirm your check-in.",
+      "cancel": "Cancel Booking"
+    }
+  },
+  "dashboardWishlists": {
+    "title": "Wishlists",
+    "listsCount": "{count, plural, =1 {1 list} other {# lists}} available",
+    "empty": {
+      "title": "Create your first wishlist",
+      "description": "As you search, click the heart icon to save your favorite places and experiences to a wishlist.",
+      "button": "Start exploring"
+    },
+    "detailEmptyTitle": "This wishlist is empty",
+    "detailEmptyButton": "Discover places to stay"
+  },
+  "searchBar": {
+    "tabs": {
+      "where": "Where",
+      "when": "When",
+      "who": "Who",
+      "filters": "Filters"
+    },
+    "placeholders": {
+      "where": "Search destinations",
+      "anywhere": "Anywhere",
+      "anyDates": "Any dates",
+      "addCheckout": "Add checkout",
+      "addGuests": "Add guests",
+      "guests": "{count} guests",
+      "priceAndAmenities": "Price & amenities",
+      "search": "Search",
+      "noDestinations": "No destinations found.",
+      "searchFor": "Search for \"{location}\"",
+      "destinationsHeading": "Destinations",
+      "haveCode": "Have a code?",
+      "enterCode": "Enter 4-char code (e.g. #AB12)",
+      "selectDates": "Select dates",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "addDate": "Add date",
+      "quickOptions": "QUICK OPTIONS",
+      "thisWeekend": "This weekend",
+      "nextWeek": "Next week",
+      "nextMonth": "Next month",
+      "clearDates": "Clear dates",
+      "numberOfGuests": "Number of guests",
+      "howManyGuests": "How many guests?",
+      "guestsLabel": "Guests",
+      "priceRange": "Price range",
+      "pricePerNight": "Price per night",
+      "min": "Min",
+      "max": "Max",
+      "minimum": "Minimum",
+      "maximum": "Maximum",
+      "noMin": "No min",
+      "noMax": "No max",
+      "to": "to",
+      "propertyType": "Property Type",
+      "amenities": "Amenities",
+      "noAmenities": "No amenity filters available",
+      "agesLabel": "Ages 13 or above",
+      "popularDestinations": "POPULAR DESTINATIONS",
+      "clearAllFilters": "Clear all filters"
+    },
+    "aria": {
+      "clearLocation": "Clear location",
+      "decreaseGuests": "Decrease guests",
+      "increaseGuests": "Increase guests"
+    }
+  },
+  "stickySearch": {
+    "bestOffers": "Best Offers",
+    "bestOffersTagline": "Curated deals on handpicked stays",
+    "discoverTitle": "Discover Your Next Stay.",
+    "discoverDescription": "Explore handpicked destinations across boutique homes and soulful escapes — each thoughtfully selected for its charm, community, and wellness appeal.",
+    "loadingResults": "Finding amazing stays...",
+    "unlock": "Unlock search bar (Allow auto-expand)",
+    "lock": "Lock in compact mode"
+  },
+  "home": {
+    "hero": {
+      "title": "Curated stays for slow travelers",
+      "description": "Handpicked homes designed for comfort, beauty, and calm."
+    },
+    "filters": {
+      "showingResults": "Showing {count} of {total} listings",
+      "location": "📍 {location}",
+      "dates": "📅 {checkIn} - {checkOut}",
+      "guests": "👥 {count}+ guests",
+      "price": "💰 {min} - {max}",
+      "amenities": "✨ {count} amenities",
+      "propertyTypes": "🏠 {count} types",
+      "bestOffers": "Best Offers",
+      "clearAll": "Clear all",
+      "sortBy": "Sort by",
+      "sortRecommended": "Recommended",
+      "sortPriceAsc": "Price: Low to High",
+      "sortPriceDesc": "Price: High to Low",
+      "sortRating": "Top Rated",
+      "sortNewest": "Newest",
+      "sortDistance": "Closest to destination"
+    }
+  },
+  "dashboardListingCreate": {
+    "title": "Create Listing",
+    "steps": {
+      "type": "Type",
+      "vibe": "Vibe",
+      "basics": "Basics",
+      "location": "Location",
+      "photos": "Photos",
+      "details": "Details",
+      "pricing": "Pricing",
+      "review": "Review"
+    },
+    "errors": {
+      "propertyType": "Please select a property type",
+      "tagsMin": "Please select at least 1 tag",
+      "tagsMax": "You can select up to 2 tags",
+      "titleMin": "Title must be at least 5 characters",
+      "titleMax": "Title must be less than 100 characters",
+      "descMin": "Description must be at least 20 characters",
+      "addressReq": "Address is required",
+      "countryReq": "Country is required",
+      "cityReq": "City is required",
+      "latInvalid": "Invalid Latitude",
+      "lngInvalid": "Invalid Longitude",
+      "photosMin": "Please add at least 1 photo",
+      "loginReq": "You must be logged in",
+      "uploadFailed": "Image Upload Failed",
+      "creationFailed": "Listing Creation Failed",
+      "englishOnly": "Please use English characters only",
+      "arabicOnly": "Please use Arabic characters only"
+    },
+    "actions": {
+      "back": "Back",
+      "next": "Next",
+      "publish": "Publish",
+      "login": "Log In",
+      "retry": "Retry",
+      "viewListing": "View Listing",
+      "stepXofY": "Step {step} of {total}"
+    },
+    "stepType": {
+      "question": "First, what kind of place are you listing?",
+      "homeTitle": "Home",
+      "homeDesc": "A space like a house, apartment, or room.",
+      "serviceTitle": "Service",
+      "serviceDesc": "An experience, yacht, or event space.",
+      "describeQuestion": "Which of these best describes your {type}?"
+    },
+    "stepVibe": {
+      "title": "Describe the vibe",
+      "subtitle": "Select up to 2 tags that best fit your listing.",
+      "selected": "Selected {count}/2",
+      "maxReached": "Maximum 2 tags selected"
+    },
+    "stepBasics": {
+      "title": "Let's give your place a name and description",
+      "titleEn": "Title (English)",
+      "titleEnPlaceholder": "e.g. Cozy Cabin with Mountain View",
+      "titleAr": "Title (Arabic / بالعربية)",
+      "titleArPlaceholder": "مثال: كابينة مريحة مع إطلالة على الجبل",
+      "descEn": "Description (English)",
+      "descEnPlaceholder": "Describe your place...",
+      "descAr": "Description (Arabic / بالعربية)",
+      "descArPlaceholder": "صف مكانك...",
+      "conditionsTitle": "Listing Conditions / House Rules",
+      "conditionsPlaceholder": "Select conditions or type to create...",
+      "conditionsEmpty": "No conditions found.",
+      "conditionsHelp": "Add specific rules like \"No Smoking\", \"No Parties\", etc."
+    },
+    "stepLocation": {
+      "title": "Where is your place located?",
+      "pasteGoogle": "Paste Google Maps Link",
+      "pastePlaceholder": "Paste link to auto-fill",
+      "lat": "Lat",
+      "lng": "Lng",
+      "address": "Address",
+      "extracted": "Coordinates extracted!"
+    },
+    "stepPhotos": {
+      "title": "Add some photos"
+    },
+    "stepDetails": {
+      "title": "Share some basics about your {type}",
+      "guests": "Guests",
+      "bedrooms": "Bedrooms",
+      "beds": "Beds",
+      "bathrooms": "Bathrooms",
+      "minDuration": "Min Duration"
+    },
+    "stepPricing": {
+      "title": "Set your price",
+      "currency": "Currency",
+      "currencyPlaceholder": "Select currency",
+      "pricePerNight": "Price per night",
+      "cleaningFee": "Cleaning Fee"
+    },
+    "stepReview": {
+      "title": "Review and Publish",
+      "listingTitle": "Title:",
+      "location": "Location:",
+      "price": "Price:",
+      "conditions": "Conditions:",
+      "success": "Listing created successfully!"
+    }
+  },
+  "dashboardBalance": {
+    "title": "Wallet Balance",
+    "description": "View your balance, request withdrawals, and track transactions.",
+    "availableBalance": "Available Balance",
+    "readyForWithdrawal": "Ready for withdrawal",
+    "onHold": "On Hold",
+    "pendingCheckIn": "Pending check-in",
+    "totalInflows": "Total Inflows",
+    "lifetimeTotal": "Lifetime total received",
+    "transactionHistory": "Transaction History",
+    "recentTransactionsDesc": "Recent credits and debits to your account.",
+    "requestWithdrawal": "Request Withdrawal",
+    "withdrawFundsDesc": "Withdraw funds to your connected accounts."
+  },
+  "dashboardPaymentMethods": {
+    "title": "Payment Methods",
+    "description": "Manage your mobile wallets, InstaPay, and bank accounts for receiving payouts.",
+    "addMethod": "Add Payment Method",
+    "noMethods": "No payment methods added yet.",
+    "default": "Default",
+    "setDefault": "Set as default",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this payment method?",
+    "deleteSuccess": "Payment method deleted successfully",
+    "types": {
+      "mobile_wallet": "Mobile Wallet",
+      "bank_account": "Bank Account",
+      "instapay": "InstaPay"
+    },
+    "form": {
+      "type": "Method Type",
+      "providerName": "Provider Name",
+      "providerPlaceholder": "e.g. Vodafone Cash, CIB, etc.",
+      "accountNumber": "Account / Phone Number",
+      "accountNumberPlaceholder": "e.g. 010..., IBAN, or address",
+      "accountHolderName": "Account Holder Name",
+      "accountHolderPlaceholder": "Full legal name",
+      "bankName": "Bank Name",
+      "bankPlaceholder": "e.g. Commercial International Bank",
+      "iban": "IBAN",
+      "ibanPlaceholder": "EG...",
+      "swiftCode": "SWIFT Code",
+      "swiftPlaceholder": "Optional",
+      "isDefault": "Set as default for payouts",
+      "submit": "Save Payment Method",
+      "cancel": "Cancel",
+      "success": "Payment method saved successfully",
+      "error": "Failed to save payment method"
+    }
+  },
+  "dashboardBalanceForm": {
+    "amountLabel": "Amount (EGP)",
+    "amountPlaceholder": "0.00",
+    "maximum": "Maximum",
+    "methodLabel": "Withdrawal Method",
+    "selectMethod": "Select method",
+    "methods": {
+      "vodafone_cash": "Vodafone Cash",
+      "instapay": "InstaPay",
+      "bank_transfer": "Bank Transfer"
+    },
+    "submit": "Request Payout",
+    "errors": {
+      "invalidAmount": "Please enter a valid amount",
+      "exceedsBalance": "Amount exceeds available balance"
+    },
+    "success": "Withdrawal request initialized successfully"
+  },
+  "dashboardBalanceTable": {
+    "columns": {
+      "date": "Date",
+      "type": "Type",
+      "amount": "Amount",
+      "description": "Description",
+      "balanceAfter": "Balance After"
+    },
+    "typeTooltips": {
+      "external": "External payment: shown in history but not included in wallet balance.",
+      "counts": "Included in wallet balance calculations.",
+      "externalLabel": "External",
+      "countsLabel": "Counts"
+    },
+    "searchPlaceholder": "Search by description..."
+  },
+  "wishlistModal": {
+    "title": "Save to wishlist",
+    "description": "Choose a wishlist to save \"{listingTitle}\"",
+    "saved": "Saved",
+    "notSaved": "Not saved",
+    "emptyTitle": "You don't have any wishlists yet.",
+    "emptyDesc": "Create one below to save this listing.",
+    "nameLabel": "Name your wishlist",
+    "namePlaceholder": "e.g. Dream Vacations",
+    "cancel": "Cancel",
+    "createAndSave": "Create and save",
+    "createNew": "Create new wishlist",
+    "toastRemoved": "Removed from wishlist",
+    "toastSaved": "Saved to wishlist",
+    "toastCreated": "Wishlist created"
+  },
+  "chatDrawer": {
+    "chatWithHost": "Chat with Host",
+    "title": "Booking Conversation",
+    "description": "Messages are monitored by the platform for your safety.",
+    "noMessages": "No messages yet.",
+    "startConversation": "Send a message to start the conversation.",
+    "placeholder": "Type your message...",
+    "labels": {
+      "you": "You",
+      "admin": "Admin",
+      "host": "Host",
+      "guest": "Guest"
+    }
+  },
+  "dashboardListingManage": {
+    "header": {
+      "back": "Back to listings",
+      "viewListing": "View Listing",
+      "basePrice": "Base price: {price} {currency}/night",
+      "minNights": "Min {count} night(s)",
+      "published": "Published",
+      "draft": "Draft"
+    },
+    "tabs": {
+      "availability": "Availability",
+      "pricing": "Pricing",
+      "settings": "Settings",
+      "conditions": "Conditions",
+      "amenities": "Amenities",
+      "cancellation": "Cancellation"
+    },
+    "availability": {
+      "title": "Availability Calendar",
+      "description": "Manage which dates are available for booking. Click and drag to select date ranges.",
+      "hint": {
+        "desktop": "Click to select • Drag for range • Shift+Click range • Ctrl+Click multiple",
+        "mobile": "Tap to select • Drag for range"
+      },
+      "booked": "Booked",
+      "daysCount": "{count} day(s)",
+      "unsavedChanges": "{count} unsaved change(s)",
+      "discard": "Discard",
+      "save": "Save Changes",
+      "saving": "Saving...",
+      "messages": {
+        "loadError": "Failed to load availability data",
+        "saveSuccess": "Saved {count} date(s)",
+        "saveError": "Failed to save changes",
+        "noChanges": "No changes to save"
+      },
+      "legend": {
+        "available": "Available",
+        "adjustment": "Adjustment applied",
+        "blocked": "Blocked",
+        "customPrice": "Custom price",
+        "offer": "Offer days",
+        "booked": "Booked/Pending",
+        "selected": "Selected"
+      },
+      "actions": {
+        "available": "Available",
+        "block": "Block",
+        "setPrice": "Set Price",
+        "apply": "Apply",
+        "makeOffer": "Make Best Offer",
+        "submitOffer": "Submit Offer Request",
+        "priceLabel": "Price per night ({currency})",
+        "offerPriceLabel": "Offer price per night",
+        "offerPriceNote": "This price is equal to or above your base price ({price} {currency}).",
+        "offerLimitError": "Selection exceeds {limit}-day limit for offers. Please select fewer days.",
+        "sunday_short": "Sun",
+        "monday_short": "Mon",
+        "tuesday_short": "Tue",
+        "wednesday_short": "Wed",
+        "thursday_short": "Thu",
+        "friday_short": "Fri",
+        "saturday_short": "Sat"
+      },
+      "bestOffer": {
+        "noteTitle": "Best Offer Commission Note",
+        "noteDescription": "When you request a \"Best Offer\" and it is approved, an additional commission fee will be applied to bookings made for those specific dates.",
+        "bannerTitle": "Best Offer",
+        "approved": "Approved",
+        "pending": "Pending Approval",
+        "lockedNote": "• Days in this range are locked.",
+        "cancel": "Cancel",
+        "cancelSuccess": "Offer request cancelled.",
+        "cancelError": "Failed to cancel offer",
+        "requestSuccess": "Best Offer requested successfully! Awaiting admin approval.",
+        "requestError": "Failed to request Best Offer"
+      }
+    },
+    "pricing": {
+      "title": "Price Adjustments",
+      "description": "Set automatic price adjustments for weekends, holidays, and special dates.",
+      "quickSetup": "Quick setup:",
+      "addAdjustment": "Add Price Adjustment",
+      "editAdjustment": "Edit Adjustment",
+      "newAdjustment": "New Price Adjustment",
+      "name": "Name",
+      "type": "Type",
+      "value": "Value",
+      "applyToDays": "Apply to days",
+      "percentage": "Percentage",
+      "fixed": "Fixed Amount",
+      "placeholderName": "e.g., Holiday Rate",
+      "cancel": "Cancel",
+      "save": "Save Changes",
+      "add": "Add Adjustment",
+      "preview": "Price preview (base: {price} {currency})",
+      "messages": {
+        "loadError": "Failed to load pricing data",
+        "saveSuccess": "Pricing updated",
+        "saveError": "Failed to save pricing"
+      },
+      "presets": {
+        "weekend": "Weekend Rate",
+        "weekday": "Weekday Discount"
+      }
+    },
+    "settings": {
+      "title": "Listing Settings",
+      "description": "Manage your listing details and booking rules.",
+      "lockedTitle": "Locked Details (Contact Admin to change)",
+      "labels": {
+        "title": "Title",
+        "titleAr": "Title (Arabic)",
+        "propertyType": "Property Type",
+        "bedrooms": "Bedrooms",
+        "bathrooms": "Bathrooms",
+        "country": "Country",
+        "state": "State/Region",
+        "city": "City",
+        "descriptionEn": "Description (English)",
+        "descriptionAr": "Description (Arabic)",
+        "location": "Address / Location string",
+        "mapsLink": "Google Maps Link",
+        "maxGuests": "Max Guests",
+        "beds": "Beds",
+        "price": "Base Price per Night",
+        "cleaningFee": "Cleaning Fee",
+        "currency": "Currency",
+        "minNights": "Minimum Nights",
+        "lifestyles": "Lifestyle Categories (Max 2)",
+        "photos": "Photos"
+      },
+      "messages": {
+        "saveSuccess": "Settings saved successfully",
+        "saveError": "Failed to save settings",
+        "authError": "Not authenticated",
+        "uploadError": "Upload failed: {message}"
+      },
+      "photos": {
+        "dropActive": "Drop images here",
+        "dropInactive": "Drag & drop photos here",
+        "clickToSelect": "or click to select files (JPG, PNG, WebP, HEIC)",
+        "converting": "Converting iPhone photo...",
+        "category": "Category",
+        "categories": {
+          "exterior": "Exterior",
+          "living": "Living Room",
+          "bedroom": "Bedroom",
+          "kitchen": "Kitchen",
+          "bathroom": "Bathroom",
+          "interior": "Other Interior",
+          "other": "Other"
+        }
+      }
+    },
+    "conditions": {
+      "title": "Booking Conditions",
+      "description": "Select conditions that guests must agree to before booking your listing.",
+      "system": "System",
+      "pending": "Pending Approval",
+      "awaiting": "Awaiting approval",
+      "addCustom": "Add Custom Condition",
+      "name": "Condition Name",
+      "nameAr": "Condition Name (Arabic)",
+      "desc": "Description (optional)",
+      "descAr": "Description (Arabic, optional)",
+      "placeholderName": "e.g., No shoes inside",
+      "placeholderNameAr": "e.g., ممنوع الدخول بالأحذية",
+      "placeholderDesc": "Brief explanation...",
+      "placeholderDescAr": "وصف مختصر...",
+      "submit": "Submit for Approval",
+      "submitting": "Submitting...",
+      "cancel": "Cancel",
+      "note": "Custom conditions need admin approval before they become available for use.",
+      "messages": {
+        "loadError": "Loading conditions...",
+        "saveSuccess": "Conditions saved",
+        "saveError": "Failed to save conditions",
+        "nameError": "Please enter a condition name",
+        "authError": "Please log in",
+        "addSuccess": "Condition submitted for approval!",
+        "addError": "Failed to add condition"
+      }
+    },
+    "amenities": {
+      "title": "What This Place Offers",
+      "description": "Select the amenities and features your listing provides.",
+      "highlightLimitTitle": "Highlight Limit Reached",
+      "highlightLimitDesc": "You have reached the maximum of {max} pinned amenities. Unpin an item to feature a different one.",
+      "pendingTitle": "Pending Suggestions",
+      "missingTitle": "Missing an Amenity?",
+      "suggest": "Suggest New Attribute",
+      "name": "Attribute Name",
+      "nameAr": "Attribute Name (Arabic)",
+      "category": "Category",
+      "selectCategory": "Select category...",
+      "desc": "Description (optional)",
+      "descAr": "Description (Arabic, optional)",
+      "placeholderName": "e.g., Rooftop Terrace",
+      "placeholderNameAr": "e.g., تراس على السطح",
+      "placeholderDesc": "Brief description...",
+      "placeholderDescAr": "وصف مختصر...",
+      "submit": "Submit for Approval",
+      "submitting": "Submitting...",
+      "cancel": "Cancel",
+      "pin": "Pin",
+      "pinTitle": "Pin to top",
+      "pinnedTitle": "Pinned to top",
+      "tier": "Tier {tier}",
+      "placeholderSelect": "Select...",
+      "placeholderNumber": "0 = Not available",
+      "placeholderNotes": "Add notes (optional)...",
+      "messages": {
+        "loadError": "Loading...",
+        "saveSuccess": "Attributes saved!",
+        "saveError": "Failed to save",
+        "nameError": "Please enter an attribute name",
+        "categoryError": "Please select a category",
+        "authError": "Please log in",
+        "typeError": "System error: type not found",
+        "existsError": "An attribute with this name already exists",
+        "addSuccess": "Suggestion submitted for admin approval!",
+        "addError": "Failed to submit suggestion",
+        "limitError": "You can only pin up to {max} items"
+      }
+    },
+    "cancellation": {
+      "title": "Cancellation Policy",
+      "description": "Choose the cancellation policy that applies to bookings for this listing.",
+      "empty": "No cancellation policies available.",
+      "messages": {
+        "loadError": "Loading cancellation policies...",
+        "saveSuccess": "Cancellation policy saved",
+        "saveError": "Failed to save cancellation policy"
+      }
+    },
+    "common": {
+      "unsavedChanges": "You have unsaved changes",
+      "discard": "Discard",
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  }
+}

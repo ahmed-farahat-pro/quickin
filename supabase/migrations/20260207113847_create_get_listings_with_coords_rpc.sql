@@ -1,0 +1,71 @@
+-- Function to get listings with extracted lat/lng from location_geo
+CREATE OR REPLACE FUNCTION public.get_listings_with_coords()
+RETURNS TABLE (
+  id uuid,
+  title text,
+  description text,
+  location text,
+  city text,
+  state text,
+  country text,
+  price_per_night numeric,
+  currency text,
+  max_guests int,
+  bedrooms int,
+  beds int,
+  bathrooms numeric,
+  amenities text[],
+  house_rules text,
+  cancellation_policy text,
+  min_nights int,
+  is_published boolean,
+  is_guest_favorite boolean,
+  is_pets_allowed boolean,
+  cleaning_fee numeric,
+  special_conditions text,
+  user_id uuid,
+  category_id uuid,
+  listing_code text,
+  google_maps_link text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  lat double precision,
+  lng double precision
+)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT 
+    l.id,
+    l.title,
+    l.description,
+    l.location,
+    l.city,
+    l.state,
+    l.country,
+    l.price_per_night,
+    l.currency,
+    l.max_guests,
+    l.bedrooms,
+    l.beds,
+    l.bathrooms,
+    l.amenities,
+    l.house_rules,
+    l.cancellation_policy,
+    l.min_nights,
+    l.is_published,
+    l.is_guest_favorite,
+    l.is_pets_allowed,
+    l.cleaning_fee,
+    l.special_conditions,
+    l.user_id,
+    l.category_id,
+    l.listing_code,
+    l.google_maps_link,
+    l.created_at,
+    l.updated_at,
+    ST_Y(l.location_geo::geometry) as lat,
+    ST_X(l.location_geo::geometry) as lng
+  FROM public.listings l
+  WHERE l.is_published = true;
+$$;;

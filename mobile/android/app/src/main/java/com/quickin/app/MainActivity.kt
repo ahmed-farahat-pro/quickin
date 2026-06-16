@@ -1351,7 +1351,10 @@ private fun MainApp() {
                     onToggleListing = wishlistViewModel::toggleListing,
                     onToggleService = wishlistViewModel::toggleService
                 )
-                // Guest "Trips" = the user's own bookings.
+                // Guest "Trips" = the user's own bookings. The screen distinguishes signed-out
+                // (sign-in prompt) from signed-in-but-empty (friendly empty state + Explore CTA)
+                // using the authoritative auth flag — an empty/401 result while signed in is treated
+                // as empty/error, never as signed-out.
                 "Trips" -> ReservationsScreen(
                     isAuthenticated = authState.isAuthenticated,
                     state = reservationsState,
@@ -1360,6 +1363,7 @@ private fun MainApp() {
                         showAuth = true
                     },
                     onRetry = bookingsViewModel::loadReservations,
+                    onExplore = { selectedTab = 0 },
                     onOpen = { booking -> selectedReservationId = booking.id },
                     canReview = { booking -> reviewsViewModel.canReview(booking.id) },
                     reviewSubmitting = reviewSubmitState.submitting,

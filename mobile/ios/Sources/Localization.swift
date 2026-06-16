@@ -407,6 +407,7 @@ enum Strings {
         "reservations.empty.title": "No reservations yet",
         "reservations.empty.msg": "When you book a stay, it'll show up here. Pull down to refresh.",
         "reservations.error.title": "Couldn't load reservations",
+        "reservations.error.session": "We couldn't load your trips. Pull to refresh to try again.",
         "reservations.reservation": "Reservation",
 
         // Booking status
@@ -984,6 +985,7 @@ enum Strings {
         "reservations.empty.title": "لا توجد حجوزات بعد",
         "reservations.empty.msg": "عند حجز إقامة، ستظهر هنا. اسحب للأسفل للتحديث.",
         "reservations.error.title": "تعذّر تحميل الحجوزات",
+        "reservations.error.session": "تعذّر تحميل رحلاتك. اسحب للأسفل للتحديث وحاول مرة أخرى.",
         "reservations.reservation": "حجز",
 
         // Booking status

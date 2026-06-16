@@ -14,7 +14,13 @@ final class ReservationsViewModel: ObservableObject {
         do {
             bookings = try await BookingService.shared.fetchReservations()
         } catch BookingError.notSignedIn {
-            errorMessage = L.t("cta.reservations.title")
+            // This load only runs when AuthStore says the user IS signed in
+            // (the top-level gate shows ReservationsSignInCTA otherwise), so a
+            // `notSignedIn` here is a transient/401 token hiccup — NOT a real
+            // signed-out state. Surface a neutral, retryable message instead of
+            // the sign-in CTA title, so a signed-in user never sees a "sign in"
+            // prompt inside their own Trips list.
+            errorMessage = L.t("reservations.error.session")
         } catch {
             errorMessage = error.localizedDescription
         }

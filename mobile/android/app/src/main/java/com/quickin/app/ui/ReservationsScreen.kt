@@ -61,8 +61,14 @@ import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
 
 /**
- * "My Reservations" tab. When signed out, shows a sign-in CTA (mirrors [ProfileSignInCta]).
- * When signed in, lists the user's bookings as cards, with a loading and empty state.
+ * "My Reservations" / Trips tab. The sign-in prompt is gated on the AUTHORITATIVE auth state
+ * ([isAuthenticated]) AND an empty list — so a signed-in user whose load is still in flight, came
+ * back empty, or hit a transient 401 NEVER sees a sign-in wall:
+ *   • signed-in + zero trips → a friendly empty state ("No trips yet" + an Explore CTA),
+ *   • signed-in + the load failed (e.g. 401/notSignedIn while a token exists) → a neutral error
+ *     with retry,
+ *   • only genuinely-no-session (no token) shows the sign-in CTA.
+ * Mirrors the wishlist empty-vs-sign-in distinction.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +77,7 @@ fun ReservationsScreen(
     state: ReservationsUiState,
     onSignIn: () -> Unit,
     onRetry: () -> Unit,
+    onExplore: () -> Unit = {},
     onOpen: (Booking) -> Unit = {},
     canReview: (Booking) -> Boolean = { false },
     reviewSubmitting: Boolean = false,
@@ -96,11 +103,17 @@ fun ReservationsScreen(
             contentAlignment = Alignment.Center
         ) {
             when {
-                !isAuthenticated -> SignInCta(onSignIn)
                 state.isLoading && state.bookings.isEmpty() -> {
                     // Skeleton cards shaped like reservation cards shimmer in place of a spinner.
+                    // Checked first so the initial load never flashes a sign-in wall while the
+                    // auth flag is still settling.
                     SkeletonListColumn(imageHeight = 180.dp, spacing = 16.dp)
                 }
+                // Genuinely signed out (no session) AND nothing to show → the sign-in CTA. Gated on
+                // the authoritative auth flag + an empty list so an empty or 401/notSignedIn API
+                // result while signed in is NEVER mistaken for signed-out — those fall through to
+                // the neutral error / friendly empty states below.
+                !isAuthenticated && state.bookings.isEmpty() -> SignInCta(onSignIn)
                 state.error != null && state.bookings.isEmpty() -> {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -114,7 +127,7 @@ fun ReservationsScreen(
                         ) { Text(stringResource(R.string.action_retry)) }
                     }
                 }
-                state.bookings.isEmpty() -> EmptyReservations()
+                state.bookings.isEmpty() -> EmptyReservations(onExplore = onExplore)
                 else -> {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
@@ -179,8 +192,12 @@ private fun SignInCta(onSignIn: () -> Unit) {
     }
 }
 
+/**
+ * Friendly empty state for a SIGNED-IN user with zero trips: a calendar glyph, a title, a hint,
+ * and an Explore CTA that jumps to the listings tab. Never a sign-in prompt.
+ */
 @Composable
-private fun EmptyReservations() {
+private fun EmptyReservations(onExplore: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
@@ -197,8 +214,12 @@ private fun EmptyReservations() {
             stringResource(R.string.reservations_empty_subtitle),
             color = Muted,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(top = 8.dp, bottom = 20.dp)
         )
+        Button(
+            onClick = onExplore,
+            colors = ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White)
+        ) { Text(stringResource(R.string.reservations_empty_cta)) }
     }
 }
 

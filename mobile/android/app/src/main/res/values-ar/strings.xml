@@ -283,6 +283,7 @@
     <string name="reservations_load_error">تعذّر تحميل الحجوزات</string>
     <string name="reservations_empty_title">لا توجد حجوزات بعد</string>
     <string name="reservations_empty_subtitle">اعثر على إقامة تعجبك واحجزها — وستظهر هنا.</string>
+    <string name="reservations_empty_cta">استكشف الإقامات</string>
     <string name="reservations_guests">%1$d ضيوف</string>
 
     <!-- Reservation detail -->

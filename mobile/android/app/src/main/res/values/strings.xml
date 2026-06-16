@@ -283,6 +283,7 @@
     <string name="reservations_load_error">Couldn\'t load reservations</string>
     <string name="reservations_empty_title">No reservations yet</string>
     <string name="reservations_empty_subtitle">Find a stay you love and reserve it — it\'ll appear here.</string>
+    <string name="reservations_empty_cta">Explore stays</string>
     <string name="reservations_guests">%1$d guest(s)</string>
 
     <!-- Reservation detail -->

@@ -378,6 +378,7 @@ enum Strings {
         "saved.empty.title": "Nothing saved yet",
         "saved.empty.msg": "Tap the heart on any stay or experience to save it here.",
         "saved.error.title": "Couldn't load saved items",
+        "saved.signedOut.title": "Sign in to view your wishlist",
         "saved.signInPrompt": "Sign in to see your saved items",
 
         // Brand travel header — eyebrows + subtitles per root tab
@@ -954,6 +955,7 @@ enum Strings {
         "saved.empty.title": "لا يوجد محفوظات بعد",
         "saved.empty.msg": "اضغط على القلب في أي إقامة أو تجربة لحفظها هنا.",
         "saved.error.title": "تعذّر تحميل المحفوظات",
+        "saved.signedOut.title": "سجّل الدخول لعرض قائمة رغباتك",
         "saved.signInPrompt": "سجّل الدخول لعرض المحفوظات",
 
         // Brand travel header — eyebrows + subtitles per root tab

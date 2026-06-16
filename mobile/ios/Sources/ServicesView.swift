@@ -124,7 +124,9 @@ struct ServiceCard: View {
                     .clipped()
                     .qkPhotoScrim(strength: 0.62, start: 0.30)
 
-                // Category pill (top-leading) + rating (top-trailing).
+                // Category pill (top-leading) + rating (top-trailing). Pinned to
+                // fill the image so the overlay never drives the card wider than
+                // its photo (which would push the whole card off-screen).
                 VStack {
                     HStack(alignment: .top) {
                         if let category = service.category, !category.isEmpty {
@@ -151,8 +153,11 @@ struct ServiceCard: View {
                     Spacer()
                 }
                 .padding(11)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-                // Title + location overlaid bottom-leading.
+                // Title + location overlaid bottom-leading. Pinned to fill width
+                // (leading-aligned, RTL-safe) so a long title is truncated rather
+                // than stretching the card past the screen edge.
                 VStack(alignment: .leading, spacing: 1) {
                     Text(service.title)
                         .font(.system(size: 17, weight: .bold))
@@ -171,6 +176,7 @@ struct ServiceCard: View {
                     }
                 }
                 .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             }
 
             HStack {

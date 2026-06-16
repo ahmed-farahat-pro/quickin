@@ -594,13 +594,28 @@ struct ListingDetailView: View {
                     ForEach(hostListings) { other in
                         NavigationLink(value: other) {
                             ListingCard(listing: other)
-                                .frame(width: 260)
+                                // Responsive: ~78% of the viewport so a sliver of
+                                // the next card peeks, clamped so it never grows
+                                // oversized on wide screens.
+                                .containerRelativeFrame(
+                                    .horizontal,
+                                    count: 100, span: 78, spacing: 0
+                                )
+                                .frame(maxWidth: 320)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.vertical, 4)
+                .scrollTargetLayout()
             }
+            // Leading/trailing inset so the first/last card isn't flush against
+            // the edge (RTL-safe — horizontal resolves with the layout direction).
+            // Counteract the parent's 20pt inset so the rail bleeds full-width and
+            // the content margins do the spacing.
+            .contentMargins(.horizontal, 20, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .padding(.horizontal, -20)
             // Don't clip the cards' soft shadows at the scroll-view bounds.
             .scrollClipDisabled()
         }

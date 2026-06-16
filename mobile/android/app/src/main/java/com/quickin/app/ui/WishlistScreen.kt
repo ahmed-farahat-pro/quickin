@@ -61,8 +61,14 @@ import com.quickin.app.ui.theme.Tan
 @Composable
 fun WishlistScreen(
     state: WishlistUiState,
+    /**
+     * The authoritative auth state (from AuthViewModel). Drives the signed-out vs empty
+     * distinction: an empty/null wishlist while signed in is an EMPTY state, never a sign-in wall.
+     */
+    isAuthenticated: Boolean,
     onBack: () -> Unit,
     onLoad: () -> Unit,
+    onSignIn: () -> Unit = {},
     onOpenListing: (Listing) -> Unit = {},
     onOpenService: (Service) -> Unit = {},
     onToggleListing: (Listing) -> Unit = {},
@@ -96,6 +102,10 @@ fun WishlistScreen(
                         Text(stringResource(R.string.wishlist_loading), color = Muted, modifier = Modifier.padding(top = 12.dp))
                     }
                 }
+                // Genuinely signed out (no session) AND nothing to show → a sign-in prompt. Checked
+                // BEFORE the empty/error branches so an empty or 401 API result while signed in is
+                // never mistaken for signed-out (that path falls through to the friendly empty state).
+                !isAuthenticated && state.data.isEmpty -> WishlistSignedOut(onSignIn = onSignIn)
                 state.error != null && state.data.isEmpty -> {
                     EmptyState(message = state.error, onRetry = onLoad)
                 }
@@ -309,6 +319,45 @@ private fun WishlistEmpty() {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
+    }
+}
+
+/**
+ * Signed-out state for the Saved screen: an outlined heart, a title, a prompt, and a sign-in CTA.
+ * Shown ONLY when there's genuinely no session — distinct from the signed-in-but-empty state.
+ */
+@Composable
+private fun WishlistSignedOut(onSignIn: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(32.dp)
+    ) {
+        Surface(
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = Burgundy.copy(alpha = 0.10f),
+            modifier = Modifier.size(72.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.FavoriteBorder, contentDescription = null, tint = Burgundy, modifier = Modifier.size(34.dp))
+            }
+        }
+        Text(
+            stringResource(R.string.wishlist_empty_title),
+            fontWeight = FontWeight.Bold,
+            color = Ink,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+        Text(
+            stringResource(R.string.wishlist_sign_in),
+            color = Muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+        )
+        androidx.compose.material3.Button(
+            onClick = onSignIn,
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White)
+        ) { Text(stringResource(R.string.profile_cta_button)) }
     }
 }
 

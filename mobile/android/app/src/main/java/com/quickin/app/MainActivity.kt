@@ -1333,27 +1333,24 @@ private fun MainApp() {
                     contentPadding = padding
                 )
                 // Guest "Wishlist" = the user's saved stays + experiences. A top-level tab;
-                // its back arrow returns to Explore (no overlay to pop). Signed-out guests get
-                // the sign-in CTA, mirroring the Trips/Profile tabs.
-                "wishlist" -> if (authState.isAuthenticated) {
-                    WishlistScreen(
-                        state = wishlistState,
-                        onBack = { selectedTab = 0 },
-                        onLoad = wishlistViewModel::load,
-                        onOpenListing = { listing -> selectedListing = listing },
-                        onOpenService = { service -> selectedService = service },
-                        onToggleListing = wishlistViewModel::toggleListing,
-                        onToggleService = wishlistViewModel::toggleService
-                    )
-                } else {
-                    ProfileSignInCta(
-                        onSignIn = {
-                            authViewModel.clearError()
-                            showAuth = true
-                        },
-                        modifier = Modifier.padding(padding)
-                    )
-                }
+                // its back arrow returns to Explore (no overlay to pop). The screen itself
+                // distinguishes signed-out (sign-in prompt) from signed-in-but-empty (friendly
+                // empty state) using the authoritative auth flag — an empty/401 API result while
+                // signed in is treated as empty, never as signed-out.
+                "wishlist" -> WishlistScreen(
+                    state = wishlistState,
+                    isAuthenticated = authState.isAuthenticated,
+                    onBack = { selectedTab = 0 },
+                    onLoad = wishlistViewModel::load,
+                    onSignIn = {
+                        authViewModel.clearError()
+                        showAuth = true
+                    },
+                    onOpenListing = { listing -> selectedListing = listing },
+                    onOpenService = { service -> selectedService = service },
+                    onToggleListing = wishlistViewModel::toggleListing,
+                    onToggleService = wishlistViewModel::toggleService
+                )
                 // Guest "Trips" = the user's own bookings.
                 "Trips" -> ReservationsScreen(
                     isAuthenticated = authState.isAuthenticated,

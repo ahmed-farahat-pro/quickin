@@ -57,6 +57,15 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
     private val _toast = Channel<WishlistToast>(Channel.BUFFERED)
     val toast = _toast.receiveAsFlow()
 
+    /**
+     * Ids with a toggle request currently in flight. A second tap on the same item is ignored until
+     * the first POST settles, so a double-tap (or a recomposition firing the click twice) can never
+     * launch two opposing toggles — which is what produced the back-to-back
+     * "Added… / Removed…" double Toast.
+     */
+    private val inFlightListingIds = mutableSetOf<String>()
+    private val inFlightServiceIds = mutableSetOf<String>()
+
     private fun token(): String? = prefs.getString(AuthViewModel.KEY_TOKEN, null)
 
     /** Loads the signed-in user's saved items + id sets. No-op (friendly state) when signed out. */
@@ -105,6 +114,9 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
             _state.value = _state.value.copy(needsSignIn = true)
             return
         }
+        // Ignore a re-tap while this item's toggle is still resolving, so a double-tap can't fire
+        // two opposing toggles (and two Toasts). Cleared in `finally` once the POST settles.
+        if (!inFlightListingIds.add(listing.id)) return
         val current = _state.value
         val wasSaved = current.listingIds.contains(listing.id)
         val nextIds = current.listingIds.toMutableSet().apply {
@@ -130,7 +142,8 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
                     listing.id,
                     action = if (wasSaved) "unsave" else "save"
                 )
-                // Reconcile the local state with the server's authoritative `saved`, then confirm.
+                // Reconcile the local state with the server's authoritative `saved`, then fire
+                // EXACTLY ONE confirmation Toast from that authoritative value.
                 applyListingSaved(listing, saved)
                 _toast.trySend(if (saved) WishlistToast.ADDED else WishlistToast.REMOVED)
             } catch (e: WishlistService.HttpError) {
@@ -138,6 +151,8 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
                 revertListing(listing.id, wasSaved)
             } catch (_: Exception) {
                 revertListing(listing.id, wasSaved)
+            } finally {
+                inFlightListingIds.remove(listing.id)
             }
         }
     }
@@ -149,6 +164,9 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
             _state.value = _state.value.copy(needsSignIn = true)
             return
         }
+        // Per-item in-flight guard (see [toggleListing]): a re-tap mid-flight is ignored so a
+        // double-tap can't toggle twice and emit two Toasts.
+        if (!inFlightServiceIds.add(service.id)) return
         val current = _state.value
         val wasSaved = current.serviceIds.contains(service.id)
         val nextIds = current.serviceIds.toMutableSet().apply {
@@ -180,6 +198,8 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
                 revertService(service.id, wasSaved)
             } catch (_: Exception) {
                 revertService(service.id, wasSaved)
+            } finally {
+                inFlightServiceIds.remove(service.id)
             }
         }
     }
@@ -191,6 +211,8 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
 
     /** Wipes wishlist state on logout so a new user doesn't see stale saves. */
     fun clear() {
+        inFlightListingIds.clear()
+        inFlightServiceIds.clear()
         _state.value = WishlistUiState()
     }
 

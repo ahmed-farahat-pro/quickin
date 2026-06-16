@@ -11,16 +11,33 @@ final class SavedViewModel: ObservableObject {
     @Published var hasLoaded = false
 
     var isEmpty: Bool { listings.isEmpty && services.isEmpty }
+    /// `true` only when the user is genuinely signed out (no session). Drives the
+    /// sign-in prompt; an empty list while signed in is NOT signed-out.
+    @Published var isSignedOut = false
 
-    func load() async {
+    /// Load the wishlist. `isAuthenticated` is the authoritative auth state from
+    /// `AuthStore`: when the user is signed in we treat an empty result — or even
+    /// a transient `notSignedIn` from the API (e.g. token race) — as an EMPTY
+    /// wishlist, never as signed-out. Only a real signed-out state shows the
+    /// sign-in prompt.
+    func load(isAuthenticated: Bool) async {
         isLoading = true
         errorMessage = nil
         do {
             let wishlist = try await WishlistService.shared.fetch()
             listings = wishlist.listings
             services = wishlist.services
+            isSignedOut = false
         } catch WishlistError.notSignedIn {
-            errorMessage = L.t("saved.signInPrompt")
+            if isAuthenticated {
+                // Signed in per AuthStore but the API reported no session —
+                // surface it as an empty wishlist, not a sign-in wall.
+                listings = []
+                services = []
+                isSignedOut = false
+            } else {
+                isSignedOut = true
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -35,6 +52,7 @@ final class SavedViewModel: ObservableObject {
 struct SavedView: View {
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var wishlist: WishlistStore
+    @EnvironmentObject private var auth: AuthStore
     @StateObject private var viewModel = SavedViewModel()
 
     var body: some View {
@@ -60,7 +78,7 @@ struct SavedView: View {
         .onAppear {
             Task {
                 await wishlist.refresh()
-                await viewModel.load()
+                await viewModel.load(isAuthenticated: auth.isAuthenticated)
             }
         }
         // Instantly drop a card the moment its heart un-saves it while viewing.
@@ -77,9 +95,13 @@ struct SavedView: View {
     private var content: some View {
         if viewModel.isLoading && viewModel.isEmpty {
             SkeletonList(count: 4, imageHeight: 200)
+        } else if viewModel.isSignedOut && viewModel.isEmpty {
+            // Genuinely signed out (no session) → prompt to sign in.
+            signedOutState
         } else if let error = viewModel.errorMessage, viewModel.isEmpty {
             errorState(error)
         } else if viewModel.isEmpty {
+            // Signed in but nothing saved → friendly empty state.
             emptyState
         } else {
             ScrollView {
@@ -107,7 +129,7 @@ struct SavedView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 32)
             }
-            .refreshable { await viewModel.load() }
+            .refreshable { await viewModel.load(isAuthenticated: auth.isAuthenticated) }
         }
     }
 
@@ -136,6 +158,25 @@ struct SavedView: View {
         .frame(maxWidth: .infinity, minHeight: 440)
     }
 
+    /// Shown only when genuinely signed out (no session) — distinct from the
+    /// signed-in-but-empty state above.
+    private var signedOutState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "heart.text.square")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.qkBurgundy.opacity(0.6))
+            Text(loc.t("saved.signedOut.title"))
+                .font(.headline)
+                .foregroundStyle(Color.qkInk)
+            Text(loc.t("saved.signInPrompt"))
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.qkMuted)
+                .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, minHeight: 440)
+    }
+
     private func errorState(_ message: String) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
@@ -150,7 +191,7 @@ struct SavedView: View {
                 .foregroundStyle(Color.qkMuted)
                 .padding(.horizontal, 32)
             Button {
-                Task { await viewModel.load() }
+                Task { await viewModel.load(isAuthenticated: auth.isAuthenticated) }
             } label: {
                 Text(loc.t("common.retry"))
                     .fontWeight(.semibold)

@@ -89,6 +89,8 @@ struct ServiceDetailView: View {
                 .clipped()
                 .qkPhotoScrim(strength: 0.55, start: 0.30)
 
+            // Pinned to fill the hero width (leading-aligned, RTL-safe) so the
+            // overlaid title/location can't stretch the hero past the screen.
             VStack(alignment: .leading, spacing: 8) {
                 if let category = service.category, !category.isEmpty {
                     Text(category.capitalized)
@@ -118,6 +120,7 @@ struct ServiceDetailView: View {
                 }
             }
             .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

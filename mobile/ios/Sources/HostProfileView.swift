@@ -171,13 +171,26 @@ struct HostProfileView: View {
                     ForEach(listings) { listing in
                         NavigationLink(value: listing) {
                             ListingCard(listing: listing)
-                                .frame(width: 260)
+                                // Responsive width: ~78% of the viewport (a sliver
+                                // of the next card peeks), clamped on wide screens.
+                                .containerRelativeFrame(
+                                    .horizontal,
+                                    count: 100, span: 78, spacing: 0
+                                )
+                                .frame(maxWidth: 320)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.vertical, 4)
+                .scrollTargetLayout()
             }
+            // Leading/trailing inset so the first/last card isn't cut off
+            // (RTL-safe). Counteract the parent's 20pt inset so the rail spans
+            // full-width and content margins handle the edge spacing.
+            .contentMargins(.horizontal, 20, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .padding(.horizontal, -20)
             .scrollClipDisabled()
         }
     }

@@ -16,9 +16,17 @@ final class WishlistStore: ObservableObject {
     @Published private(set) var savedServiceIDs: Set<String> = []
 
     /// The most recent "Added / Removed from wishlist" event, published so a
-    /// single app-level overlay can show a transient toast. Each toggle emits a
-    /// fresh value (new `id`) so the overlay re-triggers even on repeat actions.
+    /// single app-level overlay can show a transient toast. Exactly ONE toast is
+    /// emitted per toggle, AFTER the server responds, reflecting the server's
+    /// authoritative `saved` value. Each emission carries a fresh `id` so the
+    /// overlay re-triggers even on repeat actions.
     @Published var lastToast: WishlistToast?
+
+    /// Item ids with a toggle request currently in flight. A second tap on the
+    /// same item is ignored until the first completes, so a double-tap can never
+    /// fire two opposing toggles (or two toasts).
+    private var inFlightListingIDs: Set<String> = []
+    private var inFlightServiceIDs: Set<String> = []
 
     init() {
         // Belt-and-suspenders: also clear on the logout broadcast so a sign-out
@@ -52,50 +60,66 @@ final class WishlistStore: ObservableObject {
     }
 
     /// Optimistically toggle a listing's saved state, then sync with the server.
-    /// Rolls back on failure. Returns the (optimistic) new saved state. Emits a
-    /// toast immediately so the user gets clear "Added/Removed" feedback.
+    /// The heart flips instantly for responsiveness, but the toast is emitted
+    /// once from the server result inside `sync`. Rolls back on failure. Ignores
+    /// taps while a toggle for this id is already in flight. Returns the
+    /// (optimistic) new saved state.
     @discardableResult
     func toggleListing(_ id: String) -> Bool {
+        // Ignore a re-tap while this item's toggle is still resolving, so a
+        // double-tap can't toggle twice (or emit two toasts).
+        guard !inFlightListingIDs.contains(id) else { return savedListingIDs.contains(id) }
         let wasSaved = savedListingIDs.contains(id)
         if wasSaved { savedListingIDs.remove(id) } else { savedListingIDs.insert(id) }
         let nowSaved = !wasSaved
-        emitToast(saved: nowSaved)
+        inFlightListingIDs.insert(id)
         Task { await self.sync(itemType: .listing, id: id, optimisticSaved: nowSaved) }
         return nowSaved
     }
 
     /// Optimistically toggle a service's saved state, then sync with the server.
-    /// Emits the same "Added/Removed" toast as listings.
+    /// Same single-toast-from-server + in-flight guard behavior as listings.
     @discardableResult
     func toggleService(_ id: String) -> Bool {
+        guard !inFlightServiceIDs.contains(id) else { return savedServiceIDs.contains(id) }
         let wasSaved = savedServiceIDs.contains(id)
         if wasSaved { savedServiceIDs.remove(id) } else { savedServiceIDs.insert(id) }
         let nowSaved = !wasSaved
-        emitToast(saved: nowSaved)
+        inFlightServiceIDs.insert(id)
         Task { await self.sync(itemType: .service, id: id, optimisticSaved: nowSaved) }
         return nowSaved
     }
 
-    /// Publish a fresh toast reflecting the new saved state.
+    /// Publish a fresh toast reflecting the given saved state.
     private func emitToast(saved: Bool) {
         lastToast = WishlistToast(saved: saved)
     }
 
     /// Run the POST and reconcile local state with the server's authoritative
-    /// `saved` flag; on error, roll back to the pre-toggle state. If the server's
-    /// result contradicts our optimistic guess, correct the toast too.
+    /// `saved` flag, then emit EXACTLY ONE toast based on that result. On error,
+    /// roll back to the pre-toggle state and toast the (reverted) true state.
+    /// Always clears the in-flight flag so future taps are accepted.
     private func sync(itemType: WishlistService.ItemType, id: String, optimisticSaved: Bool) async {
+        defer { clearInFlight(itemType: itemType, id: id) }
         do {
             let serverSaved = try await WishlistService.shared.toggle(itemType: itemType, itemID: id)
             apply(itemType: itemType, id: id, saved: serverSaved)
-            // The optimistic toast already fired; only re-emit if the server
-            // disagreed, so the message matches the true state.
-            if serverSaved != optimisticSaved { emitToast(saved: serverSaved) }
+            // Single source of truth for the toast: the server's authoritative
+            // `saved` value (true → "Added", false → "Removed").
+            emitToast(saved: serverSaved)
         } catch {
-            // Roll back to the opposite of our optimistic guess, and correct the
-            // toast to reflect that the change didn't stick.
+            // Roll back to the opposite of our optimistic guess, and toast the
+            // reverted state so the message matches what actually stuck.
             apply(itemType: itemType, id: id, saved: !optimisticSaved)
             emitToast(saved: !optimisticSaved)
+        }
+    }
+
+    /// Drop the in-flight marker for an item once its toggle settles.
+    private func clearInFlight(itemType: WishlistService.ItemType, id: String) {
+        switch itemType {
+        case .listing: inFlightListingIDs.remove(id)
+        case .service: inFlightServiceIDs.remove(id)
         }
     }
 

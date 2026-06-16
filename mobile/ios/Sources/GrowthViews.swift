@@ -210,6 +210,244 @@ struct DiscountEditorView: View {
     }
 }
 
+// MARK: - Seasonal / variable pricing fields (shared)
+
+/// Localized short month names ("Jan".."Dec" / "يناير".."ديسمبر"), indexed 0–11,
+/// for the per-month seasonal-price list. Uses the device calendar's short month
+/// symbols via the localization manager's resolved locale so it mirrors under RTL.
+@MainActor
+func qkShortMonthSymbols(_ loc: LocalizationManager) -> [String] {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: loc.lang.localeIdentifier)
+    let symbols = f.shortStandaloneMonthSymbols ?? f.shortMonthSymbols
+    if let symbols, symbols.count == 12 { return symbols }
+    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+}
+
+/// The host-facing seasonal pricing inputs, shared by the Add-listing flow and
+/// the seasonal-pricing editor sheet: a single weekend nightly-rate field plus a
+/// compact 12-month list of optional nightly-rate fields. All amounts are EGP
+/// whole numbers; an empty field clears that month/weekend (no override).
+///
+/// State is held by the parent as `weekend: String` and `months: [String:String]`
+/// (month "1".."12" → text), so both the wizard and the editor stay in sync.
+struct SeasonalPricingFields: View {
+    /// Weekend (Fri + Sat) nightly-rate text. Empty = no weekend override.
+    @Binding var weekend: String
+    /// Per-month nightly-rate text, keyed by month "1".."12". A missing/empty
+    /// entry means that month uses the base nightly price.
+    @Binding var months: [String: String]
+
+    @EnvironmentObject private var loc: LocalizationManager
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Weekend rate
+            priceField(
+                title: loc.t("pricing.weekendPrice"),
+                subtitle: loc.t("pricing.weekendHint"),
+                text: Binding(
+                    get: { weekend },
+                    set: { weekend = Self.sanitize($0) }
+                )
+            )
+
+            Divider()
+
+            // Per-month rates — one compact row each.
+            let symbols = qkShortMonthSymbols(loc)
+            ForEach(1...12, id: \.self) { month in
+                let key = String(month)
+                priceField(
+                    title: symbols[month - 1],
+                    subtitle: nil,
+                    text: Binding(
+                        get: { months[key] ?? "" },
+                        set: { months[key] = Self.sanitize($0) }
+                    )
+                )
+                if month < 12 { Divider() }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.qkCream)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// A single labeled "EGP [____] / night" numeric field row.
+    private func priceField(title: String, subtitle: String?, text: Binding<String>) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.qkInk)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                Text("EGP")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.qkMuted)
+                TextField("0", text: text)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.body.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(Color.qkInk)
+                    .frame(width: 76)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .background(Color.qkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .frame(minHeight: 48)
+    }
+
+    /// Keep only digits (EGP whole numbers), so the field can't carry a stray
+    /// separator/decimal that the backend would reject.
+    private static func sanitize(_ raw: String) -> String {
+        String(raw.filter(\.isNumber).prefix(7))
+    }
+}
+
+extension SeasonalPricingFields {
+    /// Parse a weekend-rate text field into an optional EGP `Double` (`nil` when
+    /// blank or ≤0). Shared by the wizard + editor when building the request.
+    static func parseWeekend(_ text: String) -> Double? {
+        let value = Double(text.trimmingCharacters(in: .whitespaces)) ?? 0
+        return value > 0 ? value : nil
+    }
+
+    /// Parse the per-month text map into `{ "1": 8500, … }`, dropping blank /
+    /// non-positive entries. Shared by the wizard + editor when building the request.
+    static func parseMonths(_ months: [String: String]) -> [String: Double] {
+        var out: [String: Double] = [:]
+        for (key, text) in months {
+            let value = Double(text.trimmingCharacters(in: .whitespaces)) ?? 0
+            if value > 0 { out[key] = value }
+        }
+        return out
+    }
+
+    /// Seed the per-month text map from a listing's decoded `monthlyPrices`
+    /// (EGP doubles → whole-number strings), so the editor opens pre-filled.
+    static func seedMonths(from prices: [String: Double]) -> [String: String] {
+        var out: [String: String] = [:]
+        for (key, value) in prices where value > 0 {
+            out[key] = String(Int(value.rounded()))
+        }
+        return out
+    }
+}
+
+// MARK: - Host seasonal pricing editor (sheet)
+
+/// Host-facing editor for a single listing's seasonal/variable pricing, presented
+/// as a sheet from `AvailabilityManagerView` (alongside the discount + policy
+/// editors). Seeds with the listing's current weekend + per-month rates and
+/// PATCHes `/api/local/listings/:id` via `BookingService.setSeasonalPricing`.
+struct SeasonalPricingEditorView: View {
+    let listing: Listing
+    /// Called with the updated listing after a successful save, so the parent can
+    /// refresh what it shows.
+    var onSaved: (Listing) -> Void
+
+    @EnvironmentObject private var loc: LocalizationManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var weekend: String
+    @State private var months: [String: String]
+    @State private var isSaving = false
+    @State private var saved = false
+    @State private var errorMessage: String?
+
+    /// Seeds the fields from explicit weekend/months values (so a parent that
+    /// tracks edits locally can re-open at the latest values); falls back to the
+    /// listing's own seasonal rates when omitted.
+    init(listing: Listing, weekend: String? = nil, months: [String: String]? = nil, onSaved: @escaping (Listing) -> Void) {
+        self.listing = listing
+        self.onSaved = onSaved
+        _weekend = State(initialValue: weekend ?? listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _months = State(initialValue: months ?? SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient.qkPageWash.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(loc.t("pricing.seasonalHint"))
+                            .font(.subheadline)
+                            .foregroundStyle(Color.qkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        SeasonalPricingFields(weekend: $weekend, months: $months)
+                            .environmentObject(loc)
+                            .onChange(of: weekend) { _, _ in saved = false }
+                            .onChange(of: months) { _, _ in saved = false }
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(Color.qkBurgundy)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            QKPrimaryButtonLabel(
+                                title: saved ? loc.t("pricing.saved") : loc.t("pricing.save"),
+                                systemImage: isSaving ? nil : (saved ? "checkmark" : "calendar.badge.clock"),
+                                isLoading: isSaving,
+                                height: 50
+                            )
+                        }
+                        .buttonStyle(QKPressStyle())
+                        .disabled(isSaving)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 28)
+                }
+            }
+            .navigationTitle(loc.t("pricing.seasonal"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(loc.t("common.done")) { dismiss() }
+                        .tint(.qkBurgundy)
+                }
+            }
+        }
+        .tint(.qkBurgundy)
+    }
+
+    @MainActor
+    private func save() async {
+        errorMessage = nil
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let updated = try await BookingService.shared.setSeasonalPricing(
+                listingID: listing.id,
+                weekendPrice: SeasonalPricingFields.parseWeekend(weekend),
+                monthlyPrices: SeasonalPricingFields.parseMonths(months)
+            )
+            saved = true
+            onSaved(updated)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
 // MARK: - Listing price discount note
 
 /// A small "Weekly −X% · Monthly −Y%" note shown near a listing's price on the
@@ -245,6 +483,34 @@ struct ListingDiscountNote: View {
             .clipShape(Capsule())
             .accessibilityLabel(parts.joined(separator: ", "))
         }
+    }
+}
+
+// MARK: - Seasonal rates note (guest)
+
+/// A small "Weekend & seasonal rates apply" note shown near the price on the
+/// guest detail screen when the host has set a weekend / per-month rate. Cues
+/// the guest that the nightly price varies by date (the exact total comes from
+/// the quote breakdown below it).
+struct SeasonalRatesNote: View {
+    @EnvironmentObject private var loc: LocalizationManager
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 11, weight: .bold))
+            Text(loc.t("pricing.seasonalNote"))
+                .font(.system(size: 12, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
+        }
+        .foregroundStyle(Color.qkBurgundy)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.qkBurgundy.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel(loc.t("pricing.seasonalNote"))
     }
 }
 

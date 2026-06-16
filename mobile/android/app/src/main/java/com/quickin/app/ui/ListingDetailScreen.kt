@@ -74,6 +74,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +102,8 @@ import com.quickin.app.R
 import com.quickin.app.Listing
 import com.quickin.app.ListingReviewsUiState
 import com.quickin.app.ReserveUiState
+import com.quickin.app.StayQuote
+import com.quickin.app.SupabaseService
 import com.quickin.app.Review
 import com.quickin.app.ShareLinks
 import com.quickin.app.shareText
@@ -621,8 +624,37 @@ private fun ReservePanel(
     var showPolicyEditor by remember { mutableStateOf(false) }
 
     val nights = nightsBetween(checkIn, checkOut)
-    val total = nights * listing.pricePerNight
+    // Base, client-side estimate (nights × nightly). The authoritative quote below replaces it once
+    // both dates are chosen; this is the fallback shown while it loads or if the request fails.
+    val estimateTotal = nights * listing.pricePerNight
     val canReserve = nights > 0 && !state.isSubmitting
+
+    // Authoritative stay quote (honors weekend + monthly + length-of-stay discount). Fetched from
+    // the public quote endpoint whenever both dates are set; debounced so rapid changes coalesce.
+    // On any failure we keep [quote] null and fall back to [estimateTotal].
+    var quote by remember(listing.id) { mutableStateOf<StayQuote?>(null) }
+    var quoteLoading by remember(listing.id) { mutableStateOf(false) }
+    var quoteFailed by remember(listing.id) { mutableStateOf(false) }
+    LaunchedEffect(listing.id, checkIn, checkOut) {
+        if (nights <= 0) {
+            quote = null; quoteLoading = false; quoteFailed = false
+            return@LaunchedEffect
+        }
+        quoteLoading = true
+        quoteFailed = false
+        // Debounce so dragging across the date picker doesn't fire a request per day.
+        kotlinx.coroutines.delay(350)
+        val result = SupabaseService.fetchStayQuote(listing.id, checkIn, checkOut)
+        // Guard against a stale response: only apply if these are still the chosen dates.
+        if (nightsBetween(checkIn, checkOut) == nights) {
+            quote = result
+            quoteFailed = result == null
+            quoteLoading = false
+        }
+    }
+    // The total used for display + the breakdown: the quote's authoritative total when present,
+    // otherwise the local estimate.
+    val displayTotal = quote?.total ?: estimateTotal
 
     if (showDatePicker) {
         DateRangePickerSheet(
@@ -684,6 +716,12 @@ private fun ReservePanel(
                 )
             }
 
+            // Seasonal pricing note — shown when the host set a weekend rate or any per-month price.
+            // The quote endpoint resolves the exact total for the guest's chosen dates below.
+            if (listing.hasSeasonalPricing) {
+                SeasonalRatesNote()
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DateTapField(
                     label = stringResource(R.string.detail_check_in),
@@ -718,20 +756,81 @@ private fun ReservePanel(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Live total = nights × price.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Price breakdown. With no dates: a "select your dates" hint. With dates: the
+            // authoritative quote (nightlyAvg × nights, subtotal, any length-of-stay discount, and
+            // the total) once it resolves, or the local estimate (nights × nightly) as a fallback.
+            if (nights <= 0) {
                 Text(
-                    if (nights > 0) stringResource(R.string.detail_nights, com.quickin.app.CurrencyManager.format(listing.pricePerNight), nights)
-                    else stringResource(R.string.detail_select_dates),
+                    stringResource(R.string.detail_select_dates),
                     color = Muted,
                     fontSize = 14.sp
                 )
-                if (nights > 0) {
+            } else {
+                val q = quote
+                if (q != null) {
+                    // Resolved seasonal quote: average nightly × nights, subtotal, optional discount.
+                    QuoteLine(
+                        label = stringResource(
+                            R.string.pricing_nights,
+                            com.quickin.app.CurrencyManager.format(q.nightlyAvg),
+                            q.nights
+                        ),
+                        value = com.quickin.app.CurrencyManager.format(q.subtotal)
+                    )
+                    if (q.hasDiscount) {
+                        QuoteLine(
+                            label = stringResource(R.string.growth_discount_off_label, q.discountPercent),
+                            value = "−" + com.quickin.app.CurrencyManager.format(q.subtotal - q.total),
+                            valueColor = GoldDeep
+                        )
+                    }
+                } else {
+                    // Fallback estimate while the quote loads or after a failure (nights × nightly).
+                    QuoteLine(
+                        label = stringResource(
+                            R.string.detail_nights,
+                            com.quickin.app.CurrencyManager.format(listing.pricePerNight),
+                            nights
+                        ),
+                        value = com.quickin.app.CurrencyManager.format(estimateTotal)
+                    )
+                }
+
+                // A subtle note when an exact quote couldn't be fetched (estimate is shown instead).
+                if (quoteFailed) {
                     Text(
-                        com.quickin.app.CurrencyManager.format(total),
+                        stringResource(R.string.pricing_quote_error),
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                }
+
+                HorizontalDivider(color = Tan)
+
+                // Total row — uses the quote total when present, otherwise the estimate.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.detail_total),
+                            color = Ink,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                        if (quoteLoading) {
+                            Spacer(Modifier.width(8.dp))
+                            CircularProgressIndicator(
+                                color = Burgundy,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        com.quickin.app.CurrencyManager.format(displayTotal),
                         color = Ink,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
@@ -820,6 +919,52 @@ private fun StayDiscountNote(weekly: Int, monthly: Int) {
             Spacer(Modifier.width(8.dp))
             Text(label, color = GoldDeep, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+/**
+ * A small gold "Weekend & seasonal rates apply" note shown under the nightly price when the host
+ * set a weekend rate or any per-month price. The exact total for the guest's chosen dates is
+ * resolved by the quote endpoint and shown in the breakdown below. RTL-safe.
+ */
+@Composable
+private fun SeasonalRatesNote() {
+    Surface(
+        color = Gold.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(Icons.Filled.DateRange, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.pricing_seasonal_note),
+                color = GoldDeep,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+/**
+ * One "label … value" line in the reserve panel's price breakdown (e.g. "EGP 1,200 × 3 nights"
+ * on the start, the amount on the end). RTL-safe via [Arrangement.SpaceBetween]. [valueColor]
+ * defaults to [Ink] but can be tinted (e.g. gold for a discount line).
+ */
+@Composable
+private fun QuoteLine(label: String, value: String, valueColor: Color = Ink) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Muted, fontSize = 14.sp, modifier = Modifier.weight(1f, fill = false))
+        Spacer(Modifier.width(8.dp))
+        Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 

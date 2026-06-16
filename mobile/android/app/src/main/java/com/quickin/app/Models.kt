@@ -64,7 +64,20 @@ data class Listing(
      * (parsed from "monthly_discount"; defaults to 0 = none). Takes precedence over the weekly
      * discount when both apply. Surfaced as a "Monthly −Y%" note near the price.
      */
-    val monthlyDiscount: Int = 0
+    val monthlyDiscount: Int = 0,
+    /**
+     * Host-set weekend nightly rate in EGP for Friday + Saturday nights (parsed from
+     * "weekend_price"; null when the host hasn't set one). When present, weekend nights are quoted
+     * at this rate instead of [pricePerNight]. Drives the "weekend & seasonal rates apply" note.
+     */
+    val weekendPrice: Double? = null,
+    /**
+     * Host-set per-month nightly overrides in EGP, keyed by month number "1".."12" (parsed from the
+     * "monthly_prices" JSON object; empty when none). A night that falls in a listed month is quoted
+     * at that month's rate (weekend rate still wins over it). The authoritative quote endpoint
+     * resolves the exact total; this just surfaces that seasonal pricing exists.
+     */
+    val monthlyPrices: Map<String, Double> = emptyMap()
 ) {
     /**
      * Photo URLs sorted by their order. Empty when the listing has no photos — callers
@@ -103,6 +116,38 @@ data class Listing(
     /** True when the host offers any length-of-stay discount (weekly or monthly). */
     val hasStayDiscount: Boolean
         get() = weeklyDiscount > 0 || monthlyDiscount > 0
+
+    /**
+     * True when the host set any seasonal/variable pricing — a weekend rate or at least one
+     * per-month override. Drives the "Weekend & seasonal rates apply" note on the detail screen.
+     */
+    val hasSeasonalPricing: Boolean
+        get() = (weekendPrice != null && weekendPrice > 0.0) || monthlyPrices.isNotEmpty()
+}
+
+/**
+ * An authoritative stay quote for a chosen date range (from
+ * `POST /api/local/listings/:id/quote { checkIn, checkOut }`, public). The backend resolves the
+ * exact price honoring the weekend rate, per-month overrides, and the length-of-stay discount —
+ * the guest reserve panel shows this breakdown and uses [total] rather than a base estimate.
+ *
+ * All money is in [currency] (EGP). [subtotal] is the sum of the resolved nightly rates before any
+ * discount, [discountPercent] the whole-percent length-of-stay discount applied (0 when none),
+ * [total] the final price net of it, and [nightlyAvg] the effective per-night average
+ * ([total] / [nights]). [hasSeasonalPricing] echoes whether weekend/monthly rates were in play.
+ */
+data class StayQuote(
+    val nights: Int,
+    val subtotal: Double,
+    val discountPercent: Int,
+    val total: Double,
+    val nightlyAvg: Double,
+    val currency: String = "EGP",
+    val hasSeasonalPricing: Boolean = false
+) {
+    /** True when a length-of-stay discount actually reduced this quote. */
+    val hasDiscount: Boolean
+        get() = discountPercent > 0
 }
 
 /**

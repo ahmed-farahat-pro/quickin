@@ -554,4 +554,32 @@
     <string name="analytics_loading">Loading your analytics…</string>
     <string name="analytics_error">Couldn\'t load your analytics</string>
     <string name="analytics_empty">No analytics yet. Once you have listings and bookings, your performance shows up here.</string>
+
+    <!-- Seasonal / variable pricing (host-set weekend + per-month nightly rates) -->
+    <string name="pricing_seasonal">Seasonal pricing (optional)</string>
+    <string name="pricing_seasonal_intro">Charge more on weekends or in peak months. Leave blank to use your nightly price.</string>
+    <string name="pricing_weekend_price">Weekend price (Fri–Sat)</string>
+    <string name="pricing_monthly_prices">Per-month nightly prices</string>
+    <string name="pricing_monthly_prices_intro">Set a nightly rate for specific months. Empty months use your base price.</string>
+    <string name="pricing_seasonal_note">Weekend &amp; seasonal rates apply</string>
+    <string name="pricing_per_night_avg">%1$s avg / night</string>
+    <string name="pricing_nights">%1$s × %2$d night(s)</string>
+    <string name="pricing_subtotal">Subtotal</string>
+    <string name="growth_discount_off_label">Length-of-stay discount (−%1$d%%)</string>
+    <string name="pricing_save">Save pricing</string>
+    <string name="pricing_saved">Pricing updated.</string>
+    <string name="pricing_edit_seasonal">Seasonal pricing</string>
+    <string name="pricing_quote_error">Couldn\'t fetch an exact quote. Showing an estimate.</string>
+    <string name="pricing_month_1">January</string>
+    <string name="pricing_month_2">February</string>
+    <string name="pricing_month_3">March</string>
+    <string name="pricing_month_4">April</string>
+    <string name="pricing_month_5">May</string>
+    <string name="pricing_month_6">June</string>
+    <string name="pricing_month_7">July</string>
+    <string name="pricing_month_8">August</string>
+    <string name="pricing_month_9">September</string>
+    <string name="pricing_month_10">October</string>
+    <string name="pricing_month_11">November</string>
+    <string name="pricing_month_12">December</string>
 </resources>

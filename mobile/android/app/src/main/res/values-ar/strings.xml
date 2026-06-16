@@ -558,4 +558,32 @@
     <string name="analytics_loading">جارٍ تحميل تحليلاتك…</string>
     <string name="analytics_error">تعذّر تحميل تحليلاتك</string>
     <string name="analytics_empty">لا توجد تحليلات بعد. بمجرد توفّر إعلانات وحجوزات، سيظهر أداؤك هنا.</string>
+
+    <!-- Seasonal / variable pricing (host-set weekend + per-month nightly rates) -->
+    <string name="pricing_seasonal">التسعير الموسمي (اختياري)</string>
+    <string name="pricing_seasonal_intro">حدّد سعرًا أعلى في عطلات نهاية الأسبوع أو شهور الذروة. اتركه فارغًا لاستخدام سعر الليلة الأساسي.</string>
+    <string name="pricing_weekend_price">سعر نهاية الأسبوع (الجمعة–السبت)</string>
+    <string name="pricing_monthly_prices">أسعار الليلة لكل شهر</string>
+    <string name="pricing_monthly_prices_intro">حدّد سعر الليلة لشهور معيّنة. الشهور الفارغة تستخدم سعرك الأساسي.</string>
+    <string name="pricing_seasonal_note">تُطبَّق أسعار نهاية الأسبوع والمواسم</string>
+    <string name="pricing_per_night_avg">%1$s متوسط / الليلة</string>
+    <string name="pricing_nights">%1$s × %2$d ليلة</string>
+    <string name="pricing_subtotal">الإجمالي الفرعي</string>
+    <string name="growth_discount_off_label">خصم الإقامة الطويلة (−%1$d%%)</string>
+    <string name="pricing_save">حفظ التسعير</string>
+    <string name="pricing_saved">تم تحديث التسعير.</string>
+    <string name="pricing_edit_seasonal">التسعير الموسمي</string>
+    <string name="pricing_quote_error">تعذّر جلب عرض سعر دقيق. يتم عرض تقدير.</string>
+    <string name="pricing_month_1">يناير</string>
+    <string name="pricing_month_2">فبراير</string>
+    <string name="pricing_month_3">مارس</string>
+    <string name="pricing_month_4">أبريل</string>
+    <string name="pricing_month_5">مايو</string>
+    <string name="pricing_month_6">يونيو</string>
+    <string name="pricing_month_7">يوليو</string>
+    <string name="pricing_month_8">أغسطس</string>
+    <string name="pricing_month_9">سبتمبر</string>
+    <string name="pricing_month_10">أكتوبر</string>
+    <string name="pricing_month_11">نوفمبر</string>
+    <string name="pricing_month_12">ديسمبر</string>
 </resources>

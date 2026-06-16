@@ -54,6 +54,13 @@ struct AddListingView: View {
     @State private var weeklyDiscount = 0
     @State private var monthlyDiscount = 0
 
+    /// Optional seasonal pricing the host sets in the Details step. `weekendPrice`
+    /// is the EGP weekend nightly-rate text (empty = none); `monthlyPrices` maps
+    /// month "1".."12" → nightly-rate text (only filled months are sent). Sent as
+    /// `weekend_price` / `monthly_prices`.
+    @State private var weekendPrice = ""
+    @State private var monthlyPrices: [String: String] = [:]
+
     /// The ownership / proof document the host attaches in the Details step,
     /// encoded as a `data:image/*;base64,…` URL (sent as `ownership_doc`). Empty
     /// until a photo is picked + processed.
@@ -177,6 +184,8 @@ struct AddListingView: View {
                             cancellationPolicy: $cancellationPolicy,
                             weeklyDiscount: $weeklyDiscount,
                             monthlyDiscount: $monthlyDiscount,
+                            weekendPrice: $weekendPrice,
+                            monthlyPrices: $monthlyPrices,
                             ownershipDoc: $ownershipDoc,
                             ownershipDocItem: $ownershipDocItem,
                             isProcessingDoc: isProcessingDoc
@@ -451,6 +460,8 @@ struct AddListingView: View {
             cancellationPolicy: cancellationPolicy,
             weeklyDiscount: weeklyDiscount,
             monthlyDiscount: monthlyDiscount,
+            weekendPrice: SeasonalPricingFields.parseWeekend(weekendPrice),
+            monthlyPrices: SeasonalPricingFields.parseMonths(monthlyPrices),
             ownershipDoc: ownershipDoc,
             lat: coordinate?.latitude,
             lng: coordinate?.longitude
@@ -777,6 +788,8 @@ private struct DetailsStep: View {
     @Binding var cancellationPolicy: CancellationPolicy
     @Binding var weeklyDiscount: Int
     @Binding var monthlyDiscount: Int
+    @Binding var weekendPrice: String
+    @Binding var monthlyPrices: [String: String]
     @Binding var ownershipDoc: String
     @Binding var ownershipDocItem: PhotosPickerItem?
     let isProcessingDoc: Bool
@@ -828,6 +841,14 @@ private struct DetailsStep: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, -4)
         LengthOfStayDiscountFields(weekly: $weeklyDiscount, monthly: $monthlyDiscount)
+
+        FieldLabel(L.t("pricing.seasonal"))
+        Text(L.t("pricing.seasonalIntro"))
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, -4)
+        SeasonalPricingFields(weekend: $weekendPrice, months: $monthlyPrices)
 
         FieldLabel(L.t("approval.ownershipDoc"))
         Text(L.t("approval.ownershipIntro"))

@@ -59,6 +59,13 @@ struct HostService {
         /// Length-of-stay monthly discount (% off ≥28-night stays). Sent as
         /// `monthly_discount`; `0` means no discount.
         var monthlyDiscount: Int = 0
+        /// Optional seasonal weekend nightly rate (EGP, Fri + Sat). Sent as
+        /// `weekend_price`; `nil` (or ≤0) means no weekend rate.
+        var weekendPrice: Double? = nil
+        /// Optional per-month seasonal nightly rates (EGP), keyed by month
+        /// "1".."12". Sent as `monthly_prices`; only the months the host filled
+        /// in are included (empty when none set).
+        var monthlyPrices: [String: Double] = [:]
         /// The ownership / proof-of-ownership document the host uploaded, as a
         /// `data:image/*;base64,…` URL produced by `QKAvatarImage.makeDataURL`.
         /// Sent as `ownership_doc`; omitted from the body when empty. New
@@ -103,6 +110,15 @@ struct HostService {
         // columns). Always sent (0 = no discount) so the backend records them.
         body["weekly_discount"] = max(0, min(listing.weeklyDiscount, 100))
         body["monthly_discount"] = max(0, min(listing.monthlyDiscount, 100))
+        // Seasonal pricing (backend `weekend_price` / `monthly_prices`). The
+        // weekend rate is sent as a number when set, else null (no override).
+        if let weekend = listing.weekendPrice, weekend > 0 {
+            body["weekend_price"] = weekend
+        } else {
+            body["weekend_price"] = NSNull()
+        }
+        // Only forward the months the host actually filled with a positive rate.
+        body["monthly_prices"] = listing.monthlyPrices.filter { $0.value > 0 }
         // Ownership / proof document (data: URL). When present the backend queues
         // the new listing for review; included only when the host attached one.
         let trimmedDoc = listing.ownershipDoc.trimmingCharacters(in: .whitespacesAndNewlines)

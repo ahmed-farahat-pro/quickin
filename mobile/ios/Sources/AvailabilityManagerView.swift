@@ -44,11 +44,21 @@ struct AvailabilityManagerView: View {
     @State private var monthlyDiscount: Int
     @State private var showingDiscountEditor = false
 
+    // Seasonal pricing: the host can edit the weekend + per-month rates here.
+    // Seeded from the listing, updated locally after a save so the summary row
+    // reflects the change. `weekend` is the EGP weekend-rate text (empty = none);
+    // `monthlyPrices` maps month "1".."12" → nightly-rate text.
+    @State private var weekendPrice: String
+    @State private var monthlyPrices: [String: String]
+    @State private var showingSeasonalEditor = false
+
     init(listing: Listing) {
         self.listing = listing
         _policy = State(initialValue: listing.policy)
         _weeklyDiscount = State(initialValue: listing.weeklyDiscount)
         _monthlyDiscount = State(initialValue: listing.monthlyDiscount)
+        _weekendPrice = State(initialValue: listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _monthlyPrices = State(initialValue: SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
     }
 
     /// `yyyy-MM-dd`, locale-independent — matches the API exactly.
@@ -119,6 +129,18 @@ struct AvailabilityManagerView: View {
                 }
                 .environmentObject(loc)
             }
+            .sheet(isPresented: $showingSeasonalEditor) {
+                SeasonalPricingEditorView(
+                    listing: listing,
+                    weekend: weekendPrice,
+                    months: monthlyPrices
+                ) { updated in
+                    // Reflect the saved seasonal rates in the summary row immediately.
+                    weekendPrice = updated.weekendPrice.map { String(Int($0.rounded())) } ?? ""
+                    monthlyPrices = SeasonalPricingFields.seedMonths(from: updated.monthlyPrices)
+                }
+                .environmentObject(loc)
+            }
         }
     }
 
@@ -132,6 +154,7 @@ struct AvailabilityManagerView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     policyCard
                     discountCard
+                    seasonalCard
                     addBlockCard
                     if let errorMessage {
                         Text(errorMessage)
@@ -252,6 +275,68 @@ struct AvailabilityManagerView: View {
         }
         .buttonStyle(.qkTap)
         .accessibilityLabel("\(loc.t("growth.lengthOfStayDiscounts")): \(discountSummary)")
+    }
+
+    // MARK: - Seasonal pricing
+
+    /// A short summary of the seasonal rates, e.g. "Weekend EGP 6,500 · 3 months",
+    /// or "No seasonal rates yet" when neither a weekend nor any month is set.
+    private var seasonalSummary: String {
+        var parts: [String] = []
+        if let weekend = SeasonalPricingFields.parseWeekend(weekendPrice) {
+            parts.append(String(format: loc.t("pricing.weekendSummary"), CurrencyManager.shared.format(weekend)))
+        }
+        let monthCount = SeasonalPricingFields.parseMonths(monthlyPrices).count
+        if monthCount > 0 {
+            parts.append(String(format: loc.t("pricing.monthsSummary"), "\(monthCount)"))
+        }
+        return parts.isEmpty ? loc.t("pricing.noSeasonalYet") : parts.joined(separator: " · ")
+    }
+
+    /// The seasonal-pricing summary + "edit" entry. Tapping it opens the
+    /// `SeasonalPricingEditorView` sheet, which PATCHes the listing.
+    private var seasonalCard: some View {
+        Button {
+            showingSeasonalEditor = true
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(loc.t("pricing.seasonal"))
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(width: 26)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(seasonalSummary)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.qkInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                        Text(loc.t("pricing.seasonalHint"))
+                            .font(.caption)
+                            .foregroundStyle(Color.qkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.qkMuted)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .qkCard(cornerRadius: 20)
+        }
+        .buttonStyle(.qkTap)
+        .accessibilityLabel("\(loc.t("pricing.seasonal")): \(seasonalSummary)")
     }
 
     // MARK: - Add block

@@ -69,6 +69,15 @@ struct Listing: Codable, Identifiable, Hashable {
     /// column. Applied server-side to stays of ≥28 nights (takes precedence over
     /// the weekly discount). Defaults to `0` when the backend omits it.
     let monthlyDiscount: Int
+    /// Optional seasonal weekend nightly rate (EGP) for Fri + Sat, from the
+    /// `weekend_price` column. `nil` when the host hasn't set one — the base
+    /// `pricePerNight` then applies on weekends. Used by the authoritative quote
+    /// endpoint; surfaced on the guest detail screen as a "seasonal rates" note.
+    let weekendPrice: Double?
+    /// Optional per-month seasonal nightly rates (EGP), from the `monthly_prices`
+    /// object keyed by month "1".."12" → nightly EGP. Only the months the host
+    /// filled in are present. Defaults to empty `[:]` when the backend omits it.
+    let monthlyPrices: [String: Double]
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, location, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
@@ -85,6 +94,8 @@ struct Listing: Codable, Identifiable, Hashable {
         case approvalStatus = "approval_status"
         case weeklyDiscount = "weekly_discount"
         case monthlyDiscount = "monthly_discount"
+        case weekendPrice = "weekend_price"
+        case monthlyPrices = "monthly_prices"
     }
 
     init(from decoder: Decoder) throws {
@@ -117,6 +128,11 @@ struct Listing: Codable, Identifiable, Hashable {
             .flatMap { $0.isEmpty ? nil : $0 } ?? "approved"
         weeklyDiscount = try c.decodeIfPresent(Int.self, forKey: .weeklyDiscount) ?? 0
         monthlyDiscount = try c.decodeIfPresent(Int.self, forKey: .monthlyDiscount) ?? 0
+        // Seasonal weekend rate: treat 0 / negative as "unset".
+        weekendPrice = (try c.decodeIfPresent(Double.self, forKey: .weekendPrice)).flatMap { $0 > 0 ? $0 : nil }
+        // Per-month seasonal rates: keep only positive nightly values keyed "1".."12".
+        monthlyPrices = (try c.decodeIfPresent([String: Double].self, forKey: .monthlyPrices) ?? [:])
+            .filter { $0.value > 0 }
     }
 
     /// `true` once the place has at least one review backing a rating.
@@ -124,6 +140,11 @@ struct Listing: Codable, Identifiable, Hashable {
 
     /// `true` when the host offers any length-of-stay discount.
     var hasLengthOfStayDiscount: Bool { weeklyDiscount > 0 || monthlyDiscount > 0 }
+
+    /// `true` when the host has set any seasonal/variable pricing — a weekend
+    /// rate or at least one per-month rate. Drives the "seasonal rates apply"
+    /// note near the price on the guest detail screen.
+    var hasSeasonalPricing: Bool { weekendPrice != nil || !monthlyPrices.isEmpty }
 
     /// The strongly-typed cancellation policy (falls back to `.moderate`).
     var policy: CancellationPolicy { CancellationPolicy(raw: cancellationPolicy) }
@@ -150,6 +171,49 @@ struct Listing: Codable, Identifiable, Hashable {
     var priceText: String {
         "\(currencySymbol)\(Int(pricePerNight))"
     }
+}
+
+/// The authoritative price quote for a chosen stay, returned by
+/// `POST /api/local/listings/:id/quote` `{ checkIn, checkOut }` (public, no auth).
+/// The backend honors the weekend + per-month seasonal rates and the
+/// length-of-stay discount, so the guest detail screen uses `total` directly
+/// rather than the naive `pricePerNight × nights` estimate. All amounts are in
+/// `currency` (EGP) — convert for display only via `CurrencyManager`.
+struct StayQuote: Decodable, Hashable {
+    /// Whole nights in the stay (half-open `[checkIn, checkOut)`).
+    let nights: Int
+    /// Sum of the per-night rates before any length-of-stay discount.
+    let subtotal: Double
+    /// The length-of-stay discount applied (% off, 0 when none).
+    let discountPercent: Int
+    /// The final price after the discount — what the guest pays.
+    let total: Double
+    /// `total ÷ nights`, the blended nightly average across the seasonal rates.
+    let nightlyAvg: Double
+    /// Base currency the amounts are denominated in (always "EGP").
+    let currency: String
+    /// `true` when the quote reflects a weekend / per-month seasonal rate (rather
+    /// than a flat `pricePerNight × nights`). Lets the UI label it accordingly.
+    let hasSeasonalPricing: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case nights, subtotal, discountPercent, total, nightlyAvg, currency, hasSeasonalPricing
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        nights = try c.decodeIfPresent(Int.self, forKey: .nights) ?? 0
+        subtotal = try c.decodeIfPresent(Double.self, forKey: .subtotal) ?? 0
+        discountPercent = try c.decodeIfPresent(Int.self, forKey: .discountPercent) ?? 0
+        total = try c.decodeIfPresent(Double.self, forKey: .total) ?? 0
+        nightlyAvg = try c.decodeIfPresent(Double.self, forKey: .nightlyAvg) ?? 0
+        currency = (try c.decodeIfPresent(String.self, forKey: .currency))
+            .flatMap { $0.isEmpty ? nil : $0 } ?? "EGP"
+        hasSeasonalPricing = try c.decodeIfPresent(Bool.self, forKey: .hasSeasonalPricing) ?? false
+    }
+
+    /// `true` when a length-of-stay discount shaved money off the subtotal.
+    var hasDiscount: Bool { discountPercent > 0 && total < subtotal }
 }
 
 /// A curated browse region returned by `GET /api/local/regions`, e.g.

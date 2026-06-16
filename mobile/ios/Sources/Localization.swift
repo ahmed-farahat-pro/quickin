@@ -539,6 +539,23 @@ enum Strings {
         "growth.noDiscounts": "None",
         "growth.noDiscountsYet": "No discounts yet",
 
+        // Seasonal / variable pricing (host + guest)
+        "pricing.seasonal": "Seasonal pricing",
+        "pricing.seasonalIntro": "Charge more on weekends or in peak months. Leave a field blank to use your base nightly price.",
+        "pricing.seasonalHint": "Set a weekend rate and per-month rates. Blank months keep your base nightly price.",
+        "pricing.weekendPrice": "Weekend price",
+        "pricing.weekendHint": "Applied on Fri + Sat nights",
+        "pricing.monthlyPrices": "Monthly prices",
+        "pricing.weekendSummary": "Weekend %@",
+        "pricing.monthsSummary": "%@ months",
+        "pricing.noSeasonalYet": "No seasonal rates yet",
+        "pricing.save": "Save pricing",
+        "pricing.saved": "Pricing saved",
+        "pricing.seasonalNote": "Weekend & seasonal rates apply",
+        "pricing.perNightAvg": "avg / night",
+        "pricing.night": "%@ night",
+        "pricing.nights": "%@ nights",
+
         // Growth — promo codes (checkout)
         "promo.code": "Promo code",
         "promo.placeholder": "Enter a code",
@@ -1097,6 +1114,23 @@ enum Strings {
         "growth.discountsSaved": "تم حفظ الخصومات",
         "growth.noDiscounts": "لا يوجد",
         "growth.noDiscountsYet": "لا توجد خصومات بعد",
+
+        // Seasonal / variable pricing (host + guest)
+        "pricing.seasonal": "التسعير الموسمي",
+        "pricing.seasonalIntro": "احصل على سعر أعلى في عطلات نهاية الأسبوع أو أشهر الذروة. اترك الحقل فارغًا لاستخدام سعر ليلتك الأساسي.",
+        "pricing.seasonalHint": "حدّد سعر عطلة نهاية الأسبوع وأسعارًا لكل شهر. الأشهر الفارغة تبقى على سعرك الأساسي.",
+        "pricing.weekendPrice": "سعر عطلة نهاية الأسبوع",
+        "pricing.weekendHint": "يُطبَّق ليلتَي الجمعة والسبت",
+        "pricing.monthlyPrices": "الأسعار الشهرية",
+        "pricing.weekendSummary": "نهاية الأسبوع %@",
+        "pricing.monthsSummary": "%@ أشهر",
+        "pricing.noSeasonalYet": "لا توجد أسعار موسمية بعد",
+        "pricing.save": "حفظ التسعير",
+        "pricing.saved": "تم حفظ التسعير",
+        "pricing.seasonalNote": "تُطبَّق أسعار عطلة نهاية الأسبوع والأسعار الموسمية",
+        "pricing.perNightAvg": "متوسط / الليلة",
+        "pricing.night": "ليلة %@",
+        "pricing.nights": "%@ ليالٍ",
 
         // Growth — promo codes (checkout)
         "promo.code": "كود الخصم",

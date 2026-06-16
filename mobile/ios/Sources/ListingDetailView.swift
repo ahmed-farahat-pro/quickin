@@ -51,6 +51,16 @@ struct ListingDetailView: View {
     /// reserve → drives the `PaymentSheet`. Cleared once paid or dismissed.
     @State private var pendingPayment: Booking?
 
+    // Seasonal pricing quote — the authoritative price for the chosen dates from
+    // `POST /api/local/listings/:id/quote`. Fetched (debounced) whenever the
+    // dates change; the reserve total falls back to the naive client estimate
+    // while loading or if the call fails.
+    @State private var quote: StayQuote?
+    @State private var isQuoting = false
+    /// Monotonic token so a stale debounced quote task can detect it was
+    /// superseded by a newer date change and bail out before publishing.
+    @State private var quoteToken = 0
+
     /// Whole nights between check-in and check-out (minimum 1).
     private var nights: Int {
         let days = Calendar.current.dateComponents([.day], from: checkIn, to: checkOut).day ?? 0
@@ -59,8 +69,16 @@ struct ListingDetailView: View {
 
     private var total: Int { nights * Int(listing.pricePerNight) }
 
-    /// The same total as an EGP `Double`, for display-currency conversion.
-    private var totalEGP: Double { Double(nights) * listing.pricePerNight }
+    /// The naive client-side estimate (base nightly × nights), used as the
+    /// fallback total before the authoritative quote resolves / on failure.
+    private var estimateEGP: Double { Double(nights) * listing.pricePerNight }
+
+    /// The total to charge/display in EGP: the authoritative quote `total` when
+    /// available (and matching the current night count), else the naive estimate.
+    private var totalEGP: Double {
+        if let quote, quote.nights == nights { return quote.total }
+        return estimateEGP
+    }
 
     /// "Aug 1 → Aug 4" label for the reserve dates row.
     private var dateRangeLabel: String {
@@ -174,6 +192,12 @@ struct ListingDetailView: View {
         }
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
+        }
+        .onChange(of: checkIn) { _, _ in scheduleQuote() }
+        .onChange(of: checkOut) { _, _ in scheduleQuote() }
+        .task {
+            // Initial authoritative quote for the default date range.
+            await loadQuote()
         }
         .task {
             // Load real guest reviews for this listing (public endpoint).
@@ -788,6 +812,71 @@ struct ListingDetailView: View {
         .buttonStyle(.qkTap)
     }
 
+    /// The itemized price for the chosen dates. Uses the authoritative quote when
+    /// available (blended nightly average × nights, discount line, total), else a
+    /// single base-nightly × nights estimate row. A subtle spinner shows while a
+    /// fresh quote is in flight.
+    @ViewBuilder
+    private var priceBreakdown: some View {
+        let useQuote = quote != nil && quote?.nights == nights
+        VStack(spacing: 8) {
+            if let quote, useQuote {
+                // Blended nightly average × nights → subtotal.
+                breakdownRow(
+                    label: "\(currency.format(quote.nightlyAvg)) \(loc.t("pricing.perNightAvg")) × \(nightsText)",
+                    value: currency.format(quote.subtotal),
+                    bold: false
+                )
+                // Length-of-stay discount, when the quote applied one.
+                if quote.hasDiscount {
+                    breakdownRow(
+                        label: String(format: loc.t("growth.discountOff"), "\(quote.discountPercent)"),
+                        value: "−\(currency.format(quote.subtotal - quote.total))",
+                        bold: false,
+                        tint: Color.qkSuccess
+                    )
+                }
+                Divider()
+                breakdownRow(label: loc.t("common.total"), value: currency.format(quote.total), bold: true)
+            } else {
+                // Fallback: naive base-nightly × nights.
+                breakdownRow(
+                    label: "\(currency.format(listing.pricePerNight)) × \(nightsText)",
+                    value: currency.format(estimateEGP),
+                    bold: true
+                )
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if isQuoting {
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(.qkBurgundy)
+            }
+        }
+    }
+
+    /// "3 nights" / "1 night" — localized, pluralized.
+    private var nightsText: String {
+        String(format: loc.t(nights == 1 ? "pricing.night" : "pricing.nights"), "\(nights)")
+    }
+
+    /// One label/value row in the price breakdown.
+    private func breakdownRow(label: String, value: String, bold: Bool, tint: Color = Color.qkMuted) -> some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(bold ? Color.qkInk : tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 8)
+            Text(value)
+                .fontWeight(bold ? .bold : .semibold)
+                .foregroundStyle(bold ? Color.qkInk : tint)
+                .monospacedDigit()
+        }
+        .font(.subheadline)
+    }
+
     private var reservePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(loc.t("detail.reserveStay"))
@@ -840,16 +929,17 @@ struct ListingDetailView: View {
                 .tint(.qkBurgundy)
             }
 
-            // Live total
-            HStack {
-                Text("\(currency.format(listing.pricePerNight)) × \(nights) night\(nights == 1 ? "" : "s")")
-                    .foregroundStyle(Color.qkMuted)
-                Spacer()
-                Text(currency.format(totalEGP))
-                    .fontWeight(.bold)
-                    .foregroundStyle(Color.qkInk)
+            // Seasonal-rates note — shown when the host set a weekend / per-month
+            // rate, so the guest knows the nightly price varies by date.
+            if listing.hasSeasonalPricing {
+                SeasonalRatesNote()
             }
-            .font(.subheadline)
+
+            // Price breakdown. When an authoritative quote is in hand (and matches
+            // the chosen nights) we itemize the blended nightly average × nights,
+            // any length-of-stay discount, and the quote total. Otherwise we fall
+            // back to the naive base-nightly × nights estimate.
+            priceBreakdown
 
             if let reserveError {
                 Text(reserveError)
@@ -893,6 +983,14 @@ struct ListingDetailView: View {
                 // Length-of-stay discounts the host offers (hidden when none).
                 if listing.hasLengthOfStayDiscount {
                     ListingDiscountNote(weekly: listing.weeklyDiscount, monthly: listing.monthlyDiscount)
+                } else if listing.hasSeasonalPricing {
+                    // Otherwise, when seasonal rates apply, hint that the nightly
+                    // price varies by date (the breakdown shows the exact total).
+                    Text(loc.t("pricing.seasonalNote"))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             Spacer()
@@ -951,5 +1049,45 @@ struct ListingDetailView: View {
             // 400 → server's { error } (e.g. dates unavailable); anything else.
             reserveError = error.localizedDescription
         }
+    }
+
+    // MARK: - Seasonal pricing quote
+
+    /// `yyyy-MM-dd`, locale-independent — matches the quote API exactly.
+    private static let quoteFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    /// Debounce a quote refresh after the dates change: stamp a fresh token, wait
+    /// ~350ms, and only fetch if no newer change superseded this one. Keeps us
+    /// from hammering the endpoint while the user scrubs the calendar.
+    private func scheduleQuote() {
+        quoteToken &+= 1
+        let token = quoteToken
+        Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard token == quoteToken else { return }
+            await loadQuote(token: token)
+        }
+    }
+
+    /// Fetch the authoritative quote for the current dates. Publishes only when
+    /// this call is still the latest (its `token` matches). Silently keeps the
+    /// naive estimate on failure so the reserve total always shows something.
+    private func loadQuote(token: Int? = nil) async {
+        isQuoting = true
+        defer { if token == nil || token == quoteToken { isQuoting = false } }
+        let ci = Self.quoteFormatter.string(from: checkIn)
+        let co = Self.quoteFormatter.string(from: checkOut)
+        let fetched = try? await BookingService.shared.fetchStayQuote(
+            listingID: listing.id, checkIn: ci, checkOut: co
+        )
+        // Bail if a newer date change superseded this fetch.
+        if let token, token != quoteToken { return }
+        if let fetched { quote = fetched }
     }
 }

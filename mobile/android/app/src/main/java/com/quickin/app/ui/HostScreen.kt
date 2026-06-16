@@ -81,6 +81,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -163,7 +164,8 @@ fun HostScreen(
         bathrooms: String, propertyType: String, imageUrl: String,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
-        weeklyDiscount: String, monthlyDiscount: String
+        weeklyDiscount: String, monthlyDiscount: String,
+        weekendPrice: String, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onResetCreate: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -280,6 +282,8 @@ fun HostListingsScreen(
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
     stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
     onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
+    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
+    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> },
     contentPadding: PaddingValues = PaddingValues()
 ) {
     LaunchedEffect(Unit) {
@@ -350,7 +354,9 @@ fun HostListingsScreen(
                                 ownershipState = ownershipState,
                                 onReuploadDoc = onReuploadDoc,
                                 stayDiscountState = stayDiscountState,
-                                onSaveStayDiscounts = onSaveStayDiscounts
+                                onSaveStayDiscounts = onSaveStayDiscounts,
+                                seasonalPricingState = seasonalPricingState,
+                                onSaveSeasonalPricing = onSaveSeasonalPricing
                             )
                         }
                     }
@@ -373,7 +379,9 @@ private fun HostListingCard(
     ownershipState: OwnershipDocUiState,
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit,
     stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
-    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> }
+    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
+    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
+    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -487,6 +495,132 @@ private fun HostListingCard(
                 state = stayDiscountState,
                 onSave = onSaveStayDiscounts
             )
+
+            // Seasonal-pricing editor — set a weekend rate + per-month nightly prices; PATCHes on save.
+            SeasonalPricingEditor(
+                listing = listing,
+                state = seasonalPricingState,
+                onSave = onSaveSeasonalPricing
+            )
+        }
+    }
+}
+
+/**
+ * Inline seasonal-pricing editor on a host listing card. Collapsed it shows whether seasonal
+ * rates are set (or a "set seasonal pricing" hint); expanded it reuses [SeasonalPricingFields] (a
+ * weekend rate + 12 per-month fields) and a Save that PATCHes `/api/local/listings/:id`. Per-card
+ * state from [SeasonalPricingUiState] drives the Save spinner, an inline error, and a confirmation.
+ * Edit buffers are seeded from the listing's current pricing and re-seed if the listing changes.
+ */
+@Composable
+private fun SeasonalPricingEditor(
+    listing: Listing,
+    state: com.quickin.app.SeasonalPricingUiState,
+    onSave: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    // Local edit buffers seeded from the listing's current seasonal pricing.
+    var weekend by remember(listing.id) {
+        mutableStateOf(listing.weekendPrice?.takeIf { it > 0.0 }?.let { it.toInt().toString() } ?: "")
+    }
+    val months = remember(listing.id) {
+        mutableStateMapOf<String, String>().apply {
+            listing.monthlyPrices.forEach { (k, v) -> if (v > 0.0) put(k, v.toInt().toString()) }
+        }
+    }
+
+    val isThis = state.listingId == listing.id
+    val saving = isThis && state.isSaving
+    val justSaved = state.savedId == listing.id
+    val error = state.error?.takeIf { isThis }
+
+    Spacer(Modifier.height(12.dp))
+    HorizontalDivider(color = Tan)
+    Spacer(Modifier.height(12.dp))
+
+    // Header row — tappable to expand/collapse; shows whether seasonal rates are set.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { expanded = !expanded }
+            .padding(vertical = 2.dp)
+    ) {
+        Icon(Icons.Filled.DateRange, contentDescription = null, tint = Burgundy, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                stringResource(com.quickin.app.R.string.pricing_edit_seasonal),
+                color = Ink,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                if (listing.hasSeasonalPricing) {
+                    stringResource(com.quickin.app.R.string.pricing_seasonal_note)
+                } else {
+                    stringResource(com.quickin.app.R.string.pricing_seasonal_intro)
+                },
+                color = Muted,
+                fontSize = 12.sp
+            )
+        }
+        Icon(
+            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = null,
+            tint = Muted,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+
+    if (expanded) {
+        Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SeasonalPricingFields(
+                weekendPrice = weekend,
+                onWeekendPrice = { weekend = it },
+                monthlyPrices = months,
+                onMonthlyPrice = { month, value ->
+                    if (value.isBlank()) months.remove(key = month) else months[month] = value
+                }
+            )
+        }
+        if (justSaved) {
+            Text(
+                stringResource(com.quickin.app.R.string.pricing_saved),
+                color = SuccessGreen,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        if (error != null) {
+            Text(error, color = ErrorRed, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        GradientButton(
+            onClick = {
+                onSave(
+                    listing.id,
+                    weekend.toDoubleOrNull()?.takeIf { it > 0.0 },
+                    monthlyPricesAsDoubles(months)
+                )
+            },
+            enabled = !saving,
+            height = 46.dp,
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+        ) {
+            if (saving) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            } else {
+                Text(
+                    stringResource(com.quickin.app.R.string.pricing_save),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+            }
         }
     }
 }
@@ -663,6 +797,124 @@ private fun PercentField(
 }
 
 /**
+ * The seasonal/variable-pricing section shared by the add-listing wizard and the inline editor on
+ * a host listing card: a single weekend nightly-price field plus a compact 12-month list of
+ * optional nightly-price fields. All amounts are EGP; blank fields mean "use the base nightly
+ * price". RTL-safe — labels resolve via stringResource and the rows lay out start→end.
+ *
+ * [monthlyPrices] maps month "1".."12" → the current text value (absent = blank); [onMonthlyPrice]
+ * lifts each edit back (an empty value clears that month).
+ */
+@Composable
+private fun SeasonalPricingFields(
+    weekendPrice: String,
+    onWeekendPrice: (String) -> Unit,
+    monthlyPrices: Map<String, String>,
+    onMonthlyPrice: (month: String, value: String) -> Unit
+) {
+    val monthNames = monthLabels()
+    Text(
+        stringResource(com.quickin.app.R.string.pricing_seasonal),
+        fontWeight = FontWeight.SemiBold,
+        color = Ink,
+        fontSize = 15.sp,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+    Text(
+        stringResource(com.quickin.app.R.string.pricing_seasonal_intro),
+        color = Muted,
+        fontSize = 13.sp
+    )
+    MoneyField(
+        label = stringResource(com.quickin.app.R.string.pricing_weekend_price),
+        value = weekendPrice,
+        onChange = onWeekendPrice,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Text(
+        stringResource(com.quickin.app.R.string.pricing_monthly_prices),
+        fontWeight = FontWeight.Medium,
+        color = Ink,
+        fontSize = 14.sp,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+    Text(
+        stringResource(com.quickin.app.R.string.pricing_monthly_prices_intro),
+        color = Muted,
+        fontSize = 12.sp
+    )
+    // Two months per row keeps the 12-month grid compact.
+    monthNames.chunked(2).forEach { pair ->
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            pair.forEach { (monthKey, monthName) ->
+                MoneyField(
+                    label = monthName,
+                    value = monthlyPrices[monthKey].orEmpty(),
+                    onChange = { onMonthlyPrice(monthKey, it) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            // Pad an odd trailing item so the last single field keeps half-width alignment.
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+/** The 12 month options as (key "1".."12", localized name) pairs, in calendar order. */
+@Composable
+private fun monthLabels(): List<Pair<String, String>> = listOf(
+    "1" to stringResource(com.quickin.app.R.string.pricing_month_1),
+    "2" to stringResource(com.quickin.app.R.string.pricing_month_2),
+    "3" to stringResource(com.quickin.app.R.string.pricing_month_3),
+    "4" to stringResource(com.quickin.app.R.string.pricing_month_4),
+    "5" to stringResource(com.quickin.app.R.string.pricing_month_5),
+    "6" to stringResource(com.quickin.app.R.string.pricing_month_6),
+    "7" to stringResource(com.quickin.app.R.string.pricing_month_7),
+    "8" to stringResource(com.quickin.app.R.string.pricing_month_8),
+    "9" to stringResource(com.quickin.app.R.string.pricing_month_9),
+    "10" to stringResource(com.quickin.app.R.string.pricing_month_10),
+    "11" to stringResource(com.quickin.app.R.string.pricing_month_11),
+    "12" to stringResource(com.quickin.app.R.string.pricing_month_12)
+)
+
+/** A compact EGP nightly-price input (digits only) used by the seasonal-pricing fields. */
+@Composable
+private fun MoneyField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onChange(input.filter { it.isDigit() }.take(7)) },
+        label = { Text(label, fontSize = 12.sp) },
+        singleLine = true,
+        prefix = { Text("EGP ") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        shape = RoundedCornerShape(14.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Burgundy,
+            unfocusedBorderColor = Tan,
+            focusedLabelColor = Burgundy,
+            cursorColor = Burgundy,
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White
+        ),
+        modifier = modifier
+    )
+}
+
+/** Converts a month→text price map into the month→Double map the API expects (dropping blanks/0). */
+private fun monthlyPricesAsDoubles(prices: Map<String, String>): Map<String, Double> {
+    val out = LinkedHashMap<String, Double>()
+    prices.forEach { (month, text) ->
+        text.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { out[month] = it }
+    }
+    return out
+}
+
+/**
  * "Reservations" bottom-nav tab for hosts: incoming reservation requests across the host's
  * listings, with Confirm / Reject on pending ones. Reuses the same request list as the host
  * dashboard's Requests tab.
@@ -719,7 +971,8 @@ fun AddListingScreen(
         bathrooms: String, propertyType: String, imageUrl: String,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
-        weeklyDiscount: String, monthlyDiscount: String
+        weeklyDiscount: String, monthlyDiscount: String,
+        weekendPrice: String, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onResetCreate: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -1093,7 +1346,8 @@ private fun AddListingTab(
         bathrooms: String, propertyType: String, imageUrl: String,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
-        weeklyDiscount: String, monthlyDiscount: String
+        weeklyDiscount: String, monthlyDiscount: String,
+        weekendPrice: String, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onReset: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -1154,6 +1408,10 @@ private fun AddListingTab(
     // Length-of-stay discounts (% off), default "0" (none). Sent on create.
     var weeklyDiscount by remember { mutableStateOf("0") }
     var monthlyDiscount by remember { mutableStateOf("0") }
+    // Seasonal pricing (optional). Weekend nightly rate (blank = none) + per-month nightly
+    // overrides keyed by month "1".."12" (blank/absent months are dropped on create).
+    var weekendPrice by remember { mutableStateOf("") }
+    val monthlyPrices = remember { mutableStateMapOf<String, String>() }
     var maxGuests by remember { mutableStateOf("2") }
     var bedrooms by remember { mutableStateOf("1") }
     var beds by remember { mutableStateOf("1") }
@@ -1267,6 +1525,11 @@ private fun AddListingTab(
                         price = price, onPrice = { price = it },
                         weeklyDiscount = weeklyDiscount, onWeeklyDiscount = { weeklyDiscount = it },
                         monthlyDiscount = monthlyDiscount, onMonthlyDiscount = { monthlyDiscount = it },
+                        weekendPrice = weekendPrice, onWeekendPrice = { weekendPrice = it },
+                        monthlyPrices = monthlyPrices,
+                        onMonthlyPrice = { month, value ->
+                            if (value.isBlank()) monthlyPrices.remove(key = month) else monthlyPrices[month] = value
+                        },
                         imageUrl = imageUrl, onImageUrl = { imageUrl = it },
                         selectedAmenities = selectedAmenities,
                         onToggleAmenity = { amenity ->
@@ -1291,7 +1554,9 @@ private fun AddListingTab(
                         amenities = selectedAmenities, picked = pickedLatLng,
                         cancellationPolicy = cancellationPolicy,
                         ownershipDocAttached = ownershipDoc != null,
-                        weeklyDiscount = weeklyDiscount, monthlyDiscount = monthlyDiscount
+                        weeklyDiscount = weeklyDiscount, monthlyDiscount = monthlyDiscount,
+                        weekendPrice = weekendPrice,
+                        monthlyPricesCount = monthlyPricesAsDoubles(monthlyPrices).size
                     )
                 }
 
@@ -1329,7 +1594,8 @@ private fun AddListingTab(
                                 selectedAmenities.toList(),
                                 pickedLatLng?.latitude, pickedLatLng?.longitude, region,
                                 cancellationPolicy, ownershipDoc,
-                                weeklyDiscount, monthlyDiscount
+                                weeklyDiscount, monthlyDiscount,
+                                weekendPrice, monthlyPricesAsDoubles(monthlyPrices)
                             )
                         } else if (canAdvance) {
                             step++
@@ -1554,6 +1820,8 @@ private fun StepDetails(
     price: String, onPrice: (String) -> Unit,
     weeklyDiscount: String, onWeeklyDiscount: (String) -> Unit,
     monthlyDiscount: String, onMonthlyDiscount: (String) -> Unit,
+    weekendPrice: String, onWeekendPrice: (String) -> Unit,
+    monthlyPrices: Map<String, String>, onMonthlyPrice: (month: String, value: String) -> Unit,
     imageUrl: String, onImageUrl: (String) -> Unit,
     selectedAmenities: List<String>, onToggleAmenity: (String) -> Unit,
     cancellationPolicy: String, onCancellationPolicy: (String) -> Unit,
@@ -1614,6 +1882,15 @@ private fun StepDetails(
             modifier = Modifier.weight(1f)
         )
     }
+
+    // Seasonal pricing (optional) — a weekend nightly rate + a compact 12-month list of optional
+    // nightly prices. The authoritative quote endpoint honors these for the guest's chosen dates.
+    SeasonalPricingFields(
+        weekendPrice = weekendPrice,
+        onWeekendPrice = onWeekendPrice,
+        monthlyPrices = monthlyPrices,
+        onMonthlyPrice = onMonthlyPrice
+    )
 
     HostField(imageUrl, onImageUrl, "Image URL (optional)", keyboardType = KeyboardType.Uri)
 
@@ -1871,7 +2148,8 @@ private fun StepReview(
     price: String, maxGuests: String, bedrooms: String, beds: String,
     bathrooms: String, amenities: List<String>, picked: LatLng?,
     cancellationPolicy: String, ownershipDocAttached: Boolean,
-    weeklyDiscount: String = "0", monthlyDiscount: String = "0"
+    weeklyDiscount: String = "0", monthlyDiscount: String = "0",
+    weekendPrice: String = "", monthlyPricesCount: Int = 0
 ) {
     SectionHeader("Review your listing")
     BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
@@ -1898,6 +2176,15 @@ private fun StepReview(
                     stringResource(com.quickin.app.R.string.growth_discounts_title),
                     if (w > 0 || m > 0) {
                         stringResource(com.quickin.app.R.string.growth_discount_off, w, m)
+                    } else "—"
+                )
+            }
+            run {
+                val wknd = weekendPrice.toIntOrNull() ?: 0
+                ReviewRow(
+                    stringResource(com.quickin.app.R.string.pricing_seasonal),
+                    if (wknd > 0 || monthlyPricesCount > 0) {
+                        stringResource(com.quickin.app.R.string.pricing_seasonal_note)
                     } else "—"
                 )
             }

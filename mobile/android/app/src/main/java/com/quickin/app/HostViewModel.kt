@@ -66,6 +66,20 @@ data class StayDiscountUiState(
 )
 
 /**
+ * State for the host editing a listing's seasonal/variable pricing
+ * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`), from the inline editor on a
+ * host listing card. [listingId] tags which listing is being saved (drives a per-card spinner);
+ * [savedId] is set after a successful PATCH so the card can show a confirmation.
+ */
+data class SeasonalPricingUiState(
+    val listingId: String? = null,
+    val isSaving: Boolean = false,
+    val error: String? = null,
+    /** Id of the listing whose seasonal pricing was just saved successfully, or null. */
+    val savedId: String? = null
+)
+
+/**
  * State for the host (re)submitting a listing's ownership/proof document
  * (`PATCH /api/local/listings/:id {ownership_doc}`), from a pending/rejected listing card.
  * [listingId] tags which listing is uploading (drives a per-card spinner); [submittedId] is set
@@ -132,6 +146,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _stayDiscount = MutableStateFlow(StayDiscountUiState())
     val stayDiscount: StateFlow<StayDiscountUiState> = _stayDiscount.asStateFlow()
+
+    private val _seasonalPricing = MutableStateFlow(SeasonalPricingUiState())
+    val seasonalPricing: StateFlow<SeasonalPricingUiState> = _seasonalPricing.asStateFlow()
 
     private val _aiWriter = MutableStateFlow(AiWriterUiState())
     val aiWriter: StateFlow<AiWriterUiState> = _aiWriter.asStateFlow()
@@ -236,7 +253,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         cancellationPolicy: String = "moderate",
         ownershipDoc: String? = null,
         weeklyDiscount: String = "0",
-        monthlyDiscount: String = "0"
+        monthlyDiscount: String = "0",
+        weekendPrice: String = "",
+        monthlyPrices: Map<String, Double> = emptyMap()
     ) {
         if (_create.value.isSubmitting) return
         val token = token() ?: run {
@@ -274,7 +293,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     cancellationPolicy = cancellationPolicy,
                     ownershipDoc = ownershipDoc,
                     weeklyDiscount = weeklyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
-                    monthlyDiscount = monthlyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0
+                    monthlyDiscount = monthlyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
+                    weekendPrice = weekendPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                    monthlyPrices = monthlyPrices.filterValues { it > 0.0 }
                 )
                 _create.value = CreateListingUiState(created = listing)
                 // Surface the new listing in the host's "Listings" tab immediately.
@@ -376,6 +397,52 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     /** Clears the stay-discount edit state (after showing the confirmation / error). */
     fun clearStayDiscount() {
         _stayDiscount.value = StayDiscountUiState()
+    }
+
+    // ---- Edit seasonal pricing ------------------------------------------------
+
+    /**
+     * Updates [listingId]'s seasonal/variable pricing as the host
+     * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`). [weekendPrice] is the
+     * Fri+Sat nightly rate (null/0 clears it); [monthlyPrices] maps month "1".."12" → nightly EGP
+     * (only positive values are sent). On success folds the new values into the host's listings
+     * cache and publishes [SeasonalPricingUiState.savedId] so the card can confirm. Surfaces [error].
+     */
+    fun setSeasonalPricing(listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) {
+        if (_seasonalPricing.value.isSaving) return
+        val token = token() ?: run {
+            _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, error = "Please sign in as the host.")
+            return
+        }
+        _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, isSaving = true)
+        viewModelScope.launch {
+            try {
+                val cleaned = monthlyPrices.filterValues { it > 0.0 }
+                val updated = BookingService.updateSeasonalPricing(token, listingId, weekendPrice?.takeIf { it > 0.0 }, cleaned)
+                _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, savedId = listingId)
+                // Keep the host's own-listings cache in sync so the card reflects the new pricing.
+                _listings.value = _listings.value.copy(
+                    listings = _listings.value.listings.map {
+                        if (it.id == listingId) {
+                            it.copy(
+                                weekendPrice = updated.weekendPrice,
+                                monthlyPrices = updated.monthlyPrices
+                            )
+                        } else it
+                    }
+                )
+            } catch (e: Exception) {
+                _seasonalPricing.value = SeasonalPricingUiState(
+                    listingId = listingId,
+                    error = e.message ?: "Couldn't update the pricing."
+                )
+            }
+        }
+    }
+
+    /** Clears the seasonal-pricing edit state (after showing the confirmation / error). */
+    fun clearSeasonalPricing() {
+        _seasonalPricing.value = SeasonalPricingUiState()
     }
 
     // ---- (Re)submit ownership document ----------------------------------------

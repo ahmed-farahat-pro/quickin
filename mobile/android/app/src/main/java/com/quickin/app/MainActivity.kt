@@ -343,6 +343,7 @@ private fun MainApp() {
     val hostListingsState by hostViewModel.listings.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
     val stayDiscountState by hostViewModel.stayDiscount.collectAsState()
+    val seasonalPricingState by hostViewModel.seasonalPricing.collectAsState()
     // Section 10: AI listing-description writer + host analytics dashboard.
     val aiWriterState by hostViewModel.aiWriter.collectAsState()
     val hostAnalyticsState by hostViewModel.analytics.collectAsState()
@@ -1089,11 +1090,11 @@ private fun MainApp() {
                 hostViewModel.resetCreate()
                 showAddListing = false
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
                     maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
-                    weeklyDiscount, monthlyDiscount
+                    weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
                 )
             },
             onResetCreate = hostViewModel::resetCreate,
@@ -1126,11 +1127,11 @@ private fun MainApp() {
             onSubmitGuestReview = { bookingId, rating, comment ->
                 reviewsViewModel.submitGuestReview(bookingId, rating, comment)
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
                     maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
-                    weeklyDiscount, monthlyDiscount
+                    weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
                 )
             },
             onResetCreate = hostViewModel::resetCreate,
@@ -1289,6 +1290,10 @@ private fun MainApp() {
                     stayDiscountState = stayDiscountState,
                     onSaveStayDiscounts = { listingId, weekly, monthly ->
                         hostViewModel.setStayDiscounts(listingId, weekly, monthly)
+                    },
+                    seasonalPricingState = seasonalPricingState,
+                    onSaveSeasonalPricing = { listingId, weekendPrice, monthlyPrices ->
+                        hostViewModel.setSeasonalPricing(listingId, weekendPrice, monthlyPrices)
                     },
                     contentPadding = padding
                 )

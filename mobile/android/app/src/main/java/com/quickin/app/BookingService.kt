@@ -452,7 +452,9 @@ object BookingService {
         cancellationPolicy: String = "moderate",
         ownershipDoc: String? = null,
         weeklyDiscount: Int = 0,
-        monthlyDiscount: Int = 0
+        monthlyDiscount: Int = 0,
+        weekendPrice: Double? = null,
+        monthlyPrices: Map<String, Double> = emptyMap()
     ): Listing = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("title", title)
@@ -485,6 +487,10 @@ object BookingService {
             // Length-of-stay discounts (% off): weekly (≥7 nights) + monthly (≥28 nights).
             put("weekly_discount", weeklyDiscount.coerceIn(0, 100))
             put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
+            // Seasonal pricing — weekend nightly rate (number|null) + per-month overrides object.
+            // Send null explicitly when the host left the weekend field blank.
+            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
+            put("monthly_prices", monthlyPricesJson(monthlyPrices))
             // Ownership/proof document (data:image/* URL). Sending it queues the listing for review.
             if (!ownershipDoc.isNullOrBlank()) put("ownership_doc", ownershipDoc)
         }
@@ -527,6 +533,39 @@ object BookingService {
         }
         val text = send("PATCH", token, "/api/local/listings/$listingId", body)
         SupabaseService.parseListing(JSONObject(text))
+    }
+
+    /**
+     * Updates a listing's seasonal/variable pricing as the host
+     * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`). [weekendPrice] is the
+     * Fri+Sat nightly rate in EGP (null clears it); [monthlyPrices] maps month "1".."12" → nightly
+     * EGP (only filled months are sent). Returns the updated [Listing]. Throws [HttpError] (401 not
+     * signed in, 403 when the caller doesn't host this listing, 400 on validation).
+     */
+    suspend fun updateSeasonalPricing(
+        token: String,
+        listingId: String,
+        weekendPrice: Double?,
+        monthlyPrices: Map<String, Double>
+    ): Listing = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
+            put("monthly_prices", monthlyPricesJson(monthlyPrices))
+        }
+        val text = send("PATCH", token, "/api/local/listings/$listingId", body)
+        SupabaseService.parseListing(JSONObject(text))
+    }
+
+    /**
+     * Builds the `monthly_prices` JSON object from a month→nightly map, keeping only positive
+     * values keyed by month "1".."12". An empty map serializes to `{}` (clears all overrides).
+     */
+    private fun monthlyPricesJson(prices: Map<String, Double>): JSONObject {
+        val obj = JSONObject()
+        prices.forEach { (month, price) ->
+            if (price > 0.0) obj.put(month, price)
+        }
+        return obj
     }
 
     /**

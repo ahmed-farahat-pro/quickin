@@ -339,6 +339,79 @@ struct BookingService {
         throw BookingError.message(Self.decodeError(data) ?? "Couldn't update the discounts (\(http.statusCode)).")
     }
 
+    // MARK: - Seasonal pricing (host)
+
+    /// Update a listing's seasonal/variable pricing via
+    /// `PATCH /api/local/listings/:id` with `{ weekend_price, monthly_prices }`
+    /// (Bearer host). `weekendPrice` is the nightly EGP rate for Fri + Sat, or
+    /// `nil` to clear it; `monthlyPrices` maps month "1".."12" → nightly EGP
+    /// (only the months the host set). Returns the updated `Listing`.
+    ///
+    /// Throws `BookingError.notSignedIn` (no token / 401) or `BookingError.message`
+    /// carrying the server's `{ error }` for other non-2xx (e.g. 403 not the host).
+    @discardableResult
+    func setSeasonalPricing(listingID: String, weekendPrice: Double?, monthlyPrices: [String: Double]) async throws -> Listing {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        var body: [String: Any] = [
+            // Keep only positive per-month rates; an empty object clears them all.
+            "monthly_prices": monthlyPrices.filter { $0.value > 0 },
+        ]
+        if let weekendPrice, weekendPrice > 0 {
+            body["weekend_price"] = weekendPrice
+        } else {
+            body["weekend_price"] = NSNull()
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode(Listing.self, from: data)
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        throw BookingError.message(Self.decodeError(data) ?? "Couldn't update the pricing (\(http.statusCode)).")
+    }
+
+    // MARK: - Stay quote (public)
+
+    /// Fetch the authoritative price quote for a stay via
+    /// `POST /api/local/listings/:id/quote` `{ checkIn, checkOut }`. Public — no
+    /// auth. The quote honors the weekend + per-month seasonal rates and the
+    /// length-of-stay discount, so the detail screen uses its `total` directly.
+    /// `checkIn`/`checkOut` are `yyyy-MM-dd`. Throws `BookingError.message` on a
+    /// non-2xx (the caller falls back to the naive client-side estimate).
+    func fetchStayQuote(listingID: String, checkIn: String, checkOut: String) async throws -> StayQuote {
+        let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)/quote")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "checkIn": checkIn,
+            "checkOut": checkOut,
+        ])
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw BookingError.message(Self.decodeError(data) ?? "Couldn't load the quote (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(StayQuote.self, from: data)
+    }
+
     // MARK: - Availability (host)
 
     /// Block a date range on a listing the signed-in user hosts, via

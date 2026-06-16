@@ -202,6 +202,53 @@ object SupabaseService {
     }
 
     /**
+     * The authoritative stay quote for a chosen range
+     * (`POST /api/local/listings/:id/quote { checkIn, checkOut }`, public — no auth). The backend
+     * honors the weekend rate, per-month overrides, and the length-of-stay discount, returning the
+     * exact subtotal/total. Dates are yyyy-MM-dd. Returns null on any failure (or blank id/dates) so
+     * the reserve panel can fall back to its base estimate and never block the UI.
+     */
+    suspend fun fetchStayQuote(listingId: String, checkIn: String, checkOut: String): StayQuote? =
+        withContext(Dispatchers.IO) {
+            if (listingId.isBlank() || checkIn.isBlank() || checkOut.isBlank()) return@withContext null
+            runCatching {
+                val payload = org.json.JSONObject().apply {
+                    put("checkIn", checkIn)
+                    put("checkOut", checkOut)
+                }
+                val urlStr = "${Config.API_BASE_URL}/api/local/listings/${URLEncoder.encode(listingId, "UTF-8")}/quote"
+                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15_000
+                    readTimeout = 15_000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Accept", "application/json")
+                }
+                try {
+                    conn.outputStream.use { out -> out.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+                    val code = conn.responseCode
+                    if (code !in 200..299) return@runCatching null
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    parseStayQuote(org.json.JSONObject(body))
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrNull()
+        }
+
+    /** Parses the `{ nights, subtotal, discountPercent, total, nightlyAvg, currency, hasSeasonalPricing }` quote. */
+    private fun parseStayQuote(o: org.json.JSONObject): StayQuote = StayQuote(
+        nights = o.optInt("nights", 0),
+        subtotal = o.optDouble("subtotal", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+        discountPercent = o.optInt("discountPercent", 0),
+        total = o.optDouble("total", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+        nightlyAvg = o.optDouble("nightlyAvg", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+        currency = o.optString("currency").ifBlank { "EGP" },
+        hasSeasonalPricing = o.optBoolean("hasSeasonalPricing", false)
+    )
+
+    /**
      * Static FX rates for multi-currency display (`GET /api/local/currencies`), e.g.
      * { base:"EGP", rates:{ EGP:1, USD:0.0203, … } }. Public (no auth). Returns null on any failure
      * so [com.quickin.app.CurrencyManager] can fall back to its baked-in static rates and the app
@@ -353,6 +400,18 @@ object SupabaseService {
                 amenitiesArr.optString(j).takeUnless { it.isBlank() }?.let { amenities.add(it) }
             }
         }
+        // Per-month nightly overrides — a JSON object { "7": 8500, ... } keyed by month "1".."12".
+        // Absent / null → empty. Only positive numeric values are kept.
+        val monthlyPricesObj = if (o.isNull("monthly_prices")) null else o.optJSONObject("monthly_prices")
+        val monthlyPrices = LinkedHashMap<String, Double>()
+        if (monthlyPricesObj != null) {
+            val keys = monthlyPricesObj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val v = monthlyPricesObj.optDouble(key, Double.NaN)
+                if (!v.isNaN() && v > 0.0) monthlyPrices[key] = v
+            }
+        }
         return Listing(
             id = o.optString("id"),
             title = o.optString("title"),
@@ -381,7 +440,10 @@ object SupabaseService {
             approvalStatus = o.optString("approval_status").ifBlank { "approved" },
             // Length-of-stay discounts (% off); absent → 0 = none.
             weeklyDiscount = o.optInt("weekly_discount", 0),
-            monthlyDiscount = o.optInt("monthly_discount", 0)
+            monthlyDiscount = o.optInt("monthly_discount", 0),
+            // Seasonal/variable pricing: weekend nightly rate (null when unset) + per-month overrides.
+            weekendPrice = o.optDoubleOrNull("weekend_price"),
+            monthlyPrices = monthlyPrices
         )
     }
 }

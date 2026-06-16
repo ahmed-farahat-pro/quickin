@@ -1711,15 +1711,17 @@ struct AISearchFilters: Decodable, Hashable {
     /// Human-readable chip labels for each parsed filter, in a stable order, so
     /// the search screen can render them as removable pills. EGP prices are shown
     /// as whole numbers (matching the rest of the app's EGP display).
-    @MainActor
-    var chips: [String] {
+    ///
+    /// `nonisolated` (pure data formatting) so it's safe to call from any context.
+    /// The one localized label — the guests count — is supplied by the caller via
+    /// `guestsLabel`, since localization (`L.t`) is `@MainActor`. Defaults to a
+    /// plain "N guests" so off-actor callers still get a sensible value.
+    nonisolated func chipLabels(guestsLabel: (Int) -> String = { "\($0) guests" }) -> [String] {
         var out: [String] = []
         if let q { out.append(q) }
         if let region { out.append(region) }
         if let propertyType { out.append(propertyType) }
-        if let guests, guests > 0 {
-            out.append(String(format: L.t(guests == 1 ? "explore.guest" : "explore.guests.plural"), guests))
-        }
+        if let guests, guests > 0 { out.append(guestsLabel(guests)) }
         if let minPrice, minPrice > 0 { out.append("≥ EGP \(Int(minPrice))") }
         if let maxPrice, maxPrice > 0 { out.append("≤ EGP \(Int(maxPrice))") }
         out.append(contentsOf: amenities)

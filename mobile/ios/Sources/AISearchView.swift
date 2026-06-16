@@ -46,8 +46,13 @@ final class AISearchViewModel: ObservableObject {
         hasSearched = false
     }
 
-    /// The parsed filter chip labels (empty when nothing was parsed).
-    var filterChips: [String] { result?.filters.chips ?? [] }
+    /// The parsed filter chip labels (empty when nothing was parsed). The guests
+    /// label is localized here (this view model is `@MainActor`, so `L.t` is safe).
+    var filterChips: [String] {
+        result?.filters.chipLabels(guestsLabel: { count in
+            String(format: L.t(count == 1 ? "explore.guest" : "explore.guests.plural"), count)
+        }) ?? []
+    }
 
     /// The matched listings (empty until a search returns).
     var listings: [Listing] { result?.listings ?? [] }

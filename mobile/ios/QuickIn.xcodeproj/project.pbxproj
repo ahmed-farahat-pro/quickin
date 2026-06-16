@@ -10,6 +10,7 @@
 		02E30390C2A0BBE01913E88F /* ShareLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77523CB04274A6B5EA4FF2BE /* ShareLinks.swift */; };
 		04AA140462DFF7E1828FCE62 /* SavedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59BC467AD0B7CE3BB66DD02 /* SavedView.swift */; };
 		06D69E87A89B701659A8C787 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E23E5D1A16E3236FC8AAB6A /* Models.swift */; };
+		07402591A22528FEFB542306 /* CountryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */; };
 		0D147128BEE051F5D60C0E62 /* HostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB52C8948744ACE9887DB2B9 /* HostService.swift */; };
 		0EBCC2FF2EFB4774BA1F7246 /* ListingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6194B50F23543B7BD6ED9848 /* ListingsView.swift */; };
 		12EA0DED2C6797AC48D1955E /* PasswordStrengthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */; };
@@ -111,6 +112,7 @@
 		48C781C53A1BC070ED11E58D /* AITravelChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITravelChatView.swift; sourceTree = "<group>"; };
 		4CC0D0162466B929761D78FF /* TrustBadgesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustBadgesView.swift; sourceTree = "<group>"; };
 		4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateRangePicker.swift; sourceTree = "<group>"; };
+		4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryPicker.swift; sourceTree = "<group>"; };
 		506EE15822C05E6365572A9A /* BookingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingService.swift; sourceTree = "<group>"; };
 		60A0CCF74AC12A50E823919B /* Amenities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Amenities.swift; sourceTree = "<group>"; };
 		6194B50F23543B7BD6ED9848 /* ListingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsView.swift; sourceTree = "<group>"; };
@@ -151,7 +153,7 @@
 		DCE1D8CE6B16E466244F0371 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationPolicyView.swift; sourceTree = "<group>"; };
-		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostServicesSection.swift; sourceTree = "<group>"; };
 		E95CD96DE36FCFFCFE7DC874 /* NotificationPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPrimerView.swift; sourceTree = "<group>"; };
 		F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricEnableSheet.swift; sourceTree = "<group>"; };
@@ -199,6 +201,7 @@
 				DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */,
 				DCE1D8CE6B16E466244F0371 /* ChatView.swift */,
 				F60CD5546CCAB282408048FA /* Config.swift */,
+				4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */,
 				B16D2092FE03BE65262EC747 /* CurrencyManager.swift */,
 				4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */,
 				B10F92154FB10BCA232F64D2 /* DeepLinkRouter.swift */,
@@ -372,6 +375,7 @@
 				C77A7C8BDE913302E295DF7E /* CancellationPolicyView.swift in Sources */,
 				D9069263C88E3E5284662497 /* ChatView.swift in Sources */,
 				99F9AB654948C770E2BD4BA7 /* Config.swift in Sources */,
+				07402591A22528FEFB542306 /* CountryPicker.swift in Sources */,
 				88FEABF3EF1A2EC9C8F4E25F /* CurrencyManager.swift in Sources */,
 				957E7380E07B8CC3821D7BEA /* DateRangePicker.swift in Sources */,
 				6BA9B585F48EB169AD7AB94B /* DeepLinkRouter.swift in Sources */,
@@ -504,7 +508,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -582,7 +585,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

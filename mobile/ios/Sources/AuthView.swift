@@ -20,6 +20,9 @@ struct AuthView: View {
     @State private var role: AccountRole = .guest
     /// Optional referral code entered at signup, forwarded to OTP verification.
     @State private var referralCode = ""
+    /// Country the new user is from (English display name), sent with the
+    /// signup request. Optional — empty means "not provided".
+    @State private var country = ""
 
     /// Identifiable wrapper so the OTP email can drive a `fullScreenCover(item:)`.
     /// Carries an optional `referralCode` captured at signup so it survives the
@@ -280,6 +283,11 @@ struct AuthView: View {
             if isSignUp {
                 PasswordStrengthView(password: password)
                     .animation(.easeInOut(duration: 0.25), value: password.isEmpty)
+                CountryPickerField(
+                    selection: $country,
+                    title: loc.t("signup.country"),
+                    systemImage: "globe"
+                )
                 field(
                     title: loc.t("referral.signupField"),
                     text: $referralCode,
@@ -505,7 +513,7 @@ struct AuthView: View {
 
     private func submit() async {
         if isSignUp {
-            let outcome = await auth.signup(name: name, email: email, password: password, role: role)
+            let outcome = await auth.signup(name: name, email: email, password: password, role: role, country: country)
             await handle(outcome, session: nil)
             return
         }

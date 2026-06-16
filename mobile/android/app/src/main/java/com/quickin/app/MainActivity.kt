@@ -926,8 +926,8 @@ private fun MainApp() {
             state = profileSettingsState,
             onBack = { showProfileSettings = false },
             onLoad = profileSettingsViewModel::load,
-            onSave = { fullName, age, idDocument, phone, bio, avatarUrl ->
-                profileSettingsViewModel.save(fullName, age, idDocument, phone, bio, avatarUrl)
+            onSave = { fullName, age, idDocument, phone, bio, avatarUrl, country ->
+                profileSettingsViewModel.save(fullName, age, idDocument, phone, bio, avatarUrl, country)
             },
             onSavedAck = profileSettingsViewModel::acknowledgeSaved,
             onChangePassword = { current, next ->

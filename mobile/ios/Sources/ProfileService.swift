@@ -11,6 +11,9 @@ struct Profile: Codable, Equatable {
     var email: String?
     /// Free-text "about me" blurb shown under the name on the profile screen.
     var bio: String?
+    /// Country the user is from — stored as the English display name (matching
+    /// the web). `nil` when never set.
+    var country: String?
     /// Avatar source — either an `http(s)://` URL or an inline `data:image/jpeg;base64,…`
     /// data URL produced by the avatar picker. `nil` falls back to initials.
     var avatarURL: String?
@@ -21,7 +24,7 @@ struct Profile: Codable, Equatable {
     var verificationStatus: String
 
     enum CodingKeys: String, CodingKey {
-        case age, phone, email, bio
+        case age, phone, email, bio, country
         case fullName = "full_name"
         case idDocument = "id_document"
         case avatarURL = "avatar_url"
@@ -36,6 +39,7 @@ struct Profile: Codable, Equatable {
         phone = try c.decodeIfPresent(String.self, forKey: .phone)
         email = try c.decodeIfPresent(String.self, forKey: .email)
         bio = try c.decodeIfPresent(String.self, forKey: .bio)
+        country = try c.decodeIfPresent(String.self, forKey: .country)
         avatarURL = try c.decodeIfPresent(String.self, forKey: .avatarURL)
         verificationStatus = (try c.decodeIfPresent(String.self, forKey: .verificationStatus))
             .flatMap { $0.isEmpty ? nil : $0 } ?? "unverified"
@@ -50,6 +54,7 @@ struct Profile: Codable, Equatable {
         phone: String?,
         email: String?,
         bio: String?,
+        country: String? = nil,
         avatarURL: String?,
         verificationStatus: String = "unverified"
     ) {
@@ -59,6 +64,7 @@ struct Profile: Codable, Equatable {
         self.phone = phone
         self.email = email
         self.bio = bio
+        self.country = country
         self.avatarURL = avatarURL
         self.verificationStatus = verificationStatus
     }
@@ -69,7 +75,7 @@ struct Profile: Codable, Equatable {
 /// bearer token straight from `UserDefaults` under `AuthStore.tokenKey`.
 ///
 ///   GET   {base}/api/local/profile  (Bearer qk_token) → Profile
-///   PATCH {base}/api/local/profile  (Bearer qk_token) { full_name, age, id_document, phone, bio, avatar_url } → Profile
+///   PATCH {base}/api/local/profile  (Bearer qk_token) { full_name, age, id_document, phone, bio, country, avatar_url } → Profile
 struct ProfileService {
     static let shared = ProfileService()
 
@@ -122,6 +128,7 @@ struct ProfileService {
         idDocument: String,
         phone: String,
         bio: String,
+        country: String,
         avatarURL: String?
     ) async throws -> Profile {
         guard let token else { throw ProfileError.notSignedIn }
@@ -142,6 +149,8 @@ struct ProfileService {
         body["age"] = age ?? NSNull()
         // Send the bio as text, or explicit null once emptied.
         body["bio"] = bio.isEmpty ? NSNull() : bio
+        // Send the country (English display name) as text, or explicit null when cleared.
+        body["country"] = country.isEmpty ? NSNull() : country
         // Send the avatar (http URL or data: URL), or explicit null when removed.
         body["avatar_url"] = avatarURL ?? NSNull()
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -165,6 +174,7 @@ struct ProfileService {
             phone: phone,
             email: nil,
             bio: bio.isEmpty ? nil : bio,
+            country: country.isEmpty ? nil : country,
             avatarURL: avatarURL,
             verificationStatus: "unverified"
         )

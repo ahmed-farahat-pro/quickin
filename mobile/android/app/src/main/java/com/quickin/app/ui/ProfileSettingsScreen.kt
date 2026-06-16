@@ -93,7 +93,7 @@ fun ProfileSettingsScreen(
     state: ProfileSettingsUiState,
     onBack: () -> Unit,
     onLoad: () -> Unit,
-    onSave: (fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?) -> Unit,
+    onSave: (fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?, country: String) -> Unit,
     onSavedAck: () -> Unit,
     onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
     onPasswordChangedAck: () -> Unit
@@ -110,6 +110,9 @@ fun ProfileSettingsScreen(
     var idDocument by remember(state.profile) { mutableStateOf(state.profile.idDocument) }
     var phone by remember(state.profile) { mutableStateOf(state.profile.phone) }
     var bio by remember(state.profile) { mutableStateOf(state.profile.bio) }
+    // "Country you're from" — seeded from the loaded profile; the selected English display name is
+    // included in the PATCH body. Re-seeded whenever a fresh profile arrives.
+    var country by remember(state.profile) { mutableStateOf(state.profile.country) }
     // Avatar source to save: starts as the loaded avatar_url; replaced with a data URL when a new
     // photo is picked, or set to null when removed. Re-seeded whenever a fresh profile arrives.
     var avatarUrl by remember(state.profile) { mutableStateOf(state.profile.avatarUrl) }
@@ -210,6 +213,18 @@ fun ProfileSettingsScreen(
                         Icons.Filled.Phone,
                         keyboardType = KeyboardType.Phone
                     )
+                    // Country selector (same searchable dialog used at sign-up).
+                    CountrySelector(
+                        value = country,
+                        onSelect = { country = it },
+                        label = stringResource(R.string.settings_country),
+                        enabled = !state.isSaving
+                    )
+                    Text(
+                        stringResource(R.string.settings_country_hint),
+                        color = Muted,
+                        fontSize = 13.sp
+                    )
                     BioField(value = bio, onValueChange = { bio = it })
 
                     if (state.error != null) {
@@ -232,7 +247,7 @@ fun ProfileSettingsScreen(
                     GradientButton(
                         onClick = {
                             onSavedAck()
-                            onSave(fullName, age, idDocument, phone, bio, avatarUrl)
+                            onSave(fullName, age, idDocument, phone, bio, avatarUrl, country)
                         },
                         enabled = !state.isSaving,
                         pulse = !state.isSaving,

@@ -74,9 +74,9 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
     /**
      * Saves the edited fields. [age] is parsed leniently (blank/invalid -> omitted). [avatarUrl] is
      * the (possibly newly-picked) avatar source — an `http(s)` URL or a `data:image/...` data URL,
-     * or null to clear the photo.
+     * or null to clear the photo. [country] is the user's English country display name (blank clears it).
      */
-    fun save(fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?) {
+    fun save(fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?, country: String) {
         if (_state.value.isSaving) return
         val token = token() ?: run {
             _state.value = _state.value.copy(error = "Please sign in.")
@@ -92,7 +92,8 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                     idDocument = idDocument,
                     phone = phone,
                     bio = bio,
-                    avatarUrl = avatarUrl
+                    avatarUrl = avatarUrl,
+                    country = country
                 )
                 _state.value = _state.value.copy(
                     isSaving = false,

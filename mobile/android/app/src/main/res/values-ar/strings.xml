@@ -40,6 +40,10 @@
     <string name="auth_sign_up_toggle">حساب جديد</string>
     <string name="auth_create_account">إنشاء حساب</string>
     <string name="auth_full_name">الاسم الكامل</string>
+    <string name="signup_country">البلد الذي تنتمي إليه</string>
+    <string name="signup_country_select">اختر بلدك</string>
+    <string name="signup_country_search">ابحث عن البلدان…</string>
+    <string name="signup_country_none">لم يتم العثور على بلدان</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>
     <string name="auth_forgot_password">نسيت كلمة المرور؟</string>
@@ -117,6 +121,8 @@
     <string name="settings_age">العمر</string>
     <string name="settings_id_passport">رقم الهوية / جواز السفر</string>
     <string name="settings_phone">الهاتف</string>
+    <string name="settings_country">البلد</string>
+    <string name="settings_country_hint">البلد الذي تنتمي إليه. يساعد المضيفين على الترحيب بك.</string>
     <string name="settings_save_changes">حفظ التغييرات</string>
     <string name="settings_profile_saved">تم حفظ الملف الشخصي</string>
     <string name="settings_phone_private">رقم هاتفك خاص ولا يظهر للضيوف أبدًا.</string>

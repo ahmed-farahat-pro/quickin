@@ -99,11 +99,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Registers as [role] ("user" or "host") and moves to OTP verification. An optional
      * [referralCode] is remembered (not sent yet) and forwarded to `verify-otp` once the user
-     * confirms the emailed code, so a valid referrer gets credited.
+     * confirms the emailed code, so a valid referrer gets credited. An optional [country] (the
+     * user's English country display name) is sent with the sign-up request itself.
      */
-    fun signup(name: String, email: String, password: String, role: String, referralCode: String? = null) {
+    fun signup(
+        name: String,
+        email: String,
+        password: String,
+        role: String,
+        referralCode: String? = null,
+        country: String? = null
+    ) {
         pendingReferralCode = referralCode?.trim()?.takeUnless { it.isBlank() }
-        runOutcome { AuthService.signup(name.trim(), email.trim(), password, role) }
+        val signupCountry = country?.trim()?.takeUnless { it.isBlank() }
+        runOutcome { AuthService.signup(name.trim(), email.trim(), password, role, signupCountry) }
     }
 
     /** Verifies the 6-digit [code] for the pending email and completes login on success. */

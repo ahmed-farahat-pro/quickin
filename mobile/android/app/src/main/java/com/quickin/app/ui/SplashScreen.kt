@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Cream
+import com.quickin.app.ui.theme.CreamPage
 
 /**
  * Launch splash: the QuickIn logo zooms in from far/small to full size on a Cream
@@ -50,7 +51,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Cream),
+            .background(CreamPage),
         contentAlignment = Alignment.Center
     ) {
         Image(

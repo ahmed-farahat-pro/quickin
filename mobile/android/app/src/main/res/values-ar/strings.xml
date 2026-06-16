@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">كويك إن</string>
+
+    <!-- Bottom navigation tabs (guest) -->
+    <string name="tab_explore">استكشف</string>
+    <string name="tab_services">الخدمات</string>
+    <string name="tab_wishlist">المفضلة</string>
+    <string name="tab_trips">رحلاتي</string>
+    <string name="tab_profile">حسابي</string>
+    <!-- Bottom navigation tabs (host) -->
+    <string name="tab_listings">عقاراتي</string>
+    <string name="tab_reservations">الحجوزات</string>
+
+    <!-- Common actions / labels -->
+    <string name="action_search">بحث</string>
+    <string name="action_clear">مسح</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_save">حفظ</string>
+    <string name="action_confirm">تأكيد</string>
+    <string name="action_done">تم</string>
+    <string name="action_retry">إعادة المحاولة</string>
+    <string name="action_back">رجوع</string>
+    <string name="action_reject">رفض</string>
+    <string name="cd_back">رجوع</string>
+    <string name="cd_notifications">الإشعارات</string>
+    <string name="cd_save">الحفظ في المفضلة</string>
+    <string name="action_share">مشاركة</string>
+    <string name="cd_share">مشاركة</string>
+    <!-- Share-sheet subject/title: "{title} — QuickIn" -->
+    <string name="share_subject">%1$s — كويك إن</string>
+    <string name="share_chooser_title">مشاركة عبر</string>
+
+    <!-- Brand -->
+    <string name="brand_tagline">إقامات مميزة، احجزها بلمسة.</string>
+
+    <!-- Auth screen -->
+    <string name="auth_sign_in">تسجيل الدخول</string>
+    <string name="auth_sign_in_toggle">دخول</string>
+    <string name="auth_sign_up_toggle">حساب جديد</string>
+    <string name="auth_create_account">إنشاء حساب</string>
+    <string name="auth_full_name">الاسم الكامل</string>
+    <string name="auth_email">البريد الإلكتروني</string>
+    <string name="auth_password">كلمة المرور</string>
+    <string name="auth_forgot_password">نسيت كلمة المرور؟</string>
+    <string name="auth_continue_google">المتابعة عبر جوجل</string>
+    <string name="auth_or">أو</string>
+    <string name="auth_show_password">إظهار كلمة المرور</string>
+    <string name="auth_hide_password">إخفاء كلمة المرور</string>
+    <!-- مقياس قوة كلمة المرور المتحرك -->
+    <string name="pw_strength_label">قوة كلمة المرور</string>
+    <string name="pw_strength_weak">ضعيفة</string>
+    <string name="pw_strength_fair">مقبولة</string>
+    <string name="pw_strength_good">جيدة</string>
+    <string name="pw_strength_strong">قوية</string>
+    <string name="pw_rule_length">٨ أحرف على الأقل</string>
+    <string name="pw_rule_uppercase">حرف كبير</string>
+    <string name="pw_rule_lowercase">حرف صغير</string>
+    <string name="pw_rule_number">رقم</string>
+    <string name="pw_rule_special">رمز خاص</string>
+    <string name="cd_back_to_browsing">العودة للتصفح</string>
+    <string name="auth_google_not_configured">أضف معرّف عميل جوجل في Config.kt لتفعيل تسجيل الدخول عبر جوجل</string>
+
+    <!-- تسجيل الدخول بالبصمة / الوجه -->
+    <string name="auth_biometric_login">سجّل الدخول ببصمة الإصبع أو الوجه</string>
+    <string name="biometric_prompt_title">تسجيل الدخول إلى كويك إن</string>
+    <string name="biometric_prompt_subtitle">أكّد بصمة إصبعك أو وجهك للمتابعة.</string>
+    <string name="biometric_use_password">استخدم كلمة المرور</string>
+    <string name="biometric_enable_title">تفعيل الدخول بالبصمة؟</string>
+    <string name="biometric_enable_message">في المرة القادمة، سجّل الدخول فورًا ببصمة إصبعك أو وجهك — دون كلمة مرور.</string>
+    <string name="biometric_enable_confirm">تفعيل</string>
+    <string name="biometric_enable_dismiss">ليس الآن</string>
+
+    <!-- Role selector -->
+    <string name="role_i_want_to">أريد أن…</string>
+    <string name="role_register_guest">التسجيل كضيف</string>
+    <string name="role_register_host">التسجيل كمضيف</string>
+    <string name="role_signin_guest">الدخول كضيف</string>
+    <string name="role_signin_host">الدخول كمضيف</string>
+    <string name="role_hosts_caption">المضيفون يعرضون الإقامات ويديرونها.</string>
+    <string name="role_guests_caption">الضيوف يتصفحون الإقامات ويحجزونها.</string>
+
+    <!-- OTP screen -->
+    <string name="otp_verify_email">تأكيد بريدك الإلكتروني</string>
+    <string name="otp_prompt">أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه</string>
+    <string name="otp_prompt_to">أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى %1$s.</string>
+    <string name="otp_prompt_plain">أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه.</string>
+    <string name="otp_code_label">الرمز المكوّن من 6 أرقام</string>
+    <string name="otp_verify">تأكيد</string>
+    <string name="otp_resend">إعادة إرسال الرمز</string>
+    <string name="cd_back_to_sign_in">العودة لتسجيل الدخول</string>
+
+    <!-- Profile screen -->
+    <string name="profile_guest">ضيف</string>
+    <string name="profile_host">مضيف</string>
+    <string name="profile_account">الحساب</string>
+    <string name="profile_hosting">الاستضافة</string>
+    <string name="profile_edit_profile">تعديل الملف الشخصي</string>
+    <string name="profile_edit_profile_sub">الاسم والعمر والهوية والهاتف</string>
+    <string name="profile_my_subscriptions">اشتراكاتي</string>
+    <string name="profile_my_subscriptions_sub">طلبات التجارب الخاصة بك</string>
+    <string name="profile_host_dashboard">لوحة المضيف</string>
+    <string name="profile_host_dashboard_sub">العقارات وطلبات الحجز</string>
+    <string name="profile_host_services">خدمات المضيف</string>
+    <string name="profile_host_services_sub">التجارب والاشتراكات</string>
+    <string name="profile_log_out">تسجيل الخروج</string>
+    <string name="profile_language">اللغة</string>
+
+    <!-- Profile sign-in CTA -->
+    <string name="profile_cta_title">سجّل الدخول لإدارة رحلاتك</string>
+    <string name="profile_cta_subtitle">احفظ المفضلة، واحجز الإقامات، وتابع حجوزاتك.</string>
+    <string name="profile_cta_button">تسجيل الدخول أو إنشاء حساب</string>
+
+    <!-- Profile settings -->
+    <string name="settings_loading">جارٍ تحميل ملفك الشخصي…</string>
+    <string name="settings_full_name">الاسم الكامل</string>
+    <string name="settings_age">العمر</string>
+    <string name="settings_id_passport">رقم الهوية / جواز السفر</string>
+    <string name="settings_phone">الهاتف</string>
+    <string name="settings_save_changes">حفظ التغييرات</string>
+    <string name="settings_profile_saved">تم حفظ الملف الشخصي</string>
+    <string name="settings_phone_private">رقم هاتفك خاص ولا يظهر للضيوف أبدًا.</string>
+    <string name="settings_change_password">تغيير كلمة المرور</string>
+    <string name="settings_password_caption">استخدم 6 أحرف على الأقل.</string>
+    <string name="settings_current_password">كلمة المرور الحالية</string>
+    <string name="settings_new_password">كلمة المرور الجديدة</string>
+    <string name="settings_update_password">تحديث كلمة المرور</string>
+    <string name="settings_password_updated">تم تحديث كلمة المرور</string>
+
+    <!-- Profile photo &amp; bio -->
+    <string name="account_photo">صورة الملف الشخصي</string>
+    <string name="account_change_photo">تغيير الصورة</string>
+    <string name="account_add_photo">إضافة صورة</string>
+    <string name="account_remove_photo">إزالة الصورة</string>
+    <string name="account_bio">نبذة</string>
+    <string name="account_bio_hint">عرّف الضيوف قليلًا عن نفسك</string>
+    <string name="account_photo_desc">صورة ملفك الشخصي</string>
+
+    <!-- Listings / Explore -->
+    <string name="explore_log_in">دخول</string>
+    <string name="hero_eyebrow">الساحل الشمالي · مصر</string>
+    <string name="hero_title">اكتشف إقامتك المميزة</string>
+    <string name="explore_no_stays">لا توجد إقامات بعد.</string>
+    <string name="explore_nothing_to_show">لا يوجد ما يُعرض بعد</string>
+    <string name="search_where_to">إلى أين؟</string>
+    <string name="search_search_stays">ابحث عن إقامات</string>
+    <string name="search_anytime">أي وقت</string>
+    <string name="search_dates_selected">تم تحديد التواريخ</string>
+    <string name="search_any_guests">أي عدد ضيوف</string>
+    <string name="search_guests">الضيوف</string>
+    <string name="search_one_guest">ضيف واحد</string>
+    <string name="search_many_guests">%1$d ضيوف</string>
+    <string name="search_collapse">طيّ البحث</string>
+    <string name="search_expand">توسيع البحث</string>
+    <string name="search_add_dates">إضافة تواريخ</string>
+    <string name="search_add_checkout">إضافة تاريخ المغادرة</string>
+    <string name="search_summary">%1$s · %2$s</string>
+    <string name="filter_all">الكل</string>
+    <string name="view_list">قائمة</string>
+    <string name="view_map">خريطة</string>
+    <string name="listing_guest_favorite">المفضّل لدى الضيوف</string>
+    <string name="listing_per_night"> / الليلة</string>
+    <string name="listing_new">جديد</string>
+
+    <!-- Sort labels -->
+    <string name="sort_recommended">المُقترح</string>
+    <string name="sort_price_low">السعر ↑</string>
+    <string name="sort_price_high">السعر ↓</string>
+    <string name="sort_newest">الأحدث</string>
+
+    <!-- Discovery filters (amenities + property type) -->
+    <string name="filters_title">عوامل التصفية</string>
+    <string name="filters_button">تصفية</string>
+    <string name="filters_amenities">المرافق</string>
+    <string name="filters_property_type">نوع العقار</string>
+    <string name="filters_any_type">أي نوع</string>
+    <string name="filters_clear">مسح الكل</string>
+    <string name="filters_apply">عرض الإقامات</string>
+    <string name="filters_search_this_area">ابحث في هذه المنطقة</string>
+    <string name="cd_filters">فتح عوامل التصفية</string>
+    <string name="cd_close">إغلاق</string>
+
+    <!-- Property type labels (the canonical English value is still sent to the API) -->
+    <string name="property_type_apartment">شقة</string>
+    <string name="property_type_chalet">شاليه</string>
+    <string name="property_type_house">منزل</string>
+    <string name="property_type_villa">فيلا</string>
+
+    <!-- Amenity labels (the canonical English value is still sent to the API) -->
+    <string name="amenity_wifi">واي فاي</string>
+    <string name="amenity_pool">مسبح</string>
+    <string name="amenity_kitchen">مطبخ</string>
+    <string name="amenity_air_conditioning">تكييف</string>
+    <string name="amenity_free_parking">موقف مجاني</string>
+    <string name="amenity_washer">غسالة</string>
+    <string name="amenity_tv">تلفزيون</string>
+    <string name="amenity_heating">تدفئة</string>
+    <string name="amenity_workspace">مساحة عمل</string>
+    <string name="amenity_gym">صالة رياضية</string>
+    <string name="amenity_beach_access">منفذ إلى الشاطئ</string>
+    <string name="amenity_pets_allowed">يُسمح بالحيوانات الأليفة</string>
+    <string name="amenity_hot_tub">جاكوزي</string>
+    <string name="amenity_bbq_grill">شواية</string>
+    <string name="amenity_breakfast">إفطار</string>
+
+    <!-- Listing detail -->
+    <string name="detail_about_place">عن هذا المكان</string>
+    <string name="detail_what_offers">ما يوفره هذا المكان</string>
+    <string name="detail_guests">ضيوف</string>
+    <string name="detail_bedrooms">غرف نوم</string>
+    <string name="detail_beds">أسرّة</string>
+    <string name="detail_baths">حمّامات</string>
+    <string name="detail_check_in">الوصول</string>
+    <string name="detail_check_out">المغادرة</string>
+    <string name="detail_add">إضافة</string>
+    <string name="detail_select_dates">اختر تواريخك</string>
+    <string name="detail_nights">%1$s × %2$d ليلة</string>
+    <string name="detail_reserve">احجز</string>
+    <string name="detail_sign_in_to_reserve">سجّل الدخول للحجز</string>
+    <string name="detail_request_sent">تم إرسال الطلب</string>
+    <string name="detail_waiting_host_stay">في انتظار تأكيد المضيف لإقامتك في %1$s.</string>
+    <string name="detail_total">الإجمالي</string>
+    <string name="detail_booking_summary">%1$s → %2$s · %3$d ضيوف</string>
+    <string name="detail_hosted_by">يستضيفها %1$s</string>
+    <string name="detail_more_from_host">المزيد من هذا المضيف</string>
+
+    <!-- Payment (MOCK — no real gateway yet) -->
+    <string name="pay_title">التأكيد والدفع</string>
+    <string name="pay_subtitle">راجع الإجمالي وادفع لتأكيد حجزك.</string>
+    <string name="pay_nights_count">%1$d ليالٍ</string>
+    <string name="pay_service_fee">رسوم الخدمة (10%%)</string>
+    <string name="pay_button">ادفع %1$s ج.م</string>
+    <string name="pay_demo_note">دفع تجريبي — بدون أي خصم فعلي</string>
+    <string name="pay_card_demo">بطاقة تجريبية</string>
+    <string name="pay_processing">جارٍ المعالجة…</string>
+    <string name="pay_confirmed_title">تم تأكيد الحجز والدفع</string>
+    <string name="pay_reference">الرقم المرجعي</string>
+    <string name="pay_now">ادفع الآن</string>
+    <!-- Payment method selector + signed fee lines -->
+    <string name="pay_method_card">بطاقة (+5%%)</string>
+    <string name="pay_method_bank">تحويل بنكي (−5%%)</string>
+    <string name="pay_card_surcharge">رسوم البطاقة (5%%)</string>
+    <string name="pay_bank_discount">خصم التحويل البنكي (5%%)</string>
+
+    <!-- Services -->
+    <string name="services_title">الخدمات</string>
+    <string name="services_no_experiences">لا توجد تجارب بعد</string>
+    <string name="services_check_back">تابعنا قريبًا لمزيد من الأنشطة.</string>
+    <string name="services_by">بواسطة %1$s</string>
+    <string name="services_hosted_by">يستضيفها %1$s</string>
+    <string name="services_per_experience"> / التجربة</string>
+    <string name="services_about">عن هذه التجربة</string>
+    <string name="services_note_optional">ملاحظة للمضيف (اختياري)</string>
+    <string name="services_subscribe">اشترك</string>
+    <string name="services_sign_in_to_subscribe">سجّل الدخول للاشتراك</string>
+    <string name="services_waiting_host_booking">في انتظار تأكيد المضيف لحجزك في %1$s.</string>
+    <string name="services_price">السعر</string>
+
+    <!-- Reservations (guest "Trips") -->
+    <string name="reservations_title">حجوزاتي</string>
+    <string name="reservations_sign_in_title">سجّل الدخول لعرض حجوزاتك</string>
+    <string name="reservations_sign_in_subtitle">ستظهر إقاماتك المحجوزة هنا.</string>
+    <string name="reservations_load_error">تعذّر تحميل الحجوزات</string>
+    <string name="reservations_empty_title">لا توجد حجوزات بعد</string>
+    <string name="reservations_empty_subtitle">اعثر على إقامة تعجبك واحجزها — وستظهر هنا.</string>
+    <string name="reservations_guests">%1$d ضيوف</string>
+
+    <!-- Reservation detail -->
+    <string name="reservation_title">الحجز</string>
+    <string name="reservation_loading">جارٍ تحميل حجزك…</string>
+    <string name="reservation_load_error">تعذّر تحميل الحجز</string>
+    <string name="reservation_code_label">رمز الحجز</string>
+    <string name="reservation_dates">التواريخ</string>
+    <string name="reservation_guests_label">الضيوف</string>
+    <string name="reservation_messages">الرسائل</string>
+    <string name="reservation_show_qr">اعرض رمز QR هذا عند تسجيل الوصول.</string>
+    <string name="reservation_no_code">لا يوجد رمز</string>
+    <string name="reservation_scan_or_tap">امسح الرمز أو اضغط لفتح بطاقة إقامتك</string>
+    <string name="cd_stay_pass_qr">رمز QR لبطاقة الإقامة</string>
+    <!-- From your host (notes) -->
+    <string name="reservation_from_host">من مضيفك</string>
+    <string name="reservation_host_notes_hint">أضف ملاحظات لضيفك — تفاصيل الوصول، الواي فاي، قواعد المنزل…</string>
+    <string name="reservation_save_notes">حفظ الملاحظات</string>
+
+    <!-- Reviews -->
+    <string name="reviews_title">التقييمات</string>
+    <string name="reviews_loading">جارٍ تحميل التقييمات…</string>
+    <string name="reviews_empty">لا توجد تقييمات بعد — كن أول من يقيّم بعد الإقامة.</string>
+    <plurals name="reviews_count">
+        <item quantity="zero">%1$d تقييم</item>
+        <item quantity="one">تقييم واحد</item>
+        <item quantity="two">تقييمان</item>
+        <item quantity="few">%1$d تقييمات</item>
+        <item quantity="many">%1$d تقييمًا</item>
+        <item quantity="other">%1$d تقييم</item>
+    </plurals>
+
+    <!-- Leave a review -->
+    <string name="review_leave">اكتب تقييمًا</string>
+    <string name="review_dialog_title">اكتب تقييمًا</string>
+    <string name="review_dialog_subtitle">كيف كانت إقامتك في %1$s؟</string>
+    <string name="review_comment_label">شارك القليل عن إقامتك (اختياري)</string>
+    <string name="review_submit">إرسال التقييم</string>
+    <string name="review_thanks_title">شكرًا على تقييمك</string>
+    <string name="review_thanks_subtitle">ملاحظاتك تساعد الضيوف الآخرين في العثور على إقامات رائعة.</string>
+
+    <!-- Review photos -->
+    <string name="reviews_add_photos">إضافة صور</string>
+    <string name="reviews_photos">الصور</string>
+    <string name="reviews_photo_limit">يمكنك إضافة حتى 6 صور.</string>
+    <string name="reviews_remove_photo">إزالة الصورة</string>
+    <string name="reviews_photo_desc">صورة التقييم</string>
+
+    <!-- Two-way reviews: host → guest -->
+    <string name="reviews_review_guests">تقييم الضيوف</string>
+    <string name="reviews_review_guests_sub">قيّم ضيوف إقاماتك السابقة</string>
+    <string name="reviews_review_guest_title">قيّم ضيفك</string>
+    <string name="reviews_review_guest_subtitle">كيف كانت استضافة %1$s؟</string>
+    <string name="reviews_no_reviewable_guests">لا يوجد ضيوف للتقييم حاليًا.</string>
+    <string name="reviews_reviewable_guests_loading">جارٍ تحميل ضيوفك…</string>
+    <string name="reviews_your_rating">تقييمك</string>
+    <string name="reviews_submit">إرسال</string>
+    <string name="reviews_guest_label">ضيف</string>
+
+    <!-- Two-way reviews: reviews about you (on your profile) -->
+    <string name="reviews_about_you">تقييمات عنك</string>
+    <string name="reviews_guest_rating">%1$s · %2$d تقييمات</string>
+    <string name="reviews_no_guest_reviews">لا توجد تقييمات من المضيفين بعد.</string>
+
+    <!-- Wishlist / Saved -->
+    <string name="profile_saved">المحفوظات</string>
+    <string name="profile_saved_sub">إقاماتك وتجاربك المحفوظة</string>
+    <string name="wishlist_title">المحفوظات</string>
+    <string name="wishlist_eyebrow">قائمة رغباتك</string>
+    <string name="wishlist_stays">الإقامات المحفوظة</string>
+    <string name="wishlist_experiences">التجارب المحفوظة</string>
+    <string name="wishlist_loading">جارٍ تحميل العناصر المحفوظة…</string>
+    <string name="wishlist_empty_title">لا يوجد محفوظات بعد</string>
+    <string name="wishlist_empty_subtitle">اضغط على القلب في أي إقامة أو تجربة لحفظها هنا.</string>
+    <string name="wishlist_sign_in">سجّل الدخول لحفظ المفضلة لديك.</string>
+
+    <!-- Push notifications (FCM) -->
+    <string name="notif_channel_name">الإشعارات</string>
+    <string name="notif_channel_desc">تحديثات الحجوزات والرسائل والتذكيرات</string>
+
+    <!-- AI travel concierge -->
+    <string name="ai_title">مرشد السفر</string>
+    <string name="ai_subtitle">دليلك الذكي للإقامات المميزة في مصر</string>
+    <string name="ai_greeting">مرحبًا! أنا مرشد السفر الخاص بك. اسألني أين تذهب، وأفضل وقت للزيارة، أو ماذا تفعل — وسأساعدك في التخطيط لرحلة مثالية.</string>
+    <string name="ai_input_placeholder">اسأل أي شيء عن رحلتك…</string>
+    <string name="ai_send">إرسال</string>
+    <string name="ai_suggest_beach">أفضل شاطئ لعطلة هادئة؟</string>
+    <string name="ai_suggest_summer">أين أذهب في الصيف؟</string>
+    <string name="ai_suggest_family">أفكار لرحلة عائلية</string>
+    <string name="ai_suggest_dive">أين يمكنني الغوص؟</string>
+    <string name="ai_error">المساعد الذكي غير متاح حاليًا. يرجى المحاولة مرة أخرى.</string>
+    <string name="cd_ask_ai">اسأل مرشد السفر الذكي</string>
+    <string name="cd_ai_close">إغلاق المرشد</string>
+
+    <!-- Availability (live booked/blocked days + host calendar manager) -->
+    <string name="availability_unavailable">غير متاح</string>
+    <string name="availability_range_unavailable">بعض هذه الليالي محجوزة أو محظورة بالفعل. اختر فترة أخرى.</string>
+    <string name="availability_manage">إدارة الإتاحة</string>
+    <string name="availability_manage_subtitle">احظر التواريخ التي يكون فيها مكانك غير متاح. تظهر الحجوزات أدناه ولا يمكن إزالتها.</string>
+    <string name="availability_pick_range">اختر فترة تواريخ لحظرها</string>
+    <string name="availability_block_dates">حظر التواريخ</string>
+    <string name="availability_add_block">إضافة حظر</string>
+    <string name="availability_blocked">التواريخ المحظورة</string>
+    <string name="availability_booked">الحجوزات</string>
+    <string name="availability_remove">إزالة</string>
+    <string name="availability_no_blocks">لا توجد تواريخ محظورة بعد.</string>
+    <string name="availability_note_optional">ملاحظة (اختياري)</string>
+    <string name="availability_loading">جارٍ تحميل الإتاحة…</string>
+
+    <!-- Cancellation policy (host-set per listing) + guest cancel with refund -->
+    <string name="cancel_policy">سياسة الإلغاء</string>
+    <string name="cancel_policy_label">سياسة الإلغاء</string>
+    <string name="cancel_policy_choose">اختر كيف يمكن للضيوف الإلغاء</string>
+    <string name="cancel_flexible">مرنة</string>
+    <string name="cancel_flexible_desc">استرداد كامل عند الإلغاء قبل تسجيل الوصول بيوم واحد على الأقل، وإلا فلا يوجد استرداد.</string>
+    <string name="cancel_moderate">معتدلة</string>
+    <string name="cancel_moderate_desc">استرداد كامل عند الإلغاء قبل تسجيل الوصول بـ ٥ أيام على الأقل، وإلا فاسترداد ٥٠٪.</string>
+    <string name="cancel_strict">صارمة</string>
+    <string name="cancel_strict_desc">استرداد ٥٠٪ عند الإلغاء قبل تسجيل الوصول بـ ٧ أيام على الأقل، وإلا فلا يوجد استرداد.</string>
+    <string name="cancel_policy_save">حفظ السياسة</string>
+    <string name="cancel_policy_saved">تم تحديث سياسة الإلغاء.</string>
+    <string name="cancel_reservation">إلغاء الحجز</string>
+    <string name="cancel_refund_quote">ملخص الاسترداد</string>
+    <string name="cancel_refund_amount">ستسترد %1$s من %2$s (%3$d%%).</string>
+    <string name="cancel_refund_days">%1$d يوم حتى تسجيل الوصول · سياسة %2$s</string>
+    <string name="cancel_confirm">إلغاء الحجز</string>
+    <string name="cancel_keep">الاحتفاظ بالحجز</string>
+    <string name="cancel_cancelled">تم إلغاء الحجز</string>
+    <string name="cancel_refunded">تم استرداد %1$s (%2$d%%)</string>
+    <string name="cancel_no_refund">لا ينطبق أي استرداد بموجب هذه السياسة.</string>
+    <string name="cancel_loading_quote">جارٍ حساب الاسترداد…</string>
+
+    <!-- Listing approval (ownership doc + moderation status on the host's own listings) -->
+    <string name="approval_pending">قيد المراجعة</string>
+    <string name="approval_approved">تمت الموافقة</string>
+    <string name="approval_rejected">مرفوض</string>
+    <string name="approval_ownership_doc">مستند الملكية</string>
+    <string name="approval_ownership_intro">ارفع ما يثبت ملكيتك أو إدارتك لهذا المكان (مثل عقد الملكية أو فاتورة مرافق أو عقد). سنراجعه قبل نشر إعلانك.</string>
+    <string name="approval_upload_doc">رفع المستند</string>
+    <string name="approval_doc_attached">تم إرفاق المستند</string>
+    <string name="approval_reupload">إعادة رفع مستند الملكية</string>
+    <string name="approval_submitted_for_review">تم الإرسال للمراجعة</string>
+    <string name="approval_pending_note">إعلانك قيد المراجعة وغير متاح للعامة بعد. سنُعلمك بمجرد الموافقة عليه.</string>
+    <string name="approval_rejected_note">تم رفض مستند الملكية. أعد رفعه لإرسال إعلانك للمراجعة مرة أخرى.</string>
+    <string name="approval_doc_resubmitted">تم إرسال المستند. إعلانك قيد المراجعة مرة أخرى.</string>
+
+    <!-- Trust & Safety: identity verification (Profile tab) -->
+    <string name="trust_verify">وثّق هويتك</string>
+    <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة من هويتك الرسمية وسنراجعها قريبًا.</string>
+    <string name="trust_status_unverified">غير موثّق</string>
+    <string name="trust_status_pending">قيد المراجعة</string>
+    <string name="trust_status_verified">تم توثيق الهوية</string>
+    <string name="trust_status_rejected">تم رفض التوثيق</string>
+    <string name="trust_upload_id">ارفع صورة الهوية</string>
+    <string name="trust_pending_note">نراجع هويتك الآن. عادةً ما يستغرق ذلك بعض الوقت.</string>
+    <string name="trust_verified_note">تم توثيق هويتك. يمكن للضيوف والمضيفين رؤية شارة التوثيق الخاصة بك.</string>
+    <string name="trust_rejected_note">تعذّر علينا توثيق طلبك السابق. يرجى رفع صورة أوضح لهويتك.</string>
+    <string name="trust_submit">إرسال للمراجعة</string>
+    <string name="trust_error">حدث خطأ ما. يرجى المحاولة مرة أخرى.</string>
+
+    <!-- Trust & Safety: badges (listing detail "Hosted by") -->
+    <string name="badge_verified">موثّق</string>
+    <string name="badge_superhost">مضيف متميّز</string>
+    <string name="badge_new_host">مضيف جديد</string>
+
+    <!-- Trust & Safety: reporting a listing (listing detail) -->
+    <string name="report_report">الإبلاغ عن هذا الإعلان</string>
+    <string name="report_reason">ما سبب الإبلاغ؟</string>
+    <string name="report_reason_inaccurate">إعلان غير دقيق</string>
+    <string name="report_reason_scam">احتيال أو نصب</string>
+    <string name="report_reason_offensive">محتوى مسيء</string>
+    <string name="report_reason_other">سبب آخر</string>
+    <string name="report_details">أضف تفاصيل (اختياري)</string>
+    <string name="report_submit">إرسال البلاغ</string>
+    <string name="report_thanks">شكرًا لإبلاغنا. سيقوم فريقنا بمراجعة ذلك.</string>
+    <string name="report_sign_in">يرجى تسجيل الدخول للإبلاغ عن هذا الإعلان.</string>
+
+    <!-- Growth: length-of-stay discounts (host-set per listing) -->
+    <string name="growth_discounts_title">خصومات الإقامات الطويلة</string>
+    <string name="growth_discounts_intro">كافئ الإقامات الأطول. حدّد نسبة خصم للحجوزات الأسبوعية والشهرية.</string>
+    <string name="growth_weekly_discount">خصم أسبوعي (7 ليالٍ فأكثر)</string>
+    <string name="growth_monthly_discount">خصم شهري (28 ليلة فأكثر)</string>
+    <string name="growth_discount_off">أسبوعي −%1$d%% · شهري −%2$d%%</string>
+    <string name="growth_discount_weekly_off">أسبوعي −%1$d%%</string>
+    <string name="growth_discount_monthly_off">شهري −%1$d%%</string>
+    <string name="growth_discounts_saved">تم تحديث الخصومات.</string>
+    <string name="growth_save">حفظ</string>
+
+    <!-- Growth: promo codes (checkout) -->
+    <string name="promo_code">رمز ترويجي</string>
+    <string name="promo_have_code">لديك رمز ترويجي؟</string>
+    <string name="promo_apply">تطبيق</string>
+    <string name="promo_applied">تم تطبيق الرمز</string>
+    <string name="promo_invalid">هذا الرمز غير صالح.</string>
+    <string name="promo_discount">خصم الرمز الترويجي</string>
+    <string name="promo_remove">إزالة</string>
+
+    <!-- Growth: referrals (Profile tab + signup) -->
+    <string name="referral_title">دعوة الأصدقاء</string>
+    <string name="referral_intro">شارك رمزك. عندما يسجّل صديق باستخدامه، تحصلان كلاكما على مكافأة.</string>
+    <string name="referral_your_code">رمز الإحالة الخاص بك</string>
+    <string name="referral_copy">نسخ الرمز</string>
+    <string name="referral_copied">تم نسخ الرمز</string>
+    <string name="referral_share">مشاركة</string>
+    <string name="referral_invited">الأصدقاء المُحالون</string>
+    <string name="referral_reward">المكافآت المكتسبة</string>
+    <string name="referral_invited_list">الأصدقاء الذين أحَلتهم</string>
+    <string name="referral_none">لا توجد إحالات بعد. شارك رمزك للبدء.</string>
+    <string name="referral_loading">جارٍ تحميل إحالاتك…</string>
+    <string name="referral_error">تعذّر تحميل إحالاتك.</string>
+    <string name="referral_signup_field">رمز الإحالة (اختياري)</string>
+    <string name="referral_share_message">انضم إليّ على QuickIn! استخدم رمز الإحالة %1$s عند التسجيل.</string>
+
+    <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
+    <string name="money_earnings">الأرباح</string>
+    <string name="money_earnings_sub">أرباحك والمدفوعات والرصيد المعلّق</string>
+    <string name="money_total_earned">إجمالي الأرباح</string>
+    <string name="money_paid_out">المبالغ المدفوعة</string>
+    <string name="money_pending">قيد الانتظار</string>
+    <string name="money_bookings">الحجوزات</string>
+    <string name="money_payouts">المدفوعات</string>
+    <string name="money_gross">دفع الضيف</string>
+    <string name="money_net">صافي ربحك</string>
+    <string name="money_commission_note">عمولة المنصّة: %1$s</string>
+    <string name="money_loading_earnings">جارٍ تحميل أرباحك…</string>
+    <string name="money_earnings_error">تعذّر تحميل أرباحك</string>
+    <string name="money_no_earnings">لا توجد أرباح بعد. ستظهر هنا بمجرّد أن يدفع الضيوف مقابل الإقامات.</string>
+    <string name="money_receipts">الإيصالات</string>
+    <string name="money_receipts_sub">إيصالات الدفع المفصّلة الخاصة بك</string>
+    <string name="money_receipt">إيصال</string>
+    <string name="money_subtotal">المجموع الفرعي</string>
+    <string name="money_service_fee">رسوم الخدمة</string>
+    <string name="money_method_fee">رسوم طريقة الدفع</string>
+    <string name="money_promo_discount">خصم الرمز الترويجي</string>
+    <string name="money_total">الإجمالي</string>
+    <string name="money_paid_on">تم الدفع في %1$s</string>
+    <string name="money_loading_receipts">جارٍ تحميل إيصالاتك…</string>
+    <string name="money_receipts_error">تعذّر تحميل إيصالاتك</string>
+    <string name="money_no_receipts">لا توجد إيصالات بعد. ستظهر هنا إقاماتك المدفوعة.</string>
+    <string name="money_status_paid_out">مدفوعة</string>
+    <string name="money_status_upcoming">قادمة</string>
+    <string name="money_currency">العملة</string>
+    <string name="money_display_currency">عملة العرض</string>
+    <string name="money_pay">ادفع %1$s</string>
+
+    <!-- القسم 10 — كاتب الوصف بالذكاء الاصطناعي + البحث بالّلغة الطبيعية + تحليلات المضيف -->
+    <!-- كاتب وصف الإعلان بالذكاء الاصطناعي (نموذج إضافة إعلان) -->
+    <string name="ai_write_with_ai">اكتب بالذكاء الاصطناعي</string>
+    <string name="ai_writing">جارٍ الكتابة…</string>
+    <string name="add_description">الوصف</string>
+    <string name="add_basics_hint">امنح مكانك عنوانًا جذابًا واختر نوع العقار، ثم دع الذكاء الاصطناعي يكتب الوصف. العنوان مطلوب.</string>
+    <!-- البحث باللغة الطبيعية (استكشاف) -->
+    <string name="ai_search">اسأل الذكاء الاصطناعي</string>
+    <string name="ai_search_placeholder">جرّب: فيلا على البحر لـ 6 أشخاص بمسبح بأقل من 4000</string>
+    <string name="ai_searching">جارٍ البحث بالذكاء الاصطناعي…</string>
+    <string name="ai_search_clear">مسح بحث الذكاء الاصطناعي</string>
+    <string name="ai_parsed_filters">كيف فهمنا بحثك</string>
+    <string name="ai_filter_min_price">من %1$s</string>
+    <string name="ai_filter_max_price">حتى %1$s</string>
+    <!-- لوحة تحليلات المضيف -->
+    <string name="analytics_title">التحليلات</string>
+    <string name="analytics_sub">الحجوزات والإيرادات والتقييم والاتجاهات</string>
+    <string name="analytics_listings">الإعلانات</string>
+    <string name="analytics_bookings">إجمالي الحجوزات</string>
+    <string name="analytics_paid_bookings">الحجوزات المدفوعة</string>
+    <string name="analytics_revenue">الإيرادات</string>
+    <string name="analytics_avg_rating">متوسط التقييم</string>
+    <string name="analytics_conversion">معدل التحويل</string>
+    <string name="analytics_monthly_trend">الاتجاه الشهري</string>
+    <string name="analytics_top_listings">أفضل الإعلانات</string>
+    <string name="analytics_bookings_count">%1$d حجوزات</string>
+    <string name="analytics_no_data">لا توجد بيانات بعد.</string>
+    <string name="analytics_loading">جارٍ تحميل تحليلاتك…</string>
+    <string name="analytics_error">تعذّر تحميل تحليلاتك</string>
+    <string name="analytics_empty">لا توجد تحليلات بعد. بمجرد توفّر إعلانات وحجوزات، سيظهر أداؤك هنا.</string>
+</resources>

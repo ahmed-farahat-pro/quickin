@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "604770227577",
+    "project_id": "quickin-4baea",
+    "storage_bucket": "quickin-4baea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:604770227577:android:c3f6aaf6b023afcdf94ba8",
+        "android_client_info": {
+          "package_name": "com.quickin.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCeBUMENoySgOADwuqxWWSfK_OlQ_Rjn8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

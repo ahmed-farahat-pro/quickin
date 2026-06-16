@@ -33,6 +33,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.quickin.app.AvailabilityRange
+import com.quickin.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
+import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
@@ -59,6 +63,9 @@ import java.util.Locale
  *
  * @param initialCheckIn pre-selected check-in as "yyyy-MM-dd", or null.
  * @param initialCheckOut pre-selected check-out as "yyyy-MM-dd", or null.
+ * @param unavailableRanges booked + host-blocked spans for this listing. Each span is half-open
+ *   `[start, end)` (the checkout day is free again); a day is greyed out + unselectable when it
+ *   falls in any span, and a check-in → check-out range that straddles such a span is rejected.
  * @param onApply called with the chosen range (yyyy-MM-dd strings, or nulls) and dismisses.
  * @param onDismiss called when the sheet is dismissed without applying.
  */
@@ -67,11 +74,25 @@ import java.util.Locale
 fun DateRangePickerSheet(
     initialCheckIn: String?,
     initialCheckOut: String?,
+    unavailableRanges: List<AvailabilityRange> = emptyList(),
     onApply: (checkIn: String?, checkOut: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val today = remember { LocalDate.now() }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Pre-parse the unavailable spans into LocalDate pairs once. A day is blocked when
+    // start <= day < end (half-open).
+    val blockedSpans = remember(unavailableRanges) {
+        unavailableRanges.mapNotNull { r ->
+            val s = parseLocalDate(r.start) ?: return@mapNotNull null
+            val e = parseLocalDate(r.end) ?: return@mapNotNull null
+            if (e.isAfter(s)) s to e else null
+        }
+    }
+    val isUnavailable: (LocalDate) -> Boolean = remember(blockedSpans) {
+        { day -> blockedSpans.any { (s, e) -> !day.isBefore(s) && day.isBefore(e) } }
+    }
 
     var start by remember { mutableStateOf(parseLocalDate(initialCheckIn)) }
     var end by remember { mutableStateOf(parseLocalDate(initialCheckOut)) }
@@ -84,7 +105,7 @@ fun DateRangePickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Cream,
+        containerColor = CreamPage,
         contentColor = Ink
     ) {
         Column(
@@ -93,6 +114,20 @@ fun DateRangePickerSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp)
         ) {
+            // A small branded title so the sheet reads as a premium, deliberate calendar.
+            Text(
+                "Select your dates",
+                color = Ink,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+            )
+            Text(
+                "Tap a check-in, then a check-out.",
+                color = Muted,
+                fontSize = 13.sp
+            )
+
             MonthHeader(
                 month = visibleMonth,
                 canGoBack = visibleMonth > YearMonth.from(today),
@@ -104,28 +139,54 @@ fun DateRangePickerSheet(
             WeekdayRow()
             Spacer(Modifier.height(4.dp))
 
+            // Set when the user picks a check-out whose range would straddle a booked/blocked
+            // span — we refuse it and show this hint instead of silently selecting it.
+            var straddleWarning by remember { mutableStateOf(false) }
+
             MonthGrid(
                 month = visibleMonth,
                 today = today,
                 start = start,
                 end = end,
+                isUnavailable = isUnavailable,
                 onDayClick = { day ->
                     when {
                         // No start yet, or a full range already chosen -> begin a new range.
                         start == null || end != null -> {
                             start = day
                             end = null
+                            straddleWarning = false
                         }
-                        // Second tap after the start.
-                        day.isAfter(start) -> end = day
+                        // Second tap after the start: only accept it if no unavailable day lies
+                        // strictly inside the chosen stay (nights start..<day must all be free).
+                        day.isAfter(start) -> {
+                            if (rangeStraddlesUnavailable(start!!, day, isUnavailable)) {
+                                // Reject: the range would cover a booked/blocked night.
+                                straddleWarning = true
+                            } else {
+                                end = day
+                                straddleWarning = false
+                            }
+                        }
                         // Tapped on or before the start -> restart from the new (earlier) day.
                         else -> {
                             start = day
                             end = null
+                            straddleWarning = false
                         }
                     }
                 }
             )
+
+            if (straddleWarning) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.availability_range_unavailable),
+                    color = Burgundy,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
             Footer(
@@ -134,6 +195,7 @@ fun DateRangePickerSheet(
                 onClear = {
                     start = null
                     end = null
+                    straddleWarning = false
                 },
                 onApply = {
                     onApply(start?.let(::formatLocalDate), end?.let(::formatLocalDate))
@@ -210,6 +272,7 @@ private fun MonthGrid(
     today: LocalDate,
     start: LocalDate?,
     end: LocalDate?,
+    isUnavailable: (LocalDate) -> Boolean,
     onDayClick: (LocalDate) -> Unit
 ) {
     val daysInMonth = month.lengthOfMonth()
@@ -236,6 +299,7 @@ private fun MonthGrid(
                                 today = today,
                                 start = start,
                                 end = end,
+                                unavailable = isUnavailable(day),
                                 onClick = { onDayClick(day) }
                             )
                         }
@@ -252,9 +316,12 @@ private fun DayCell(
     today: LocalDate,
     start: LocalDate?,
     end: LocalDate?,
+    unavailable: Boolean,
     onClick: () -> Unit
 ) {
     val isPast = day.isBefore(today)
+    // Past days and booked/blocked days are both unselectable and dimmed.
+    val isDisabled = isPast || unavailable
     val isStart = day == start
     val isEnd = day == end
     val isEndpoint = isStart || isEnd
@@ -270,7 +337,7 @@ private fun DayCell(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clickable(enabled = !isPast, onClick = onClick),
+            .clickable(enabled = !isDisabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         // Range band behind the circle (only when there's a full range to span).
@@ -297,12 +364,17 @@ private fun DayCell(
             }
         }
 
-        // The day circle.
+        // The day circle. Booked/blocked days (not past, not an endpoint) get a faint tan disc
+        // so they read as "taken" rather than merely dim.
         val circleModifier = when {
             isEndpoint -> Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(50))
                 .background(Burgundy)
+            unavailable && !isPast -> Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Tan.copy(alpha = 0.45f))
             isToday -> Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(50))
@@ -315,9 +387,12 @@ private fun DayCell(
                 text = day.dayOfMonth.toString(),
                 color = when {
                     isEndpoint -> Color.White
-                    isPast -> Muted.copy(alpha = 0.35f)
+                    isDisabled -> Muted.copy(alpha = 0.35f)
                     else -> Ink
                 },
+                // Strike through booked/blocked days so they're unmistakably unavailable.
+                textDecoration = if (unavailable && !isEndpoint)
+                    androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
                 fontWeight = if (isEndpoint || isToday) FontWeight.Bold else FontWeight.Normal,
                 fontSize = 14.sp
             )
@@ -378,6 +453,25 @@ private fun Footer(
             }
         }
     }
+}
+
+/**
+ * True when a stay from [start] (check-in) to [end] (check-out) would cover any unavailable
+ * night. The booked nights of a stay are `start .. end-1` (you sleep there start through the night
+ * before checkout), so a check-out that lands exactly on a blocked span's start is still allowed
+ * (back-to-back stays). Mirrors the half-open `[start, end)` span semantics used for blocking.
+ */
+private fun rangeStraddlesUnavailable(
+    start: LocalDate,
+    end: LocalDate,
+    isUnavailable: (LocalDate) -> Boolean
+): Boolean {
+    var day = start
+    while (day.isBefore(end)) {
+        if (isUnavailable(day)) return true
+        day = day.plusDays(1)
+    }
+    return false
 }
 
 /** "Mar 10" style short label for the footer summary. */

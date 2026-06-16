@@ -1,4 +1,537 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">QuickIn</string>
+
+    <!-- Bottom navigation tabs (guest) -->
+    <string name="tab_explore">Explore</string>
+    <string name="tab_services">Services</string>
+    <string name="tab_wishlist">Wishlist</string>
+    <string name="tab_trips">Trips</string>
+    <string name="tab_profile">Profile</string>
+    <!-- Bottom navigation tabs (host) -->
+    <string name="tab_listings">Listings</string>
+    <string name="tab_reservations">Reservations</string>
+
+    <!-- Common actions / labels -->
+    <string name="action_search">Search</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_done">Done</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+    <string name="action_reject">Reject</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_notifications">Notifications</string>
+    <string name="cd_save">Save to wishlist</string>
+    <string name="action_share">Share</string>
+    <string name="cd_share">Share</string>
+    <!-- Share-sheet subject/title: "{title} — QuickIn" -->
+    <string name="share_subject">%1$s — QuickIn</string>
+    <string name="share_chooser_title">Share via</string>
+
+    <!-- Brand -->
+    <string name="brand_tagline">Boutique stays, booked in a tap.</string>
+
+    <!-- Auth screen -->
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_sign_in_toggle">Sign In</string>
+    <string name="auth_sign_up_toggle">Sign Up</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_full_name">Full name</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_continue_google">Continue with Google</string>
+    <string name="auth_or">or</string>
+    <string name="auth_show_password">Show password</string>
+    <string name="auth_hide_password">Hide password</string>
+    <!-- Animated password-strength meter -->
+    <string name="pw_strength_label">Password strength</string>
+    <string name="pw_strength_weak">Weak</string>
+    <string name="pw_strength_fair">Fair</string>
+    <string name="pw_strength_good">Good</string>
+    <string name="pw_strength_strong">Strong</string>
+    <string name="pw_rule_length">At least 8 characters</string>
+    <string name="pw_rule_uppercase">Uppercase letter</string>
+    <string name="pw_rule_lowercase">Lowercase letter</string>
+    <string name="pw_rule_number">Number</string>
+    <string name="pw_rule_special">Special character</string>
+    <string name="cd_back_to_browsing">Back to browsing</string>
+    <string name="auth_google_not_configured">Add your Google client id in Config.kt to enable Google sign-in</string>
+
+    <!-- Biometric (fingerprint / face) sign-in -->
+    <string name="auth_biometric_login">Sign in with fingerprint or face</string>
+    <string name="biometric_prompt_title">Sign in to QuickIn</string>
+    <string name="biometric_prompt_subtitle">Confirm your fingerprint or face to continue.</string>
+    <string name="biometric_use_password">Use password</string>
+    <string name="biometric_enable_title">Enable biometric sign-in?</string>
+    <string name="biometric_enable_message">Next time, sign in instantly with your fingerprint or face — no password needed.</string>
+    <string name="biometric_enable_confirm">Enable</string>
+    <string name="biometric_enable_dismiss">Not now</string>
+
+    <!-- Role selector -->
+    <string name="role_i_want_to">I want to…</string>
+    <string name="role_register_guest">Register as Guest</string>
+    <string name="role_register_host">Register as Host</string>
+    <string name="role_signin_guest">Sign in as Guest</string>
+    <string name="role_signin_host">Sign in as Host</string>
+    <string name="role_hosts_caption">Hosts list and manage stays.</string>
+    <string name="role_guests_caption">Guests browse and book stays.</string>
+
+    <!-- OTP screen -->
+    <string name="otp_verify_email">Verify your email</string>
+    <string name="otp_prompt">Enter the 6-digit code we sent</string>
+    <string name="otp_prompt_to">Enter the 6-digit code we sent to %1$s.</string>
+    <string name="otp_prompt_plain">Enter the 6-digit code we sent.</string>
+    <string name="otp_code_label">6-digit code</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="cd_back_to_sign_in">Back to sign in</string>
+
+    <!-- Profile screen -->
+    <string name="profile_guest">Guest</string>
+    <string name="profile_host">Host</string>
+    <string name="profile_account">Account</string>
+    <string name="profile_hosting">Hosting</string>
+    <string name="profile_edit_profile">Edit profile</string>
+    <string name="profile_edit_profile_sub">Name, age, ID &amp; phone</string>
+    <string name="profile_my_subscriptions">My subscriptions</string>
+    <string name="profile_my_subscriptions_sub">Your experience requests</string>
+    <string name="profile_host_dashboard">Host dashboard</string>
+    <string name="profile_host_dashboard_sub">Listings &amp; reservation requests</string>
+    <string name="profile_host_services">Host services</string>
+    <string name="profile_host_services_sub">Experiences &amp; subscriptions</string>
+    <string name="profile_log_out">Log out</string>
+    <string name="profile_language">Language</string>
+
+    <!-- Profile sign-in CTA -->
+    <string name="profile_cta_title">Sign in to manage your trips</string>
+    <string name="profile_cta_subtitle">Save favorites, book stays, and view your bookings.</string>
+    <string name="profile_cta_button">Sign in or create account</string>
+
+    <!-- Profile settings -->
+    <string name="settings_loading">Loading your profile…</string>
+    <string name="settings_full_name">Full name</string>
+    <string name="settings_age">Age</string>
+    <string name="settings_id_passport">ID / Passport number</string>
+    <string name="settings_phone">Phone</string>
+    <string name="settings_save_changes">Save changes</string>
+    <string name="settings_profile_saved">Profile saved</string>
+    <string name="settings_phone_private">Your phone is private and never shown to guests.</string>
+    <string name="settings_change_password">Change password</string>
+    <string name="settings_password_caption">Use at least 6 characters.</string>
+    <string name="settings_current_password">Current password</string>
+    <string name="settings_new_password">New password</string>
+    <string name="settings_update_password">Update password</string>
+    <string name="settings_password_updated">Password updated</string>
+
+    <!-- Profile photo &amp; bio -->
+    <string name="account_photo">Profile photo</string>
+    <string name="account_change_photo">Change photo</string>
+    <string name="account_add_photo">Add photo</string>
+    <string name="account_remove_photo">Remove photo</string>
+    <string name="account_bio">Bio</string>
+    <string name="account_bio_hint">Tell guests a little about yourself</string>
+    <string name="account_photo_desc">Your profile photo</string>
+
+    <!-- Listings / Explore -->
+    <string name="explore_log_in">Log in</string>
+    <string name="hero_eyebrow">North Coast · Egypt</string>
+    <string name="hero_title">Find your boutique escape</string>
+    <string name="explore_no_stays">No stays yet.</string>
+    <string name="explore_nothing_to_show">Nothing to show yet</string>
+    <string name="search_where_to">Where to?</string>
+    <string name="search_search_stays">Search stays</string>
+    <string name="search_anytime">Anytime</string>
+    <string name="search_dates_selected">Dates selected</string>
+    <string name="search_any_guests">Any guests</string>
+    <string name="search_guests">Guests</string>
+    <string name="search_one_guest">1 guest</string>
+    <string name="search_many_guests">%1$d guests</string>
+    <string name="search_collapse">Collapse search</string>
+    <string name="search_expand">Expand search</string>
+    <string name="search_add_dates">Add dates</string>
+    <string name="search_add_checkout">Add check-out</string>
+    <string name="search_summary">%1$s · %2$s</string>
+    <string name="filter_all">All</string>
+    <string name="view_list">List</string>
+    <string name="view_map">Map</string>
+    <string name="listing_guest_favorite">Guest favorite</string>
+    <string name="listing_per_night"> / night</string>
+    <string name="listing_new">New</string>
+
+    <!-- Sort labels -->
+    <string name="sort_recommended">Recommended</string>
+    <string name="sort_price_low">Price ↑</string>
+    <string name="sort_price_high">Price ↓</string>
+    <string name="sort_newest">Newest</string>
+
+    <!-- Discovery filters (amenities + property type) -->
+    <string name="filters_title">Filters</string>
+    <string name="filters_button">Filters</string>
+    <string name="filters_amenities">Amenities</string>
+    <string name="filters_property_type">Property type</string>
+    <string name="filters_any_type">Any type</string>
+    <string name="filters_clear">Clear all</string>
+    <string name="filters_apply">Show stays</string>
+    <string name="filters_search_this_area">Search this area</string>
+    <string name="cd_filters">Open filters</string>
+    <string name="cd_close">Close</string>
+
+    <!-- Property type labels (the canonical English value is still sent to the API) -->
+    <string name="property_type_apartment">Apartment</string>
+    <string name="property_type_chalet">Chalet</string>
+    <string name="property_type_house">House</string>
+    <string name="property_type_villa">Villa</string>
+
+    <!-- Amenity labels (the canonical English value is still sent to the API) -->
+    <string name="amenity_wifi">WiFi</string>
+    <string name="amenity_pool">Pool</string>
+    <string name="amenity_kitchen">Kitchen</string>
+    <string name="amenity_air_conditioning">Air conditioning</string>
+    <string name="amenity_free_parking">Free parking</string>
+    <string name="amenity_washer">Washer</string>
+    <string name="amenity_tv">TV</string>
+    <string name="amenity_heating">Heating</string>
+    <string name="amenity_workspace">Workspace</string>
+    <string name="amenity_gym">Gym</string>
+    <string name="amenity_beach_access">Beach access</string>
+    <string name="amenity_pets_allowed">Pets allowed</string>
+    <string name="amenity_hot_tub">Hot tub</string>
+    <string name="amenity_bbq_grill">BBQ grill</string>
+    <string name="amenity_breakfast">Breakfast</string>
+
+    <!-- Listing detail -->
+    <string name="detail_about_place">About this place</string>
+    <string name="detail_what_offers">What this place offers</string>
+    <string name="detail_guests">guests</string>
+    <string name="detail_bedrooms">bedrooms</string>
+    <string name="detail_beds">beds</string>
+    <string name="detail_baths">baths</string>
+    <string name="detail_check_in">Check-in</string>
+    <string name="detail_check_out">Check-out</string>
+    <string name="detail_add">Add</string>
+    <string name="detail_select_dates">Select your dates</string>
+    <string name="detail_nights">%1$s × %2$d night(s)</string>
+    <string name="detail_reserve">Reserve</string>
+    <string name="detail_sign_in_to_reserve">Sign in to reserve</string>
+    <string name="detail_request_sent">Request sent</string>
+    <string name="detail_waiting_host_stay">Waiting for the host to confirm your stay at %1$s.</string>
+    <string name="detail_total">Total</string>
+    <string name="detail_booking_summary">%1$s → %2$s · %3$d guest(s)</string>
+    <string name="detail_hosted_by">Hosted by %1$s</string>
+    <string name="detail_more_from_host">More from this host</string>
+
+    <!-- Payment (MOCK — no real gateway yet) -->
+    <string name="pay_title">Confirm and pay</string>
+    <string name="pay_subtitle">Review the total and pay to confirm your booking.</string>
+    <string name="pay_nights_count">%1$d nights</string>
+    <string name="pay_service_fee">Service fee (10%%)</string>
+    <string name="pay_button">Pay EGP %1$s</string>
+    <string name="pay_demo_note">Demo payment — no real charge</string>
+    <string name="pay_card_demo">Demo card</string>
+    <string name="pay_processing">Processing…</string>
+    <string name="pay_confirmed_title">Booking confirmed &amp; paid</string>
+    <string name="pay_reference">Reference</string>
+    <string name="pay_now">Pay now</string>
+    <!-- Payment method selector + signed fee lines -->
+    <string name="pay_method_card">Card (+5%%)</string>
+    <string name="pay_method_bank">Bank transfer (−5%%)</string>
+    <string name="pay_card_surcharge">Card surcharge (5%%)</string>
+    <string name="pay_bank_discount">Bank transfer discount (5%%)</string>
+
+    <!-- Services -->
+    <string name="services_title">Services</string>
+    <string name="services_no_experiences">No experiences yet</string>
+    <string name="services_check_back">Check back soon for things to do.</string>
+    <string name="services_by">by %1$s</string>
+    <string name="services_hosted_by">Hosted by %1$s</string>
+    <string name="services_per_experience"> / experience</string>
+    <string name="services_about">About this experience</string>
+    <string name="services_note_optional">Note to the host (optional)</string>
+    <string name="services_subscribe">Subscribe</string>
+    <string name="services_sign_in_to_subscribe">Sign in to subscribe</string>
+    <string name="services_waiting_host_booking">Waiting for the host to confirm your booking for %1$s.</string>
+    <string name="services_price">Price</string>
+
+    <!-- Reservations (guest "Trips") -->
+    <string name="reservations_title">My Reservations</string>
+    <string name="reservations_sign_in_title">Sign in to see your reservations</string>
+    <string name="reservations_sign_in_subtitle">Your booked stays will show up here.</string>
+    <string name="reservations_load_error">Couldn\'t load reservations</string>
+    <string name="reservations_empty_title">No reservations yet</string>
+    <string name="reservations_empty_subtitle">Find a stay you love and reserve it — it\'ll appear here.</string>
+    <string name="reservations_guests">%1$d guest(s)</string>
+
+    <!-- Reservation detail -->
+    <string name="reservation_title">Reservation</string>
+    <string name="reservation_loading">Loading your reservation…</string>
+    <string name="reservation_load_error">Couldn\'t load reservation</string>
+    <string name="reservation_code_label">Reservation code</string>
+    <string name="reservation_dates">Dates</string>
+    <string name="reservation_guests_label">Guests</string>
+    <string name="reservation_messages">Messages</string>
+    <string name="reservation_show_qr">Show this QR code at check-in.</string>
+    <string name="reservation_no_code">No code</string>
+    <string name="reservation_scan_or_tap">Scan or tap to open your stay pass</string>
+    <string name="cd_stay_pass_qr">Stay pass QR code</string>
+    <!-- From your host (notes) -->
+    <string name="reservation_from_host">From your host</string>
+    <string name="reservation_host_notes_hint">Add notes for your guest — check-in details, Wi-Fi, house rules…</string>
+    <string name="reservation_save_notes">Save notes</string>
+
+    <!-- Reviews -->
+    <string name="reviews_title">Reviews</string>
+    <string name="reviews_loading">Loading reviews…</string>
+    <string name="reviews_empty">No reviews yet — be the first to stay and review.</string>
+    <plurals name="reviews_count">
+        <item quantity="one">%1$d review</item>
+        <item quantity="other">%1$d reviews</item>
+    </plurals>
+
+    <!-- Leave a review -->
+    <string name="review_leave">Leave a review</string>
+    <string name="review_dialog_title">Leave a review</string>
+    <string name="review_dialog_subtitle">How was your stay at %1$s?</string>
+    <string name="review_comment_label">Share a little about your stay (optional)</string>
+    <string name="review_submit">Submit review</string>
+    <string name="review_thanks_title">Thanks for your review</string>
+    <string name="review_thanks_subtitle">Your feedback helps other guests find great stays.</string>
+
+    <!-- Review photos -->
+    <string name="reviews_add_photos">Add photos</string>
+    <string name="reviews_photos">Photos</string>
+    <string name="reviews_photo_limit">You can add up to 6 photos.</string>
+    <string name="reviews_remove_photo">Remove photo</string>
+    <string name="reviews_photo_desc">Review photo</string>
+
+    <!-- Two-way reviews: host → guest -->
+    <string name="reviews_review_guests">Review guests</string>
+    <string name="reviews_review_guests_sub">Rate guests from your past stays</string>
+    <string name="reviews_review_guest_title">Review your guest</string>
+    <string name="reviews_review_guest_subtitle">How was hosting %1$s?</string>
+    <string name="reviews_no_reviewable_guests">No guests to review right now.</string>
+    <string name="reviews_reviewable_guests_loading">Loading your guests…</string>
+    <string name="reviews_your_rating">Your rating</string>
+    <string name="reviews_submit">Submit</string>
+    <string name="reviews_guest_label">Guest</string>
+
+    <!-- Two-way reviews: reviews about you (on your profile) -->
+    <string name="reviews_about_you">Reviews about you</string>
+    <string name="reviews_guest_rating">%1$s · %2$d reviews</string>
+    <string name="reviews_no_guest_reviews">No reviews from hosts yet.</string>
+
+    <!-- Wishlist / Saved -->
+    <string name="profile_saved">Saved</string>
+    <string name="profile_saved_sub">Your saved stays &amp; experiences</string>
+    <string name="wishlist_title">Saved</string>
+    <string name="wishlist_eyebrow">Your wishlist</string>
+    <string name="wishlist_stays">Saved stays</string>
+    <string name="wishlist_experiences">Saved experiences</string>
+    <string name="wishlist_loading">Loading your saved items…</string>
+    <string name="wishlist_empty_title">Nothing saved yet</string>
+    <string name="wishlist_empty_subtitle">Tap the heart on a stay or experience to save it here.</string>
+    <string name="wishlist_sign_in">Sign in to save your favorites.</string>
+
+    <!-- Push notifications (FCM) -->
+    <string name="notif_channel_name">Notifications</string>
+    <string name="notif_channel_desc">Booking updates, messages and reminders</string>
+
+    <!-- AI travel concierge -->
+    <string name="ai_title">Travel concierge</string>
+    <string name="ai_subtitle">Your AI guide to boutique stays in Egypt</string>
+    <string name="ai_greeting">Hi! I\'m your travel concierge. Ask me where to go, the best time to visit, or what to do — and I\'ll help you plan the perfect trip.</string>
+    <string name="ai_input_placeholder">Ask anything about your trip…</string>
+    <string name="ai_send">Send</string>
+    <string name="ai_suggest_beach">Best beach for a calm weekend?</string>
+    <string name="ai_suggest_summer">Where to go in summer?</string>
+    <string name="ai_suggest_family">Family trip ideas</string>
+    <string name="ai_suggest_dive">Where can I dive?</string>
+    <string name="ai_error">AI isn\'t available right now. Please try again.</string>
+    <string name="cd_ask_ai">Ask the AI travel concierge</string>
+    <string name="cd_ai_close">Close concierge</string>
+
+    <!-- Availability (live booked/blocked days + host calendar manager) -->
+    <string name="availability_unavailable">Unavailable</string>
+    <string name="availability_range_unavailable">Some of those nights are already booked or blocked. Pick a different range.</string>
+    <string name="availability_manage">Manage availability</string>
+    <string name="availability_manage_subtitle">Block dates when your place is unavailable. Booked stays show below and can\'t be removed.</string>
+    <string name="availability_pick_range">Pick a date range to block</string>
+    <string name="availability_block_dates">Block dates</string>
+    <string name="availability_add_block">Add block</string>
+    <string name="availability_blocked">Blocked dates</string>
+    <string name="availability_booked">Booked stays</string>
+    <string name="availability_remove">Remove</string>
+    <string name="availability_no_blocks">No blocked dates yet.</string>
+    <string name="availability_note_optional">Note (optional)</string>
+    <string name="availability_loading">Loading availability…</string>
+
+    <!-- Cancellation policy (host-set per listing) + guest cancel with refund -->
+    <string name="cancel_policy">Cancellation policy</string>
+    <string name="cancel_policy_label">Cancellation policy</string>
+    <string name="cancel_policy_choose">Choose how guests can cancel</string>
+    <string name="cancel_flexible">Flexible</string>
+    <string name="cancel_flexible_desc">Full refund if cancelled at least 1 day before check-in, otherwise no refund.</string>
+    <string name="cancel_moderate">Moderate</string>
+    <string name="cancel_moderate_desc">Full refund if cancelled at least 5 days before check-in, otherwise 50%.</string>
+    <string name="cancel_strict">Strict</string>
+    <string name="cancel_strict_desc">50% refund if cancelled at least 7 days before check-in, otherwise no refund.</string>
+    <string name="cancel_policy_save">Save policy</string>
+    <string name="cancel_policy_saved">Cancellation policy updated.</string>
+    <string name="cancel_reservation">Cancel reservation</string>
+    <string name="cancel_refund_quote">Refund summary</string>
+    <string name="cancel_refund_amount">You\'ll get back %1$s of %2$s (%3$d%%).</string>
+    <string name="cancel_refund_days">%1$d day(s) until check-in · %2$s policy</string>
+    <string name="cancel_confirm">Cancel reservation</string>
+    <string name="cancel_keep">Keep reservation</string>
+    <string name="cancel_cancelled">Reservation cancelled</string>
+    <string name="cancel_refunded">Refunded %1$s (%2$d%%)</string>
+    <string name="cancel_no_refund">No refund applies under this policy.</string>
+    <string name="cancel_loading_quote">Calculating your refund…</string>
+
+    <!-- Listing approval (ownership doc + moderation status on the host's own listings) -->
+    <string name="approval_pending">Pending review</string>
+    <string name="approval_approved">Approved</string>
+    <string name="approval_rejected">Rejected</string>
+    <string name="approval_ownership_doc">Ownership document</string>
+    <string name="approval_ownership_intro">Upload proof you own or manage this place (e.g. a title deed, utility bill, or contract). We\'ll review it before your listing goes live.</string>
+    <string name="approval_upload_doc">Upload document</string>
+    <string name="approval_doc_attached">Document attached</string>
+    <string name="approval_reupload">Re-upload ownership document</string>
+    <string name="approval_submitted_for_review">Submitted for review</string>
+    <string name="approval_pending_note">Your listing is under review and isn\'t public yet. We\'ll let you know once it\'s approved.</string>
+    <string name="approval_rejected_note">Your ownership document was declined. Re-upload it to submit your listing for review again.</string>
+    <string name="approval_doc_resubmitted">Document submitted. Your listing is under review again.</string>
+
+    <!-- Trust & Safety: identity verification (Profile tab) -->
+    <string name="trust_verify">Verify your identity</string>
+    <string name="trust_verify_intro">Add a verified badge to your profile. Upload a photo of your government ID — we\'ll review it shortly.</string>
+    <string name="trust_status_unverified">Not verified</string>
+    <string name="trust_status_pending">Verification pending</string>
+    <string name="trust_status_verified">Identity verified</string>
+    <string name="trust_status_rejected">Verification rejected</string>
+    <string name="trust_upload_id">Upload ID photo</string>
+    <string name="trust_pending_note">We\'re reviewing your ID. This usually takes a little while.</string>
+    <string name="trust_verified_note">Your identity is verified. Guests and hosts can see your verified badge.</string>
+    <string name="trust_rejected_note">We couldn\'t verify your last submission. Please upload a clearer photo of your ID.</string>
+    <string name="trust_submit">Submit for review</string>
+    <string name="trust_error">Something went wrong. Please try again.</string>
+
+    <!-- Trust & Safety: badges (listing detail "Hosted by") -->
+    <string name="badge_verified">Verified</string>
+    <string name="badge_superhost">Superhost</string>
+    <string name="badge_new_host">New host</string>
+
+    <!-- Trust & Safety: reporting a listing (listing detail) -->
+    <string name="report_report">Report this listing</string>
+    <string name="report_reason">Why are you reporting this?</string>
+    <string name="report_reason_inaccurate">Inaccurate listing</string>
+    <string name="report_reason_scam">Scam or fraud</string>
+    <string name="report_reason_offensive">Offensive content</string>
+    <string name="report_reason_other">Something else</string>
+    <string name="report_details">Add details (optional)</string>
+    <string name="report_submit">Submit report</string>
+    <string name="report_thanks">Thanks for letting us know. Our team will take a look.</string>
+    <string name="report_sign_in">Please sign in to report this listing.</string>
+
+    <!-- Growth: length-of-stay discounts (host-set per listing) -->
+    <string name="growth_discounts_title">Length-of-stay discounts</string>
+    <string name="growth_discounts_intro">Reward longer stays. Set a percentage off for weekly and monthly bookings.</string>
+    <string name="growth_weekly_discount">Weekly discount (7+ nights)</string>
+    <string name="growth_monthly_discount">Monthly discount (28+ nights)</string>
+    <string name="growth_discount_off">Weekly −%1$d%% · Monthly −%2$d%%</string>
+    <string name="growth_discount_weekly_off">Weekly −%1$d%%</string>
+    <string name="growth_discount_monthly_off">Monthly −%1$d%%</string>
+    <string name="growth_discounts_saved">Discounts updated.</string>
+    <string name="growth_save">Save</string>
+
+    <!-- Growth: promo codes (checkout) -->
+    <string name="promo_code">Promo code</string>
+    <string name="promo_have_code">Have a promo code?</string>
+    <string name="promo_apply">Apply</string>
+    <string name="promo_applied">Promo applied</string>
+    <string name="promo_invalid">That code isn\'t valid.</string>
+    <string name="promo_discount">Promo discount</string>
+    <string name="promo_remove">Remove</string>
+
+    <!-- Growth: referrals (Profile tab + signup) -->
+    <string name="referral_title">Refer friends</string>
+    <string name="referral_intro">Share your code. When a friend signs up with it, you both get rewarded.</string>
+    <string name="referral_your_code">Your referral code</string>
+    <string name="referral_copy">Copy code</string>
+    <string name="referral_copied">Code copied</string>
+    <string name="referral_share">Share</string>
+    <string name="referral_invited">Friends referred</string>
+    <string name="referral_reward">Rewards earned</string>
+    <string name="referral_invited_list">Friends you\'ve referred</string>
+    <string name="referral_none">No referrals yet. Share your code to get started.</string>
+    <string name="referral_loading">Loading your referrals…</string>
+    <string name="referral_error">Couldn\'t load your referrals.</string>
+    <string name="referral_signup_field">Referral code (optional)</string>
+    <string name="referral_share_message">Join me on QuickIn! Use my referral code %1$s when you sign up.</string>
+
+    <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
+    <string name="money_earnings">Earnings</string>
+    <string name="money_earnings_sub">Your earnings, payouts &amp; pending balance</string>
+    <string name="money_total_earned">Total earned</string>
+    <string name="money_paid_out">Paid out</string>
+    <string name="money_pending">Pending</string>
+    <string name="money_bookings">Bookings</string>
+    <string name="money_payouts">Payouts</string>
+    <string name="money_gross">Guest paid</string>
+    <string name="money_net">Your net</string>
+    <string name="money_commission_note">Platform commission: %1$s</string>
+    <string name="money_loading_earnings">Loading your earnings…</string>
+    <string name="money_earnings_error">Couldn\'t load your earnings</string>
+    <string name="money_no_earnings">No earnings yet. Once guests pay for stays, they\'ll show up here.</string>
+    <string name="money_receipts">Receipts</string>
+    <string name="money_receipts_sub">Your itemized payment receipts</string>
+    <string name="money_receipt">Receipt</string>
+    <string name="money_subtotal">Subtotal</string>
+    <string name="money_service_fee">Service fee</string>
+    <string name="money_method_fee">Payment method fee</string>
+    <string name="money_promo_discount">Promo discount</string>
+    <string name="money_total">Total</string>
+    <string name="money_paid_on">Paid on %1$s</string>
+    <string name="money_loading_receipts">Loading your receipts…</string>
+    <string name="money_receipts_error">Couldn\'t load your receipts</string>
+    <string name="money_no_receipts">No receipts yet. Your paid stays will appear here.</string>
+    <string name="money_status_paid_out">Paid out</string>
+    <string name="money_status_upcoming">Upcoming</string>
+    <string name="money_currency">Currency</string>
+    <string name="money_display_currency">Display currency</string>
+    <string name="money_pay">Pay %1$s</string>
+
+    <!-- Section 10 — AI writer + natural-language search + host analytics -->
+    <!-- AI listing-description writer (Add-listing flow) -->
+    <string name="ai_write_with_ai">Write with AI</string>
+    <string name="ai_writing">Writing…</string>
+    <string name="add_description">Description</string>
+    <string name="add_basics_hint">Give your place a catchy title and pick the property type, then let AI draft the description. Title is required.</string>
+    <!-- Natural-language search (Explore) -->
+    <string name="ai_search">Ask AI</string>
+    <string name="ai_search_placeholder">Try: beach villa for 6 with a pool under 4000</string>
+    <string name="ai_searching">Searching with AI…</string>
+    <string name="ai_search_clear">Clear AI search</string>
+    <string name="ai_parsed_filters">How we read your search</string>
+    <string name="ai_filter_min_price">From %1$s</string>
+    <string name="ai_filter_max_price">Up to %1$s</string>
+    <!-- Host analytics dashboard -->
+    <string name="analytics_title">Analytics</string>
+    <string name="analytics_sub">Bookings, revenue, rating &amp; trends</string>
+    <string name="analytics_listings">Listings</string>
+    <string name="analytics_bookings">Total bookings</string>
+    <string name="analytics_paid_bookings">Paid bookings</string>
+    <string name="analytics_revenue">Revenue</string>
+    <string name="analytics_avg_rating">Avg rating</string>
+    <string name="analytics_conversion">Conversion</string>
+    <string name="analytics_monthly_trend">Monthly trend</string>
+    <string name="analytics_top_listings">Top listings</string>
+    <string name="analytics_bookings_count">%1$d bookings</string>
+    <string name="analytics_no_data">No data yet.</string>
+    <string name="analytics_loading">Loading your analytics…</string>
+    <string name="analytics_error">Couldn\'t load your analytics</string>
+    <string name="analytics_empty">No analytics yet. Once you have listings and bookings, your performance shows up here.</string>
 </resources>

@@ -21,6 +21,12 @@ struct DateRangePicker: View {
     /// Called after Apply / Clear with the committed selection (nil, nil on clear).
     var onApply: (Date?, Date?) -> Void
 
+    /// Booked / host-blocked spans for the listing (half-open `[start, end)`).
+    /// Days inside any span are greyed out and unselectable, and a candidate
+    /// check-in→check-out range that straddles one is rejected. Empty when used
+    /// from the Explore search header (no specific listing).
+    var unavailableRanges: [AvailabilityRange] = []
+
     @Environment(\.dismiss) private var dismiss
 
     // Local working selection — only pushed to the bindings on Apply so the
@@ -32,11 +38,18 @@ struct DateRangePicker: View {
 
     private let calendar = DateRangePicker.makeCalendar()
 
+    /// The set of unavailable days (each normalized to start-of-day), expanded
+    /// from `unavailableRanges` once at init so cell rendering / selection stay
+    /// O(1) per day. A day is unavailable when `start <= day < end` for any span.
+    private let unavailableDays: Set<Date>
+
     init(checkIn: Binding<Date?>,
          checkOut: Binding<Date?>,
+         unavailableRanges: [AvailabilityRange] = [],
          onApply: @escaping (Date?, Date?) -> Void) {
         self._checkIn = checkIn
         self._checkOut = checkOut
+        self.unavailableRanges = unavailableRanges
         self.onApply = onApply
 
         let cal = DateRangePicker.makeCalendar()
@@ -48,6 +61,24 @@ struct DateRangePicker: View {
         // Open on the month of the existing check-in, else the current month.
         let anchor = initialIn ?? today
         _visibleMonth = State(initialValue: cal.monthStart(for: anchor))
+
+        // Expand every [start, end) span into the individual local days it
+        // covers. We compare on local start-of-day, so we read the API's
+        // calendar components (UTC) and rebuild each day in this calendar —
+        // avoiding any timezone drift between the parsed UTC date and the grid.
+        var days = Set<Date>()
+        for range in unavailableRanges {
+            guard let startUTC = range.startDate, let endUTC = range.endDate else { continue }
+            guard var cursor = AvailabilityRange.localDay(from: startUTC, in: cal) else { continue }
+            guard let endLocal = AvailabilityRange.localDay(from: endUTC, in: cal) else { continue }
+            // Half-open: include start up to (but not including) end.
+            while cursor < endLocal {
+                days.insert(cursor)
+                guard let next = cal.date(byAdding: .day, value: 1, to: cursor) else { break }
+                cursor = next
+            }
+        }
+        unavailableDays = days
     }
 
     // MARK: - Body
@@ -150,11 +181,14 @@ struct DateRangePicker: View {
     /// One day cell — a ~40pt tappable circle with range-aware styling.
     private func dayCell(_ day: Date) -> some View {
         let isPast = day < today
+        let isUnavailable = isUnavailable(day)
         let isStart = draftIn.map { calendar.isDate($0, inSameDayAs: day) } ?? false
         let isEnd = draftOut.map { calendar.isDate($0, inSameDayAs: day) } ?? false
         let isBetween = isInRange(day) && !isStart && !isEnd
         let isToday = calendar.isDate(day, inSameDayAs: today)
         let isEndpoint = isStart || isEnd
+        // Booked / blocked days are unselectable, like past days.
+        let isDisabled = isPast || isUnavailable
 
         return Button {
             select(day)
@@ -180,15 +214,19 @@ struct DateRangePicker: View {
 
                 Text("\(calendar.component(.day, from: day))")
                     .font(.system(size: 16, weight: isEndpoint ? .bold : .regular))
-                    .foregroundStyle(dayTextColor(isEndpoint: isEndpoint, isBetween: isBetween, isPast: isPast))
+                    .foregroundStyle(dayTextColor(isEndpoint: isEndpoint, isBetween: isBetween, isPast: isPast, isUnavailable: isUnavailable))
+                    // A thin strike-through marks booked/blocked days so they
+                    // read as taken even for color-blind users.
+                    .strikethrough(isUnavailable && !isEndpoint, color: Color.qkMuted.opacity(0.5))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isPast)
+        .disabled(isDisabled)
         .accessibilityLabel(accessibilityLabel(for: day))
+        .accessibilityHint(isUnavailable ? L.t("availability.unavailable") : "")
     }
 
     /// The tan strip behind a day. For endpoints we fill only the inner half so
@@ -218,11 +256,18 @@ struct DateRangePicker: View {
 
     private var endDay: Date { draftOut ?? today }
 
-    private func dayTextColor(isEndpoint: Bool, isBetween: Bool, isPast: Bool) -> Color {
+    private func dayTextColor(isEndpoint: Bool, isBetween: Bool, isPast: Bool, isUnavailable: Bool) -> Color {
         if isEndpoint { return .white }
         if isPast { return Color.qkMuted.opacity(0.35) }
+        // Booked / blocked days are greyed out identically to past days.
+        if isUnavailable { return Color.qkMuted.opacity(0.35) }
         if isBetween { return Color.qkInk }
         return Color.qkInk
+    }
+
+    /// `true` when `day` falls inside any booked / blocked span (`[start, end)`).
+    private func isUnavailable(_ day: Date) -> Bool {
+        unavailableDays.contains(calendar.startOfDay(for: day))
     }
 
     // MARK: - Footer (summary + Clear / Apply)
@@ -253,15 +298,9 @@ struct DateRangePicker: View {
                     onApply(draftIn, draftOut)
                     dismiss()
                 } label: {
-                    Text("Apply")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.qkBurgundy)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    QKPrimaryButtonLabel(title: "Apply", height: 50)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(QKPressStyle())
             }
         }
         .padding(.horizontal, 20)
@@ -279,23 +318,46 @@ struct DateRangePicker: View {
 
     /// Range selection: 1st tap = check-in, 2nd tap = check-out (if after
     /// check-in), else restart from the tapped day.
+    ///
+    /// Availability-aware: tapping a booked/blocked day does nothing, and a
+    /// candidate range that would straddle an unavailable span is rejected —
+    /// instead we restart a fresh range from the tapped day. The span is
+    /// half-open, so the nights stayed are `[checkIn, checkOut)`; a checkout that
+    /// lands exactly on a booked span's start (or a check-in on a span's end) is
+    /// allowed because that night is free.
     private func select(_ day: Date) {
         let d = calendar.startOfDay(for: day)
-        guard d >= today else { return } // past days disabled
+        guard d >= today else { return }       // past days disabled
+        guard !isUnavailable(d) else { return } // booked / blocked days disabled
 
         if draftIn == nil || draftOut != nil {
             // Start a fresh range.
             draftIn = d
             draftOut = nil
         } else if let start = draftIn {
-            if d > start {
+            if d > start, !rangeStraddlesUnavailable(from: start, to: d) {
                 draftOut = d
             } else {
-                // Tapped before / on the start → restart from here.
+                // Tapped before / on the start, or the range crosses a taken
+                // span → restart from the tapped day.
                 draftIn = d
                 draftOut = nil
             }
         }
+    }
+
+    /// `true` when any night in `[start, end)` is unavailable, so a guest may not
+    /// book straight through a booked/blocked span.
+    private func rangeStraddlesUnavailable(from start: Date, to end: Date) -> Bool {
+        guard !unavailableDays.isEmpty else { return false }
+        var night = calendar.startOfDay(for: start)
+        let checkout = calendar.startOfDay(for: end)
+        while night < checkout {
+            if unavailableDays.contains(night) { return true }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: night) else { break }
+            night = next
+        }
+        return false
     }
 
     private func isInRange(_ day: Date) -> Bool {

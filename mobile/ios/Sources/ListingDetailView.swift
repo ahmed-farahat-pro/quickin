@@ -3,18 +3,53 @@ import SwiftUI
 struct ListingDetailView: View {
     let listing: Listing
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
+    @EnvironmentObject private var wishlist: WishlistStore
+    @EnvironmentObject private var currency: CurrencyManager
     @State private var selectedImage = 0
+
+    // Reviews
+    @State private var reviews: [Review] = []
+    @State private var reviewsLoaded = false
+
+    // "More from this host" — the host's other published listings (current
+    // listing excluded). Loaded lazily; the section hides itself when empty.
+    @State private var hostListings: [Listing] = []
+    @State private var hostListingsLoaded = false
+
+    // Host trust badges — fetched from the public-profile endpoint so the host
+    // row can show the full Verified / Superhost / New host chip set. Falls back
+    // to the listing's `host_verified` flag while loading / on failure.
+    @State private var hostBadges: TrustBadges?
+    @State private var hostProfileLoaded = false
+
+    // Reporting — presents the report sheet (requires sign-in; otherwise routes
+    // through the existing auth sheet first).
+    @State private var showingReport = false
 
     // Reserve inputs
     @State private var checkIn = Calendar.current.startOfDay(for: Date())
     @State private var checkOut = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()
     @State private var guests = 1
+    /// Presents the branded `DateRangePicker` for the reserve dates.
+    @State private var showingDatePicker = false
+
+    // Live availability — booked + host-blocked spans for this listing. Loaded
+    // once (public endpoint) and fed to the date picker so taken days grey out.
+    @State private var availability: [AvailabilityRange] = []
+    @State private var availabilityLoaded = false
+    /// Presents the host availability manager (only when the signed-in user is
+    /// the host of this listing).
+    @State private var showingAvailabilityManager = false
 
     // Reserve flow state
     @State private var isReserving = false
     @State private var reserveError: String?
     @State private var confirmation: Booking?
     @State private var showingAuth = false
+    /// The freshly-created booking awaiting (mock) payment. Set on a successful
+    /// reserve → drives the `PaymentSheet`. Cleared once paid or dismissed.
+    @State private var pendingPayment: Booking?
 
     /// Whole nights between check-in and check-out (minimum 1).
     private var nights: Int {
@@ -24,25 +59,61 @@ struct ListingDetailView: View {
 
     private var total: Int { nights * Int(listing.pricePerNight) }
 
+    /// The same total as an EGP `Double`, for display-currency conversion.
+    private var totalEGP: Double { Double(nights) * listing.pricePerNight }
+
+    /// "Aug 1 → Aug 4" label for the reserve dates row.
+    private var dateRangeLabel: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "MMM d"
+        return "\(f.string(from: checkIn)) → \(f.string(from: checkOut))"
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     gallery
+                        .overlay(alignment: .topTrailing) {
+                            HStack(spacing: 10) {
+                                shareButton
+                                favoriteHeart
+                            }
+                            .padding(14)
+                        }
                     VStack(alignment: .leading, spacing: 16) {
                         header
+                        if hasHost {
+                            Divider()
+                            hostRow
+                        }
+                        Divider()
+                        reportRow
                         Divider()
                         specs
                         if let description = listing.description, !description.isEmpty {
                             Divider()
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("About this place")
+                                Text(loc.t("detail.about"))
                                     .font(.title3).fontWeight(.semibold)
                                     .foregroundStyle(Color.qkInk)
                                 Text(description)
                                     .font(.body)
                                     .foregroundStyle(Color.qkMuted)
                             }
+                        }
+                        if !listing.amenities.isEmpty {
+                            Divider()
+                            amenitiesSection
+                        }
+                        Divider()
+                        cancellationPolicySection
+                        Divider()
+                        reviewsSection
+                        if !hostListings.isEmpty {
+                            Divider()
+                            moreFromHostSection
                         }
                         Divider()
                         reservePanel.id("reserve")
@@ -59,103 +130,661 @@ struct ListingDetailView: View {
                 }
             }
         }
-        .background(Color.qkCream.ignoresSafeArea())
+        .background(LinearGradient.qkPageWash.ignoresSafeArea())
         .navigationTitle(listing.title)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) { bookingBar }
+        .sheet(isPresented: $showingDatePicker) {
+            DateRangePicker(
+                checkIn: Binding(get: { checkIn }, set: { if let v = $0 { checkIn = v } }),
+                checkOut: Binding(get: { checkOut }, set: { if let v = $0 { checkOut = v } }),
+                unavailableRanges: availability
+            ) { ci, co in
+                if let ci { checkIn = ci }
+                // Keep check-out strictly after check-in; default to +1 night when
+                // the user picked only a check-in (or an invalid same-day range).
+                if let co, co > (ci ?? checkIn) {
+                    checkOut = co
+                } else if let ci {
+                    checkOut = Calendar.current.date(byAdding: .day, value: 1, to: ci) ?? ci
+                }
+            }
+        }
         .sheet(isPresented: $showingAuth) {
             AuthView().environmentObject(auth)
+        }
+        .sheet(item: $pendingPayment) { booking in
+            // Mock payment for the just-created booking. On success the booking
+            // is paid + confirmed; we then show the existing confirmation modal.
+            PaymentSheet(
+                bookingID: booking.id,
+                nightly: Int(listing.pricePerNight),
+                nights: nights
+            ) { _ in
+                // Reflect paid + confirmed locally so the confirmation modal
+                // reads "Reservation confirmed" rather than "Request sent".
+                confirmation = booking.markedPaidConfirmed()
+            }
+            .environmentObject(loc)
         }
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
         }
-        .alert("Reservation confirmed", isPresented: confirmationBinding) {
-            Button("Done", role: .cancel) { confirmation = nil }
-        } message: {
-            if let confirmation {
-                Text("You're booked at \(listing.title) for \(nights) night\(nights == 1 ? "" : "s") · \(confirmation.totalText).")
-            }
+        .task {
+            // Load real guest reviews for this listing (public endpoint).
+            guard !reviewsLoaded else { return }
+            reviewsLoaded = true
+            reviews = (try? await ReviewService.shared.fetchReviews(listingID: listing.id)) ?? []
+        }
+        .task {
+            await loadHostListings()
+        }
+        .task {
+            await loadHostProfile()
+        }
+        .task {
+            await loadAvailability()
+        }
+        .sheet(isPresented: $showingReport) {
+            ReportSheet(targetType: .listing, targetID: listing.id)
+                .environmentObject(loc)
+                .environmentObject(auth)
+        }
+        .sheet(isPresented: $showingAvailabilityManager, onDismiss: {
+            // The host may have added/removed blocks — refresh the guest-facing
+            // greyed-out days so the reserve calendar stays in sync.
+            availabilityLoaded = false
+            Task { await loadAvailability() }
+        }) {
+            AvailabilityManagerView(listing: listing)
+                .environmentObject(auth)
+                .environmentObject(loc)
+        }
+        .overlay { confirmationOverlay }
+    }
+
+    /// The favorite heart pinned to the gallery's top-trailing corner. Reflects
+    /// the shared wishlist state; toggles optimistically when signed in,
+    /// otherwise presents the sign-in sheet.
+    private var favoriteHeart: some View {
+        QKHeartButton(
+            isOn: Binding(
+                get: { wishlist.isListingSaved(listing.id) },
+                set: { _ in }
+            ),
+            size: 40
+        ) {
+            guard auth.isAuthenticated else { showingAuth = true; return }
+            wishlist.toggleListing(listing.id)
         }
     }
 
-    private var confirmationBinding: Binding<Bool> {
-        Binding(get: { confirmation != nil }, set: { if !$0 { confirmation = nil } })
+    /// Share this listing's public web URL. The link opens the website if the
+    /// app isn't installed, or this same screen (Universal Link) if it is.
+    private var shareButton: some View {
+        QKShareButton(
+            url: AppLinks.listing(listing.id),
+            title: String(format: loc.t("share.listing.title"), listing.title),
+            message: loc.t("share.listing.message"),
+            size: 40
+        )
     }
 
-    private var gallery: some View {
-        TabView(selection: $selectedImage) {
-            ForEach(Array(listing.sortedImageURLs.enumerated()), id: \.offset) { index, url in
-                AsyncImage(url: URL(string: url)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    case .failure:
-                        Color.qkTan.overlay(Image(systemName: "photo").foregroundStyle(Color.qkMuted))
-                    default:
-                        Color.qkTan.overlay(ProgressView().tint(.qkBurgundy))
-                    }
+    /// Bookings now come back as `pending` (the host must confirm). Title +
+    /// subtitle adapt so the guest knows the request is awaiting approval.
+    private var confirmationTitle: String {
+        loc.t((confirmation?.bookingStatus == .pending) ? "detail.requestSent" : "detail.reservationConfirmed")
+    }
+
+    /// Friendly one-liner under the title; pluralizes "night" correctly.
+    private var confirmationSubtitle: String {
+        guard let confirmation else { return "" }
+        let nightsText = "\(nights) night\(nights == 1 ? "" : "s")"
+        if confirmation.bookingStatus == .pending {
+            return "Waiting for the host to confirm your \(nightsText) at \(listing.title)."
+        }
+        return "You're booked at \(listing.title) for \(nightsText)."
+    }
+
+    /// Dismiss the branded confirmation modal with a gentle fade.
+    private func dismissConfirmation() {
+        withAnimation(.easeInOut(duration: 0.2)) { confirmation = nil }
+    }
+
+    // MARK: - Confirmation modal
+
+    /// Branded "Request sent" / "Reservation confirmed" overlay shown after a
+    /// successful reserve, replacing the native system alert.
+    @ViewBuilder
+    private var confirmationOverlay: some View {
+        if let confirmation {
+            ZStack {
+                // Dimmed, tap-to-dismiss backdrop.
+                Color.black.opacity(0.45)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismissConfirmation() }
+
+                confirmationCard(for: confirmation)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            }
+            .animation(.easeInOut(duration: 0.2), value: confirmation)
+        }
+    }
+
+    private func confirmationCard(for booking: Booking) -> some View {
+        let isPending = booking.bookingStatus == .pending
+        return VStack(spacing: 16) {
+            // Badge — animated draw checkmark when confirmed; a popping
+            // paperplane while the host's approval is still pending.
+            if isPending {
+                QKPopIn {
+                    Circle()
+                        .fill(LinearGradient.qkBurgundyCTA)
+                        .frame(width: 72, height: 72)
+                        .overlay(
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundStyle(Color.qkCream)
+                        )
+                        .shadow(color: Color.qkBurgundy.opacity(0.25), radius: 14, x: 0, y: 8)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 300)
-                .clipped()
-                .tag(index)
+            } else {
+                QKDrawCheck(size: 72, light: true)
             }
+
+            // Title + subtitle
+            VStack(spacing: 6) {
+                Text(confirmationTitle)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.qkInk)
+                    .multilineTextAlignment(.center)
+                Text(confirmationSubtitle)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.qkMuted)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Summary block
+            VStack(spacing: 10) {
+                HStack {
+                    Text(booking.dateRangeText)
+                    Text("·")
+                    Text("\(booking.guests) guest\(booking.guests == 1 ? "" : "s")")
+                    Spacer()
+                }
+                .font(.system(size: 13))
+                .foregroundStyle(Color.qkMuted)
+
+                Divider()
+
+                HStack {
+                    Text(loc.t("common.total"))
+                        .foregroundStyle(Color.qkMuted)
+                    Spacer()
+                    Text(booking.totalText)
+                        .fontWeight(.bold)
+                        .foregroundStyle(Color.qkBurgundy)
+                }
+                .font(.system(size: 15))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(Color.qkTan)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            // Primary action
+            Button {
+                dismissConfirmation()
+            } label: {
+                QKPrimaryButtonLabel(title: loc.t("common.done"), height: 50)
+            }
+            .buttonStyle(QKPressStyle())
         }
-        .frame(height: 300)
-        .tabViewStyle(.page(indexDisplayMode: .always))
+        .padding(24)
+        .frame(maxWidth: 340)
+        .background(Color.qkSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.18), radius: 24, x: 0, y: 12)
+        .padding(24)
+    }
+
+    @ViewBuilder
+    private var gallery: some View {
+        let urls = listing.sortedImageURLs
+        if urls.isEmpty {
+            // No photos → a single full-width branded placeholder (no stock image).
+            PhotoPlaceholder(iconSize: 44)
+                .frame(maxWidth: .infinity)
+                .frame(height: 320)
+                .clipped()
+        } else if urls.count == 1 {
+            // Single hero → slow Ken Burns zoom, like the mockup.
+            ListingImageView(url: urls[0], placeholderIconSize: 44)
+                .frame(maxWidth: .infinity)
+                .frame(height: 320)
+                .kenBurns()
+                .clipped()
+        } else {
+            TabView(selection: $selectedImage) {
+                ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
+                    ListingImageView(url: url, placeholderIconSize: 44)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 320)
+                        .clipped()
+                        .tag(index)
+                }
+            }
+            .frame(height: 320)
+            .tabViewStyle(.page(indexDisplayMode: urls.count > 1 ? .always : .never))
+        }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(listing.title)
-                .font(.title2).fontWeight(.bold)
-                .foregroundStyle(Color.qkInk)
-            if let location = listing.location {
-                Label(location, systemImage: "mappin.and.ellipse")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.qkMuted)
-            }
+        VStack(alignment: .leading, spacing: 8) {
             if listing.isGuestFavorite == true {
-                Label("Guest favorite", systemImage: "star.fill")
-                    .font(.caption).fontWeight(.semibold)
-                    .foregroundStyle(Color.qkBurgundy)
+                QKPopIn {
+                    QKGuestFavoriteBadge(text: loc.t("explore.guestFavorite"))
+                }
+            }
+            if let region = listing.region, !region.isEmpty {
+                QKEyebrow(text: region)
+            }
+            Text(listing.title)
+                .font(.system(.title, design: .serif).weight(.bold))
+                .foregroundStyle(Color.qkInk)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                // Real rating + review count when the place has reviews;
+                // a gold-flavored "New" pill otherwise.
+                if listing.hasRating {
+                    QKStarRating(value: listing.rating, size: 14)
+                    Text("·")
+                        .foregroundStyle(Color.qkMuted)
+                    Text(reviewCountText(listing.reviewCount))
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.qkMuted)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(loc.t("reviews.new"))
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundStyle(Color.qkGoldDeep)
+                }
+                if let location = listing.location {
+                    Text("·")
+                        .foregroundStyle(Color.qkMuted)
+                    Label(location, systemImage: "mappin.and.ellipse")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.qkMuted)
+                        .labelStyle(.titleAndIcon)
+                        .lineLimit(1)
+                }
             }
         }
+    }
+
+    /// "12 reviews" / "1 review" using the singular/plural keys.
+    private func reviewCountText(_ n: Int) -> String {
+        String(format: loc.t(n == 1 ? "reviews.count" : "reviews.count.plural"), n)
+    }
+
+    // MARK: - Host
+
+    /// Up to two uppercase initials from the host name (mirrors the profile /
+    /// reviewer avatar). Falls back to "H" when the name is empty.
+    private var hostInitials: String {
+        let source = (listing.hostName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = source.split(separator: " ").prefix(2).compactMap { $0.first }
+        let result = String(parts).uppercased()
+        return result.isEmpty ? "H" : result
+    }
+
+    /// The host's display name, trimmed; empty when the listing has no host.
+    private var hostName: String {
+        (listing.hostName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Whether to show the "Hosted by" row (and its leading divider).
+    private var hasHost: Bool { !hostName.isEmpty }
+
+    /// "Hosted by {hostName}" row with the gold host avatar, plus the host's
+    /// trust badges (Verified ✓ / Superhost / New host) underneath.
+    private var hostRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                QKAvatar(initials: hostInitials, size: 46, gold: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: loc.t("detail.hostedBy"), hostName))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.qkInk)
+                        .lineLimit(1)
+                    Text(loc.t("common.host"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.qkMuted)
+                }
+                Spacer(minLength: 0)
+            }
+            hostBadgesView
+        }
+    }
+
+    /// Trust chips for the host. Prefers the full badge set from the public
+    /// profile once it's loaded; otherwise shows a single "Verified host" chip
+    /// from the listing's `host_verified` flag so the badge appears immediately.
+    @ViewBuilder
+    private var hostBadgesView: some View {
+        if let hostBadges {
+            QKTrustBadgesRow(badges: hostBadges)
+        } else if listing.hostVerified {
+            QKVerifiedHostChip()
+        }
+    }
+
+    /// "Report this listing" row — a muted, low-emphasis action below the host
+    /// row. Requires sign-in: guests are routed through the auth sheet first.
+    private var reportRow: some View {
+        Button {
+            if auth.isAuthenticated {
+                showingReport = true
+            } else {
+                showingAuth = true
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "flag")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(loc.t("report.reportListing"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .underline()
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Color.qkMuted)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc.t("report.reportListing"))
+    }
+
+    /// "More from this host" — a horizontal row of the host's other listings,
+    /// each pushing its own `ListingDetailView` via the enclosing stack's
+    /// `Listing` destination. Rendered only when `hostListings` is non-empty.
+    private var moreFromHostSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(loc.t("detail.moreFromHost"))
+                .font(.title3).fontWeight(.semibold)
+                .foregroundStyle(Color.qkInk)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(hostListings) { other in
+                        NavigationLink(value: other) {
+                            ListingCard(listing: other)
+                                .frame(width: 260)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            // Don't clip the cards' soft shadows at the scroll-view bounds.
+            .scrollClipDisabled()
+        }
+    }
+
+    /// Fetch the host's other published listings (excluding the current one) for
+    /// the "More from this host" rail. Best-effort: failures leave the section
+    /// hidden. Runs once per host id.
+    private func loadHostListings() async {
+        guard !hostListingsLoaded else { return }
+        guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !hostID.isEmpty else { return }
+        hostListingsLoaded = true
+        let all = (try? await SupabaseService.shared.fetchHostListings(hostID: hostID)) ?? []
+        hostListings = all.filter { $0.id != listing.id }
+    }
+
+    /// Fetch the host's public profile to get the full trust-badge set
+    /// (Verified / Superhost / New host). Best-effort: on failure the host row
+    /// falls back to the listing's `host_verified` flag. Runs once per host id.
+    private func loadHostProfile() async {
+        guard !hostProfileLoaded else { return }
+        guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !hostID.isEmpty else { return }
+        hostProfileLoaded = true
+        if let profile = try? await TrustService.shared.fetchPublicProfile(userID: hostID) {
+            hostBadges = profile.badges
+        }
+    }
+
+    /// Whether the signed-in user is the host of this listing — gates the
+    /// "Manage availability" entry. Compares the account id to the listing's
+    /// `host_id` (both trimmed); `false` for guests or when either id is absent.
+    private var isHostOfThisListing: Bool {
+        guard let userID = auth.user?.id.trimmingCharacters(in: .whitespacesAndNewlines),
+              !userID.isEmpty,
+              let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !hostID.isEmpty else { return false }
+        return userID == hostID
+    }
+
+    /// Fetch the listing's booked + host-blocked spans (public endpoint) so the
+    /// date picker can grey out unavailable days. Best-effort: failures leave the
+    /// calendar fully open. Re-runnable by clearing `availabilityLoaded`.
+    private func loadAvailability() async {
+        guard !availabilityLoaded else { return }
+        availabilityLoaded = true
+        availability = (try? await SupabaseService.shared.fetchAvailability(listingID: listing.id)) ?? []
     }
 
     private var specs: some View {
-        HStack(spacing: 22) {
-            spec(value: listing.maxGuests, label: "guests", system: "person.2.fill")
-            spec(value: listing.bedrooms, label: "bedrooms", system: "bed.double.fill")
-            spec(value: listing.beds, label: "beds", system: "bed.double")
-            spec(value: listing.bathrooms, label: "baths", system: "shower.fill")
+        HStack(spacing: 0) {
+            spec(value: listing.maxGuests, label: loc.t("detail.spec.guests"), divider: false)
+            spec(value: listing.bedrooms, label: loc.t("detail.spec.bedrooms"), divider: true)
+            spec(value: listing.beds, label: loc.t("detail.spec.beds"), divider: true)
+            spec(value: listing.bathrooms, label: loc.t("detail.spec.baths"), divider: true)
+        }
+        .padding(.vertical, 16)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.qkInk.opacity(0.1)), alignment: .top)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.qkInk.opacity(0.1)), alignment: .bottom)
+    }
+
+    private func spec(value: Int?, label: String, divider: Bool) -> some View {
+        VStack(spacing: 3) {
+            Text("\(value ?? 0)")
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(Color.qkInk)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.qkMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .leading) {
+            if divider {
+                Rectangle().frame(width: 1).foregroundStyle(Color.qkInk.opacity(0.08))
+            }
         }
     }
 
-    private func spec(value: Int?, label: String, system: String) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: system).foregroundStyle(Color.qkBurgundy)
-            Text("\(value ?? 0)").fontWeight(.semibold).foregroundStyle(Color.qkInk)
-            Text(label).font(.caption).foregroundStyle(Color.qkMuted)
+    // MARK: - Amenities
+
+    /// "What this place offers" — a two-column grid of the listing's amenities
+    /// (SF Symbol + label), shown only when the listing has any.
+    private var amenitiesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(loc.t("detail.offers"))
+                .font(.title3).fontWeight(.semibold)
+                .foregroundStyle(Color.qkInk)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), alignment: .leading),
+                          GridItem(.flexible(), alignment: .leading)],
+                alignment: .leading,
+                spacing: 14
+            ) {
+                ForEach(listing.amenities, id: \.self) { amenity in
+                    HStack(spacing: 10) {
+                        Image(systemName: Amenities.icon(for: amenity))
+                            .font(.system(size: 17))
+                            .foregroundStyle(Color.qkBurgundy)
+                            .frame(width: 24)
+                        Text(amenity)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.qkInk)
+                            .lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Cancellation policy
+
+    /// "Cancellation policy" — the host-set policy name + its one-line refund
+    /// explanation, so a guest knows the terms before they reserve.
+    private var cancellationPolicySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(loc.t("cancel.policy"))
+                .font(.title3).fontWeight(.semibold)
+                .foregroundStyle(Color.qkInk)
+
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: listing.policy.systemImage)
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(listing.policy.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.qkInk)
+                    Text(listing.policy.explanation)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: - Reviews
+
+    /// "Reviews" — a gold ★ summary header plus the real guest reviews from
+    /// `GET /api/local/reviews?listing_id=`. Shows an empty hint when there are
+    /// none yet.
+    @ViewBuilder
+    private var reviewsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.qkGold)
+                if listing.hasRating {
+                    Text(String(format: "%.1f", listing.rating))
+                        .font(.title3).fontWeight(.bold)
+                        .foregroundStyle(Color.qkInk)
+                        .monospacedDigit()
+                    Text("·")
+                        .foregroundStyle(Color.qkMuted)
+                    Text(reviewCountText(listing.reviewCount))
+                        .font(.title3).fontWeight(.semibold)
+                        .foregroundStyle(Color.qkInk)
+                } else {
+                    Text(loc.t("reviews.title"))
+                        .font(.title3).fontWeight(.semibold)
+                        .foregroundStyle(Color.qkInk)
+                }
+            }
+
+            if reviews.isEmpty {
+                Text(loc.t("reviews.empty"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.qkMuted)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(reviews) { review in
+                        ReviewRow(review: review)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Reserve panel
 
+    /// Host entry into the availability manager (block / unblock dates). Renders
+    /// as a tan secondary row inside the reserve panel.
+    private var manageAvailabilityButton: some View {
+        Button {
+            showingAvailabilityManager = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 16, weight: .semibold))
+                Text(loc.t("availability.manage"))
+                    .fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity)
+            .background(Color.qkTan)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.qkTap)
+    }
+
     private var reservePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Reserve your stay")
+            Text(loc.t("detail.reserveStay"))
                 .font(.title3).fontWeight(.semibold)
                 .foregroundStyle(Color.qkInk)
 
+            // Host-only: manage this listing's blocked dates. Shown when the
+            // signed-in account owns the listing.
+            if isHostOfThisListing {
+                manageAvailabilityButton
+            }
+
             VStack(spacing: 10) {
-                DatePicker("Check-in", selection: $checkIn, displayedComponents: .date)
-                    .tint(.qkBurgundy)
-                    .foregroundStyle(Color.qkInk)
-                DatePicker("Check-out", selection: $checkOut, in: checkIn..., displayedComponents: .date)
-                    .tint(.qkBurgundy)
-                    .foregroundStyle(Color.qkInk)
+                // Branded date-range row → opens the QuickIn calendar sheet
+                // (premium replacement for two plain DatePickers).
+                Button {
+                    showingDatePicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.qkBurgundy)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(loc.t("detail.dates"))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.qkMuted)
+                            Text(dateRangeLabel)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(Color.qkInk)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.qkMuted)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color.qkCream)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
                 Stepper(value: $guests, in: 1...(listing.maxGuests ?? 16)) {
                     HStack(spacing: 8) {
                         Image(systemName: "person.2.fill").foregroundStyle(Color.qkBurgundy)
@@ -168,10 +797,10 @@ struct ListingDetailView: View {
 
             // Live total
             HStack {
-                Text("\(listing.priceText) × \(nights) night\(nights == 1 ? "" : "s")")
+                Text("\(currency.format(listing.pricePerNight)) × \(nights) night\(nights == 1 ? "" : "s")")
                     .foregroundStyle(Color.qkMuted)
                 Spacer()
-                Text("\(listing.currencySymbol)\(total)")
+                Text(currency.format(totalEGP))
                     .fontWeight(.bold)
                     .foregroundStyle(Color.qkInk)
             }
@@ -187,55 +816,60 @@ struct ListingDetailView: View {
             Button {
                 Task { await reserve() }
             } label: {
-                ZStack {
-                    if isReserving {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text(auth.isAuthenticated ? "Reserve" : "Sign in to reserve")
-                            .fontWeight(.semibold)
+                QKPrimaryButtonLabel(
+                    title: loc.t(auth.isAuthenticated ? "detail.reserve" : "detail.signInToReserve"),
+                    isLoading: isReserving
+                )
+                .opacity(isReserving ? 0.85 : 1)
+                .background(alignment: .center) {
+                    if !isReserving {
+                        QKPulseRing(cornerRadius: 16)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(Color.qkBurgundy.opacity(isReserving ? 0.6 : 1))
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .buttonStyle(QKPressStyle())
             .disabled(isReserving)
         }
         .padding(18)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+        .qkCard(lifts: false)
     }
 
     private var bookingBar: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
-                    Text(listing.priceText).font(.title3).fontWeight(.bold).foregroundStyle(Color.qkInk)
-                    Text("/ night").font(.subheadline).foregroundStyle(Color.qkMuted)
+                    Text(currency.format(listing.pricePerNight))
+                        .font(.system(size: 20, weight: .heavy))
+                        .foregroundStyle(Color.qkBurgundy)
+                    Text(loc.t("detail.perNight")).font(.subheadline).foregroundStyle(Color.qkMuted)
                 }
-                Text("\(listing.currencySymbol)\(total) total · \(nights) night\(nights == 1 ? "" : "s")")
+                Text("\(currency.format(totalEGP)) total · \(nights) night\(nights == 1 ? "" : "s")")
                     .font(.caption2).foregroundStyle(Color.qkMuted)
+                // Length-of-stay discounts the host offers (hidden when none).
+                if listing.hasLengthOfStayDiscount {
+                    ListingDiscountNote(weekly: listing.weeklyDiscount, monthly: listing.monthlyDiscount)
+                }
             }
             Spacer()
             Button {
                 Task { await reserve() }
             } label: {
-                Text(auth.isAuthenticated ? "Reserve" : "Sign in")
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 12)
-                    .background(Color.qkBurgundy)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
+                Text(loc.t(auth.isAuthenticated ? "detail.reserve" : "explore.signIn"))
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.qkCream)
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 14)
+                    .background(LinearGradient.qkBurgundyCTA)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             }
+            .buttonStyle(QKPressStyle())
             .disabled(isReserving)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
+        .background(.regularMaterial)
+        .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.qkInk.opacity(0.08)), alignment: .top)
     }
 
     // MARK: - Reserve action
@@ -263,7 +897,9 @@ struct ListingDetailView: View {
                 checkOut: fmt.string(from: checkOut),
                 guests: guests
             )
-            confirmation = booking
+            // Booking created → collect (mock) payment before confirming. The
+            // PaymentSheet flips it to paid + confirmed, then we show the modal.
+            pendingPayment = booking
         } catch BookingError.notSignedIn {
             showingAuth = true
         } catch {

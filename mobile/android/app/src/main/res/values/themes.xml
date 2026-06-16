@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.QuickIn" parent="android:Theme.Material.Light.NoActionBar">
+    <!-- AppCompat parent is required because MainActivity extends AppCompatActivity (for the in-app
+         per-app locale switch). The visible UI is entirely Jetpack Compose (see QuickInTheme); this
+         host-window theme only carries the cream, light status bar. -->
+    <style name="Theme.QuickIn" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:statusBarColor">#F6F1E6</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>

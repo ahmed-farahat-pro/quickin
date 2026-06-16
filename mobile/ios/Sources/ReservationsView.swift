@@ -14,7 +14,7 @@ final class ReservationsViewModel: ObservableObject {
         do {
             bookings = try await BookingService.shared.fetchReservations()
         } catch BookingError.notSignedIn {
-            errorMessage = "Sign in to see your reservations."
+            errorMessage = L.t("cta.reservations.title")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -34,6 +34,7 @@ final class ReservationsViewModel: ObservableObject {
 /// bookings as cards with pull-to-refresh.
 struct ReservationsView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
     @StateObject private var viewModel = ReservationsViewModel()
 
     var body: some View {
@@ -58,12 +59,24 @@ struct ReservationsView: View {
     private var signedIn: some View {
         NavigationStack {
             ZStack {
-                Color.qkCream.ignoresSafeArea()
-                content
+                LinearGradient.qkPageWash.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    QKBrandHeader(
+                        eyebrow: loc.t("reservations.eyebrow"),
+                        title: loc.t("reservations.title"),
+                        subtitle: loc.t("reservations.subtitle")
+                    ) {
+                        QKHeaderIconButton(
+                            systemName: "sparkles",
+                            accessibilityLabel: loc.t("reservations.mySubscriptions")
+                        ) {
+                            MySubscriptionsView()
+                        }
+                    }
+                    content
+                }
             }
-            .navigationTitle("Reservations")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.qkCream, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.qkBurgundy)
         .task {
@@ -74,18 +87,27 @@ struct ReservationsView: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.bookings.isEmpty {
-            ProgressView("Loading your trips…")
-                .tint(.qkBurgundy)
-                .foregroundStyle(Color.qkMuted)
-        } else if let error = viewModel.errorMessage, viewModel.bookings.isEmpty {
-            emptyState(title: "Couldn't load reservations", message: error, retry: true)
-        } else if viewModel.bookings.isEmpty {
-            emptyState(title: "No reservations yet", message: "When you book a stay, it'll show up here.", retry: false)
+            SkeletonList(count: 4, imageHeight: 180)
         } else {
+            // One refreshable ScrollView for EVERY state (list, empty, error) so
+            // pull-to-refresh always works — previously only the populated list
+            // was refreshable, so an empty list couldn't be pulled to reload.
             ScrollView {
                 LazyVStack(spacing: 18) {
-                    ForEach(viewModel.bookings) { booking in
-                        ReservationCard(booking: booking)
+                    subscriptionsLink
+                    if let error = viewModel.errorMessage, viewModel.bookings.isEmpty {
+                        emptyState(title: loc.t("reservations.error.title"), message: error, retry: true)
+                    } else if viewModel.bookings.isEmpty {
+                        emptyState(title: loc.t("reservations.empty.title"), message: loc.t("reservations.empty.msg"), retry: false)
+                    } else {
+                        ForEach(viewModel.bookings) { booking in
+                            NavigationLink {
+                                ReservationDetailView(booking: booking)
+                            } label: {
+                                ReservationCard(booking: booking)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -94,6 +116,35 @@ struct ReservationsView: View {
             }
             .refreshable { await viewModel.load() }
         }
+    }
+
+    /// Banner entry into the user's service subscriptions ("My subscriptions").
+    private var subscriptionsLink: some View {
+        NavigationLink {
+            MySubscriptionsView()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.title3)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(loc.t("reservations.mySubscriptions"))
+                        .font(.headline)
+                        .foregroundStyle(Color.qkInk)
+                    Text(loc.t("reservations.mySubscriptions.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+                Spacer()
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.qkTan4)
+            }
+            .padding(16)
+            .qkCard()
+        }
+        .buttonStyle(.qkTap)
     }
 
     private func emptyState(title: String, message: String, retry: Bool) -> some View {
@@ -113,136 +164,135 @@ struct ReservationsView: View {
                 Button {
                     Task { await viewModel.load() }
                 } label: {
-                    Text("Retry")
+                    Text(loc.t("common.retry"))
                         .fontWeight(.semibold)
+                        .foregroundStyle(Color.qkCream)
                         .padding(.horizontal, 24)
-                        .padding(.vertical, 10)
-                        .background(Color.qkBurgundy)
-                        .foregroundStyle(.white)
+                        .padding(.vertical, 11)
+                        .background(LinearGradient.qkBurgundyCTA)
                         .clipShape(Capsule())
                 }
+                .buttonStyle(QKPressStyle())
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 440)
+        .padding(.top, 20)
     }
 }
 
-/// A single reservation card.
+/// A single reservation card — photo hero with the status pill overlaid, a
+/// serif title and location over a legibility scrim, then a dates/total footer.
 struct ReservationCard: View {
+    @EnvironmentObject private var loc: LocalizationManager
     let booking: Booking
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            AsyncImage(url: URL(string: booking.image ?? Listing.placeholder)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                case .failure:
-                    Color.qkTan.overlay(Image(systemName: "photo").foregroundStyle(Color.qkMuted))
-                default:
-                    Color.qkTan.overlay(ProgressView().tint(.qkBurgundy))
-                }
-            }
-            .frame(height: 180)
-            .frame(maxWidth: .infinity)
-            .clipped()
+            ZStack(alignment: .bottomLeading) {
+                ListingImageView(url: booking.image)
+                    .frame(height: 160)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    .qkPhotoScrim(start: 0.42)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(booking.title ?? "Reservation")
-                        .font(.headline)
-                        .foregroundStyle(Color.qkInk)
-                        .lineLimit(1)
+                // Status pill (top-leading).
+                VStack {
+                    HStack {
+                        StatusBadge(status: booking.bookingStatus)
+                        Spacer()
+                    }
                     Spacer()
-                    if let status = booking.status {
-                        Text(status.capitalized)
-                            .font(.caption2).fontWeight(.semibold)
-                            .padding(.horizontal, 10).padding(.vertical, 4)
-                            .background(Color.qkTan)
-                            .foregroundStyle(Color.qkBurgundy)
-                            .clipShape(Capsule())
+                }
+                .padding(12)
+
+                // Title + location overlaid bottom-leading.
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(booking.title ?? loc.t("reservations.reservation"))
+                        .font(.system(.title3, design: .serif).weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    if let location = booking.location {
+                        Text(location)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.92))
+                            .lineLimit(1)
                     }
                 }
-                if let location = booking.location {
-                    Label(location, systemImage: "mappin.and.ellipse")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.qkMuted)
-                        .lineLimit(1)
-                }
-                Label(booking.dateRangeText, systemImage: "calendar")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.qkInk)
-                HStack(spacing: 4) {
-                    Label("\(booking.guests) guest\(booking.guests == 1 ? "" : "s")", systemImage: "person.2.fill")
-                        .foregroundStyle(Color.qkMuted)
-                    Spacer()
-                    Text(booking.totalText)
-                        .fontWeight(.bold)
-                        .foregroundStyle(Color.qkInk)
-                }
-                .font(.subheadline)
-                .padding(.top, 2)
+                .padding(14)
             }
-            .padding(14)
+
+            HStack(spacing: 10) {
+                Label(booking.dateRangeText, systemImage: "calendar")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.qkInk)
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(booking.totalText)
+                    .font(.system(size: 15, weight: .heavy))
+                    .foregroundStyle(Color.qkBurgundy)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+        .qkCard()
     }
 }
 
 /// Guest CTA mirroring `SignInCTAView`, scoped to reservations.
 struct ReservationsSignInCTA: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
     @State private var showingAuth = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.qkCream.ignoresSafeArea()
+                LinearGradient.qkPageWash.ignoresSafeArea()
 
-                VStack(spacing: 20) {
-                    Spacer()
+                VStack(spacing: 0) {
+                    QKBrandHeader(
+                        eyebrow: loc.t("reservations.eyebrow"),
+                        title: loc.t("reservations.title"),
+                        subtitle: loc.t("reservations.subtitle")
+                    )
 
-                    Image("logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 64)
+                    VStack(spacing: 20) {
+                        Spacer()
 
-                    VStack(spacing: 8) {
-                        Text("Sign in to see your reservations")
-                            .font(.system(.title3, design: .serif).weight(.semibold))
-                            .foregroundStyle(Color.qkInk)
-                            .multilineTextAlignment(.center)
-                        Text("Your upcoming and past trips live here once you're signed in.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.qkMuted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
+                        Image("logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 64)
+
+                        VStack(spacing: 8) {
+                            Text(loc.t("cta.reservations.title"))
+                                .font(.system(.title3, design: .serif).weight(.semibold))
+                                .foregroundStyle(Color.qkInk)
+                                .multilineTextAlignment(.center)
+                            Text(loc.t("cta.reservations.subtitle"))
+                                .font(.subheadline)
+                                .foregroundStyle(Color.qkMuted)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            showingAuth = true
+                        } label: {
+                            QKPrimaryButtonLabel(title: loc.t("cta.button"))
+                        }
+                        .buttonStyle(QKPressStyle())
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
-
-                    Spacer()
-
-                    Button {
-                        showingAuth = true
-                    } label: {
-                        Text("Sign in or create account")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.qkBurgundy)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
+                    .frame(maxWidth: 480)
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: 480)
-                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("Reservations")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.qkCream, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.qkBurgundy)
         .sheet(isPresented: $showingAuth) {
@@ -257,4 +307,5 @@ struct ReservationsSignInCTA: View {
 #Preview {
     ReservationsView()
         .environmentObject(AuthStore())
+        .environmentObject(LocalizationManager.shared)
 }

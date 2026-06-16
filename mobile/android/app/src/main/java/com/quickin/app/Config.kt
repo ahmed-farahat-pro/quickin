@@ -37,5 +37,23 @@ object Config {
      * To enable, set both, e.g.
      *   const val MAPS_API_KEY = "AIzaSyABC123..."   // + -PMAPS_API_KEY=AIzaSyABC123...
      */
-    const val MAPS_API_KEY = ""
+    const val MAPS_API_KEY = "AIzaSyBigDJt5v66YrCqY-kd-V7AdU8fJl3N5_I"
+
+    /**
+     * Public **web** origin used to build shareable links. Shared URLs point at the website so a
+     * recipient without the app installed lands on the site; with the app installed, the App Links
+     * intent-filters in AndroidManifest.xml (autoVerify, host [SHARE_WEB_HOST]) open the app
+     * straight to the matching detail screen.
+     *
+     * This is deliberately the public site domain, NOT [API_BASE_URL] (the backend API origin).
+     * The path scheme mirrors the website's routes (see [ShareLinks]):
+     *   /explore/{id}  ·  /services/{id}  ·  /reservation/{id}
+     */
+    const val SHARE_WEB_BASE_URL = "https://quickin-frontend.vercel.app"
+
+    /** Host of [SHARE_WEB_BASE_URL]; mirrored by the App Links intent-filters in the manifest. */
+    const val SHARE_WEB_HOST = "quickin-frontend.vercel.app"
+
+    /** Custom URL scheme used by the no-verification deep-link fallback, e.g. `quickin://explore/{id}`. */
+    const val DEEP_LINK_SCHEME = "quickin"
 }

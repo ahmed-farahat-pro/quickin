@@ -12,7 +12,17 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            Color.qkCream.ignoresSafeArea()
+            LinearGradient.qkPageWash.ignoresSafeArea()
+
+            // Soft gold halo behind the mark.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.qkGoldLight.opacity(animateIn ? 0.22 : 0), .clear],
+                        center: .center, startRadius: 0, endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
 
             Image("logo")
                 .resizable()

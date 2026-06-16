@@ -12,10 +12,13 @@ import Foundation
 /// with your real Vercel domain (e.g. "https://quickin.vercel.app") — no
 /// trailing slash.
 enum Config {
+    // Live Vercel backend — the app fetches real data from production by default, so it
+    // works on the Simulator/device with no local server. For local dev against
+    // `npm run dev`, switch the DEBUG value back to "http://127.0.0.1:3000".
     #if DEBUG
-    static let apiBaseURL = "http://127.0.0.1:3000"
+    static let apiBaseURL = "https://quickin-backend.vercel.app"
     #else
-    static let apiBaseURL = "https://REPLACE-WITH-YOUR-VERCEL-URL"   // set after deploying to Vercel
+    static let apiBaseURL = "https://quickin-backend.vercel.app"
     #endif
 
     /// Google **iOS OAuth client id** (from Google Cloud Console →
@@ -27,7 +30,7 @@ enum Config {
     /// `id_token` to `/api/auth/google`.
     ///
     /// Example: "1234567890-abcdefg.apps.googleusercontent.com"
-    static let googleClientID = ""
+    static let googleClientID = "293984451588-u9c2d10ecjq5qpfvm96kcda09iqr9iqs.apps.googleusercontent.com"
 
     /// Google Maps iOS SDK key.
     // Set to switch the map to the Google Maps iOS SDK (needs the SDK added via SPM + this key).
@@ -39,7 +42,7 @@ enum Config {
     // then replace the MapKit `Map` in ListingsMapView with a `GMSMapView`
     // wrapped in a `UIViewRepresentable` (using `GMSMarker` + a custom price-pin
     // icon view). Until then this stays empty and MapKit is the live map.
-    static let googleMapsAPIKey = ""
+    static let googleMapsAPIKey = "AIzaSyBigDJt5v66YrCqY-kd-V7AdU8fJl3N5_I"
 
     /// Reversed-client-id URL scheme that Google redirects back to after the
     /// OAuth flow. For an iOS client id this is the client id with the two

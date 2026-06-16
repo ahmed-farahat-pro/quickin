@@ -5,36 +5,78 @@ import AuthenticationServices
 /// "Sign in with Apple" and "Continue with Google" social options.
 struct AuthView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
 
     private enum Mode: String, CaseIterable {
-        case signIn = "Sign In"
-        case signUp = "Sign Up"
+        case signIn
+        case signUp
     }
 
     @State private var mode: Mode = .signIn
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
+    @State private var role: AccountRole = .guest
+    /// Optional referral code entered at signup, forwarded to OTP verification.
+    @State private var referralCode = ""
+
+    /// Identifiable wrapper so the OTP email can drive a `fullScreenCover(item:)`.
+    /// Carries an optional `referralCode` captured at signup so it survives the
+    /// hand-off to the OTP screen.
+    private struct OTPSession: Identifiable {
+        let email: String
+        let referralCode: String?
+        var id: String { email }
+    }
+
+    /// When non-nil, the OTP verification screen is presented for this email
+    /// (set after a `pending` signup or an unverified-email login).
+    @State private var otpSession: OTPSession?
+
+    /// Drives the forgot-password reset sheet (sign-in mode only).
+    @State private var showForgotPassword = false
+
+    // MARK: Biometric sign-in state
+
+    /// What this device supports (Face ID / Touch ID / none). Resolved on appear.
+    @State private var biometricKind: BiometricAuth.Kind = .none
+    /// Whether a biometric session is on file (shows the unlock button).
+    @State private var hasStoredBiometric = false
+    /// Drives the post-login "Enable Face ID?" confirmation dialog.
+    @State private var showEnableBiometric = false
+    /// The freshly-authenticated session held until the user accepts/declines
+    /// the enable-biometric prompt (so we can store it on accept).
+    @State private var pendingBiometricSession: (token: String, user: AuthUser)?
 
     private var isSignUp: Bool { mode == .signUp }
 
+    /// Whether to offer the "Sign in with Face ID" button: only in sign-in mode,
+    /// when the device supports biometrics and a session is stored.
+    private var canUseBiometricSignIn: Bool {
+        !isSignUp && biometricKind != .none && hasStoredBiometric
+    }
+
     private var canSubmit: Bool {
-        guard !email.trimmingCharacters(in: .whitespaces).isEmpty,
-              password.count >= 1 else { return false }
+        guard !email.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         if isSignUp {
+            // New account: require a name + a password that clears the strength bar.
             return !name.trimmingCharacters(in: .whitespaces).isEmpty
+                && PasswordRules.meetsMin(password)
         }
-        return true
+        // Sign-in just needs a non-empty password; strength is enforced at signup.
+        return password.count >= 1
     }
 
     var body: some View {
         ZStack {
-            Color.qkCream.ignoresSafeArea()
+            LinearGradient.qkPageWash.ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 24) {
                     header
                     modePicker
+                    roleSelector
                     formCard
                     if let error = auth.errorMessage {
                         Text(error)
@@ -45,6 +87,9 @@ struct AuthView: View {
                             .transition(.opacity)
                     }
                     primaryButton
+                    if canUseBiometricSignIn {
+                        biometricButton
+                    }
                     orDivider
                     socialButtons
                     Spacer(minLength: 8)
@@ -59,7 +104,68 @@ struct AuthView: View {
         }
         .tint(.qkBurgundy)
         .animation(.easeInOut(duration: 0.2), value: mode)
+        .animation(.easeInOut(duration: 0.2), value: role)
         .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
+        // OTP verification step. Presented after a `pending` signup or when a
+        // login reports the email still needs verification.
+        .fullScreenCover(item: $otpSession) { session in
+            OTPVerificationView(email: session.email, referralCode: session.referralCode) {
+                // Verified: AuthStore now holds the session. Dismiss the OTP
+                // cover; the parent sheet auto-dismisses on `isAuthenticated`.
+                otpSession = nil
+            }
+            .environmentObject(auth)
+        }
+        // Forgot-password reset flow (request code → reset). On success it
+        // stores the session; the presenting sheet dismisses on `isAuthenticated`.
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView(initialEmail: email)
+                .environmentObject(auth)
+                .environmentObject(loc)
+        }
+        .animation(.easeInOut(duration: 0.2), value: canUseBiometricSignIn)
+        // Resolve biometric capability + whether a session is stored each time
+        // the screen appears (covers returning after a logout).
+        .onAppear {
+            refreshBiometricState()
+            // CLI screenshot hook: force-present the enable-Face ID sheet so its
+            // design can be captured without enrolling biometrics + logging in.
+            if UserDefaults.standard.bool(forKey: "uitestBioSheet") {
+                biometricKind = .faceID
+                showEnableBiometric = true
+            }
+            // CLI screenshot hook: force the "Sign in with Face ID" button visible.
+            if UserDefaults.standard.bool(forKey: "uitestBioButton") {
+                biometricKind = .faceID
+                hasStoredBiometric = true
+            }
+        }
+        // Offer to enable Face ID / Touch ID after a fresh password login — a
+        // custom boutique sheet (not the stock iOS dialog). Either choice commits
+        // the staged session so the user finishes signing in.
+        .overlay {
+            if showEnableBiometric {
+                BiometricEnableSheet(
+                    kind: biometricKind,
+                    onEnable: {
+                        if let session = pendingBiometricSession {
+                            BiometricAuth.shared.storeSession(token: session.token, user: session.user)
+                            hasStoredBiometric = true
+                        }
+                        showEnableBiometric = false
+                        finishAuthenticated()
+                    },
+                    onLater: {
+                        showEnableBiometric = false
+                        finishAuthenticated()
+                    }
+                )
+                .environmentObject(loc)
+                .transition(.opacity)
+                .zIndex(30)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: showEnableBiometric)
     }
 
     // MARK: - Header
@@ -70,7 +176,7 @@ struct AuthView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(height: 56)
-            Text("Boutique stays, booked in a tap.")
+            Text(loc.t("auth.tagline"))
                 .font(.subheadline)
                 .foregroundStyle(Color.qkMuted)
         }
@@ -82,10 +188,65 @@ struct AuthView: View {
     private var modePicker: some View {
         Picker("Mode", selection: $mode) {
             ForEach(Mode.allCases, id: \.self) { m in
-                Text(m.rawValue).tag(m)
+                Text(loc.t(m == .signIn ? "auth.signIn" : "auth.signUp")).tag(m)
             }
         }
         .pickerStyle(.segmented)
+    }
+
+    // MARK: - Role selector (sign up + sign in)
+
+    /// Two clearly-labelled buttons letting the visitor pick Guest (role `user`)
+    /// or Host (role `host`). On sign-up the chosen role is sent in `/signup`;
+    /// on sign-in it's sent in `/login` (Host gains/keeps the host role).
+    private var roleSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc.t(isSignUp ? "auth.joinAs" : "auth.signInAs"))
+                .font(.caption).fontWeight(.semibold)
+                .foregroundStyle(Color.qkMuted)
+            HStack(spacing: 12) {
+                roleButton(.guest, subtitle: loc.t("auth.role.guest.subtitle"), systemImage: "suitcase.rolling")
+                roleButton(.host, subtitle: loc.t("auth.role.host.subtitle"), systemImage: "house")
+            }
+        }
+    }
+
+    private func roleButton(_ value: AccountRole, subtitle: String, systemImage: String) -> some View {
+        let selected = role == value
+        let actionLabel = isSignUp
+            ? String(format: loc.t("auth.registerAs"), value.label)
+            : value.label
+        return Button {
+            role = value
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                Text(actionLabel)
+                    .font(.subheadline.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.qkMuted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                Group {
+                    if selected { LinearGradient.qkBurgundyCTA } else { Color.qkSurface }
+                }
+            )
+            .foregroundStyle(selected ? Color.qkCream : Color.qkInk)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(selected ? Color.clear : Color.qkInk.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: (selected ? Color.qkBurgundy : Color.qkInk).opacity(selected ? 0.22 : 0.05),
+                    radius: selected ? 12 : 8, x: 0, y: selected ? 8 : 4)
+        }
+        .buttonStyle(.qkTap)
+        .accessibilityLabel(actionLabel)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     // MARK: - Form
@@ -94,15 +255,15 @@ struct AuthView: View {
         VStack(spacing: 14) {
             if isSignUp {
                 field(
-                    title: "Full name",
+                    title: loc.t("auth.fullName"),
                     text: $name,
-                    placeholder: "Layla Hassan",
+                    placeholder: loc.t("auth.fullName.placeholder"),
                     systemImage: "person",
                     contentType: .name
                 )
             }
             field(
-                title: "Email",
+                title: loc.t("auth.email"),
                 text: $email,
                 placeholder: "layla@email.com",
                 systemImage: "envelope",
@@ -110,16 +271,38 @@ struct AuthView: View {
                 keyboard: .emailAddress
             )
             secureField(
-                title: "Password",
+                title: loc.t("auth.password"),
                 text: $password,
                 placeholder: "••••••••",
-                systemImage: "lock"
+                systemImage: "lock",
+                isRevealed: $showPassword
             )
+            if isSignUp {
+                PasswordStrengthView(password: password)
+                    .animation(.easeInOut(duration: 0.25), value: password.isEmpty)
+                field(
+                    title: loc.t("referral.signupField"),
+                    text: $referralCode,
+                    placeholder: loc.t("referral.signupPlaceholder"),
+                    systemImage: "gift"
+                )
+            }
+            if !isSignUp {
+                Button {
+                    auth.setError(nil)
+                    showForgotPassword = true
+                } label: {
+                    Text(loc.t("auth.forgotPassword"))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .buttonStyle(.plain)
+                .disabled(auth.isLoading)
+            }
         }
         .padding(18)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+        .qkCard(lifts: false)
     }
 
     private func field(
@@ -149,6 +332,10 @@ struct AuthView: View {
             .padding(.vertical, 12)
             .background(Color.qkCream)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+            )
         }
     }
 
@@ -156,7 +343,8 @@ struct AuthView: View {
         title: String,
         text: Binding<String>,
         placeholder: String,
-        systemImage: String
+        systemImage: String,
+        isRevealed: Binding<Bool>
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -166,14 +354,35 @@ struct AuthView: View {
                 Image(systemName: systemImage)
                     .foregroundStyle(Color.qkMuted)
                     .frame(width: 18)
-                SecureField(placeholder, text: text)
-                    .textContentType(isSignUp ? .newPassword : .password)
-                    .foregroundStyle(Color.qkInk)
+                Group {
+                    if isRevealed.wrappedValue {
+                        TextField(placeholder, text: text)
+                    } else {
+                        SecureField(placeholder, text: text)
+                    }
+                }
+                .textContentType(isSignUp ? .newPassword : .password)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .foregroundStyle(Color.qkInk)
+                Button {
+                    isRevealed.wrappedValue.toggle()
+                } label: {
+                    Image(systemName: isRevealed.wrappedValue ? "eye.slash" : "eye")
+                        .foregroundStyle(Color.qkMuted)
+                        .frame(width: 18)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(loc.t(isRevealed.wrappedValue ? "auth.hidePassword" : "auth.showPassword"))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Color.qkCream)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+            )
         }
     }
 
@@ -183,22 +392,48 @@ struct AuthView: View {
         Button {
             Task { await submit() }
         } label: {
-            ZStack {
-                if auth.isLoading {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Text(isSignUp ? "Create account" : "Sign in")
-                        .fontWeight(.semibold)
+            QKPrimaryButtonLabel(
+                title: loc.t(isSignUp ? "auth.createAccount" : "auth.signIn"),
+                isLoading: auth.isLoading
+            )
+            .opacity(canSubmit && !auth.isLoading ? 1 : 0.5)
+            .background(alignment: .center) {
+                if canSubmit && !auth.isLoading {
+                    QKPulseRing(cornerRadius: 16)
                 }
+            }
+        }
+        .buttonStyle(QKPressStyle())
+        .disabled(!canSubmit || auth.isLoading)
+    }
+
+    // MARK: - Biometric sign-in button
+
+    /// "Sign in with Face ID / Touch ID" — shown in sign-in mode when a session
+    /// is stored. A bordered burgundy button with the matching SF Symbol.
+    private var biometricButton: some View {
+        Button {
+            Task { await handleBiometricSignIn() }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: biometricKind.symbol)
+                    .font(.system(size: 20, weight: .semibold))
+                Text(String(format: loc.t("biometric.signInWith"), biometricKind.displayName))
+                    .fontWeight(.semibold)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color.qkBurgundy.opacity(canSubmit && !auth.isLoading ? 1 : 0.5))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.qkBurgundy)
+            .background(Color.qkSurface)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.qkBurgundy.opacity(0.4), lineWidth: 1.5)
+            )
         }
-        .disabled(!canSubmit || auth.isLoading)
+        .buttonStyle(QKPressStyle())
+        .disabled(auth.isLoading)
+        .accessibilityLabel(String(format: loc.t("biometric.signInWith"), biometricKind.displayName))
     }
 
     // MARK: - Divider
@@ -206,7 +441,7 @@ struct AuthView: View {
     private var orDivider: some View {
         HStack(spacing: 12) {
             Rectangle().fill(Color.qkInk.opacity(0.12)).frame(height: 1)
-            Text("or")
+            Text(loc.t("common.or"))
                 .font(.footnote)
                 .foregroundStyle(Color.qkMuted)
             Rectangle().fill(Color.qkInk.opacity(0.12)).frame(height: 1)
@@ -240,7 +475,7 @@ struct AuthView: View {
                     Text("G")
                         .font(.system(size: 18, weight: .bold, design: .default))
                         .foregroundStyle(Color.qkBurgundy)
-                    Text("Continue with Google")
+                    Text(loc.t("auth.continueWithGoogle"))
                         .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
@@ -256,7 +491,7 @@ struct AuthView: View {
             .disabled(auth.isLoading)
 
             if Config.googleClientID.isEmpty {
-                Text("Add your Google iOS client id in Config.swift to enable Google sign-in")
+                Text(loc.t("auth.googleNote"))
                     .font(.caption2)
                     .foregroundStyle(Color.qkMuted)
                     .multilineTextAlignment(.center)
@@ -270,10 +505,94 @@ struct AuthView: View {
 
     private func submit() async {
         if isSignUp {
-            await auth.signup(name: name, email: email, password: password)
-        } else {
-            await auth.login(email: email, password: password)
+            let outcome = await auth.signup(name: name, email: email, password: password, role: role)
+            await handle(outcome, session: nil)
+            return
         }
+
+        // Sign in. When the device can offer Face ID / Touch ID and no session
+        // is stored yet, log in *deferred* so we can show the "Enable Face ID?"
+        // prompt before the presenting sheet auto-dismisses. Otherwise use the
+        // normal path (which signs in immediately).
+        if biometricKind != .none && !hasStoredBiometric {
+            let (outcome, session) = await auth.loginDeferred(email: email, password: password, role: role)
+            await handle(outcome, session: session)
+        } else {
+            let outcome = await auth.login(email: email, password: password, role: role)
+            await handle(outcome, session: nil)
+        }
+    }
+
+    /// Route an auth outcome. When `session` is non-nil the login was deferred
+    /// for the biometric opt-in prompt; otherwise the session (if any) is
+    /// already live.
+    private func handle(_ outcome: AuthOutcome, session: AuthSuccess?) async {
+        switch outcome {
+        case .authenticated:
+            if let session {
+                // Deferred path: stash the session and ask to enable biometrics.
+                // The session is committed when the prompt is answered.
+                pendingBiometricSession = (session.token, session.user)
+                showEnableBiometric = true
+            }
+            // Non-deferred path: session is already live; the presenting sheet
+            // dismisses on `auth.isAuthenticated`. Nothing to do.
+        case .needsVerification(let verifyEmail):
+            // For an unverified-email login, send a fresh code before showing
+            // the OTP screen (signup already emailed one). Errors surface via
+            // `auth.errorMessage`.
+            if !isSignUp {
+                await auth.resendOTP(email: verifyEmail)
+            }
+            // Carry the referral code only on the signup path (an unverified
+            // login never entered one).
+            let trimmedReferral = referralCode.trimmingCharacters(in: .whitespaces)
+            otpSession = OTPSession(
+                email: verifyEmail,
+                referralCode: (isSignUp && !trimmedReferral.isEmpty) ? trimmedReferral : nil
+            )
+        case .failed:
+            break
+        }
+    }
+
+    /// Commit the staged session (from a deferred login) so the app advances
+    /// into the signed-in experience. Called after the enable-biometric prompt
+    /// is answered (enabled or not).
+    private func finishAuthenticated() {
+        guard let pending = pendingBiometricSession else { return }
+        auth.commitDeferredSession(AuthSuccess(token: pending.token, user: pending.user))
+        pendingBiometricSession = nil
+    }
+
+    /// Resolve the device's biometric capability and whether a session is on
+    /// file, so the sign-in button + opt-in prompt show only when relevant.
+    private func refreshBiometricState() {
+        biometricKind = BiometricAuth.shared.availableKind()
+        hasStoredBiometric = BiometricAuth.shared.hasStoredSession
+    }
+
+    /// Run the Face ID / Touch ID unlock: prompt → load the stored session →
+    /// adopt it (signs in). On a biometric failure we stay on the form so the
+    /// user can fall back to their password. If the stored session is missing
+    /// we clear the button and surface a note.
+    private func handleBiometricSignIn() async {
+        auth.setError(nil)
+        let ok = await BiometricAuth.shared.authenticate(reason: loc.t("biometric.reason"))
+        guard ok else {
+            // Cancel / no-match / lockout: fall back to password silently unless
+            // it was an outright failure worth noting. Keep it quiet on cancel.
+            return
+        }
+        guard let session = BiometricAuth.shared.loadStoredSession() else {
+            // Stored session vanished (e.g. cleared elsewhere): hide the button.
+            BiometricAuth.shared.clearStoredSession()
+            hasStoredBiometric = false
+            auth.setError(loc.t("biometric.sessionExpired"))
+            return
+        }
+        // Adopt the stored token + user → signs in (sheet dismisses reactively).
+        auth.adopt(token: session.token, user: session.user)
     }
 
     /// Handle the native Apple authorization result. On success we forward the
@@ -298,7 +617,7 @@ struct AuthView: View {
 
             Task {
                 await auth.exchangeSocial(path: "/api/auth/apple", body: [
-                    "id_token": idToken,
+                    "identityToken": idToken,
                     "full_name": fullName,
                 ])
             }
@@ -336,4 +655,5 @@ struct AuthView: View {
 #Preview {
     AuthView()
         .environmentObject(AuthStore())
+        .environmentObject(LocalizationManager.shared)
 }

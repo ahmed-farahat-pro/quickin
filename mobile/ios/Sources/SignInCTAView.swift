@@ -5,55 +5,66 @@ import SwiftUI
 /// automatically and `ProfileTab` swaps in the real `ProfileView`.
 struct SignInCTAView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
     @State private var showingAuth = false
+
+    /// Header content — localization keys, defaulting to the Profile tab. The
+    /// Wishlist tab passes its own so each tab's headline reads correctly.
+    var eyebrowKey: String = "profile.eyebrow"
+    var titleKey: String = "profile.title"
+    var subtitleKey: String = "profile.subtitle"
+    /// The centered CTA copy (defaults to the Profile prompt).
+    var ctaTitleKey: String = "cta.profile.title"
+    var ctaSubtitleKey: String = "cta.profile.subtitle"
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.qkCream.ignoresSafeArea()
+                LinearGradient.qkPageWash.ignoresSafeArea()
 
-                VStack(spacing: 20) {
-                    Spacer()
+                VStack(spacing: 0) {
+                    QKBrandHeader(
+                        eyebrow: loc.t(eyebrowKey),
+                        title: loc.t(titleKey),
+                        subtitle: loc.t(subtitleKey)
+                    )
 
-                    Image("logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 64)
+                    VStack(spacing: 20) {
+                        Spacer()
 
-                    VStack(spacing: 8) {
-                        Text("Sign in to manage your trips")
-                            .font(.system(.title3, design: .serif).weight(.semibold))
-                            .foregroundStyle(Color.qkInk)
-                            .multilineTextAlignment(.center)
-                        Text("Save favorites, book stays, and keep your reservations in one place.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.qkMuted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
+                        Image("logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 64)
+
+                        VStack(spacing: 8) {
+                            Text(loc.t(ctaTitleKey))
+                                .font(.system(.title3, design: .serif).weight(.semibold))
+                                .foregroundStyle(Color.qkInk)
+                                .multilineTextAlignment(.center)
+                            Text(loc.t(ctaSubtitleKey))
+                                .font(.subheadline)
+                                .foregroundStyle(Color.qkMuted)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            showingAuth = true
+                        } label: {
+                            QKPrimaryButtonLabel(title: loc.t("cta.button"))
+                        }
+                        .buttonStyle(QKPressStyle())
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
-
-                    Spacer()
-
-                    Button {
-                        showingAuth = true
-                    } label: {
-                        Text("Sign in or create account")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.qkBurgundy)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
+                    .frame(maxWidth: 480)
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: 480)
-                .frame(maxWidth: .infinity)
             }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.qkCream, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.qkBurgundy)
         .sheet(isPresented: $showingAuth) {
@@ -70,4 +81,5 @@ struct SignInCTAView: View {
 #Preview {
     SignInCTAView()
         .environmentObject(AuthStore())
+        .environmentObject(LocalizationManager.shared)
 }

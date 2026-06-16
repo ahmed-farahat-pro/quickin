@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Used by the CLI upload path:
+    xcodebuild -exportArchive -archivePath build/QuickIn.xcarchive \
+      -exportOptionsPlist ExportOptions.plist -exportPath build/export
+  Replace YOUR_TEAM_ID with your 10-char Apple Team ID (developer.apple.com -> Membership).
+  If your Xcode rejects method "app-store-connect", change it to "app-store".
+  (The Xcode GUI path in TESTFLIGHT.md does NOT need this file.)
+-->
+<plist version="1.0">
+<dict>
+  <key>method</key>
+  <string>app-store-connect</string>
+  <key>destination</key>
+  <string>export</string>
+  <key>teamID</key>
+  <string>YOUR_TEAM_ID</string>
+  <key>signingStyle</key>
+  <string>automatic</string>
+  <key>uploadSymbols</key>
+  <true/>
+</dict>
+</plist>

@@ -2,6 +2,8 @@ package com.quickin.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -27,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,6 +42,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +59,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import coil.compose.AsyncImage
 import com.quickin.app.Listing
+import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
@@ -64,6 +70,27 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+
+/** Default camera target: the whole of Egypt, so the map opens here rather than the world. */
+private val EGYPT_CENTER = 26.8206 to 30.8025
+private const val EGYPT_ZOOM = 5.5
+
+/**
+ * The three Egyptian coast regions offered as quick-jump tabs above the map.
+ * Tapping one flies the camera to that resort belt.
+ */
+enum class MapRegion(val label: String, val lat: Double, val lng: Double, val zoom: Double) {
+    NORTH_COAST("North Coast", 30.95, 28.75, 9.0),
+    EL_GOUNA("El Gouna", 27.3954, 33.6781, 12.0),
+    AIN_SOKHNA("Ain Sokhna", 29.6000, 32.3500, 11.0)
+}
+
+/** Mutable, non-Compose-state scratch the AndroidView `update` lambda uses to act
+ *  only on real changes (new pins / a region tap), never on plain recompositions. */
+private class CameraSync {
+    var lastFramedKey: String? = null
+    var lastNonce: Int = 0
+}
 
 /**
  * OpenStreetMap (osmdroid) map of the current listings.
@@ -81,6 +108,13 @@ fun ListingsMap(
     listings: List<Listing>,
     onSelect: (Listing) -> Unit,
     onClose: () -> Unit = {},
+    /**
+     * "Search this area": invoked with the map's current visible viewport as a
+     * `minLng,minLat,maxLng,maxLat` (GeoJSON west,south,east,north) bbox string.
+     */
+    onSearchArea: (String) -> Unit = {},
+    /** True while a fetch is in flight (disables the "Search this area" button). */
+    isSearching: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -94,6 +128,17 @@ fun ListingsMap(
     // The listing whose bottom card is currently shown (tapped pin). Cleared on dismiss.
     var selected by remember { mutableStateOf<Listing?>(null) }
 
+    // Active region tab (null = camera frames the pins). `regionNonce` bumps on every
+    // tap so re-tapping the same region re-centers the camera too.
+    var selectedRegion by remember { mutableStateOf<MapRegion?>(null) }
+    var regionNonce by remember { mutableIntStateOf(0) }
+
+    // A non-state holder so the AndroidView `update` lambda can tell a *real* change
+    // (new pins / a region tap) from an ordinary recomposition — without itself
+    // triggering a recompose. Identity of the located set keys the camera framing.
+    val locatedKey = remember(located) { located.joinToString("|") { "${it.id}:${it.lat},${it.lng}" } }
+    val cam = remember { CameraSync() }
+
     // Build the MapView once; keep it across recompositions.
     val mapView = remember {
         MapView(context).apply {
@@ -102,6 +147,9 @@ fun ListingsMap(
             // We provide our own (cleaner) gestures; hide the legacy +/- overlay buttons.
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             setBackgroundColor(Tan.toArgb())
+            // Open on Egypt (not the world) until the camera frames the actual pins.
+            controller.setZoom(EGYPT_ZOOM)
+            controller.setCenter(GeoPoint(EGYPT_CENTER.first, EGYPT_CENTER.second))
         }
     }
 
@@ -149,19 +197,34 @@ fun ListingsMap(
                     map.overlays.add(marker)
                 }
 
-                // Frame the view to the pins. zoomToBoundingBox needs the view laid out, so post
-                // it; for a single pin a bounding box is degenerate, so center + fixed zoom.
-                when {
-                    located.size == 1 -> {
-                        val only = located.first()
-                        map.controller.setZoom(12.0)
-                        map.controller.setCenter(GeoPoint(only.lat!!, only.lng!!))
+                // Frame the view to the pins, but ONLY when the located set actually
+                // changes — not on every recompose (otherwise tapping a pin or a region
+                // would yank the camera back to the full bounds). zoomToBoundingBox needs
+                // the view laid out, so post it; a single pin gets center + fixed zoom.
+                if (locatedKey != cam.lastFramedKey) {
+                    cam.lastFramedKey = locatedKey
+                    if (selectedRegion == null) {
+                        when {
+                            located.size == 1 -> {
+                                val only = located.first()
+                                map.controller.setZoom(12.0)
+                                map.controller.setCenter(GeoPoint(only.lat!!, only.lng!!))
+                            }
+                            located.size > 1 -> {
+                                val box = BoundingBox.fromGeoPointsSafe(
+                                    located.map { GeoPoint(it.lat!!, it.lng!!) }
+                                )
+                                map.post { map.zoomToBoundingBox(box, false, 96) }
+                            }
+                        }
                     }
-                    located.size > 1 -> {
-                        val box = BoundingBox.fromGeoPointsSafe(
-                            located.map { GeoPoint(it.lat!!, it.lng!!) }
-                        )
-                        map.post { map.zoomToBoundingBox(box, false, 96) }
+                }
+
+                // A region tab tap flies the camera to that resort belt.
+                if (regionNonce != cam.lastNonce) {
+                    cam.lastNonce = regionNonce
+                    selectedRegion?.let { r ->
+                        map.controller.animateTo(GeoPoint(r.lat, r.lng), r.zoom, 800L)
                     }
                 }
                 map.invalidate()
@@ -188,6 +251,33 @@ fun ListingsMap(
                 }
             }
         }
+
+        // Region quick-jump tabs (North Coast / El Gouna / Ain Sokhna). Scrolls
+        // horizontally and leaves room on the right for the close (X) button.
+        if (located.isNotEmpty()) {
+            MapRegionTabs(
+                selected = selectedRegion,
+                onSelect = { selectedRegion = it; regionNonce++ },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = 16.dp, end = 64.dp)
+            )
+        }
+
+        // "Search this area" — re-queries listings within the map's current visible viewport.
+        // Reads the visible bounds straight off the MapView and builds a GeoJSON-order bbox
+        // (minLng,minLat,maxLng,maxLat). Top-center so it clears the region tabs / close button.
+        SearchThisAreaButton(
+            enabled = !isSearching,
+            onClick = {
+                val box = mapView.boundingBox
+                val bbox = "${box.lonWest},${box.latSouth},${box.lonEast},${box.latNorth}"
+                onSearchArea(bbox)
+            },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
+        )
 
         // Close-the-map (X) button → returns the Explore tab to the list.
         Surface(
@@ -238,15 +328,25 @@ private fun MapSelectionCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AsyncImage(
-                model = listing.sortedImageUrls.first(),
-                contentDescription = listing.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(Tan, RoundedCornerShape(16.dp))
-                    .clip(RoundedCornerShape(16.dp))
-            )
+            val thumbUrl = listing.sortedImageUrls.firstOrNull()
+            if (thumbUrl != null) {
+                AsyncImage(
+                    model = thumbUrl,
+                    contentDescription = listing.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(Tan, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp))
+                )
+            } else {
+                PhotoPlaceholder(
+                    modifier = Modifier.size(72.dp),
+                    cornerRadius = 16.dp,
+                    iconSize = 22.dp,
+                    showCaption = false
+                )
+            }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -260,7 +360,7 @@ private fun MapSelectionCard(
                     Text(listing.location, color = Muted, fontSize = 13.sp, maxLines = 1)
                 }
                 Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 2.dp)) {
-                    Text(listing.priceText, fontWeight = FontWeight.Bold, color = Ink, fontSize = 14.sp)
+                    Text(listing.priceText, fontWeight = FontWeight.Bold, color = Burgundy, fontSize = 14.sp)
                     Text(" / night", color = Muted, fontSize = 12.sp)
                 }
             }
@@ -277,6 +377,71 @@ private fun MapSelectionCard(
                 ) {
                     Text("View", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Floating "Search this area" pill shown over the map. Tapping it re-queries listings within
+ * the map's current visible viewport. Disabled (dimmed) while a fetch is in flight.
+ */
+@Composable
+private fun SearchThisAreaButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(50),
+        color = Burgundy,
+        contentColor = Color.White,
+        shadowElevation = 6.dp,
+        modifier = modifier
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+        ) {
+            Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.filters_search_this_area),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+/** Horizontal quick-jump pills for the three Egyptian coast regions. */
+@Composable
+private fun MapRegionTabs(
+    selected: MapRegion?,
+    onSelect: (MapRegion) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        MapRegion.values().forEach { region ->
+            val on = selected == region
+            Surface(
+                onClick = { onSelect(region) },
+                shape = RoundedCornerShape(50),
+                color = if (on) Burgundy else Color.White,
+                shadowElevation = 3.dp
+            ) {
+                Text(
+                    region.label,
+                    color = if (on) Color.White else Ink,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                )
             }
         }
     }

@@ -230,6 +230,20 @@
     <string name="detail_hosted_by">يستضيفها %1$s</string>
     <string name="detail_more_from_host">المزيد من هذا المضيف</string>
 
+    <!-- ملف المضيف (عند الضغط على صف "يستضيفها …") -->
+    <string name="host_profile_title">ملف المضيف</string>
+    <string name="host_profile_view">عرض ملف المضيف</string>
+    <string name="host_profile_error">تعذّر تحميل بيانات هذا المضيف.</string>
+    <string name="host_profile_about">عن المضيف</string>
+    <string name="host_profile_member_since">عضو منذ %1$s</string>
+    <string name="host_profile_reviews">تقييمات عن إقاماته</string>
+    <string name="host_profile_listings">إعلاناته</string>
+    <string name="host_profile_review_for">الإقامة: %1$s</string>
+
+    <!-- تأكيد الحفظ في قائمة الرغبات -->
+    <string name="wishlist_added">تمت الإضافة إلى قائمة الرغبات</string>
+    <string name="wishlist_removed">تمت الإزالة من قائمة الرغبات</string>
+
     <!-- Payment (MOCK — no real gateway yet) -->
     <string name="pay_title">التأكيد والدفع</string>
     <string name="pay_subtitle">راجع الإجمالي وادفع لتأكيد حجزك.</string>

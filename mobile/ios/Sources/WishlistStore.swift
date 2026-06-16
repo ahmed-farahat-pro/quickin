@@ -15,6 +15,11 @@ final class WishlistStore: ObservableObject {
     /// Saved service ids (for parity with services, used by the Saved screen).
     @Published private(set) var savedServiceIDs: Set<String> = []
 
+    /// The most recent "Added / Removed from wishlist" event, published so a
+    /// single app-level overlay can show a transient toast. Each toggle emits a
+    /// fresh value (new `id`) so the overlay re-triggers even on repeat actions.
+    @Published var lastToast: WishlistToast?
+
     init() {
         // Belt-and-suspenders: also clear on the logout broadcast so a sign-out
         // never leaves a previous account's saved hearts behind, independent of
@@ -47,35 +52,50 @@ final class WishlistStore: ObservableObject {
     }
 
     /// Optimistically toggle a listing's saved state, then sync with the server.
-    /// Rolls back on failure. Returns the (optimistic) new saved state.
+    /// Rolls back on failure. Returns the (optimistic) new saved state. Emits a
+    /// toast immediately so the user gets clear "Added/Removed" feedback.
     @discardableResult
     func toggleListing(_ id: String) -> Bool {
         let wasSaved = savedListingIDs.contains(id)
         if wasSaved { savedListingIDs.remove(id) } else { savedListingIDs.insert(id) }
         let nowSaved = !wasSaved
+        emitToast(saved: nowSaved)
         Task { await self.sync(itemType: .listing, id: id, optimisticSaved: nowSaved) }
         return nowSaved
     }
 
     /// Optimistically toggle a service's saved state, then sync with the server.
+    /// Emits the same "Added/Removed" toast as listings.
     @discardableResult
     func toggleService(_ id: String) -> Bool {
         let wasSaved = savedServiceIDs.contains(id)
         if wasSaved { savedServiceIDs.remove(id) } else { savedServiceIDs.insert(id) }
         let nowSaved = !wasSaved
+        emitToast(saved: nowSaved)
         Task { await self.sync(itemType: .service, id: id, optimisticSaved: nowSaved) }
         return nowSaved
     }
 
+    /// Publish a fresh toast reflecting the new saved state.
+    private func emitToast(saved: Bool) {
+        lastToast = WishlistToast(saved: saved)
+    }
+
     /// Run the POST and reconcile local state with the server's authoritative
-    /// `saved` flag; on error, roll back to the pre-toggle state.
+    /// `saved` flag; on error, roll back to the pre-toggle state. If the server's
+    /// result contradicts our optimistic guess, correct the toast too.
     private func sync(itemType: WishlistService.ItemType, id: String, optimisticSaved: Bool) async {
         do {
             let serverSaved = try await WishlistService.shared.toggle(itemType: itemType, itemID: id)
             apply(itemType: itemType, id: id, saved: serverSaved)
+            // The optimistic toast already fired; only re-emit if the server
+            // disagreed, so the message matches the true state.
+            if serverSaved != optimisticSaved { emitToast(saved: serverSaved) }
         } catch {
-            // Roll back to the opposite of our optimistic guess.
+            // Roll back to the opposite of our optimistic guess, and correct the
+            // toast to reflect that the change didn't stick.
             apply(itemType: itemType, id: id, saved: !optimisticSaved)
+            emitToast(saved: !optimisticSaved)
         }
     }
 

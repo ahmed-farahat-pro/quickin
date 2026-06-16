@@ -82,6 +82,7 @@ import com.quickin.app.ui.HostAnalyticsScreen
 import com.quickin.app.ui.HostListingsScreen
 import com.quickin.app.ui.HostReservationsScreen
 import com.quickin.app.ui.HostEarningsScreen
+import com.quickin.app.ui.HostProfileScreen
 import com.quickin.app.ui.HostScreen
 import com.quickin.app.ui.ListingDetailScreen
 import com.quickin.app.ui.HostServicesScreen
@@ -375,6 +376,7 @@ private fun MainApp() {
     val trustViewModel: TrustViewModel = viewModel()
     val verificationState by trustViewModel.verification.collectAsState()
     val hostBadgesState by trustViewModel.hostBadges.collectAsState()
+    val hostProfileState by trustViewModel.hostProfile.collectAsState()
     val reportState by trustViewModel.report.collectAsState()
 
     // Wishlist (saved stays/experiences) + reviews (listing reviews + leave-a-review).
@@ -429,6 +431,9 @@ private fun MainApp() {
     var showProfileSettings by remember { mutableStateOf(false) }
     // Booking whose chat thread (full-screen) is open: (bookingId, title), or null.
     var chatBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    // Host whose public profile (full-screen) is open: (hostId, fallbackHostName), or null.
+    // Opened by tapping the "Hosted by …" row on a listing detail.
+    var hostProfile by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // True while the in-app notifications feed (full-screen) is open.
     var showNotifications by remember { mutableStateOf(false) }
     // True while the AI travel-concierge chat (full-screen) is open.
@@ -453,6 +458,17 @@ private fun MainApp() {
     // Multi-currency display (Section 9): load the persisted currency choice + refresh FX rates once.
     // Safe to call on every recomposition — CurrencyManager.init is idempotent.
     LaunchedEffect(Unit) { CurrencyManager.init(context) }
+
+    // Wishlist save/heart confirmation: a one-shot Toast ("Added to wishlist" / "Removed from
+    // wishlist") on every successful toggle, from whichever screen the heart was tapped.
+    val wishlistAddedMsg = stringResource(R.string.wishlist_added)
+    val wishlistRemovedMsg = stringResource(R.string.wishlist_removed)
+    LaunchedEffect(Unit) {
+        wishlistViewModel.toast.collect { event ->
+            val msg = if (event == WishlistToast.ADDED) wishlistAddedMsg else wishlistRemovedMsg
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // ---- Biometric (fingerprint / face) sign-in ------------------------------------------------
     // Pending "Enable biometric sign-in" offer, published by the ViewModel right after a successful
@@ -642,6 +658,9 @@ private fun MainApp() {
             showForgot = false
             selectedReservationId = null
             chatBooking = null
+            // Close the host profile too (a public screen, but drop its cached state on logout).
+            hostProfile = null
+            trustViewModel.clearHostProfile()
             // Drop any in-flight mock payment too.
             pendingPayment = null
             bookingsViewModel.resetPayment()
@@ -677,7 +696,8 @@ private fun MainApp() {
     val otpOpen = authState.pendingEmail != null && !authState.isAuthenticated
     val forgotOpen = showForgot && !authState.isAuthenticated
     val authOpen = showAuth && !authState.isAuthenticated
-    val anyOverlay = pendingPayment != null || selectedListing != null || selectedService != null ||
+    val anyOverlay = pendingPayment != null || hostProfile != null || selectedListing != null ||
+        selectedService != null ||
         showMySubscriptions || showProfileSettings || showHostServices || showAiTravel ||
         chatBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
@@ -690,6 +710,8 @@ private fun MainApp() {
                     bookingsViewModel.resetPayment()
                 }
             }
+            // The host profile sits above the listing detail — Back returns to that detail.
+            hostProfile != null -> { trustViewModel.clearHostProfile(); hostProfile = null }
             selectedListing != null -> { bookingsViewModel.resetReserve(); selectedListing = null }
             selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
             showMySubscriptions -> showMySubscriptions = false
@@ -772,6 +794,33 @@ private fun MainApp() {
         )
     }
 
+    // Host PUBLIC PROFILE (reviews + their other listings). Full-screen; opened from a listing
+    // detail's "Hosted by …" row. Sits above the listing detail so Back returns to it. Tapping one
+    // of the host's listings opens that listing's own detail (replacing this profile). Never shows
+    // the host's phone/email — the backing profile carries none.
+    val openHost = hostProfile
+    if (openHost != null) {
+        HostProfileScreen(
+            state = hostProfileState,
+            hostName = openHost.second,
+            onBack = {
+                trustViewModel.clearHostProfile()
+                hostProfile = null
+            },
+            onOpenListing = { other ->
+                // Open the tapped listing's detail; close the host profile (Back from the detail
+                // returns to the listing we came from, not back into the profile).
+                trustViewModel.clearHostProfile()
+                hostProfile = null
+                bookingsViewModel.resetReserve()
+                reviewsViewModel.clearListingReviews()
+                availabilityViewModel.clearHost()
+                selectedListing = other
+            }
+        )
+        return
+    }
+
     val current = selectedListing
     // The detail view is full-screen (no bottom bar); everything else is in the Scaffold.
     if (current != null) {
@@ -832,6 +881,14 @@ private fun MainApp() {
                 reviewsViewModel.clearListingReviews()
                 availabilityViewModel.clearHost()
                 selectedListing = other
+            },
+            // Tapping "Hosted by …" opens the host's public profile (reviews + their other stays).
+            onOpenHostProfile = {
+                val hostId = current.hostId
+                if (!hostId.isNullOrBlank()) {
+                    trustViewModel.loadHostProfile(hostId)
+                    hostProfile = hostId to current.hostName
+                }
             },
             // Live availability: greyed days in the guest picker come from the guest state (only
             // when it's this listing's spans); the host manager is gated on owning the listing.

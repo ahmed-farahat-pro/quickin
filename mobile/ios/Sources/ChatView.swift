@@ -43,16 +43,25 @@ final class ChatViewModel: ObservableObject {
 
     /// POST the draft, clear it, then reload so the new message (and any that
     /// arrived meanwhile) appear in order.
+    ///
+    /// On failure (e.g. the backend's 400 "sharing phone numbers in chat isn't
+    /// allowed…") the typed text is KEPT so the user can edit and resend, and the
+    /// server's message is surfaced inline via `errorMessage`.
     func send() async {
         let body = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         isSending = true
+        // Clear any prior send error so a fresh attempt starts clean.
+        errorMessage = nil
         defer { isSending = false }
         do {
             _ = try await HostService.shared.sendMessage(bookingID: bookingID, body: body)
+            // Only clear the draft once the send actually succeeded.
             draft = ""
             await load(silent: true)
         } catch {
+            // Surface the server's reason (phone-number block, etc.) and leave
+            // `draft` untouched so nothing the user typed is lost.
             errorMessage = error.localizedDescription
         }
     }
@@ -171,10 +180,23 @@ struct ChatView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.qkBurgundy.opacity(0.12), lineWidth: 1)
+                            .stroke(
+                                // Tint the border red while an error (e.g. the
+                                // phone-number block) is showing, so the warning
+                                // ties visually to the field the user must edit.
+                                (viewModel.errorMessage != nil
+                                    ? Color.qkBurgundy.opacity(0.55)
+                                    : Color.qkBurgundy.opacity(0.12)),
+                                lineWidth: 1
+                            )
                     )
                     .foregroundStyle(Color.qkInk)
                     .onSubmit { Task { await viewModel.send() } }
+                    // Clear the inline error as soon as the user edits, so the
+                    // phone-block warning dismisses while they fix the message.
+                    .onChange(of: viewModel.draft) { _, _ in
+                        if viewModel.errorMessage != nil { viewModel.errorMessage = nil }
+                    }
 
                 Button {
                     inputFocused = false

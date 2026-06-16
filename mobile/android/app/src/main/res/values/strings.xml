@@ -230,6 +230,20 @@
     <string name="detail_hosted_by">Hosted by %1$s</string>
     <string name="detail_more_from_host">More from this host</string>
 
+    <!-- Host profile (tap the "Hosted by …" row) -->
+    <string name="host_profile_title">Host profile</string>
+    <string name="host_profile_view">View host profile</string>
+    <string name="host_profile_error">Couldn\'t load this host.</string>
+    <string name="host_profile_about">About the host</string>
+    <string name="host_profile_member_since">Member since %1$s</string>
+    <string name="host_profile_reviews">Reviews about their stays</string>
+    <string name="host_profile_listings">Their listings</string>
+    <string name="host_profile_review_for">Stay: %1$s</string>
+
+    <!-- Wishlist save/heart confirmation -->
+    <string name="wishlist_added">Added to wishlist</string>
+    <string name="wishlist_removed">Removed from wishlist</string>
+
     <!-- Payment (MOCK — no real gateway yet) -->
     <string name="pay_title">Confirm and pay</string>
     <string name="pay_subtitle">Review the total and pay to confirm your booking.</string>

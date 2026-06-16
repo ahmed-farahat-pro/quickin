@@ -706,6 +706,24 @@ data class PublicProfile(
     val badges: TrustBadges = TrustBadges()
 )
 
+/**
+ * One review written about a host's listings (from `GET /api/local/users/:id/reviews`, public).
+ * Shown on the host profile so a guest can read what past guests said across the host's stays.
+ * [createdAt] is an ISO-8601 timestamp; [reviewerName] is the guest who wrote it; [listingTitle]
+ * is the stay the review is about (so the card can show "· {listing}"). [photos] are the
+ * reviewer's attached photo URLs (each a `data:image/…` data URL or an `http(s)` URL), empty when none.
+ */
+data class HostReview(
+    val id: String,
+    val rating: Int,
+    val comment: String?,
+    val photos: List<String> = emptyList(),
+    val createdAt: String?,
+    val reviewerName: String?,
+    val listingId: String?,
+    val listingTitle: String?
+)
+
 // ---- Money views (Section 9 — all MOCK) -------------------------------------
 
 /**

@@ -1050,6 +1050,92 @@ struct GuestReview: Decodable, Identifiable, Hashable {
     }()
 }
 
+// MARK: - Host reviews (reviews about a host's listings)
+
+/// A guest review about one of a host's listings, returned by
+/// `GET /api/local/users/:id/reviews` →
+/// `[{ id, rating, comment, photos[], created_at, reviewer_name, listing_id,
+/// listing_title }]`. Shown on the public `HostProfileView`. Mirrors `Review`
+/// but also carries which listing the review was about. JSON is snake_case;
+/// every field is tolerant/defaulted so a partial payload still decodes.
+struct HostReview: Decodable, Identifiable, Hashable {
+    let id: String
+    let rating: Int
+    let comment: String?
+    /// Photos attached to the review (`data:` or `http(s)` image URLs).
+    let photos: [String]
+    let createdAt: String?
+    let reviewerName: String?
+    /// The listing the review was left about (id + title), so the profile can
+    /// label each review with the place it concerns. Both `nil` when absent.
+    let listingId: String?
+    let listingTitle: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, rating, comment, photos
+        case createdAt = "created_at"
+        case reviewerName = "reviewer_name"
+        case listingId = "listing_id"
+        case listingTitle = "listing_title"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rating = try c.decodeIfPresent(Int.self, forKey: .rating) ?? 0
+        comment = try c.decodeIfPresent(String.self, forKey: .comment)
+        photos = (try c.decodeIfPresent([String].self, forKey: .photos) ?? [])
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        reviewerName = try c.decodeIfPresent(String.self, forKey: .reviewerName)
+        listingId = try c.decodeIfPresent(String.self, forKey: .listingId)
+        listingTitle = try c.decodeIfPresent(String.self, forKey: .listingTitle)
+        if let explicit = try c.decodeIfPresent(String.self, forKey: .id) {
+            id = explicit
+        } else {
+            id = "\(reviewerName ?? "guest")-\(createdAt ?? UUID().uuidString)"
+        }
+    }
+
+    /// Display name for the review row; falls back to a generic "A guest".
+    @MainActor
+    var displayName: String {
+        let trimmed = reviewerName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty == false) ? trimmed! : L.t("reviews.aGuest")
+    }
+
+    /// The listing title, trimmed; `nil` when absent or blank.
+    var listingTitleTrimmed: String? {
+        let trimmed = listingTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty == false) ? trimmed : nil
+    }
+
+    /// "Jul 2026" style month label parsed from `created_at` (empty if absent).
+    var monthText: String {
+        guard let createdAt, let date = HostReview.parseDate(createdAt) else { return "" }
+        return HostReview.monthFormatter.string(from: date)
+    }
+
+    private static func parseDate(_ raw: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFraction.date(from: raw) { return d }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let d = plain.date(from: raw) { return d }
+        let dateOnly = DateFormatter()
+        dateOnly.locale = Locale(identifier: "en_US_POSIX")
+        dateOnly.dateFormat = "yyyy-MM-dd"
+        return dateOnly.date(from: raw)
+    }
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = .current
+        f.dateFormat = "MMM yyyy"
+        return f
+    }()
+}
+
 /// A past guest a host can review, returned by `GET /api/local/guest-reviews`
 /// (Bearer host) → `[{ booking_id, listing_id, title, guest_name, check_out }]`.
 /// Field names are tolerant of a few aliases so the list renders regardless of

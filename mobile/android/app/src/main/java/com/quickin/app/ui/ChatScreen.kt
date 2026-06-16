@@ -96,6 +96,19 @@ fun ChatScreen(
         }
     }
 
+    // The message draft lives here (not in the input bar) so a *failed* send keeps the typed text —
+    // e.g. when the backend rejects a phone number with 400. It's cleared only once a send succeeds
+    // (isSending goes true → false with no error), tracked below.
+    var draft by remember { mutableStateOf("") }
+    var wasSending by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isSending, state.error) {
+        if (wasSending && !state.isSending && state.error == null) {
+            // The send completed successfully — clear the input for the next message.
+            draft = ""
+        }
+        wasSending = state.isSending
+    }
+
     Scaffold(
         containerColor = CreamPage,
         topBar = {
@@ -129,7 +142,10 @@ fun ChatScreen(
                     state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = Burgundy)
                     }
-                    state.messages.isEmpty() -> EmptyThread(state.error)
+                    // Always the friendly empty state here; any error (load failure or a rejected
+                    // send) is surfaced by the dedicated error banner just above the input bar, so
+                    // a send rejection on an empty thread isn't mislabeled as a load failure.
+                    state.messages.isEmpty() -> EmptyThread()
                     else -> LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -143,23 +159,38 @@ fun ChatScreen(
                 }
             }
 
-            // A transient send/refresh error sits just above the input bar.
-            if (state.error != null && state.messages.isNotEmpty()) {
-                Text(
-                    state.error,
-                    color = ErrorRed,
-                    fontSize = 12.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                )
+            // A transient send/refresh error sits just above the input bar — including the
+            // backend's "sharing phone numbers in chat isn't allowed" 400. Always shown (even on an
+            // empty thread) so a rejected first message is explained while its text is kept below.
+            if (state.error != null) {
+                Surface(
+                    color = ErrorRed.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        state.error,
+                        color = ErrorRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
 
-            ChatInputBar(isSending = state.isSending, onSend = onSend)
+            ChatInputBar(
+                draft = draft,
+                onDraftChange = { draft = it },
+                isSending = state.isSending,
+                onSend = onSend
+            )
         }
     }
 }
 
 @Composable
-private fun EmptyThread(error: String?) {
+private fun EmptyThread() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -172,14 +203,14 @@ private fun EmptyThread(error: String?) {
                 modifier = Modifier.size(44.dp)
             )
             Text(
-                if (error != null) "Couldn't load messages" else "No messages yet",
+                "No messages yet",
                 fontWeight = FontWeight.Bold,
                 color = Ink,
                 fontSize = 17.sp,
                 modifier = Modifier.padding(top = 12.dp)
             )
             Text(
-                error ?: "Say hello to get the conversation started.",
+                "Say hello to get the conversation started.",
                 color = Muted,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
@@ -227,8 +258,12 @@ private fun MessageBubble(message: ChatMessage, mine: Boolean) {
 }
 
 @Composable
-private fun ChatInputBar(isSending: Boolean, onSend: (String) -> Unit) {
-    var draft by remember { mutableStateOf("") }
+private fun ChatInputBar(
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    isSending: Boolean,
+    onSend: (String) -> Unit
+) {
     val canSend = draft.isNotBlank() && !isSending
 
     Surface(color = Cream, shadowElevation = 8.dp) {
@@ -240,7 +275,7 @@ private fun ChatInputBar(isSending: Boolean, onSend: (String) -> Unit) {
         ) {
             TextField(
                 value = draft,
-                onValueChange = { draft = it },
+                onValueChange = onDraftChange,
                 placeholder = { Text("Message", color = Muted) },
                 maxLines = 4,
                 shape = RoundedCornerShape(24.dp),
@@ -266,10 +301,9 @@ private fun ChatInputBar(isSending: Boolean, onSend: (String) -> Unit) {
                 IconButton(
                     onClick = {
                         val text = draft.trim()
-                        if (text.isNotEmpty() && !isSending) {
-                            onSend(text)
-                            draft = ""
-                        }
+                        // Don't clear the draft here — the parent clears it only once the send
+                        // succeeds, so a rejected message (e.g. a phone number) keeps its text.
+                        if (text.isNotEmpty() && !isSending) onSend(text)
                     },
                     enabled = canSend
                 ) {

@@ -293,6 +293,21 @@ enum Strings {
         "detail.hostedBy": "Hosted by %@",
         "detail.moreFromHost": "More from this host",
 
+        // Host profile (public)
+        "host.profile.viewProfile": "View host profile",
+        "host.profile.openHint": "Opens the host's profile",
+        "host.profile.subtitle": "Host on QuickIn",
+        "host.profile.about": "About the host",
+        "host.profile.rating": "Host rating",
+        "host.profile.memberSince": "Member since",
+        "host.profile.listings": "Their listings",
+        "host.profile.reviews": "Guest reviews",
+        "host.profile.reviews.empty": "No reviews yet for this host's places.",
+
+        // Wishlist toast
+        "wishlist.added": "Added to wishlist",
+        "wishlist.removed": "Removed from wishlist",
+
         // Payment (mock)
         "common.nights": "nights",
         "pay.title": "Payment",
@@ -836,6 +851,21 @@ enum Strings {
         "detail.reservationConfirmed": "تم تأكيد الحجز",
         "detail.hostedBy": "يستضيفك %@",
         "detail.moreFromHost": "المزيد من هذا المضيف",
+
+        // Host profile (public)
+        "host.profile.viewProfile": "عرض ملف المضيف",
+        "host.profile.openHint": "يفتح ملف المضيف",
+        "host.profile.subtitle": "مضيف على QuickIn",
+        "host.profile.about": "عن المضيف",
+        "host.profile.rating": "تقييم المضيف",
+        "host.profile.memberSince": "عضو منذ",
+        "host.profile.listings": "أماكنه",
+        "host.profile.reviews": "تقييمات الضيوف",
+        "host.profile.reviews.empty": "لا توجد تقييمات لأماكن هذا المضيف بعد.",
+
+        // Wishlist toast
+        "wishlist.added": "تمت الإضافة إلى المفضلة",
+        "wishlist.removed": "تمت الإزالة من المفضلة",
 
         // Payment (mock)
         "common.nights": "ليالٍ",

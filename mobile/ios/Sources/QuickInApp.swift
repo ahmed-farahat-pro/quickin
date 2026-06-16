@@ -153,6 +153,9 @@ struct RootView: View {
                 }
             }
         }
+        // App-level "Added/Removed from wishlist" toast — floats above the tab
+        // bar so every heart toggle (cards, detail hero, Saved) confirms visibly.
+        .wishlistToast()
     }
 
     // MARK: - Guest tabs (role "user" / signed-out)

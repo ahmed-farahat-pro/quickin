@@ -4,9 +4,11 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -23,6 +25,9 @@ data class WishlistUiState(
     val loaded: Boolean = false,
     val needsSignIn: Boolean = false
 )
+
+/** A one-shot confirmation for the save/heart control, surfaced as a Toast by the host. */
+enum class WishlistToast { ADDED, REMOVED }
 
 /**
  * Owns the user's wishlist. Reads the bearer token straight from SharedPreferences
@@ -43,6 +48,14 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
 
     private val _state = MutableStateFlow(WishlistUiState())
     val state: StateFlow<WishlistUiState> = _state.asStateFlow()
+
+    /**
+     * One-shot confirmation events for the heart/save control. Emitted on a successful toggle so the
+     * host (MainApp) can show an "Added to wishlist" / "Removed from wishlist" Toast. A [Channel]
+     * (not a StateFlow) so each tap fires exactly once and isn't replayed on recomposition.
+     */
+    private val _toast = Channel<WishlistToast>(Channel.BUFFERED)
+    val toast = _toast.receiveAsFlow()
 
     private fun token(): String? = prefs.getString(AuthViewModel.KEY_TOKEN, null)
 
@@ -111,12 +124,15 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                WishlistService.toggle(
+                val saved = WishlistService.toggle(
                     token,
                     WishlistService.ItemType.LISTING,
                     listing.id,
                     action = if (wasSaved) "unsave" else "save"
                 )
+                // Reconcile the local state with the server's authoritative `saved`, then confirm.
+                applyListingSaved(listing, saved)
+                _toast.trySend(if (saved) WishlistToast.ADDED else WishlistToast.REMOVED)
             } catch (e: WishlistService.HttpError) {
                 if (e.code == 401) _state.value = _state.value.copy(needsSignIn = true)
                 revertListing(listing.id, wasSaved)
@@ -151,12 +167,14 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             try {
-                WishlistService.toggle(
+                val saved = WishlistService.toggle(
                     token,
                     WishlistService.ItemType.SERVICE,
                     service.id,
                     action = if (wasSaved) "unsave" else "save"
                 )
+                applyServiceSaved(service, saved)
+                _toast.trySend(if (saved) WishlistToast.ADDED else WishlistToast.REMOVED)
             } catch (e: WishlistService.HttpError) {
                 if (e.code == 401) _state.value = _state.value.copy(needsSignIn = true)
                 revertService(service.id, wasSaved)
@@ -174,6 +192,45 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
     /** Wipes wishlist state on logout so a new user doesn't see stale saves. */
     fun clear() {
         _state.value = WishlistUiState()
+    }
+
+    /**
+     * Reconciles a listing's saved state to the server's authoritative [saved] value (idempotent:
+     * sets membership rather than toggling), keeping the id set + the Saved screen's cards in sync.
+     */
+    private fun applyListingSaved(listing: Listing, saved: Boolean) {
+        val s = _state.value
+        val ids = s.listingIds.toMutableSet().apply {
+            if (saved) add(listing.id) else remove(listing.id)
+        }
+        val listings = if (saved) {
+            if (s.data.listings.any { it.id == listing.id }) s.data.listings
+            else s.data.listings + listing
+        } else {
+            s.data.listings.filterNot { it.id == listing.id }
+        }
+        _state.value = s.copy(
+            listingIds = ids,
+            data = s.data.copy(listings = listings, listingIds = ids)
+        )
+    }
+
+    /** Reconciles a service's saved state to the server's authoritative [saved] value (idempotent). */
+    private fun applyServiceSaved(service: Service, saved: Boolean) {
+        val s = _state.value
+        val ids = s.serviceIds.toMutableSet().apply {
+            if (saved) add(service.id) else remove(service.id)
+        }
+        val services = if (saved) {
+            if (s.data.services.any { it.id == service.id }) s.data.services
+            else s.data.services + service
+        } else {
+            s.data.services.filterNot { it.id == service.id }
+        }
+        _state.value = s.copy(
+            serviceIds = ids,
+            data = s.data.copy(services = services, serviceIds = ids)
+        )
     }
 
     /** Restores a listing's id-set membership after a failed toggle. */

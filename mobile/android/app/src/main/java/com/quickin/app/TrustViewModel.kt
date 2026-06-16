@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,26 @@ data class HostBadgesUiState(
 )
 
 /**
+ * State for the full host-profile screen (opened by tapping the "Hosted by …" row on a listing).
+ * Aggregates the host's public profile (`GET /api/local/users/:id`), the reviews about their
+ * listings (`GET /api/local/users/:id/reviews`), and their other listings
+ * (`GET /api/local/listings?host=:id`). Carries NO PII (no phone/email).
+ */
+data class HostProfileUiState(
+    /** The host id this state belongs to (so a stale fetch for another host is ignored). */
+    val hostId: String? = null,
+    val isLoading: Boolean = false,
+    /** The host's public profile (name, avatar, bio, rating, badges), or null until loaded/failed. */
+    val profile: PublicProfile? = null,
+    /** Reviews written about the host's listings (newest-first). */
+    val reviews: List<HostReview> = emptyList(),
+    /** The host's other listings (excluding the one the viewer came from is up to the screen). */
+    val listings: List<Listing> = emptyList(),
+    /** Inline error for the profile header, or null. */
+    val error: String? = null
+)
+
+/**
  * State for the "Report this listing" sheet (`POST /api/local/reports`).
  */
 data class ReportUiState(
@@ -69,6 +90,9 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _hostBadges = MutableStateFlow(HostBadgesUiState())
     val hostBadges: StateFlow<HostBadgesUiState> = _hostBadges.asStateFlow()
+
+    private val _hostProfile = MutableStateFlow(HostProfileUiState())
+    val hostProfile: StateFlow<HostProfileUiState> = _hostProfile.asStateFlow()
 
     private val _report = MutableStateFlow(ReportUiState())
     val report: StateFlow<ReportUiState> = _report.asStateFlow()
@@ -168,6 +192,47 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
     /** Clears the host badges when leaving a listing detail. */
     fun clearHostBadges() {
         _hostBadges.value = HostBadgesUiState()
+    }
+
+    // ---- Host profile (tap "Hosted by …") -------------------------------------
+
+    /**
+     * Loads the full host profile for [hostId]: the public profile, the reviews about their
+     * listings, and their other listings — all in parallel, all public (no auth, no PII). The
+     * profile header surfaces an error if the (key) profile fetch fails; reviews/listings simply
+     * stay empty on failure. Re-opening the same host that's already loaded is a no-op.
+     */
+    fun loadHostProfile(hostId: String?) {
+        if (hostId.isNullOrBlank()) {
+            _hostProfile.value = HostProfileUiState()
+            return
+        }
+        // Already loaded for this host — keep what we have.
+        if (_hostProfile.value.hostId == hostId && _hostProfile.value.profile != null) return
+        _hostProfile.value = HostProfileUiState(hostId = hostId, isLoading = true)
+        viewModelScope.launch {
+            val profileDeferred = async { TrustService.fetchPublicProfile(hostId) }
+            val reviewsDeferred = async { TrustService.fetchHostReviews(hostId) }
+            val listingsDeferred = async { SupabaseService.fetchHostListings(hostId) }
+            val profile = profileDeferred.await()
+            val reviews = reviewsDeferred.await()
+            val listings = listingsDeferred.await()
+            // A stale result (the user opened a different host meanwhile) is ignored.
+            if (_hostProfile.value.hostId != hostId) return@launch
+            _hostProfile.value = HostProfileUiState(
+                hostId = hostId,
+                isLoading = false,
+                profile = profile,
+                reviews = reviews,
+                listings = listings,
+                error = if (profile == null) "Couldn't load this host." else null
+            )
+        }
+    }
+
+    /** Clears the host profile when leaving the host-profile screen. */
+    fun clearHostProfile() {
+        _hostProfile.value = HostProfileUiState()
     }
 
     // ---- Reporting (signed-in user) -------------------------------------------

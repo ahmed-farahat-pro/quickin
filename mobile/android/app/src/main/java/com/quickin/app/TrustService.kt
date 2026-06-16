@@ -2,6 +2,7 @@ package com.quickin.app
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -81,6 +82,33 @@ object TrustService {
         }.getOrNull()
     }
 
+    /**
+     * Fetches the reviews written about a host's listings (`GET /api/local/users/:id/reviews`).
+     * Public — no auth, no PII (carries only the reviewer's display name + the listing title).
+     * Returns an empty list on any failure (or a blank id) so the host profile can simply hide
+     * the reviews section.
+     */
+    suspend fun fetchHostReviews(userId: String): List<HostReview> = withContext(Dispatchers.IO) {
+        if (userId.isBlank()) return@withContext emptyList()
+        runCatching {
+            val urlStr = "${Config.API_BASE_URL}/api/local/users/${URLEncoder.encode(userId, "UTF-8")}/reviews"
+            val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Accept", "application/json")
+            }
+            try {
+                val code = conn.responseCode
+                if (code !in 200..299) return@runCatching emptyList<HostReview>()
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                parseHostReviews(text)
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrElse { emptyList() }
+    }
+
     // ---- Reporting (signed-in user) -------------------------------------------
 
     /**
@@ -114,6 +142,38 @@ object TrustService {
             status = o.optString("status").ifBlank { "unverified" },
             verifiedAt = o.optString("verified_at").ifBlank { null }
         )
+    }
+
+    private fun parseHostReviews(json: String): List<HostReview> {
+        val arr = JSONArray(json)
+        val out = ArrayList<HostReview>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            out.add(
+                HostReview(
+                    id = o.optString("id"),
+                    rating = o.optInt("rating", 0),
+                    comment = o.optString("comment").ifBlank { null },
+                    photos = parsePhotoArray(o.opt("photos")),
+                    createdAt = o.optString("created_at").ifBlank { null },
+                    reviewerName = o.optString("reviewer_name").ifBlank { null },
+                    listingId = o.optString("listing_id").ifBlank { null },
+                    listingTitle = o.optString("listing_title").ifBlank { null }
+                )
+            )
+        }
+        return out
+    }
+
+    /** Coerces a "photos" value (JSON array, or null/absent) into a list of non-blank URL strings. */
+    private fun parsePhotoArray(value: Any?): List<String> {
+        val arr = value as? JSONArray ?: return emptyList()
+        val out = ArrayList<String>(arr.length())
+        for (i in 0 until arr.length()) {
+            val s = arr.optString(i).trim()
+            if (s.isNotEmpty()) out.add(s)
+        }
+        return out
     }
 
     private fun parsePublicProfile(raw: JSONObject): PublicProfile {

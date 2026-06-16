@@ -145,6 +145,28 @@ struct TrustService {
         return try JSONDecoder().decode(PublicProfile.self, from: data)
     }
 
+    /// Fetch the public reviews about a host's listings
+    /// (`GET /api/local/users/:id/reviews`). Public — no auth required. Used by
+    /// `HostProfileView` to show what guests said about the host's places. Returns
+    /// the reviews newest-first as the backend orders them.
+    func fetchUserReviews(userID: String) async throws -> [HostReview] {
+        let encoded = userID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? userID
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/users/\(encoded)/reviews")!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw TrustError.message("Invalid response from the server.")
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw TrustError.message(Self.decodeError(data) ?? "Couldn't load those reviews (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode([HostReview].self, from: data)
+    }
+
     // MARK: - Helpers
 
     private static func decodeError(_ data: Data) -> String? {

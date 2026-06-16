@@ -133,6 +133,11 @@ struct ListingDetailView: View {
         .background(LinearGradient.qkPageWash.ignoresSafeArea())
         .navigationTitle(listing.title)
         .navigationBarTitleDisplayMode(.inline)
+        // Tapping the host row pushes the public host profile. Registered here so
+        // it resolves no matter which stack presented this detail screen.
+        .navigationDestination(for: HostProfileTarget.self) { target in
+            HostProfileView(hostID: target.hostID, initialName: target.name)
+        }
         .safeAreaInset(edge: .bottom) { bookingBar }
         .sheet(isPresented: $showingDatePicker) {
             DateRangePicker(
@@ -352,6 +357,11 @@ struct ListingDetailView: View {
         .padding(24)
     }
 
+    /// Fixed height for the hero gallery. Keeping this a constant (rather than
+    /// letting the image's intrinsic pixel size drive it) is what stops a large
+    /// photo from stretching the whole detail page.
+    private static let galleryHeight: CGFloat = 300
+
     @ViewBuilder
     private var gallery: some View {
         let urls = listing.sortedImageURLs
@@ -359,26 +369,30 @@ struct ListingDetailView: View {
             // No photos → a single full-width branded placeholder (no stock image).
             PhotoPlaceholder(iconSize: 44)
                 .frame(maxWidth: .infinity)
-                .frame(height: 320)
+                .frame(height: Self.galleryHeight)
                 .clipped()
         } else if urls.count == 1 {
-            // Single hero → slow Ken Burns zoom, like the mockup.
+            // Single hero → slow Ken Burns zoom, like the mockup. The image is
+            // pinned to a fixed-height, full-width frame and clipped BEFORE the
+            // Ken Burns scale so its native pixel size can never size the page;
+            // the zoom then animates safely within that clipped box.
             ListingImageView(url: urls[0], placeholderIconSize: 44)
-                .frame(maxWidth: .infinity)
-                .frame(height: 320)
+                .frame(maxWidth: .infinity, minHeight: Self.galleryHeight, maxHeight: Self.galleryHeight)
+                .clipped()
                 .kenBurns()
                 .clipped()
         } else {
             TabView(selection: $selectedImage) {
                 ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
                     ListingImageView(url: url, placeholderIconSize: 44)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 320)
+                        .frame(maxWidth: .infinity, minHeight: Self.galleryHeight, maxHeight: Self.galleryHeight)
                         .clipped()
                         .tag(index)
                 }
             }
-            .frame(height: 320)
+            // The TabView itself gets an explicit height so the pager doesn't
+            // inherit the (now-contained) image's intrinsic size.
+            .frame(height: Self.galleryHeight)
             .tabViewStyle(.page(indexDisplayMode: urls.count > 1 ? .always : .never))
         }
     }
@@ -454,24 +468,55 @@ struct ListingDetailView: View {
     private var hasHost: Bool { !hostName.isEmpty }
 
     /// "Hosted by {hostName}" row with the gold host avatar, plus the host's
-    /// trust badges (Verified ✓ / Superhost / New host) underneath.
+    /// trust badges (Verified ✓ / Superhost / New host) underneath. When the
+    /// listing carries a `host_id`, the avatar+name area is a `NavigationLink`
+    /// into the public `HostProfileView` (reviews + the host's other listings).
     private var hostRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                QKAvatar(initials: hostInitials, size: 46, gold: true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: loc.t("detail.hostedBy"), hostName))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.qkInk)
-                        .lineLimit(1)
-                    Text(loc.t("common.host"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.qkMuted)
+            if let target = hostProfileTarget {
+                NavigationLink(value: target) {
+                    hostRowContent(showsChevron: true)
                 }
-                Spacer(minLength: 0)
+                .buttonStyle(.plain)
+                .accessibilityHint(loc.t("host.profile.openHint"))
+            } else {
+                // No host id → no profile to open; render the row inert.
+                hostRowContent(showsChevron: false)
             }
             hostBadgesView
         }
+    }
+
+    /// The avatar + "Hosted by …" labels, optionally with a trailing chevron to
+    /// signal it's tappable. Shared by the linked and inert variants above.
+    private func hostRowContent(showsChevron: Bool) -> some View {
+        HStack(spacing: 12) {
+            QKAvatar(initials: hostInitials, size: 46, gold: true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(format: loc.t("detail.hostedBy"), hostName))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.qkInk)
+                    .lineLimit(1)
+                Text(loc.t(showsChevron ? "host.profile.viewProfile" : "common.host"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(showsChevron ? Color.qkBurgundy : Color.qkMuted)
+            }
+            Spacer(minLength: 0)
+            if showsChevron {
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.qkMuted)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    /// The push target for the host's public profile — present only when the
+    /// listing has a non-empty `host_id`.
+    private var hostProfileTarget: HostProfileTarget? {
+        guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !hostID.isEmpty else { return nil }
+        return HostProfileTarget(hostID: hostID, name: hostName.isEmpty ? nil : hostName)
     }
 
     /// Trust chips for the host. Prefers the full badge set from the public

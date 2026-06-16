@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -130,6 +131,8 @@ fun ListingDetailScreen(
     hostListings: List<Listing> = emptyList(),
     /** Opens another of the host's listings in its own detail screen. */
     onOpenListing: (Listing) -> Unit = {},
+    /** Opens the host's public profile (reviews + their other listings) from the "Hosted by" row. */
+    onOpenHostProfile: () -> Unit = {},
     /** Booked + host-blocked spans for this listing; greys out those days in the reserve picker. */
     unavailableRanges: List<com.quickin.app.AvailabilityRange> = emptyList(),
     /**
@@ -250,11 +253,13 @@ fun ListingDetailScreen(
                         }
                     }
                     // "Hosted by {host}" — gold avatar (host initial) + name + trust badges.
+                    // Tappable (chevron) when we have a host id, opening the host's public profile.
                     if (!listing.hostName.isNullOrBlank()) {
                         HostedByRow(
                             hostName = listing.hostName,
                             hostVerified = listing.hostVerified,
-                            hostBadges = hostBadges
+                            hostBadges = hostBadges,
+                            onClick = if (!listing.hostId.isNullOrBlank()) onOpenHostProfile else null
                         )
                     }
                     Row(
@@ -350,21 +355,29 @@ fun ListingDetailScreen(
  * [hostVerified] (the listing's own flag); [hostBadges] adds Superhost / New host once the host's
  * public profile is fetched. RTL-safe: the Row lays out start→end so the avatar leads in both
  * reading directions.
+ *
+ * When [onClick] is non-null the whole row is tappable and shows a trailing chevron, opening the
+ * host's public profile (their reviews + other listings).
  */
 @Composable
 private fun HostedByRow(
     hostName: String,
     hostVerified: Boolean = false,
-    hostBadges: com.quickin.app.TrustBadges = com.quickin.app.TrustBadges()
+    hostBadges: com.quickin.app.TrustBadges = com.quickin.app.TrustBadges(),
+    onClick: (() -> Unit)? = null
 ) {
     val initial = hostName.trim().firstOrNull()?.uppercase() ?: "?"
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .padding(top = 2.dp)
+        .let { if (onClick != null) it.clickable(onClick = onClick) else it }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 2.dp)
+        modifier = rowModifier
     ) {
         GradientAvatar(initials = initial, size = 36.dp)
         Spacer(Modifier.width(10.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 stringResource(R.string.detail_hosted_by, hostName),
                 color = Ink,
@@ -378,6 +391,15 @@ private fun HostedByRow(
                 badges = hostBadges,
                 verifiedOverride = hostVerified,
                 modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+        // A trailing chevron hints the row is tappable → the host's profile (auto-mirrors in RTL).
+        if (onClick != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.host_profile_view),
+                tint = Muted,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -917,11 +939,18 @@ private fun DetailHero(
         if (urls.size > 1) {
             val pagerState = rememberPagerState(pageCount = { urls.size })
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                // Constrain the page image to the hero box explicitly (fixed height + width +
+                // Crop + clip) so it can never lay out at the photo's intrinsic pixel size and
+                // stretch the screen — the responsiveness fix.
                 AsyncImage(
                     model = urls[page],
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().background(Tan)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight)
+                        .clip(RoundedCornerShape(0.dp))
+                        .background(Tan)
                 )
             }
             Surface(

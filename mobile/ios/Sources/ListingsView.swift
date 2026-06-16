@@ -761,7 +761,7 @@ struct ListingCard: View {
                         .foregroundStyle(Color.qkInk)
                         .lineLimit(1)
                     Spacer(minLength: 8)
-                    QKStarRating(value: listing.displayRating)
+                    QKListingRating(listing: listing)
                 }
                 if let location = listing.location {
                     Text(location)

@@ -340,6 +340,7 @@ enum Strings {
 
         // Reviews
         "reviews.new": "New",
+        "rating.new": "New",
         "reviews.title": "Reviews",
         "reviews.count": "%lld review",
         "reviews.count.plural": "%lld reviews",
@@ -918,6 +919,7 @@ enum Strings {
 
         // Reviews
         "reviews.new": "جديد",
+        "rating.new": "جديد",
         "reviews.title": "التقييمات",
         "reviews.count": "%lld تقييم",
         "reviews.count.plural": "%lld تقييمات",

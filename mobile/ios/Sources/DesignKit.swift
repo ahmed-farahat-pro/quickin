@@ -627,12 +627,64 @@ struct QKPrimaryButtonLabel: View {
     }
 }
 
-// MARK: - Display rating
+// MARK: - Listing rating (truthful)
 
-/// The redesign cards show a gold ★ rating, but the backend has no per-listing
-/// rating column yet. We derive a stable, pleasant display value (4.6–5.0) from
-/// the entity id so each card shows the same star every render — a purely
-/// cosmetic flourish until real ratings land. Guest favorites skew higher.
+/// The card rating for a LISTING — the honest version. Shows the real gold ★
+/// average (optionally with the review count) once the place actually has
+/// reviews (`listing.hasRating`); otherwise shows a small gold/tan **"New"**
+/// chip where the star would go. Never invents a number for an unreviewed
+/// listing. Drop this in at every listing card site.
+struct QKListingRating: View {
+    let listing: Listing
+    /// Star glyph + value size, matching the surrounding card.
+    var size: CGFloat = 13
+    /// When `true`, append "· N reviews" after the star (used on roomier cards).
+    var showCount: Bool = false
+
+    var body: some View {
+        if listing.hasRating {
+            HStack(spacing: 5) {
+                QKStarRating(value: listing.rating, size: size)
+                if showCount {
+                    Text("·")
+                        .font(.system(size: size))
+                        .foregroundStyle(Color.qkMuted)
+                    Text(QKListingRating.reviewCountText(listing.reviewCount))
+                        .font(.system(size: size))
+                        .foregroundStyle(Color.qkMuted)
+                }
+            }
+        } else {
+            // "New" chip — a gold ✦ + label on a tan pill. No fabricated number.
+            HStack(spacing: 4) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: size - 3, weight: .bold))
+                Text(L.t("rating.new"))
+                    .font(.system(size: size - 1, weight: .bold))
+            }
+            .foregroundStyle(Color.qkGoldDeep)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.qkTan)
+            .clipShape(Capsule())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(L.t("rating.new"))
+        }
+    }
+
+    /// "1 review" / "12 reviews" — singular vs plural, localized.
+    @MainActor
+    private static func reviewCountText(_ n: Int) -> String {
+        let key = n == 1 ? "reviews.count" : "reviews.count.plural"
+        return String(format: L.t(key), n)
+    }
+}
+
+// MARK: - Display rating (services only)
+
+/// Services have no review system, so their cards still show a stable, pleasant
+/// derived ★ value (4.6–5.0) from the entity id — a purely cosmetic flourish.
+/// LISTINGS must NOT use this; they show the truth via `QKListingRating`.
 enum QKRating {
     static func display(for id: String, favorite: Bool = false) -> Double {
         let hash = abs(id.hashValue)
@@ -641,15 +693,6 @@ enum QKRating {
         let value = Double(base) / 10.0
         if favorite { return min(5.0, max(value, 4.8)) }
         return value
-    }
-}
-
-extension Listing {
-    /// The rating to show on cards. Prefers the real average once the place has
-    /// reviews; otherwise falls back to the stable cosmetic value so cards never
-    /// look empty during the rollout.
-    var displayRating: Double {
-        hasRating ? rating : QKRating.display(for: id, favorite: isGuestFavorite == true)
     }
 }
 

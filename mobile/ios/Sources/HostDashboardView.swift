@@ -462,7 +462,7 @@ struct HostListingRow: View {
                         Text("\(listing.priceText) / \(loc.t("common.night"))")
                             .font(.system(size: 13, weight: .heavy))
                             .foregroundStyle(Color.qkBurgundy)
-                        QKStarRating(value: listing.displayRating, size: 12)
+                        QKListingRating(listing: listing, size: 12)
                     }
                 }
                 Spacer(minLength: 0)

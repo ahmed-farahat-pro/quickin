@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Reports a scroll view's vertical content offset (in a named coordinate space)
+/// so the Explore brand header can collapse as the user scrolls down.
+private struct ExploreScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 struct ListingsView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
@@ -14,6 +21,9 @@ struct ListingsView: View {
     @State private var showingAISearch = false
     /// Presents the discovery Filters sheet (amenities + property type).
     @State private var showingFilters = false
+    /// Collapses the decorative brand header so the search + map/list section gets
+    /// the screen — driven by list scroll, and forced while the map is shown.
+    @State private var headerCollapsed = false
 
     /// Switches the root TabView to the Profile tab. Supplied by `RootView`;
     /// defaults to a no-op so previews / standalone use still compile.
@@ -37,7 +47,13 @@ struct ListingsView: View {
                             onDark: true
                         )
                     }
+                    .frame(height: headerCollapsed ? 0 : nil)
+                    .opacity(headerCollapsed ? 0 : 1)
+                    .clipped()
+                    .accessibilityHidden(headerCollapsed)
+
                     content
+                        .frame(maxHeight: .infinity)
                 }
                 // Floating "Ask AI" concierge button — bottom-trailing, above the
                 // content, with safe padding so it clears the tab bar. RTL-aware
@@ -73,6 +89,11 @@ struct ListingsView: View {
         // Auto-dismiss the auth sheet once the visitor signs in.
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
+        }
+        // Map can't scroll to collapse the header, so give it the screen directly:
+        // hide the brand header in map mode, restore it (until you scroll) in list.
+        .onChange(of: viewMode) { _, mode in
+            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = (mode == .map) }
         }
         .task {
             // CLI screenshot hook: open the auth sheet on launch.
@@ -198,10 +219,26 @@ struct ListingsView: View {
         } else {
             ScrollView {
                 VStack(spacing: 16) {
+                    // Invisible probe: reports the scroll offset so the brand
+                    // header collapses as the user scrolls down (and returns at top).
+                    GeometryReader { g in
+                        Color.clear.preference(
+                            key: ExploreScrollOffsetKey.self,
+                            value: g.frame(in: .named("exploreScroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
                     results
                 }
                 .padding(.top, 4)
                 .padding(.bottom, 32)
+            }
+            .coordinateSpace(name: "exploreScroll")
+            .onPreferenceChange(ExploreScrollOffsetKey.self) { y in
+                let shouldCollapse = y < -24
+                if shouldCollapse != headerCollapsed {
+                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = shouldCollapse }
+                }
             }
             .refreshable { await viewModel.load() }
         }

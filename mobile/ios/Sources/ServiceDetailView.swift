@@ -22,62 +22,65 @@ struct ServiceDetailView: View {
     @State private var showingAuth = false
 
     var body: some View {
-      GeometryReader { geo in
-        ScrollView { scrollContent.frame(width: geo.size.width) }
-        .background(LinearGradient.qkPageWash.ignoresSafeArea())
-        .navigationTitle(service.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                ShareLink(
-                    item: AppLinks.service(service.id),
-                    subject: Text(shareTitle),
-                    message: Text(loc.t("share.service.message")),
-                    preview: SharePreview(shareTitle)
-                ) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(Color.qkBurgundy)
+        // Measure the real available width and pin every section to it. A vertical
+        // ScrollView proposes UNBOUNDED width, so an image using `maxWidth:.infinity`
+        // would balloon to its natural pixel size and push the page off-screen.
+        // Explicit widths everywhere = always responsive, no horizontal overflow.
+        GeometryReader { geo in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    hero(width: geo.size.width)
+                    bodySections
+                        .padding(20)
+                        .frame(width: geo.size.width, alignment: .leading)
                 }
-                .accessibilityLabel(loc.t("share.label"))
             }
+            .background(LinearGradient.qkPageWash.ignoresSafeArea())
+            .navigationTitle(service.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    ShareLink(
+                        item: AppLinks.service(service.id),
+                        subject: Text(shareTitle),
+                        message: Text(loc.t("share.service.message")),
+                        preview: SharePreview(shareTitle)
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                            .foregroundStyle(Color.qkBurgundy)
+                    }
+                    .accessibilityLabel(loc.t("share.label"))
+                }
+            }
+            .safeAreaInset(edge: .bottom) { subscribeBar }
+            .sheet(isPresented: $showingAuth) {
+                AuthView().environmentObject(auth)
+            }
+            .onChange(of: auth.isAuthenticated) { _, isAuthed in
+                if isAuthed { showingAuth = false }
+            }
+            .overlay { confirmationOverlay }
         }
-        .safeAreaInset(edge: .bottom) { subscribeBar }
-        .sheet(isPresented: $showingAuth) {
-            AuthView().environmentObject(auth)
-        }
-        .onChange(of: auth.isAuthenticated) { _, isAuthed in
-            if isAuthed { showingAuth = false }
-        }
-        .overlay { confirmationOverlay }
-      }
     }
 
-    /// The scrolling page body. A vertical ScrollView proposes UNBOUNDED width to
-    /// its content, so the full-bleed hero + text would size to their one-line
-    /// ideal width and render wider than the screen (clipping the left edge).
-    /// `.containerRelativeFrame(.horizontal)` pins it to the viewport width so
-    /// everything wraps in-bounds.
-    private var scrollContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            hero
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                Divider()
-                if let description = service.description, !description.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("About this experience")
-                            .font(.title3).fontWeight(.semibold)
-                            .foregroundStyle(Color.qkInk)
-                        Text(description)
-                            .font(.body)
-                            .foregroundStyle(Color.qkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Divider()
+    /// The padded text body under the hero (host/location, description, subscribe).
+    private var bodySections: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            header
+            Divider()
+            if let description = service.description, !description.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("About this experience")
+                        .font(.title3).fontWeight(.semibold)
+                        .foregroundStyle(Color.qkInk)
+                    Text(description)
+                        .font(.body)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                subscribePanel
+                Divider()
             }
-            .padding(20)
+            subscribePanel
         }
     }
 
@@ -88,50 +91,51 @@ struct ServiceDetailView: View {
 
     // MARK: - Hero
 
-    /// Dark Ken Burns hero with a legibility scrim and the category pill, serif
-    /// title and gold ★ rating overlaid at the bottom — matching the mockup.
-    private var hero: some View {
-        ZStack(alignment: .bottomLeading) {
-            ListingImageView(url: service.photoURL, placeholderIconSize: 44)
-                .frame(maxWidth: .infinity)
-                .frame(height: 300)
-                .kenBurns()
-                .clipped()
-                .qkPhotoScrim(strength: 0.55, start: 0.30)
-
-            // Pinned to fill the hero width (leading-aligned, RTL-safe) so the
-            // overlaid title/location can't stretch the hero past the screen.
-            VStack(alignment: .leading, spacing: 8) {
-                if let category = service.category, !category.isEmpty {
-                    Text(category.capitalized)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.qkBurgundy)
-                        .padding(.horizontal, 11).padding(.vertical, 4)
-                        .background(Color.white.opacity(0.92))
-                        .clipShape(Capsule())
-                }
-                Text(service.title)
-                    .font(.system(.title, design: .serif).weight(.bold))
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 6) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.qkGoldLight)
-                    Text(String(format: "%.1f", service.displayRating))
-                        .font(.system(size: 13, weight: .bold))
+    /// Hero image with a legibility scrim + the category pill, serif title and gold
+    /// ★ rating overlaid at the bottom. The image gets an EXPLICIT width (never
+    /// `maxWidth:.infinity`, which would balloon to the photo's native size in a
+    /// scroll view), and the overlaid text is bounded to that width + auto-shrinks,
+    /// so the hero can never push the page off-screen.
+    private func hero(width: CGFloat) -> some View {
+        ListingImageView(url: service.photoURL, placeholderIconSize: 44)
+            .frame(width: width, height: 260)
+            .kenBurns()
+            .clipped()
+            .qkPhotoScrim(strength: 0.55, start: 0.30)
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let category = service.category, !category.isEmpty {
+                        Text(category.capitalized)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.qkBurgundy)
+                            .padding(.horizontal, 11).padding(.vertical, 4)
+                            .background(Color.white.opacity(0.92))
+                            .clipShape(Capsule())
+                    }
+                    Text(service.title)
+                        .font(.system(.title2, design: .serif).weight(.bold))
                         .foregroundStyle(.white)
-                    if let location = service.location, !location.isEmpty {
-                        Text("· \(location)")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                    HStack(spacing: 6) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.qkGoldLight)
+                        Text(String(format: "%.1f", service.displayRating))
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                        if let location = service.location, !location.isEmpty {
+                            Text("· \(location)")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
+                        }
                     }
                 }
+                .padding(16)
+                .frame(width: width, alignment: .leading)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+            .frame(width: width, height: 260)
     }
 
     private var header: some View {

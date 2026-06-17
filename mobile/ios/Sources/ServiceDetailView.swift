@@ -22,7 +22,8 @@ struct ServiceDetailView: View {
     @State private var showingAuth = false
 
     var body: some View {
-        ScrollView { scrollContent }
+      GeometryReader { geo in
+        ScrollView { scrollContent.frame(width: geo.size.width) }
         .background(LinearGradient.qkPageWash.ignoresSafeArea())
         .navigationTitle(service.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -48,6 +49,7 @@ struct ServiceDetailView: View {
             if isAuthed { showingAuth = false }
         }
         .overlay { confirmationOverlay }
+      }
     }
 
     /// The scrolling page body. A vertical ScrollView proposes UNBOUNDED width to
@@ -77,7 +79,6 @@ struct ServiceDetailView: View {
             }
             .padding(20)
         }
-        .containerRelativeFrame(.horizontal)
     }
 
     /// "{title} — QuickIn" used as the share subject + preview title.

@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -77,6 +78,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -204,18 +206,33 @@ fun ListingsScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
+            val listState = rememberLazyListState()
+            var viewMode by remember { mutableStateOf(ViewMode.List) }
+            // Collapse the secondary chrome (AI bar + region/sort) so the search +
+            // map/list section fills the screen: hidden while the map is shown, and
+            // as soon as the list scrolls. The brand hero already scrolls inside the list.
+            val collapsed by remember {
+                derivedStateOf {
+                    viewMode == ViewMode.Map ||
+                        listState.firstVisibleItemIndex > 0 ||
+                        listState.firstVisibleItemScrollOffset > 60
+                }
+            }
+
             SearchHeader(
                 query = state.query,
                 onSearch = onSearch,
                 onClear = onClear
             )
 
-            // Natural-language ("Ask AI") search — an additional mode over the regular search above.
-            NaturalLanguageSearchBar(
-                state = aiSearchState,
-                onSearch = onAiSearch,
-                onClear = onClearAiSearch
-            )
+            // Natural-language ("Ask AI") search — collapses with the rest of the chrome.
+            AnimatedVisibility(visible = !collapsed) {
+                NaturalLanguageSearchBar(
+                    state = aiSearchState,
+                    onSearch = onAiSearch,
+                    onClear = onClearAiSearch
+                )
+            }
 
             if (aiSearchState.active) {
                 // ---- AI search results mode: parsed-filter chips + matched listings ----
@@ -229,22 +246,24 @@ fun ListingsScreen(
                 return@Column
             }
 
-            // Region filter chips ("All" + one per region with its count) + sort control.
-            RegionChipsRow(
-                regions = state.regions,
-                selectedRegion = state.query.region,
-                onSelectRegion = onSelectRegion
-            )
-            // Sort chips (scrollable) led by a Filters button that opens the discovery sheet.
-            SortRow(
-                selected = state.query.sort,
-                onSelect = onSelectSort,
-                filterCount = state.query.discoveryFilterCount,
-                onOpenFilters = { showFilters = true }
-            )
+            // Region + sort chips — collapse with the chrome to give the map/list room.
+            AnimatedVisibility(visible = !collapsed) {
+                Column {
+                    RegionChipsRow(
+                        regions = state.regions,
+                        selectedRegion = state.query.region,
+                        onSelectRegion = onSelectRegion
+                    )
+                    SortRow(
+                        selected = state.query.sort,
+                        onSelect = onSelectSort,
+                        filterCount = state.query.discoveryFilterCount,
+                        onOpenFilters = { showFilters = true }
+                    )
+                }
+            }
 
             // List / Map toggle. Defaults to List; both modes render the same searched listings.
-            var viewMode by remember { mutableStateOf(ViewMode.List) }
             ViewModeToggle(
                 selected = viewMode,
                 onSelect = { viewMode = it }
@@ -276,6 +295,7 @@ fun ListingsScreen(
                     }
                     else -> {
                         LazyColumn(
+                            state = listState,
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(18.dp)
                         ) {

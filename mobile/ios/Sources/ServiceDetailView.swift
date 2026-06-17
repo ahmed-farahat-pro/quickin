@@ -22,28 +22,7 @@ struct ServiceDetailView: View {
     @State private var showingAuth = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                hero
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    Divider()
-                    if let description = service.description, !description.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("About this experience")
-                                .font(.title3).fontWeight(.semibold)
-                                .foregroundStyle(Color.qkInk)
-                            Text(description)
-                                .font(.body)
-                                .foregroundStyle(Color.qkMuted)
-                        }
-                        Divider()
-                    }
-                    subscribePanel
-                }
-                .padding(20)
-            }
-        }
+        ScrollView { scrollContent }
         .background(LinearGradient.qkPageWash.ignoresSafeArea())
         .navigationTitle(service.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -69,6 +48,36 @@ struct ServiceDetailView: View {
             if isAuthed { showingAuth = false }
         }
         .overlay { confirmationOverlay }
+    }
+
+    /// The scrolling page body. A vertical ScrollView proposes UNBOUNDED width to
+    /// its content, so the full-bleed hero + text would size to their one-line
+    /// ideal width and render wider than the screen (clipping the left edge).
+    /// `.containerRelativeFrame(.horizontal)` pins it to the viewport width so
+    /// everything wraps in-bounds.
+    private var scrollContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            hero
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                Divider()
+                if let description = service.description, !description.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("About this experience")
+                            .font(.title3).fontWeight(.semibold)
+                            .foregroundStyle(Color.qkInk)
+                        Text(description)
+                            .font(.body)
+                            .foregroundStyle(Color.qkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Divider()
+                }
+                subscribePanel
+            }
+            .padding(20)
+        }
+        .containerRelativeFrame(.horizontal)
     }
 
     /// "{title} — QuickIn" used as the share subject + preview title.

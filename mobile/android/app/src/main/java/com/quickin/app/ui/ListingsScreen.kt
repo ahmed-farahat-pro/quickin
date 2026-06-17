@@ -246,22 +246,19 @@ fun ListingsScreen(
                 return@Column
             }
 
-            // Region + sort chips — collapse with the chrome to give the map/list room.
-            AnimatedVisibility(visible = !collapsed) {
-                Column {
-                    RegionChipsRow(
-                        regions = state.regions,
-                        selectedRegion = state.query.region,
-                        onSelectRegion = onSelectRegion
-                    )
-                    SortRow(
-                        selected = state.query.sort,
-                        onSelect = onSelectSort,
-                        filterCount = state.query.discoveryFilterCount,
-                        onOpenFilters = { showFilters = true }
-                    )
-                }
-            }
+            // Region chips + sort stay visible (key filters); only the brand hero
+            // (in the list, scrolls away) and the AI bar collapse to free space.
+            RegionChipsRow(
+                regions = state.regions,
+                selectedRegion = state.query.region,
+                onSelectRegion = onSelectRegion
+            )
+            SortRow(
+                selected = state.query.sort,
+                onSelect = onSelectSort,
+                filterCount = state.query.discoveryFilterCount,
+                onOpenFilters = { showFilters = true }
+            )
 
             // List / Map toggle. Defaults to List; both modes render the same searched listings.
             ViewModeToggle(

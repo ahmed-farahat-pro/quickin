@@ -21,9 +21,10 @@ struct ListingsView: View {
     @State private var showingAISearch = false
     /// Presents the discovery Filters sheet (amenities + property type).
     @State private var showingFilters = false
-    /// Collapses the decorative brand header so the search + map/list section gets
-    /// the screen — driven by list scroll, and forced while the map is shown.
-    @State private var headerCollapsed = false
+    /// Collapses the decorative brand header + "Ask AI" bar so the search + map/list
+    /// section gets ~85% of the screen. Collapsed by DEFAULT; an overscroll pull-down
+    /// at the top reveals the brand, and it stays collapsed while scrolling / on the map.
+    @State private var headerCollapsed = true
 
     /// Switches the root TabView to the Profile tab. Supplied by `RootView`;
     /// defaults to a no-op so previews / standalone use still compile.
@@ -90,10 +91,10 @@ struct ListingsView: View {
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
         }
-        // Map can't scroll to collapse the header, so give it the screen directly:
-        // hide the brand header in map mode, restore it (until you scroll) in list.
-        .onChange(of: viewMode) { _, mode in
-            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = (mode == .map) }
+        // Keep the header collapsed when switching modes so both list + map keep the
+        // full screen; the brand is revealed only by an overscroll pull-down in list.
+        .onChange(of: viewMode) { _, _ in
+            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = true }
         }
         .task {
             // CLI screenshot hook: open the auth sheet on launch.
@@ -137,6 +138,9 @@ struct ListingsView: View {
             // primary, structured search.
             aiSearchEntry
                 .padding(.horizontal, 16)
+                .frame(height: headerCollapsed ? 0 : nil)
+                .opacity(headerCollapsed ? 0 : 1)
+                .clipped()
 
             RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
 
@@ -235,7 +239,9 @@ struct ListingsView: View {
             }
             .coordinateSpace(name: "exploreScroll")
             .onPreferenceChange(ExploreScrollOffsetKey.self) { y in
-                let shouldCollapse = y < -24
+                // Collapsed by default; only an overscroll pull-down (y > 40) at the
+                // top reveals the brand header + Ask-AI bar, so the listings get ~85%.
+                let shouldCollapse = y < 40
                 if shouldCollapse != headerCollapsed {
                     withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = shouldCollapse }
                 }

@@ -117,17 +117,15 @@ struct ServiceDetailView: View {
                         .foregroundStyle(.white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
-                    HStack(spacing: 6) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.qkGoldLight)
-                        Text(String(format: "%.1f", service.displayRating))
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                        if let location = service.location, !location.isEmpty {
-                            Text("· \(location)")
-                                .font(.system(size: 13))
-                                .foregroundStyle(.white.opacity(0.9))
+                    // Services aren't rated — show the location (real data), no fake stars.
+                    if let location = service.location, !location.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.qkGoldLight)
+                            Text(location)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.95))
                                 .lineLimit(1)
                         }
                     }

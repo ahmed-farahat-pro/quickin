@@ -138,17 +138,7 @@ struct ServiceCard: View {
                                 .clipShape(Capsule())
                         }
                         Spacer()
-                        HStack(spacing: 3) {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.qkGoldLight)
-                            Text(String(format: "%.1f", service.displayRating))
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 9).padding(.vertical, 4)
-                        .background(.ultraThinMaterial.opacity(0.9), in: Capsule())
-                        .background(Color.qkInk.opacity(0.35), in: Capsule())
+                        // Services have no rating system — show no (fabricated) stars.
                     }
                     Spacer()
                 }

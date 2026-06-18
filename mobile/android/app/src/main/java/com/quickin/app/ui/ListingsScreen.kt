@@ -7,10 +7,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
@@ -78,6 +84,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +134,8 @@ fun ListingsScreen(
     onSearchArea: (String) -> Unit = {},
     isAuthenticated: Boolean = false,
     onSignIn: () -> Unit = {},
+    userInitials: String = "",
+    onOpenProfile: () -> Unit = {},
     unreadCount: Int = 0,
     onOpenNotifications: () -> Unit = {},
     savedListingIds: Set<String> = emptySet(),
@@ -184,6 +193,8 @@ fun ListingsScreen(
                 },
                 actions = {
                     if (isAuthenticated) {
+                        // Animated profile avatar → opens the Profile tab.
+                        ProfileAvatarAction(initials = userInitials, onClick = onOpenProfile)
                         // Notifications bell with an unread badge (signed-in only).
                         NotificationsBell(
                             unreadCount = unreadCount,
@@ -219,11 +230,16 @@ fun ListingsScreen(
                 }
             }
 
-            SearchHeader(
-                query = state.query,
-                onSearch = onSearch,
-                onClear = onClear
-            )
+            // The whole discovery chrome (search + AI bar + region/sort/filters)
+            // collapses as the guest scrolls into the listings, so the cards get the
+            // full screen; it slides back in near the top.
+            AnimatedVisibility(visible = !collapsed) {
+                SearchHeader(
+                    query = state.query,
+                    onSearch = onSearch,
+                    onClear = onClear
+                )
+            }
 
             // Natural-language ("Ask AI") search — collapses with the rest of the chrome.
             AnimatedVisibility(visible = !collapsed) {
@@ -246,19 +262,23 @@ fun ListingsScreen(
                 return@Column
             }
 
-            // Region chips + sort stay visible (key filters); only the brand hero
-            // (in the list, scrolls away) and the AI bar collapse to free space.
-            RegionChipsRow(
-                regions = state.regions,
-                selectedRegion = state.query.region,
-                onSelectRegion = onSelectRegion
-            )
-            SortRow(
-                selected = state.query.sort,
-                onSelect = onSelectSort,
-                filterCount = state.query.discoveryFilterCount,
-                onOpenFilters = { showFilters = true }
-            )
+            // Region chips + sort/filters collapse with the rest of the chrome on
+            // scroll-down (returning near the top), so listings own the screen.
+            AnimatedVisibility(visible = !collapsed) {
+                Column {
+                    RegionChipsRow(
+                        regions = state.regions,
+                        selectedRegion = state.query.region,
+                        onSelectRegion = onSelectRegion
+                    )
+                    SortRow(
+                        selected = state.query.sort,
+                        onSelect = onSelectSort,
+                        filterCount = state.query.discoveryFilterCount,
+                        onOpenFilters = { showFilters = true }
+                    )
+                }
+            }
 
             // List / Map toggle. Defaults to List; both modes render the same searched listings.
             ViewModeToggle(
@@ -489,6 +509,60 @@ private fun AiFilterChip(label: String) {
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
+    }
+}
+
+/** Initials for the Explore avatar — from the display name, falling back to the email. */
+internal fun avatarInitials(name: String?, email: String?): String {
+    val source = (name ?: "").trim().ifBlank { (email ?: "").substringBefore('@') }
+    val parts = source.trim().split(Regex("[\\s._]+")).filter { it.isNotBlank() }
+    return when {
+        parts.isEmpty() -> "?"
+        parts.size == 1 -> parts[0].take(1).uppercase()
+        else -> (parts[0].take(1) + parts.last().take(1)).uppercase()
+    }
+}
+
+/**
+ * Animated profile avatar for the Explore top bar: it springs in on appear and a
+ * soft ring "pings" outward on a loop (a Google-style cue) drawing the eye to the
+ * account entry; tapping opens the Profile tab.
+ */
+@Composable
+private fun ProfileAvatarAction(initials: String, onClick: () -> Unit) {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+    val scale by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0.4f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow),
+        label = "avatarIn"
+    )
+    val ping = rememberInfiniteTransition(label = "avatarPing")
+    val pingScale by ping.animateFloat(
+        initialValue = 1f, targetValue = 1.7f,
+        animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing), RepeatMode.Restart),
+        label = "pingScale"
+    )
+    val pingAlpha by ping.animateFloat(
+        initialValue = 0.5f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing), RepeatMode.Restart),
+        label = "pingAlpha"
+    )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.padding(end = 4.dp).size(46.dp)
+    ) {
+        // The expanding "ping" ring.
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .scale(pingScale)
+                .alpha(pingAlpha)
+                .border(2.dp, Burgundy, CircleShape)
+        )
+        IconButton(onClick = onClick, modifier = Modifier.scale(scale)) {
+            GradientAvatar(initials = initials.ifBlank { "?" }, size = 34.dp)
+        }
     }
 }
 

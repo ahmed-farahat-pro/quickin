@@ -157,7 +157,7 @@
 		DCE1D8CE6B16E466244F0371 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationPolicyView.swift; sourceTree = "<group>"; };
-		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostServicesSection.swift; sourceTree = "<group>"; };
 		E95CD96DE36FCFFCFE7DC874 /* NotificationPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPrimerView.swift; sourceTree = "<group>"; };
 		F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricEnableSheet.swift; sourceTree = "<group>"; };
@@ -516,6 +516,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -593,6 +594,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

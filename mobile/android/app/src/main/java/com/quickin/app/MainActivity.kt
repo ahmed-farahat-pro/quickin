@@ -83,6 +83,7 @@ import com.quickin.app.ui.HostListingsScreen
 import com.quickin.app.ui.HostReservationsScreen
 import com.quickin.app.ui.HostEarningsScreen
 import com.quickin.app.ui.HostProfileScreen
+import com.quickin.app.ui.avatarInitials
 import com.quickin.app.ui.HostScreen
 import com.quickin.app.ui.ListingDetailScreen
 import com.quickin.app.ui.HostServicesScreen
@@ -1254,6 +1255,10 @@ private fun MainApp() {
                     onSignIn = {
                         authViewModel.clearError()
                         showAuth = true
+                    },
+                    userInitials = avatarInitials(authState.userName, authState.email),
+                    onOpenProfile = {
+                        selectedTab = tabs.indexOfFirst { it.key == "Profile" }.coerceAtLeast(0)
                     },
                     unreadCount = notificationsState.unreadCount,
                     onOpenNotifications = {

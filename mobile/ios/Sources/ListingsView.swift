@@ -21,10 +21,10 @@ struct ListingsView: View {
     @State private var showingAISearch = false
     /// Presents the discovery Filters sheet (amenities + property type).
     @State private var showingFilters = false
-    /// Collapses the decorative brand header + "Ask AI" bar so the search + map/list
-    /// section gets ~85% of the screen. Collapsed by DEFAULT; an overscroll pull-down
-    /// at the top reveals the brand, and it stays collapsed while scrolling / on the map.
-    @State private var headerCollapsed = true
+    /// Collapses the whole discovery chrome (brand header + search + "Ask AI" bar +
+    /// region/sort/filters) so the listings own the screen. Visible at the TOP; as the
+    /// guest scrolls down into the listings it scrolls away, and returns near the top.
+    @State private var headerCollapsed = false
 
     /// Switches the root TabView to the Profile tab. Supplied by `RootView`;
     /// defaults to a no-op so previews / standalone use still compile.
@@ -35,24 +35,7 @@ struct ListingsView: View {
             ZStack {
                 LinearGradient.qkPageWash.ignoresSafeArea()
                 VStack(spacing: 0) {
-                    QKBrandHeader(
-                        eyebrow: loc.t("home.eyebrow"),
-                        subtitle: loc.t("home.subtitle"),
-                        wordmark: true
-                    ) {
-                        ProfileAvatarButton(
-                            user: auth.user,
-                            isAuthenticated: auth.isAuthenticated,
-                            onOpenProfile: onOpenProfile,
-                            onSignIn: { showingAuth = true },
-                            onDark: true
-                        )
-                    }
-                    .frame(height: headerCollapsed ? 0 : nil)
-                    .opacity(headerCollapsed ? 0 : 1)
-                    .clipped()
-                    .accessibilityHidden(headerCollapsed)
-
+                    collapsibleBrandHeader
                     content
                         .frame(maxHeight: .infinity)
                 }
@@ -91,10 +74,10 @@ struct ListingsView: View {
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
         }
-        // Keep the header collapsed when switching modes so both list + map keep the
-        // full screen; the brand is revealed only by an overscroll pull-down in list.
-        .onChange(of: viewMode) { _, _ in
-            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = true }
+        // List opens at the top with the discovery chrome shown (it collapses as you
+        // scroll); Map gets the full screen, so collapse the chrome there.
+        .onChange(of: viewMode) { _, mode in
+            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = (mode == .map) }
         }
         .task {
             // CLI screenshot hook: open the auth sheet on launch.
@@ -126,23 +109,49 @@ struct ListingsView: View {
         }
     }
 
+    /// The decorative brand banner + animated profile avatar. Collapses to zero
+    /// height (with the discovery chrome) as the guest scrolls into the listings.
+    private var collapsibleBrandHeader: some View {
+        QKBrandHeader(
+            eyebrow: loc.t("home.eyebrow"),
+            subtitle: loc.t("home.subtitle"),
+            wordmark: true
+        ) {
+            AnimatedProfileAvatar(
+                user: auth.user,
+                isAuthenticated: auth.isAuthenticated,
+                onOpenProfile: onOpenProfile,
+                onSignIn: { showingAuth = true },
+                onDark: true
+            )
+        }
+        .frame(height: headerCollapsed ? 0 : nil)
+        .opacity(headerCollapsed ? 0 : 1)
+        .clipped()
+        .accessibilityHidden(headerCollapsed)
+    }
+
     @ViewBuilder
     private var content: some View {
         VStack(spacing: 12) {
-            SearchHeader(viewModel: viewModel)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+            // Discovery chrome — structured search + natural-language entry +
+            // region/sort/filters. Collapses together (with the brand header above)
+            // as the guest scrolls into the listings so the cards get the full
+            // screen, and slides back in near the top.
+            VStack(spacing: 12) {
+                SearchHeader(viewModel: viewModel)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
 
-            // Section 10 — natural-language search entry. An additional mode that
-            // opens the AI search sheet; the classic SearchHeader above stays the
-            // primary, structured search.
-            aiSearchEntry
-                .padding(.horizontal, 16)
-                .frame(height: headerCollapsed ? 0 : nil)
-                .opacity(headerCollapsed ? 0 : 1)
-                .clipped()
+                aiSearchEntry
+                    .padding(.horizontal, 16)
 
-            RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
+                RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
+            }
+            .frame(height: headerCollapsed ? 0 : nil)
+            .opacity(headerCollapsed ? 0 : 1)
+            .clipped()
+            .accessibilityHidden(headerCollapsed)
 
             viewModeToggle
                 .padding(.horizontal, 16)
@@ -239,11 +248,13 @@ struct ListingsView: View {
             }
             .coordinateSpace(name: "exploreScroll")
             .onPreferenceChange(ExploreScrollOffsetKey.self) { y in
-                // Collapsed by default; only an overscroll pull-down (y > 40) at the
-                // top reveals the brand header + Ask-AI bar, so the listings get ~85%.
-                let shouldCollapse = y < 40
-                if shouldCollapse != headerCollapsed {
-                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = shouldCollapse }
+                // Chrome is visible at the top; collapse once the guest scrolls DOWN
+                // past ~40pt, and reveal again as they return near the top. Two
+                // thresholds add hysteresis so it doesn't flicker at the boundary.
+                if !headerCollapsed && y < -40 {
+                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = true }
+                } else if headerCollapsed && y > -12 {
+                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = false }
                 }
             }
             .refreshable { await viewModel.load() }
@@ -297,6 +308,45 @@ struct ListingsView: View {
             .buttonStyle(QKPressStyle())
         }
         .padding(.top, 50)
+    }
+}
+
+/// The Explore profile avatar with a Google-style micro-animation: it springs in
+/// on appear and a soft ring "pings" outward to draw the eye to the account entry,
+/// then taps through to `ProfileAvatarButton`'s behaviour (Profile / sign-in).
+struct AnimatedProfileAvatar: View {
+    let user: AuthUser?
+    let isAuthenticated: Bool
+    let onOpenProfile: () -> Void
+    let onSignIn: () -> Void
+    var onDark: Bool = false
+
+    @State private var appeared = false
+    @State private var pinging = false
+
+    var body: some View {
+        ZStack {
+            // Soft expanding ring — a gentle, repeating "ping".
+            Circle()
+                .stroke((onDark ? Color.qkCream : Color.qkBurgundy).opacity(0.4), lineWidth: 2)
+                .frame(width: 40, height: 40)
+                .scaleEffect(pinging ? 1.7 : 0.95)
+                .opacity(pinging ? 0 : 0.55)
+
+            ProfileAvatarButton(
+                user: user,
+                isAuthenticated: isAuthenticated,
+                onOpenProfile: onOpenProfile,
+                onSignIn: onSignIn,
+                onDark: onDark
+            )
+        }
+        .scaleEffect(appeared ? 1 : 0.4)
+        .opacity(appeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { appeared = true }
+            withAnimation(.easeOut(duration: 1.7).repeatForever(autoreverses: false)) { pinging = true }
+        }
     }
 }
 

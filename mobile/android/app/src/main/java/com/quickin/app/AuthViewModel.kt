@@ -252,8 +252,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .remove(KEY_PROVIDER)
             .remove(KEY_ROLE)
             .apply()
-        // Drop any stored fingerprint/face session so it can't restore the signed-out account.
-        BiometricAuthManager.clear(getApplication())
+        // Keep the biometric session so the fingerprint button appears on the next login.
         // Drop any pending "enable biometric" offer too.
         _biometricEnrollOffer.value = null
         _state.value = AuthUiState(isAuthenticated = false)

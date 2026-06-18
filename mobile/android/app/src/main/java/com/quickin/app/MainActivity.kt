@@ -449,12 +449,19 @@ private fun MainApp() {
     val googleSignInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val idToken = GoogleSignIn.idTokenFromResult(result.data)
-        if (idToken != null) {
-            authViewModel.googleSignIn(idToken)
-        } else {
-            // Sign-out so the picker always appears fresh on the next tap.
-            activity?.let { GoogleSignIn.signOut(it) }
+        val (idToken, error) = GoogleSignIn.idTokenFromResult(result.data)
+        when {
+            idToken != null -> authViewModel.googleSignIn(idToken)
+            error != null -> {
+                // Sign-out so the picker always appears fresh on the next tap, then
+                // surface the real error code so it's visible in the auth UI.
+                activity?.let { GoogleSignIn.signOut(it) }
+                authViewModel.showAuthMessage(error)
+            }
+            else -> {
+                // User cancelled the picker (resultCode = RESULT_CANCELED, data = null).
+                activity?.let { GoogleSignIn.signOut(it) }
+            }
         }
     }
 
@@ -681,8 +688,11 @@ private fun MainApp() {
     // Refresh data when the active tab changes, keyed by the tab's role-agnostic key.
     LaunchedEffect(currentTabKey, authState.isAuthenticated) {
         when (currentTabKey) {
-            // Explore (guest) hosts the notifications bell — refresh its unread badge.
-            "Explore" -> if (authState.isAuthenticated) notificationsViewModel.load()
+            // Explore (guest) — refresh listings feed + unread badge on every tab revisit.
+            "Explore" -> {
+                listingsViewModel.load()
+                if (authState.isAuthenticated) notificationsViewModel.load()
+            }
             // Guest "Wishlist" = the user's saved stays + experiences.
             "wishlist" -> if (authState.isAuthenticated) wishlistViewModel.load()
             // Guest "Trips" = the user's own bookings.
@@ -692,11 +702,11 @@ private fun MainApp() {
             // Services: public feed for guests, the host's own services for hosts.
             "Services" -> if (isHost) servicesViewModel.loadHost() else servicesViewModel.loadServices()
             "Listings" -> if (authState.isAuthenticated) hostViewModel.loadHostListings()
-            // Profile tab renders the avatar + bio from the editable profile — load it lazily,
-            // and load the identity-verification status for the "Verify your identity" card.
+            // Profile tab renders the avatar + bio from the editable profile — always reload
+            // to pick up any saves made in the settings screen, and reload verification status.
             "Profile" -> if (authState.isAuthenticated) {
-                if (!profileSettingsState.loaded) profileSettingsViewModel.load()
-                if (!verificationState.loaded) trustViewModel.loadVerification()
+                profileSettingsViewModel.load()
+                trustViewModel.loadVerification()
             }
         }
     }

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -24,6 +26,7 @@ import
 } from 'lucide-react'
 import { IdentityVerificationForm } from '@/components/features/verification'
 import { ProfileEditForm } from './profile-edit-form'
+import { ScanIDButton } from './scan-id-button'
 import { getTranslations } from 'next-intl/server'
 import { getRequestLocale } from '@/i18n/request-locale'
 
@@ -403,10 +406,15 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps)
               {(verificationStatus?.code !== 'verified' && verificationStatus?.code !== 'pending') && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">{t('verification.submit.title')}</CardTitle>
-                    <CardDescription>
-                      {t('verification.submit.description')}
-                    </CardDescription>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div>
+                        <CardTitle className="text-base">{t('verification.submit.title')}</CardTitle>
+                        <CardDescription>
+                          {t('verification.submit.description')}
+                        </CardDescription>
+                      </div>
+                      <ScanIDButton />
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <IdentityVerificationForm userId={user.id} />

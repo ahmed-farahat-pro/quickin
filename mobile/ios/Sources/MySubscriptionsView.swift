@@ -38,9 +38,7 @@ struct MySubscriptionsView: View {
         .navigationTitle("My subscriptions")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.qkCream, for: .navigationBar)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder

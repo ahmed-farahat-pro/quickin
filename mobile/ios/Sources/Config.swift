@@ -30,7 +30,7 @@ enum Config {
     /// `id_token` to `/api/auth/google`.
     ///
     /// Example: "1234567890-abcdefg.apps.googleusercontent.com"
-    static let googleClientID = "293984451588-u9c2d10ecjq5qpfvm96kcda09iqr9iqs.apps.googleusercontent.com"
+    static let googleClientID = "293984451588-t58dlg9hss3qjk9qmikdu3tv7qln11sb.apps.googleusercontent.com"
 
     /// Google Maps iOS SDK key.
     // Set to switch the map to the Google Maps iOS SDK (needs the SDK added via SPM + this key).
@@ -49,6 +49,11 @@ enum Config {
     /// dotted halves swapped, e.g.
     /// "com.googleusercontent.apps.1234567890-abcdefg". Derived automatically
     /// from `googleClientID` when possible.
+    /// Base URL for the local Egyptian National ID OCR server.
+    /// The iOS Simulator shares the host network so `localhost` resolves
+    /// to the Mac running the Python server on port 8000.
+    static let idOcrBaseURL = "http://localhost:8000"
+
     static var googleRedirectScheme: String? {
         guard !googleClientID.isEmpty else { return nil }
         // iOS client ids look like "<num>-<hash>.apps.googleusercontent.com".

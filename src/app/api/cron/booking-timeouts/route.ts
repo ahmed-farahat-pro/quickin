@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getBookingTimeouts } from '@/lib/actions/booking-settings'
 import { systemReleaseEscrow } from '@/lib/actions/escrow'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Basic cron endpoint. Suggest using a secret token header in Vercel to secure this.
  */

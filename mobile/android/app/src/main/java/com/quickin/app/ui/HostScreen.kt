@@ -287,7 +287,7 @@ fun HostListingsScreen(
     contentPadding: PaddingValues = PaddingValues()
 ) {
     LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
     Scaffold(
         containerColor = CreamPage,
@@ -1027,9 +1027,9 @@ private fun RequestsTab(
     onReject: (String) -> Unit,
     onMessage: (String) -> Unit
 ) {
-    // Load once when the tab first appears.
+    // Always reload when the tab appears so incoming requests are always fresh.
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1190,7 +1190,7 @@ private fun ReviewGuestsTab(
     onSubmit: (bookingId: String, rating: Int, comment: String) -> Unit
 ) {
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

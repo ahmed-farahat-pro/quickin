@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { ConditionForm } from '@/components/admin/conditions/condition-form'
 import { notFound } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EditConditionPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const id = params.id

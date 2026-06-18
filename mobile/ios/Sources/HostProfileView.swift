@@ -20,15 +20,12 @@ struct HostProfileView: View {
 
     // Public profile (avatar / bio / badges / rating). `nil` until loaded.
     @State private var profile: PublicProfile?
-    @State private var profileLoaded = false
 
     // Reviews about the host's listings.
     @State private var reviews: [HostReview] = []
-    @State private var reviewsLoaded = false
 
     // The host's other published listings.
     @State private var listings: [Listing] = []
-    @State private var listingsLoaded = false
 
     var body: some View {
         ScrollView {
@@ -241,20 +238,14 @@ struct HostProfileView: View {
     // MARK: - Loaders
 
     private func loadProfile() async {
-        guard !profileLoaded else { return }
-        profileLoaded = true
         profile = try? await TrustService.shared.fetchPublicProfile(userID: hostID)
     }
 
     private func loadReviews() async {
-        guard !reviewsLoaded else { return }
-        reviewsLoaded = true
         reviews = (try? await TrustService.shared.fetchUserReviews(userID: hostID)) ?? []
     }
 
     private func loadListings() async {
-        guard !listingsLoaded else { return }
-        listingsLoaded = true
         listings = (try? await SupabaseService.shared.fetchHostListings(hostID: hostID)) ?? []
     }
 

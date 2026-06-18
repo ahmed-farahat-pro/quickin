@@ -1,5 +1,7 @@
 import { getUser } from '@/lib/supabase/auth-actions'
 import { createClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { ListingWizard } from '@/components/features/host/listing-wizard'
 import { VerificationGate, type VerificationStatus } from '@/components/features/verification'

@@ -83,9 +83,7 @@ struct HostDashboardView: View {
                 Task { await viewModel.load() }
             })
         }
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder

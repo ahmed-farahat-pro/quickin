@@ -1,6 +1,8 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 import { getLocale } from 'next-intl/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { DynamicPageRenderer } from '@/components/features/cms/dynamic-page-renderer'

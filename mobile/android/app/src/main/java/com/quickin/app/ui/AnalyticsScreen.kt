@@ -84,7 +84,7 @@ fun HostAnalyticsScreen(
     onBack: () -> Unit,
     onLoad: () -> Unit
 ) {
-    LaunchedEffect(Unit) { if (!state.loaded) onLoad() }
+    LaunchedEffect(Unit) { onLoad() }
 
     Scaffold(
         containerColor = CreamPage,

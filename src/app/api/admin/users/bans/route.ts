@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 // Schema for ban request validation
 const banSchema = z.object({
   user_id: z.string().uuid('Invalid user ID format'),

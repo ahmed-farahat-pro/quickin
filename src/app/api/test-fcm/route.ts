@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminMessaging } from '@/lib/firebase/admin';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
     // Security: Only allow in development environment
     if (process.env.NODE_ENV !== 'development') {

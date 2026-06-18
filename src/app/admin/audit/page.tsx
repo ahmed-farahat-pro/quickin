@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, User, Shield, Settings } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { AuditTable } from './audit-table'
 import { AuditLog } from './columns'
 

@@ -64,7 +64,7 @@ fun MySubscriptionsScreen(
     onLoad: () -> Unit
 ) {
     LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
 
     Scaffold(

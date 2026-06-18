@@ -80,8 +80,10 @@ struct HostServicesSection: View {
                 Task { await viewModel.load() }
             })
         }
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
+        // onAppear fires whenever the Services tab (which embeds this section)
+        // becomes visible — always reload so service requests are never stale.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 

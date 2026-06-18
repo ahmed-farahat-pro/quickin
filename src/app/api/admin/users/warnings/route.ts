@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // Issue a warning to a user
 export async function POST(request: NextRequest) {
   const supabase = await createClient()

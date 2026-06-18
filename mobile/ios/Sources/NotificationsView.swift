@@ -73,9 +73,7 @@ struct NotificationsView: View {
             }
         }
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder

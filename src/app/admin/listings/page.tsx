@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ListingsTable } from './listings-table'
+
+export const dynamic = 'force-dynamic'
 import { Listing } from './columns'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'

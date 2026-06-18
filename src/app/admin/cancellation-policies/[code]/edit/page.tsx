@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { PolicyForm } from '@/components/admin/cancellation-policies/policy-form'
 import { notFound } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EditPolicyPage(props: { params: Promise<{ code: string }> }) {
   const params = await props.params
   const code = params.code

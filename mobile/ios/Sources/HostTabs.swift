@@ -43,8 +43,10 @@ struct HostListingsTab: View {
                 Task { await viewModel.load() }
             })
         }
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
+        // onAppear fires every time the Listings tab becomes visible — always
+        // reload so the host's listing statuses are never stale.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 
@@ -201,8 +203,10 @@ struct HostReservationsTab: View {
             .toolbarBackground(Color.qkCream, for: .navigationBar)
         }
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
+        // onAppear fires every time the Reservations tab becomes visible —
+        // always reload so pending requests reflect the latest state.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 

@@ -49,8 +49,10 @@ struct ServicesView: View {
             }
         }
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
+        // onAppear fires every time the Services tab becomes visible — always
+        // reload so the catalogue is never stale after a background refresh.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 

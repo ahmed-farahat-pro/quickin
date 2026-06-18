@@ -5,6 +5,8 @@ import crypto from 'node:crypto'
 // the standard claims (iss / aud / exp). Used by /api/auth/google and /api/auth/apple.
 
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
+// Secondary Web client ID (e.g. the second OAuth client in google-services.json)
+const GOOGLE_CLIENT_ID_ALT = process.env.GOOGLE_CLIENT_ID_ALT || '293984451588-u9c2d10ecjq5qpfvm96kcda09iqr9iqs.apps.googleusercontent.com'
 // Apple "aud" is your Services ID (web) or app bundle id (native iOS).
 export const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || ''
 
@@ -47,7 +49,7 @@ export interface VerifiedClaims {
 
 async function verifyIdToken(
   idToken: string,
-  opts: { jwksUrl: string; issuers: string[]; audience: string }
+  opts: { jwksUrl: string; issuers: string[]; audiences: string[] }
 ): Promise<VerifiedClaims> {
   const parts = idToken.split('.')
   if (parts.length !== 3) throw new Error('Malformed token')
@@ -70,20 +72,24 @@ async function verifyIdToken(
 
   // 2. Standard claims.
   if (!opts.issuers.includes(payload.iss)) throw new Error(`Unexpected issuer: ${payload.iss}`)
-  const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
-  if (opts.audience && !aud.includes(opts.audience)) throw new Error('Audience mismatch')
+  const tokenAud = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
+  const allowedAud = opts.audiences.filter(Boolean)
+  if (allowedAud.length > 0 && !tokenAud.some((a) => allowedAud.includes(a))) {
+    throw new Error('Audience mismatch')
+  }
   if (typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) throw new Error('Token expired')
 
   return payload
 }
 
-/** Verify a Google ID token (the `credential` from Google Identity Services / a Google sign-in). */
+/** Verify a Google ID token (the `credential` from Google Identity Services / a Google sign-in).
+ *  Accepts tokens issued for either registered Web client ID. */
 export async function verifyGoogleIdToken(idToken: string): Promise<VerifiedClaims> {
   if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID is not configured')
   return verifyIdToken(idToken, {
     jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
     issuers: ['accounts.google.com', 'https://accounts.google.com'],
-    audience: GOOGLE_CLIENT_ID,
+    audiences: [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_ID_ALT],
   })
 }
 
@@ -93,7 +99,7 @@ export async function verifyAppleIdToken(idToken: string): Promise<VerifiedClaim
   return verifyIdToken(idToken, {
     jwksUrl: 'https://appleid.apple.com/auth/keys',
     issuers: ['https://appleid.apple.com'],
-    audience: APPLE_CLIENT_ID,
+    audiences: [APPLE_CLIENT_ID],
   })
 }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // Process a payout (mark as processing or complete)
 export async function PUT(request: NextRequest) {
   const supabase = await createClient()

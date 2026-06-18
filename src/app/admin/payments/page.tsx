@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, CheckCircle, XCircle } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { PaymentsTable } from './payments-table'
 
 import { BookingWithReceipt } from './columns'

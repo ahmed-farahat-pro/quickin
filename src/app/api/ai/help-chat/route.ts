@@ -1,6 +1,8 @@
 import { streamText } from 'ai'
 import { google } from '@ai-sdk/google'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   const { messages, systemPrompt } = await req.json()
   

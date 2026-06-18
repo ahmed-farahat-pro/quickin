@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { DestinationsTable } from './destinations-table'
+
+export const dynamic = 'force-dynamic'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'

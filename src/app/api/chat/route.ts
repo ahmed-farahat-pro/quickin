@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { geminiModel, buildSystemPrompt, ChatContext } from '@/lib/gemini/client'
 import { getListings } from '@/lib/supabase/queries'
 
+export const dynamic = 'force-dynamic'
+
 const MAX_MESSAGE_LENGTH = 1000
 
 export async function POST(request: NextRequest) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // Update verification status (approve/reject)
 export async function POST(request: NextRequest) {
   const supabase = await createClient()

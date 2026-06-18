@@ -27,8 +27,7 @@ import { SortDropdown } from '@/components/features/search/sort-dropdown'
 import { ClearFiltersButton } from '@/components/features/search/clear-filters-button'
 
 // Revalidate on every request since search params change listings
-// Using searchParams already opts into dynamic rendering in Next.js 15+
-// No force-dynamic needed — Next.js will stream the response
+export const dynamic = 'force-dynamic'
 
 const ITEMS_PER_PAGE = 12
 

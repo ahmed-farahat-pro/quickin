@@ -56,14 +56,10 @@ struct ProfileView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.qkBurgundy)
-        // Refresh the unread badge + profile header (bio / avatar) when the tab
-        // appears (e.g. after returning from the notifications list, which may
-        // have marked some read, or from Edit profile, which may have changed the
-        // bio / photo).
-        .task {
-            await notifications.refresh()
-            await header.refresh()
-        }
+        // Refresh the unread badge + profile header (bio / avatar) every time
+        // the tab appears (e.g. after returning from notifications, which may
+        // have marked some read, or from Edit profile, which may have changed
+        // the bio / photo).
         .onAppear {
             Task {
                 await notifications.refresh()

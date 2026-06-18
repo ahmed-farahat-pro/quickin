@@ -45,9 +45,7 @@ struct ReviewGuestsView: View {
         .navigationTitle(loc.t("reviews.reviewGuests"))
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.qkCream, for: .navigationBar)
-        .task {
-            if !model.hasLoaded { await model.load() }
-        }
+        .task { await model.load() }
     }
 
     @ViewBuilder

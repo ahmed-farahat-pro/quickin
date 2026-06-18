@@ -56,9 +56,7 @@ struct HostEarningsView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.qkCream, for: .navigationBar)
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder
@@ -278,9 +276,7 @@ struct GuestReceiptsView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(Color.qkCream, for: .navigationBar)
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
     }
 
     @ViewBuilder

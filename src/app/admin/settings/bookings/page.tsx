@@ -2,6 +2,8 @@ import { getBookingTimeouts } from '@/lib/actions/booking-settings'
 import { BookingTimeoutsForm } from './bookings-form'
 import { getTranslations } from 'next-intl/server'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
     title: 'Booking Settings',
 }

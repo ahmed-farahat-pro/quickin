@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Wallet, Clock, CheckCircle } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { PayoutsTable } from './payouts-table'
 import { Payout } from './columns'
 import { ReleaseActions } from './release-actions'

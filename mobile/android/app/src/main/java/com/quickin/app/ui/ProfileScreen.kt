@@ -641,7 +641,7 @@ private fun ReferFriendsSection(
     state: com.quickin.app.ReferralUiState,
     onLoad: () -> Unit
 ) {
-    LaunchedEffect(Unit) { if (!state.loaded) onLoad() }
+    LaunchedEffect(Unit) { onLoad() }
 
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current

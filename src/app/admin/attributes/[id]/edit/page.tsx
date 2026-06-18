@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { AttributeForm } from '@/components/admin/attributes/attribute-form'
+
+export const dynamic = 'force-dynamic'
 import { notFound } from 'next/navigation'
 
 export default async function EditAttributePage(props: { params: Promise<{ id: string }> }) {

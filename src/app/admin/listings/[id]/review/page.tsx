@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+export const dynamic = 'force-dynamic'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, History } from 'lucide-react'
 import Link from 'next/link'

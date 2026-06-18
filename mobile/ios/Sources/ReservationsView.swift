@@ -85,8 +85,10 @@ struct ReservationsView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
+        // onAppear fires every time the Trips tab becomes visible (tab switch,
+        // return from a detail push, etc.) — always reload so data is never stale.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 

@@ -537,9 +537,7 @@ struct ReferralView: View {
         .navigationTitle(loc.t("referral.title"))
         .navigationBarTitleDisplayMode(.inline)
         .tint(.qkBurgundy)
-        .task {
-            if !hasLoaded { await load() }
-        }
+        .task { await load() }
     }
 
     @ViewBuilder

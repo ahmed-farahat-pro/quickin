@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.google.android.gms.auth.api.signin.GoogleSignIn as GmsGoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 
 /**
  * Legacy Google Sign-In via play-services-auth.
@@ -32,10 +33,22 @@ object GoogleSignIn {
         return GmsGoogleSignIn.getClient(context, gso).signInIntent
     }
 
-    /** Extracts the Google ID token from an Activity result Intent. Returns null on failure. */
-    fun idTokenFromResult(data: Intent?): String? {
-        val task = GmsGoogleSignIn.getSignedInAccountFromIntent(data)
-        return if (task.isSuccessful) task.result?.idToken else null
+    /**
+     * Extracts the Google ID token from an Activity result Intent.
+     * Returns (token, null) on success, (null, errorMessage) on failure.
+     * Uses getResult(ApiException) so failures surface a real status code instead of
+     * silently returning null (the old isSuccessful pattern swallowed every error).
+     */
+    fun idTokenFromResult(data: Intent?): Pair<String?, String?> {
+        return try {
+            val task = GmsGoogleSignIn.getSignedInAccountFromIntent(data)
+            val account = task.getResult(ApiException::class.java)
+            Pair(account?.idToken, null)
+        } catch (e: ApiException) {
+            Pair(null, "Google sign-in failed (code ${e.statusCode})")
+        } catch (e: Exception) {
+            Pair(null, e.message ?: "Google sign-in failed")
+        }
     }
 
     /** Signs the current account out so the picker always shows next time. */

@@ -113,13 +113,19 @@ struct ListingsView: View {
             if let q = UserDefaults.standard.string(forKey: "uitestSearch"), !q.isEmpty {
                 viewModel.locationQuery = q
                 await viewModel.search()
-            } else if viewModel.listings.isEmpty {
+            } else {
                 await viewModel.load()
             }
             if UserDefaults.standard.bool(forKey: "uitestDetail"),
                path.isEmpty, let first = viewModel.listings.first {
                 path = NavigationPath([first])
             }
+        }
+        // onAppear fires every time the Explore tab becomes visible — always
+        // refresh listings so the feed reflects server-side changes (new
+        // listings, price edits, etc.) without requiring a pull-to-refresh.
+        .onAppear {
+            Task { await viewModel.load() }
         }
     }
 

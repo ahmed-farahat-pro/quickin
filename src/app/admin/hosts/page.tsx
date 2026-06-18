@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { HostsTable } from './hosts-table'
+
+export const dynamic = 'force-dynamic'
 import { Host } from './columns'
 
 async function getHosts(): Promise<Host[]> {

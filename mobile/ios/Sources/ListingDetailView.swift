@@ -10,18 +10,15 @@ struct ListingDetailView: View {
 
     // Reviews
     @State private var reviews: [Review] = []
-    @State private var reviewsLoaded = false
 
     // "More from this host" — the host's other published listings (current
-    // listing excluded). Loaded lazily; the section hides itself when empty.
+    // listing excluded). Loaded on appear; the section hides itself when empty.
     @State private var hostListings: [Listing] = []
-    @State private var hostListingsLoaded = false
 
     // Host trust badges — fetched from the public-profile endpoint so the host
     // row can show the full Verified / Superhost / New host chip set. Falls back
     // to the listing's `host_verified` flag while loading / on failure.
     @State private var hostBadges: TrustBadges?
-    @State private var hostProfileLoaded = false
 
     // Reporting — presents the report sheet (requires sign-in; otherwise routes
     // through the existing auth sheet first).
@@ -35,9 +32,8 @@ struct ListingDetailView: View {
     @State private var showingDatePicker = false
 
     // Live availability — booked + host-blocked spans for this listing. Loaded
-    // once (public endpoint) and fed to the date picker so taken days grey out.
+    // on appear and fed to the date picker so taken days grey out.
     @State private var availability: [AvailabilityRange] = []
-    @State private var availabilityLoaded = false
     /// Presents the host availability manager (only when the signed-in user is
     /// the host of this listing).
     @State private var showingAvailabilityManager = false
@@ -201,8 +197,6 @@ struct ListingDetailView: View {
         }
         .task {
             // Load real guest reviews for this listing (public endpoint).
-            guard !reviewsLoaded else { return }
-            reviewsLoaded = true
             reviews = (try? await ReviewService.shared.fetchReviews(listingID: listing.id)) ?? []
         }
         .task {
@@ -222,7 +216,6 @@ struct ListingDetailView: View {
         .sheet(isPresented: $showingAvailabilityManager, onDismiss: {
             // The host may have added/removed blocks — refresh the guest-facing
             // greyed-out days so the reserve calendar stays in sync.
-            availabilityLoaded = false
             Task { await loadAvailability() }
         }) {
             AvailabilityManagerView(listing: listing)
@@ -625,10 +618,8 @@ struct ListingDetailView: View {
     /// the "More from this host" rail. Best-effort: failures leave the section
     /// hidden. Runs once per host id.
     private func loadHostListings() async {
-        guard !hostListingsLoaded else { return }
         guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !hostID.isEmpty else { return }
-        hostListingsLoaded = true
         let all = (try? await SupabaseService.shared.fetchHostListings(hostID: hostID)) ?? []
         hostListings = all.filter { $0.id != listing.id }
     }
@@ -637,10 +628,8 @@ struct ListingDetailView: View {
     /// (Verified / Superhost / New host). Best-effort: on failure the host row
     /// falls back to the listing's `host_verified` flag. Runs once per host id.
     private func loadHostProfile() async {
-        guard !hostProfileLoaded else { return }
         guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !hostID.isEmpty else { return }
-        hostProfileLoaded = true
         if let profile = try? await TrustService.shared.fetchPublicProfile(userID: hostID) {
             hostBadges = profile.badges
         }
@@ -661,8 +650,6 @@ struct ListingDetailView: View {
     /// date picker can grey out unavailable days. Best-effort: failures leave the
     /// calendar fully open. Re-runnable by clearing `availabilityLoaded`.
     private func loadAvailability() async {
-        guard !availabilityLoaded else { return }
-        availabilityLoaded = true
         availability = (try? await SupabaseService.shared.fetchAvailability(listingID: listing.id)) ?? []
     }
 

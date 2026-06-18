@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertTriangle, Clock, CheckCircle, XCircle } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { DisputesTable } from './disputes-table'
 import { Dispute } from './columns'
 

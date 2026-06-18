@@ -1,7 +1,8 @@
-
 import { createClient } from '@/lib/supabase/server'
 import { DestinationForm } from '@/components/admin/destinations/destination-form'
 import { notFound } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 import { SearchDestination } from '@/types/database'
 
 interface EditDestinationPageProps

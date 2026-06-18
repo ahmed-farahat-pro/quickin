@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -98,9 +99,9 @@ fun ProfileSettingsScreen(
     onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
     onPasswordChangedAck: () -> Unit
 ) {
-    // Load once when the screen first appears.
+    // Always reload when the screen opens so edits are always fresh.
     LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
 
     // Editable fields, seeded from the loaded profile. Re-seed whenever a fresh profile arrives
@@ -120,6 +121,7 @@ fun ProfileSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var processingPhoto by remember { mutableStateOf(false) }
+    var showIDScan by remember { mutableStateOf(false) }
 
     // Photo picker: load the picked image, downscale + JPEG-compress to a small data URL off the
     // main thread, then stage it as the avatar (saved with the rest of the profile).
@@ -152,6 +154,17 @@ fun ProfileSettingsScreen(
             )
         }
     ) { padding ->
+        // Egyptian National ID scanner dialog — shown when the "Scan ID" button is pressed.
+        if (showIDScan) {
+            EgyptianIDScanScreen(
+                onIdDetected = { detectedId ->
+                    idDocument = detectedId
+                    showIDScan = false
+                },
+                onDismiss = { showIDScan = false }
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -206,6 +219,20 @@ fun ProfileSettingsScreen(
                         keyboardType = KeyboardType.Number
                     )
                     SettingsField(idDocument, { idDocument = it }, stringResource(R.string.settings_id_passport), Icons.Filled.Badge)
+                    // "Scan ID" shortcut — opens the Egyptian National ID OCR scanner.
+                    TextButton(
+                        onClick = { showIDScan = true },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Icon(
+                            Icons.Filled.DocumentScanner,
+                            contentDescription = null,
+                            tint = Burgundy,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.size(4.dp))
+                        Text("Scan ID", color = Burgundy, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
                     SettingsField(
                         phone,
                         { phone = it },

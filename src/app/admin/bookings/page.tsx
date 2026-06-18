@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CalendarCheck, Clock, Activity, DollarSign } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { BookingsDashboard } from './bookings-dashboard'
 import { AdminBooking } from './types'
 

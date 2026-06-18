@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+
+export const dynamic = 'force-dynamic'
 import { AddStaffDialog } from './add-staff-dialog'
 import { StaffTable } from './staff-table'
 import { Staff } from './columns'

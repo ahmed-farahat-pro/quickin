@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { AttributeForm } from '@/components/admin/attributes/attribute-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function NewAttributePage() {
   const supabase = await createClient()
   if (!supabase) return null

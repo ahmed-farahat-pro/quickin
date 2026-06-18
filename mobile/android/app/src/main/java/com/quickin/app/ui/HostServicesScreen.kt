@@ -100,7 +100,7 @@ fun HostServicesScreen(
     var tab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
-        if (!state.loaded) onLoad()
+        onLoad()
     }
 
     Scaffold(

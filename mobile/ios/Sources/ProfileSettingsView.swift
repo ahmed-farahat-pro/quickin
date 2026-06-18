@@ -161,6 +161,7 @@ struct ProfileSettingsView: View {
 
     @State private var showCurrentPassword = false
     @State private var showNewPassword = false
+    @State private var showIDScan = false
 
     /// The photo selected in the avatar `PhotosPicker`, processed in
     /// `viewModel.handlePickedPhoto` into a `data:` URL on change.
@@ -210,9 +211,7 @@ struct ProfileSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.qkCream, for: .navigationBar)
         .tint(.qkBurgundy)
-        .task {
-            if !viewModel.hasLoaded { await viewModel.load() }
-        }
+        .task { await viewModel.load() }
         .onAppear {
             biometricKind = BiometricAuth.shared.availableKind()
             biometricOn = BiometricAuth.shared.hasStoredSession
@@ -239,6 +238,12 @@ struct ProfileSettingsView: View {
         .onChange(of: auth.user?.id) { _, _ in
             viewModel.resetForAccountChange()
             Task { await viewModel.load() }
+        }
+        // Egyptian National ID OCR sheet.
+        .sheet(isPresented: $showIDScan) {
+            EgyptianIDScanView { detectedID in
+                viewModel.idDocument = detectedID
+            }
         }
     }
 
@@ -270,6 +275,25 @@ struct ProfileSettingsView: View {
                 text: $viewModel.idDocument,
                 capitalization: .characters
             )
+
+            // "Scan National ID" — opens the OCR sheet and pre-fills the field.
+            Button {
+                showIDScan = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "viewfinder.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Scan National ID")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(Color.qkBurgundy)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(Color.qkTan)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(.qkTap)
+
             Divider()
             field(
                 loc.t("settings.phone"),

@@ -167,9 +167,11 @@ object ProfileService {
             email = o.optString("email"),
             age = ageValue,
             idDocument = idDoc,
-            phone = o.optString("phone"),
-            bio = o.optString("bio"),
-            country = o.optString("country"),
+            // optString returns the literal "null" for a JSON null, so guard with isNull
+            // first — otherwise an unset phone/bio/country renders as the text "null".
+            phone = if (o.isNull("phone")) "" else o.optString("phone"),
+            bio = if (o.isNull("bio")) "" else o.optString("bio"),
+            country = if (o.isNull("country")) "" else o.optString("country"),
             avatarUrl = avatar,
             verificationStatus = o.optString("verification_status").ifBlank { "unverified" }
         )

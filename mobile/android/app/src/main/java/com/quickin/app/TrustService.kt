@@ -200,7 +200,9 @@ object TrustService {
             id = o.optString("id"),
             fullName = o.optString("full_name").ifBlank { null },
             avatarUrl = avatar,
-            bio = o.optString("bio").ifBlank { null },
+            // optString returns the literal "null" for a JSON null, so guard with isNull
+            // first — otherwise an empty bio renders as the text "null" on the profile.
+            bio = if (o.isNull("bio")) null else o.optString("bio").ifBlank { null },
             verificationStatus = o.optString("verification_status").ifBlank { "unverified" },
             guestRating = o.optDouble("guest_rating", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             guestReviewCount = o.optInt("guest_review_count", 0),

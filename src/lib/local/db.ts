@@ -160,3 +160,19 @@ export async function getUserBookings(userId: string): Promise<Booking[]> {
   )
   return rows as Booking[]
 }
+
+export interface PublicUser {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  created_at: string
+}
+
+export async function getUserById(userId: string): Promise<PublicUser | null> {
+  if (!isUuid(userId)) return null
+  const { rows } = await pool.query(
+    `SELECT id, full_name, avatar_url, created_at FROM users WHERE id = $1`,
+    [userId]
+  )
+  return rows[0] ?? null
+}

@@ -12,7 +12,7 @@ struct ListingsView: View {
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var wishlist: WishlistStore
     @StateObject private var viewModel = ListingsViewModel()
-    @State private var path: [Listing] = []
+    @State private var path = NavigationPath()
     @State private var viewMode: ListingsViewMode = .list
     @State private var showingAuth = false
     /// Presents the AI travel-concierge chat sheet (floating "Ask AI" button).
@@ -39,13 +39,21 @@ struct ListingsView: View {
                     content
                         .frame(maxHeight: .infinity)
                 }
-                // Floating "Ask AI" concierge button — bottom-trailing, above the
-                // content, with safe padding so it clears the tab bar. RTL-aware
-                // (trailing alignment mirrors automatically).
-                AskAIButton { showingAIChat = true }
-                    .padding(.trailing, 18)
-                    .padding(.bottom, 16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                // Floating "Ask AI" concierge button — bottom-trailing (list only;
+                // hidden while the full-page map is up). RTL-aware.
+                if viewMode == .list {
+                    AskAIButton { showingAIChat = true }
+                        .padding(.trailing, 18)
+                        .padding(.bottom, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
+
+                // Full-page map — opens when "Map" is tapped; its X closes back to
+                // the list. Lives inside the NavigationStack so a pin's "View" still
+                // pushes the listing detail over it.
+                if viewMode == .map {
+                    fullPageMap
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Listing.self) { listing in
@@ -104,7 +112,7 @@ struct ListingsView: View {
             // CLI screenshot hook: auto-open the first listing's detail.
             if UserDefaults.standard.bool(forKey: "uitestDetail"),
                path.isEmpty, let first = viewModel.listings.first {
-                path = [first]
+                path = NavigationPath([first])
             }
         }
     }
@@ -156,23 +164,31 @@ struct ListingsView: View {
             viewModeToggle
                 .padding(.horizontal, 16)
 
-            QKScreenSwap(key: viewMode) {
-                switch viewMode {
-                case .list:
-                    listContent
-                case .map:
-                    ListingsMapView(
-                        listings: viewModel.listings,
-                        path: $path,
-                        isLoading: viewModel.isLoading,
-                        preselectFirst: UserDefaults.standard.bool(forKey: "uitestMapCard"),
-                        onClose: { withAnimation(QKAnim.swap) { viewMode = .list } },
-                        onSearchArea: { box in Task { await viewModel.searchArea(box) } }
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
+            // The list always lives here; tapping "Map" opens a full-page map
+            // overlay (see `body`) rather than swapping content inline.
+            listContent
         }
+    }
+
+    /// The full-page map overlay (place search + region tabs + pins + X close).
+    /// Extracted to keep `body` simple enough for the type-checker.
+    private var fullPageMap: some View {
+        ListingsMapView(
+            listings: viewModel.listings,
+            path: $path,
+            isLoading: viewModel.isLoading,
+            preselectFirst: UserDefaults.standard.bool(forKey: "uitestMapCard"),
+            onClose: { withAnimation(QKAnim.swap) { viewMode = .list } },
+            onSearchArea: { box in Task { await viewModel.searchArea(box) } },
+            onSubmitSearch: { query in
+                viewModel.locationQuery = query
+                Task { await viewModel.search() }
+            }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.qkCream)
+        .ignoresSafeArea(edges: .bottom)
+        .transition(.opacity)
     }
 
     /// "Ask AI" natural-language search entry — a slim outlined pill that opens

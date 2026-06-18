@@ -398,6 +398,9 @@
     "brandName": "كويك إن",
     "hostedBy": "الاستضافة بواسطة {host}",
     "hostFallback": "المضيف",
+    "host": {
+      "viewProfile": "عرض ملف المضيف"
+    },
     "propertyTypeFallback": "منزل",
     "locationFormat": "{city}، {country}",
     "units": {

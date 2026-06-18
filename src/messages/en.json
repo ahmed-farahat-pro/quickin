@@ -398,6 +398,9 @@
     "brandName": "Quick-In",
     "hostedBy": "Hosted by {host}",
     "hostFallback": "Host",
+    "host": {
+      "viewProfile": "View host profile"
+    },
     "propertyTypeFallback": "Home",
     "locationFormat": "{city}, {country}",
     "units": {

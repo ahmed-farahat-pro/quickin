@@ -60,7 +60,7 @@ struct ListingsMapView: View {
     let listings: [Listing]
     /// Shared with `ListingsView`'s `NavigationStack(path:)` so "View" can push
     /// `ListingDetailView` through the existing `.navigationDestination`.
-    @Binding var path: [Listing]
+    @Binding var path: NavigationPath
     /// Mirrors the view model's loading flag so the "Search this area" button can
     /// show a spinner while the bbox refetch is in flight.
     var isLoading: Bool = false
@@ -73,8 +73,13 @@ struct ListingsMapView: View {
     /// the Explore screen can refetch listings inside it (combined with any
     /// active filters). No-op when unset.
     var onSearchArea: ((BBox) -> Void)? = nil
+    /// Free-text place search at the top of the full-page map. Submitting filters
+    /// the listings (and thus the pins) to the typed destination; empty clears it.
+    var onSubmitSearch: ((String) -> Void)? = nil
 
     @State private var selectedID: String?
+    /// The place-search field text.
+    @State private var placeText: String = ""
     /// Which region tab is active (nil = camera fits to all pins).
     @State private var selectedRegion: MapRegion?
     /// Bumped on every region tap so re-tapping the same region re-centers too.
@@ -118,36 +123,8 @@ struct ListingsMapView: View {
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if let onClose {
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.qkInk)
-                        .frame(width: 40, height: 40)
-                        .background(.white, in: Circle())
-                        .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.22), radius: 5, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .padding(.trailing, 16)
-                .padding(.top, 12)
-                .accessibilityLabel("Close map")
-            }
-        }
         .overlay(alignment: .top) {
-            if !mappable.isEmpty {
-                regionTabs
-            }
-        }
-        // "Search this area" — floats below the region tabs, clear of the
-        // selected-listing card at the bottom. Re-queries listings inside the
-        // map's current visible region.
-        .overlay(alignment: .top) {
-            if onSearchArea != nil {
-                searchAreaButton
-                    .padding(.top, 60)
-            }
+            topControls
         }
         .onChange(of: listings) { _, _ in
             // New search results → drop any stale selection. The underlying map
@@ -158,6 +135,69 @@ struct ListingsMapView: View {
                 selectedID = nil
             }
         }
+    }
+
+    /// Floating controls pinned to the top of the full-page map: a place-search
+    /// field + close (X), the region quick-jumps, then "Search this area".
+    private var topControls: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                mapSearchBar
+                if let onClose {
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.qkInk)
+                            .frame(width: 44, height: 44)
+                            .background(.white, in: Circle())
+                            .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+                            .shadow(color: .black.opacity(0.18), radius: 5, x: 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close map")
+                }
+            }
+            if !mappable.isEmpty { regionTabs }
+            if onSearchArea != nil {
+                HStack {
+                    searchAreaButton
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+    }
+
+    /// A rounded place-search field. Submitting filters the listings (and thus the
+    /// pins) to the typed destination; the clear (x) resets to all listings.
+    private var mapSearchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.qkMuted)
+            TextField(L.t("explore.whereToPlaceholder"), text: $placeText)
+                .font(.subheadline)
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+                .onSubmit { onSubmitSearch?(placeText) }
+            if !placeText.isEmpty {
+                Button {
+                    placeText = ""
+                    onSubmitSearch?("")
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.qkMuted.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .frame(maxWidth: .infinity)
+        .background(.white, in: Capsule(style: .continuous))
+        .overlay(Capsule(style: .continuous).stroke(Color.black.opacity(0.06), lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 2)
     }
 
     /// Horizontal quick-jump pills for the three Egyptian coast regions. Scrolls
@@ -511,7 +551,7 @@ private enum PriceMarkerIcon {
 private struct SelectedListingCard: View {
     @EnvironmentObject private var currency: CurrencyManager
     let listing: Listing
-    @Binding var path: [Listing]
+    @Binding var path: NavigationPath
     let onClose: () -> Void
 
     var body: some View {

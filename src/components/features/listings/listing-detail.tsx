@@ -478,19 +478,29 @@ export function ListingDetail({
             </div>
             {listing.is_staff_hosted ? (
               <div className="h-14 flex items-center justify-center bg-muted/30 rounded-xl px-3 border border-muted-foreground/10 overflow-hidden min-w-[80px]">
-                <img 
-                  src="/logo.png" 
-                  alt={t('brandName')} 
+                <img
+                  src="/logo.png"
+                  alt={t('brandName')}
                   className="h-10 w-auto object-contain"
                 />
               </div>
             ) : (
-              <Avatar className="h-14 w-14 border">
-                <AvatarImage src={host?.avatar_url || undefined} alt={host?.full_name || t('hostFallback')} />
-                <AvatarFallback className="bg-muted">{(host?.full_name || 'H')[0]}</AvatarFallback>
-              </Avatar>
+              <a href={localizePathname(`/hosts/${listing.user_id}`, locale)} className="flex-shrink-0">
+                <Avatar className="h-14 w-14 border hover:ring-2 hover:ring-primary transition-shadow">
+                  <AvatarImage src={host?.avatar_url || undefined} alt={host?.full_name || t('hostFallback')} />
+                  <AvatarFallback className="bg-muted">{(host?.full_name || 'H')[0]}</AvatarFallback>
+                </Avatar>
+              </a>
             )}
           </div>
+          {!listing.is_staff_hosted && listing.user_id && (
+            <a
+              href={localizePathname(`/hosts/${listing.user_id}`, locale)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline mt-1"
+            >
+              {t('host.viewProfile')} →
+            </a>
+          )}
 
           <Separator />
 

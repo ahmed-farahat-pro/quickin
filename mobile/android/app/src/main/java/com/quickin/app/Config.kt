@@ -21,7 +21,7 @@ object Config {
      * To enable: paste the web client id here, e.g.
      *   const val GOOGLE_CLIENT_ID = "1234567890-abc123.apps.googleusercontent.com"
      */
-    const val GOOGLE_CLIENT_ID = ""
+    const val GOOGLE_CLIENT_ID = "293984451588-t58dlg9hss3qjk9qmikdu3tv7qln11sb.apps.googleusercontent.com"
 
     /**
      * Google Maps SDK API key. Leave blank to use the bundled osmdroid map (which still renders

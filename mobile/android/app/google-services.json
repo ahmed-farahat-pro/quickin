@@ -12,7 +12,16 @@
           "package_name": "com.quickin.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "293984451588-t58dlg9hss3qjk9qmikdu3tv7qln11sb.apps.googleusercontent.com",
+          "client_type": 3
+        },
+        {
+          "client_id": "293984451588-u9c2d10ecjq5qpfvm96kcda09iqr9iqs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCCeBUMENoySgOADwuqxWWSfK_OlQ_Rjn8"

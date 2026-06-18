@@ -1,12 +1,5 @@
 import SwiftUI
 
-/// Reports a scroll view's vertical content offset (in a named coordinate space)
-/// so the Explore brand header can collapse as the user scrolls down.
-private struct ExploreScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
 struct ListingsView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
@@ -15,32 +8,64 @@ struct ListingsView: View {
     @State private var path = NavigationPath()
     @State private var viewMode: ListingsViewMode = .list
     @State private var showingAuth = false
-    /// Presents the AI travel-concierge chat sheet (floating "Ask AI" button).
     @State private var showingAIChat = false
-    /// Presents the Section 10 natural-language search sheet.
     @State private var showingAISearch = false
-    /// Presents the discovery Filters sheet (amenities + property type).
     @State private var showingFilters = false
-    /// Collapses the whole discovery chrome (brand header + search + "Ask AI" bar +
-    /// region/sort/filters) so the listings own the screen. Visible at the TOP; as the
-    /// guest scrolls down into the listings it scrolls away, and returns near the top.
-    @State private var headerCollapsed = false
 
-    /// Switches the root TabView to the Profile tab. Supplied by `RootView`;
-    /// defaults to a no-op so previews / standalone use still compile.
     var onOpenProfile: () -> Void = {}
 
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
                 LinearGradient.qkPageWash.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    collapsibleBrandHeader
-                    content
-                        .frame(maxHeight: .infinity)
+
+                // Single unified scroll: brand header + chrome + toggle + listings
+                // all move together. Pull-to-refresh works on the whole page.
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Brand banner — scrolls away as the user digs into listings.
+                        QKBrandHeader(
+                            eyebrow: loc.t("home.eyebrow"),
+                            subtitle: loc.t("home.subtitle"),
+                            wordmark: true
+                        ) {
+                            AnimatedProfileAvatar(
+                                user: auth.user,
+                                isAuthenticated: auth.isAuthenticated,
+                                onOpenProfile: onOpenProfile,
+                                onSignIn: { showingAuth = true },
+                                onDark: true
+                            )
+                        }
+
+                        // Discovery chrome — also scrolls with the page.
+                        VStack(spacing: 12) {
+                            SearchHeader(viewModel: viewModel)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 8)
+                            aiSearchEntry
+                                .padding(.horizontal, 16)
+                            RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
+                        }
+                        .padding(.bottom, 12)
+
+                        // List / Map toggle
+                        viewModeToggle
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+
+                        // Cards or skeleton while loading
+                        if viewModel.isLoading && viewModel.listings.isEmpty {
+                            SkeletonList(count: 5, imageHeight: 220)
+                        } else {
+                            results
+                        }
+                        Spacer(minLength: 32)
+                    }
                 }
-                // Floating "Ask AI" concierge button — bottom-trailing (list only;
-                // hidden while the full-page map is up). RTL-aware.
+                .refreshable { await viewModel.load() }
+
+                // Floating Ask AI button (list mode only)
                 if viewMode == .list {
                     AskAIButton { showingAIChat = true }
                         .padding(.trailing, 18)
@@ -48,9 +73,7 @@ struct ListingsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
-                // Full-page map — opens when "Map" is tapped; its X closes back to
-                // the list. Lives inside the NavigationStack so a pin's "View" still
-                // pushes the listing detail over it.
+                // Full-page map overlay — overlays the whole screen when Map is tapped.
                 if viewMode == .map {
                     fullPageMap
                 }
@@ -78,38 +101,21 @@ struct ListingsView: View {
             FiltersSheet(viewModel: viewModel)
                 .environmentObject(loc)
         }
-        // Auto-dismiss the auth sheet once the visitor signs in.
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
         }
-        // List opens at the top with the discovery chrome shown (it collapses as you
-        // scroll); Map gets the full screen, so collapse the chrome there.
-        .onChange(of: viewMode) { _, mode in
-            withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = (mode == .map) }
-        }
         .task {
-            // CLI screenshot hook: open the auth sheet on launch.
             if UserDefaults.standard.bool(forKey: "uitestAuth") { showingAuth = true }
-            // CLI screenshot hook: open the AI travel chat on launch.
             if UserDefaults.standard.bool(forKey: "uitestAIChat") { showingAIChat = true }
-            // Load the region chips (best effort) alongside the listings.
             if viewModel.regions.isEmpty { await viewModel.loadRegions() }
-            // Paint saved hearts: refresh the wishlist id sets when signed in.
             if auth.isAuthenticated { await wishlist.refresh() }
-            // CLI screenshot hook: start on the Map tab.
-            if UserDefaults.standard.bool(forKey: "uitestMap") {
-                viewMode = .map
-            }
-            // CLI screenshot hook: prefill a location and run a real search
-            // (e.g. `-uitestSearch Aspen`) so the map frames the filtered result.
-            if let q = UserDefaults.standard.string(forKey: "uitestSearch"),
-               !q.isEmpty {
+            if UserDefaults.standard.bool(forKey: "uitestMap") { viewMode = .map }
+            if let q = UserDefaults.standard.string(forKey: "uitestSearch"), !q.isEmpty {
                 viewModel.locationQuery = q
                 await viewModel.search()
             } else if viewModel.listings.isEmpty {
                 await viewModel.load()
             }
-            // CLI screenshot hook: auto-open the first listing's detail.
             if UserDefaults.standard.bool(forKey: "uitestDetail"),
                path.isEmpty, let first = viewModel.listings.first {
                 path = NavigationPath([first])
@@ -117,61 +123,6 @@ struct ListingsView: View {
         }
     }
 
-    /// The decorative brand banner + animated profile avatar. Collapses to zero
-    /// height (with the discovery chrome) as the guest scrolls into the listings.
-    private var collapsibleBrandHeader: some View {
-        QKBrandHeader(
-            eyebrow: loc.t("home.eyebrow"),
-            subtitle: loc.t("home.subtitle"),
-            wordmark: true
-        ) {
-            AnimatedProfileAvatar(
-                user: auth.user,
-                isAuthenticated: auth.isAuthenticated,
-                onOpenProfile: onOpenProfile,
-                onSignIn: { showingAuth = true },
-                onDark: true
-            )
-        }
-        .frame(height: headerCollapsed ? 0 : nil)
-        .opacity(headerCollapsed ? 0 : 1)
-        .clipped()
-        .accessibilityHidden(headerCollapsed)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        VStack(spacing: 12) {
-            // Discovery chrome — structured search + natural-language entry +
-            // region/sort/filters. Collapses together (with the brand header above)
-            // as the guest scrolls into the listings so the cards get the full
-            // screen, and slides back in near the top.
-            VStack(spacing: 12) {
-                SearchHeader(viewModel: viewModel)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-
-                aiSearchEntry
-                    .padding(.horizontal, 16)
-
-                RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
-            }
-            .frame(height: headerCollapsed ? 0 : nil)
-            .opacity(headerCollapsed ? 0 : 1)
-            .clipped()
-            .accessibilityHidden(headerCollapsed)
-
-            viewModeToggle
-                .padding(.horizontal, 16)
-
-            // The list always lives here; tapping "Map" opens a full-page map
-            // overlay (see `body`) rather than swapping content inline.
-            listContent
-        }
-    }
-
-    /// The full-page map overlay (place search + region tabs + pins + X close).
-    /// Extracted to keep `body` simple enough for the type-checker.
     private var fullPageMap: some View {
         ListingsMapView(
             listings: viewModel.listings,
@@ -187,7 +138,6 @@ struct ListingsView: View {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.qkCream)
-        .ignoresSafeArea(edges: .bottom)
         .transition(.opacity)
     }
 
@@ -238,43 +188,6 @@ struct ListingsView: View {
         }
         .pickerStyle(.segmented)
         .tint(.qkBurgundy)
-    }
-
-    @ViewBuilder
-    private var listContent: some View {
-        if viewModel.isLoading && viewModel.listings.isEmpty {
-            // Skeleton placeholders shaped like the real stay cards.
-            SkeletonList(count: 5, imageHeight: 220)
-        } else {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Invisible probe: reports the scroll offset so the brand
-                    // header collapses as the user scrolls down (and returns at top).
-                    GeometryReader { g in
-                        Color.clear.preference(
-                            key: ExploreScrollOffsetKey.self,
-                            value: g.frame(in: .named("exploreScroll")).minY
-                        )
-                    }
-                    .frame(height: 0)
-                    results
-                }
-                .padding(.top, 4)
-                .padding(.bottom, 32)
-            }
-            .coordinateSpace(name: "exploreScroll")
-            .onPreferenceChange(ExploreScrollOffsetKey.self) { y in
-                // Chrome is visible at the top; collapse once the guest scrolls DOWN
-                // past ~40pt, and reveal again as they return near the top. Two
-                // thresholds add hysteresis so it doesn't flicker at the boundary.
-                if !headerCollapsed && y < -40 {
-                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = true }
-                } else if headerCollapsed && y > -12 {
-                    withAnimation(.easeInOut(duration: 0.28)) { headerCollapsed = false }
-                }
-            }
-            .refreshable { await viewModel.load() }
-        }
     }
 
     @ViewBuilder

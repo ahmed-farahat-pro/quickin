@@ -58,7 +58,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -148,19 +150,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Inspects an incoming VIEW intent. First tries the Google OAuth redirect; otherwise parses it
-     * as a QuickIn deep link (App Link / quickin:// scheme). A link we don't recognize is ignored,
-     * so the app simply opens normally (no crash on a garbage link).
+     * Inspects an incoming VIEW intent and parses it as a QuickIn deep link
+     * (App Link / quickin:// scheme). A link we don't recognize is ignored.
      */
     private fun handleIntent(intent: Intent?) {
         val data: Uri = intent?.data ?: return
         if (intent.action != Intent.ACTION_VIEW) return
-        // The OAuth redirect is a com.quickin.app:/oauth2redirect VIEW — handle it first.
-        val idToken = GoogleSignIn.parseIdToken(data)
-        if (idToken != null) {
-            _googleIdToken.value = idToken
-            return
-        }
         DeepLink.parse(data)?.let { _pendingDeepLink.value = it }
     }
 
@@ -446,6 +441,7 @@ private fun MainApp() {
     var showForgot by remember { mutableStateOf(false) }
 
     val activity = LocalContext.current as? MainActivity
+    val googleScope = rememberCoroutineScope()
     // Resolved here (composable scope) so it can be passed into the non-composable Google callback.
     val googleNotConfiguredMessage = stringResource(R.string.auth_google_not_configured)
 
@@ -1197,8 +1193,16 @@ private fun MainApp() {
             state = authState,
             onLogin = authViewModel::login,
             onSignup = authViewModel::signup,
-            onGoogleLaunch = { nonce, state ->
-                activity?.let { GoogleSignIn.launch(it, nonce, state) }
+            onGoogleLaunch = { nonce, _ ->
+                googleScope.launch {
+                    try {
+                        val ctx = activity ?: return@launch
+                        val idToken = GoogleSignIn.signIn(ctx, nonce)
+                        if (idToken != null) authViewModel.googleSignIn(idToken)
+                    } catch (e: Exception) {
+                        authViewModel.showAuthMessage(e.message ?: "Google sign-in failed")
+                    }
+                }
             },
             onGoogleNotConfigured = {
                 authViewModel.showAuthMessage(googleNotConfiguredMessage)

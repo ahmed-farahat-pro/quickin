@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Search, X, MapPin, Calendar, Users, Minus, Plus, SlidersHorizontal, Coins, Sparkles, Home } from 'lucide-react'
@@ -82,8 +82,30 @@ export function SearchBar({ className, onToggle, variant = 'default', attributes
   const attributes = initialAttributes || fetchedAttributes
   const loadingAttributes = initialAttributes ? false : loadingFetched
 
+  const urlParams = useSearchParams()
   const containerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // Restore search state from URL on mount (e.g., after back-navigation)
+  useEffect(() => {
+    const loc = urlParams.get('location')
+    const ci = urlParams.get('checkIn')
+    const co = urlParams.get('checkOut')
+    const g = urlParams.get('guests')
+    const pmin = urlParams.get('priceMin')
+    const pmax = urlParams.get('priceMax')
+    const attrs = urlParams.get('attributes')
+    const propTypes = urlParams.get('propertyType')
+    if (loc) setLocation(loc)
+    if (ci) { try { setCheckIn(new Date(ci)) } catch (_) {} }
+    if (co) { try { setCheckOut(new Date(co)) } catch (_) {} }
+    if (g && !isNaN(parseInt(g))) setGuests(parseInt(g))
+    if (pmin) setPriceMin(pmin)
+    if (pmax) setPriceMax(pmax)
+    if (attrs) setSelectedAttributes(attrs.split(','))
+    if (propTypes) setSelectedPropertyTypes(propTypes.split(','))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Load filterable attributes from database
   useEffect(() =>
@@ -229,6 +251,7 @@ export function SearchBar({ className, onToggle, variant = 'default', attributes
     router.push(`${localizePathname('/', locale)}?${params.toString()}`)
     setIsExpanded(false)
     setActiveTab(null)
+    setTimeout(() => document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400)
   }
 
   /**
@@ -476,8 +499,8 @@ export function SearchBar({ className, onToggle, variant = 'default', attributes
                     onSelect={(range) =>
                     {
                       if (range?.from) setCheckIn(range.from)
-                      if (range?.to) setCheckOut(range.to)
-                      else if (range?.from && !range?.to) setCheckOut(null)
+                      if (range?.to && range.from && range.to.getTime() !== range.from.getTime()) setCheckOut(range.to)
+                      else setCheckOut(null)
                     }}
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                     numberOfMonths={2}

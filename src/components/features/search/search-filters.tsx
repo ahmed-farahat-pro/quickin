@@ -215,12 +215,12 @@ export function SearchFilters({ activeCount, currentFilters }: SearchFiltersProp
                 {checkIn ? format(checkIn, 'MMM d') : 'Check-in'}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 z-[100]" align="start">
               <CalendarComponent
                 mode="single"
                 selected={checkIn}
                 onSelect={setCheckIn}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
               />
             </PopoverContent>
           </Popover>
@@ -230,12 +230,12 @@ export function SearchFilters({ activeCount, currentFilters }: SearchFiltersProp
                 {checkOut ? format(checkOut, 'MMM d') : 'Check-out'}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 z-[100]" align="start">
               <CalendarComponent
                 mode="single"
                 selected={checkOut}
                 onSelect={setCheckOut}
-                disabled={(date) => date < (checkIn || new Date())}
+                disabled={(date) => date <= (checkIn ?? new Date(new Date().setHours(0, 0, 0, 0)))}
               />
             </PopoverContent>
           </Popover>

@@ -54,7 +54,7 @@ export async function getListings(options?: GetListingsOptions): Promise<Listing
     p_geo_radius_km: options?.geoSearch?.radiusKm ?? null,
     p_specific_ids: options?.specificIds ?? null,
     p_country: options?.country ?? null,
-    p_include_surrounding: options?.includeSurrounding ?? true,
+    p_include_surrounding: options?.includeSurrounding ?? false,
     p_category_slug: options?.category ?? null,
     p_property_type_slugs: options?.propertyType ?? null,
     p_guests: options?.guests ?? null,

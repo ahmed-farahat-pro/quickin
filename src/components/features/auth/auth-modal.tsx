@@ -483,6 +483,8 @@ export function AuthModal()
   const t = useTranslations('auth')
   const { isAuthModalOpen, authModalView, closeAuthModal, openAuthModal } = useUIStore()
   const [isLoading, setIsLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const supabase = createClient()
 
   const isLogin = authModalView === 'login'
@@ -520,6 +522,27 @@ export function AuthModal()
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (!signupEmail || resendLoading || resendCooldown > 0) return
+    setResendLoading(true)
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email: signupEmail })
+      if (error) throw error
+      toast.success(t('resendEmailSent'))
+      setResendCooldown(60)
+      const timer = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) { clearInterval(timer); return 0 }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('failedProvider'))
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -586,9 +609,20 @@ export function AuthModal()
                   {t('checkEmailDescription', { email: signupEmail })}
                 </p>
               </div>
-              <Button className="w-full" onClick={closeAuthModal}>
-                {t('backToLogin')}
-              </Button>
+              <div className="space-y-3">
+                <Button className="w-full" onClick={closeAuthModal}>
+                  {t('backToLogin')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm"
+                  onClick={handleResend}
+                  disabled={resendLoading || resendCooldown > 0}
+                >
+                  {resendLoading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
+                  {resendCooldown > 0 ? t('resendEmailCooldown', { seconds: resendCooldown }) : t('resendEmail')}
+                </Button>
+              </div>
             </div>
           ) : (
             <>

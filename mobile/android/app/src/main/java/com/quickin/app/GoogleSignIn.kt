@@ -1,67 +1,50 @@
 package com.quickin.app
 
 import android.content.Context
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import java.security.SecureRandom
+import android.content.Intent
+import com.google.android.gms.auth.api.signin.GoogleSignIn as GmsGoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 
+/**
+ * Legacy Google Sign-In via play-services-auth.
+ *
+ * Works on all devices and all OAuth consent-screen modes (Testing / Published)
+ * without requiring the account to be whitelisted as a test user.
+ *
+ * Usage:
+ *  1. Call [signInIntent] to get an Intent.
+ *  2. Launch it with ActivityResultContracts.StartActivityForResult.
+ *  3. Pass the result data to [idTokenFromResult].
+ */
 object GoogleSignIn {
     val isConfigured: Boolean get() = Config.GOOGLE_CLIENT_ID.isNotBlank()
 
-    fun newNonce(): String {
-        val bytes = ByteArray(16)
-        SecureRandom().nextBytes(bytes)
-        return bytes.joinToString("") { "%02x".format(it) }
+    /** Kept for API compatibility with AuthScreen; not used by the legacy sign-in flow. */
+    fun newNonce(): String = java.util.UUID.randomUUID().toString().replace("-", "")
+
+    /** Returns the Intent to launch, or null if not configured. */
+    fun signInIntent(context: Context): Intent? {
+        if (!isConfigured) return null
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(Config.GOOGLE_CLIENT_ID)
+            .requestEmail()
+            .build()
+        return GmsGoogleSignIn.getClient(context, gso).signInIntent
     }
 
-    /**
-     * Shows the native Google account picker via Credential Manager.
-     *
-     * First tries GetGoogleIdOption (fast bottom sheet for returning users).
-     * Falls back to GetSignInWithGoogleOption (full chooser dialog) when no
-     * cached credential is found — this always works, even for first-time users.
-     *
-     * Returns the Google ID token on success, null if the user cancelled.
-     */
-    suspend fun signIn(context: Context, nonce: String): String? {
-        if (!isConfigured) return null
-        val credentialManager = CredentialManager.create(context)
+    /** Extracts the Google ID token from an Activity result Intent. Returns null on failure. */
+    fun idTokenFromResult(data: Intent?): String? {
+        val task = GmsGoogleSignIn.getSignedInAccountFromIntent(data)
+        return if (task.isSuccessful) task.result?.idToken else null
+    }
 
-        // --- Fast path: bottom-sheet picker for accounts already on device ---
-        try {
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(Config.GOOGLE_CLIENT_ID)
-                .setNonce(nonce)
-                .build()
-            val result = credentialManager.getCredential(
-                context = context,
-                request = GetCredentialRequest.Builder().addCredentialOption(googleIdOption).build()
-            )
-            return GoogleIdTokenCredential.createFrom(result.credential.data).idToken
-        } catch (_: GetCredentialCancellationException) {
-            return null
-        } catch (_: GetCredentialException) {
-            // Fall through to the button flow below.
-        }
-
-        // --- Fallback: Sign in with Google button flow (always works) ---
-        return try {
-            val signInOption = GetSignInWithGoogleOption.Builder(Config.GOOGLE_CLIENT_ID)
-                .setNonce(nonce)
-                .build()
-            val result = credentialManager.getCredential(
-                context = context,
-                request = GetCredentialRequest.Builder().addCredentialOption(signInOption).build()
-            )
-            GoogleIdTokenCredential.createFrom(result.credential.data).idToken
-        } catch (_: GetCredentialCancellationException) {
-            null
-        }
+    /** Signs the current account out so the picker always shows next time. */
+    fun signOut(context: Context) {
+        if (!isConfigured) return
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(Config.GOOGLE_CLIENT_ID)
+            .requestEmail()
+            .build()
+        GmsGoogleSignIn.getClient(context, gso).signOut()
     }
 }

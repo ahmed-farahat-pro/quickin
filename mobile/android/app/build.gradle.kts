@@ -123,7 +123,10 @@ dependencies {
     // Chrome Custom Tabs — kept as a fallback dependency (deep-link handling still uses it).
     implementation("androidx.browser:browser:1.8.0")
 
-    // Credential Manager — native Google Sign-In bottom sheet (replaces Custom Tab OAuth flow).
+    // Legacy Google Sign-In (play-services-auth) — reliable on all devices / all consent-screen
+    // modes without requiring test-user whitelisting. Used via ActivityResultContracts.
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    // Credential Manager — kept for future use / biometric passkey flows.
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")

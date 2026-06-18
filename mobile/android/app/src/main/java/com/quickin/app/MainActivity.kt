@@ -441,9 +441,22 @@ private fun MainApp() {
     var showForgot by remember { mutableStateOf(false) }
 
     val activity = LocalContext.current as? MainActivity
-    val googleScope = rememberCoroutineScope()
     // Resolved here (composable scope) so it can be passed into the non-composable Google callback.
     val googleNotConfiguredMessage = stringResource(R.string.auth_google_not_configured)
+
+    // Legacy Google Sign-In via play-services-auth. Launched via ActivityResultContracts so the
+    // full-screen account-picker Activity result comes back here without a coroutine.
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val idToken = GoogleSignIn.idTokenFromResult(result.data)
+        if (idToken != null) {
+            authViewModel.googleSignIn(idToken)
+        } else {
+            // Sign-out so the picker always appears fresh on the next tap.
+            activity?.let { GoogleSignIn.signOut(it) }
+        }
+    }
 
     // POST_NOTIFICATIONS runtime permission (Android 13+). We only need the launcher's side effect
     // (the system dialog); the granted/denied result is ignored — FCM still registers either way,
@@ -1193,16 +1206,11 @@ private fun MainApp() {
             state = authState,
             onLogin = authViewModel::login,
             onSignup = authViewModel::signup,
-            onGoogleLaunch = { nonce, _ ->
-                googleScope.launch {
-                    try {
-                        val ctx = activity ?: return@launch
-                        val idToken = GoogleSignIn.signIn(ctx, nonce)
-                        if (idToken != null) authViewModel.googleSignIn(idToken)
-                    } catch (e: Exception) {
-                        authViewModel.showAuthMessage(e.message ?: "Google sign-in failed")
-                    }
-                }
+            onGoogleLaunch = { _, _ ->
+                val ctx = activity ?: return@AuthScreen
+                val intent = GoogleSignIn.signInIntent(ctx)
+                if (intent != null) googleSignInLauncher.launch(intent)
+                else authViewModel.showAuthMessage(googleNotConfiguredMessage)
             },
             onGoogleNotConfigured = {
                 authViewModel.showAuthMessage(googleNotConfiguredMessage)

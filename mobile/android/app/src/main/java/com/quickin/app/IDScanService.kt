@@ -34,8 +34,8 @@ data class IDScanResult(
  *   200 failure: { "success": false, "message": "Could not detect…" }
  */
 object IDScanService {
-    // 10.0.2.2 = emulator loopback; 192.168.8.24 = dev Mac on local Wi-Fi (real device)
-    private const val BASE_URL = "http://192.168.8.24:8000"
+    // Single source of truth for the OCR host — see Config.ID_OCR_BASE_URL.
+    private val BASE_URL = Config.ID_OCR_BASE_URL
 
     /**
      * Compresses [bitmap] to JPEG (quality 85), base64-encodes it, and POSTs it to the scan

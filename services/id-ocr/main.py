@@ -71,6 +71,9 @@ GOVERNORATES: dict[str, str] = {
 # Eastern Arabic ٠–٩  →  Western 0–9
 _AR_TO_WEST = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
+# Regex to find 14+ consecutive Eastern-Arabic digits directly in raw OCR text
+_AR_DIGITS_RE = re.compile(r"[٠١٢٣٤٥٦٧٨٩]{14,}")
+
 
 def decode_id(id_number: str) -> dict:
     century = int(id_number[0])
@@ -161,39 +164,82 @@ def detect_and_crop_card(image: np.ndarray) -> np.ndarray:
     return orig  # no card detected — return original
 
 
+def _preprocess_variants(cv_img: np.ndarray) -> list[np.ndarray]:
+    """
+    Return several pre-processed variants of the cropped card image.
+    Running OCR on all of them maximises the chance of detecting digits
+    under poor lighting, blur, or low contrast.
+    """
+    gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+
+    # 1. Original colour
+    variants: list[np.ndarray] = [cv_img]
+
+    # 2. CLAHE – adaptive histogram equalisation (fixes uneven lighting)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    clahe_gray = clahe.apply(gray)
+    variants.append(cv2.cvtColor(clahe_gray, cv2.COLOR_GRAY2BGR))
+
+    # 3. Sharpened CLAHE (helps blurry phone photos)
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    sharp = cv2.filter2D(clahe_gray, -1, kernel)
+    variants.append(cv2.cvtColor(sharp, cv2.COLOR_GRAY2BGR))
+
+    # 4. Otsu binarisation – pure black/white, best for dense digit rows
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
+
+    return variants
+
+
 # ---------------------------------------------------------------------------
 # OCR + ID extraction
 # ---------------------------------------------------------------------------
 
 def _normalize(text: str) -> str:
-    """Strip non-digits, convert Eastern Arabic → Western."""
+    """Translate Eastern Arabic digits → Western, then strip every non-digit."""
     return re.sub(r"\D", "", text.translate(_AR_TO_WEST))
 
 
 def find_id_number(texts: list[str]) -> Optional[str]:
     """
-    Search for a valid 14-digit Egyptian National ID in a list of OCR strings.
-    Validates: century ∈ {2,3}, month 01–12, day 01–31.
+    Search for a valid 14-digit Egyptian National ID in OCR output.
+
+    Strategy 0 — look for 14+ consecutive Eastern-Arabic digits in raw text
+                 (EasyOCR sometimes returns them untranslated).
+    Strategy 1 — search each token after normalization (Eastern→Western, strip non-digits).
+    Strategy 2 — join ALL digits from ALL tokens into one string and slide a 14-char window.
     """
-    # 1. Look in each individual token
+    # Strategy 0: raw Eastern-Arabic digit sequences (most reliable when found)
+    for text in texts:
+        for m in _AR_DIGITS_RE.finditer(text):
+            west = m.group().translate(_AR_TO_WEST)
+            for i in range(len(west) - 13):
+                cand = west[i:i+14]
+                if _validate_id(cand):
+                    return cand
+
+    # Strategy 1: per-token normalized search
     for text in texts:
         norm = _normalize(text)
         for m in re.finditer(r"\d{14}", norm):
-            cand = m.group()
-            if _validate_id(cand):
-                return cand
+            if _validate_id(m.group()):
+                return m.group()
 
-    # 2. Concatenate everything — handles digits split across OCR tokens
-    combined = "".join(_normalize(t) for t in texts)
-    for i in range(len(combined) - 13):
-        cand = combined[i : i + 14]
-        if re.fullmatch(r"\d{14}", cand) and _validate_id(cand):
+    # Strategy 2: concatenate ALL digits from ALL tokens, then slide
+    # Translate Arabic digits first at the raw level, then strip non-digits
+    all_digits = re.sub(r"\D", "", "".join(texts).translate(_AR_TO_WEST))
+    for i in range(len(all_digits) - 13):
+        cand = all_digits[i:i+14]
+        if _validate_id(cand):
             return cand
 
     return None
 
 
 def _validate_id(id_number: str) -> bool:
+    if len(id_number) != 14:
+        return False
     if id_number[0] not in ("2", "3"):
         return False
     try:
@@ -212,21 +258,26 @@ def process_image(image_bytes: bytes) -> dict:
     # Detect + deskew
     cropped = detect_and_crop_card(cv_img)
 
-    # OCR — keep results with confidence > 0.3
-    reader  = get_reader()
-    results = reader.readtext(cropped, detail=1, paragraph=False)
-    texts   = [text for (_, text, conf) in results if conf > 0.3]
+    reader = get_reader()
+    all_texts: list[str] = []
 
-    id_number = find_id_number(texts)
+    # Run OCR on every preprocessing variant; collect all tokens with conf > 0.1
+    # (was 0.3 — the old threshold discarded many valid but low-confidence digits)
+    for variant in _preprocess_variants(cropped):
+        results = reader.readtext(variant, detail=1, paragraph=False)
+        texts = [text for (_, text, conf) in results if conf > 0.1]
+        all_texts.extend(texts)
+
+    id_number = find_id_number(all_texts)
 
     if id_number:
-        return {"success": True, **decode_id(id_number), "raw_texts": texts}
+        return {"success": True, **decode_id(id_number), "raw_texts": all_texts}
 
     return {
         "success":   False,
         "message":   "Could not detect a 14-digit national ID number. "
                      "Make sure the full card is visible and well-lit.",
-        "raw_texts": texts,
+        "raw_texts": all_texts,
     }
 
 

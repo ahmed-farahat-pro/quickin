@@ -1,47 +1,51 @@
 package com.quickin.app.ui
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
-import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.YuvImage
+import android.os.SystemClock
+import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,313 +53,369 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size as ComposeSize
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.quickin.app.IDScanResult
 import com.quickin.app.IDScanService
 import com.quickin.app.ui.theme.Burgundy
-import com.quickin.app.ui.theme.Cream
-import com.quickin.app.ui.theme.CreamPage
-import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
-private val ScanSuccessGreen  = Color(0xFF1B5E20)
-private val ScanSuccessBg     = Color(0xFFE8F5E9)
-private val ScanErrorRed      = Color(0xFFB3261E)
-private val ScanErrorBg       = Color(0xFFFDECEA)
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Full-screen Dialog that lets the user pick or photograph their Egyptian National ID card,
- * sends it to the local OCR service via [IDScanService], and returns the detected ID number
- * via [onIdDetected]. Dismiss by pressing [onDismiss] or the "Cancel" button.
- *
- * @param onIdDetected called with the detected 14-digit ID number when the scan succeeds and
- *                     the user taps "Use this ID Number". Callers should fill the ID field.
- * @param onDismiss    called when the user closes the sheet without confirming.
+ * Full-screen live-camera dialog that detects an Egyptian National ID card in real-time.
+ * When a valid 14-digit ID is found, [onIdDetected] is called automatically.
  */
 @Composable
 fun EgyptianIDScanScreen(
     onIdDetected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val context        = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope          = rememberCoroutineScope()
 
-    var pickedBitmap  by remember { mutableStateOf<Bitmap?>(null) }
-    var isScanning    by remember { mutableStateOf(false) }
-    var scanResult    by remember { mutableStateOf<IDScanResult?>(null) }
+    // Camera permission
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> hasPermission = granted }
 
-    /** Launch OCR after a bitmap is loaded from any source. */
-    fun runScan(bm: Bitmap) {
-        pickedBitmap = bm
-        scanResult   = null
-        isScanning   = true
-        scope.launch {
-            scanResult = IDScanService.scan(bm)
-            isScanning = false
-        }
+    LaunchedEffect(Unit) {
+        if (!hasPermission) permLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    /** Decode a content URI to a Bitmap on the calling coroutine (already off-main for pickers). */
-    fun uriToBitmap(uri: Uri): Bitmap? = runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
-                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-        }
-    }.getOrNull()
+    // Scan state (atomic refs for cross-thread access from the analyser thread)
+    val scanInFlight = remember { AtomicBoolean(false) }
+    val lastScanMs   = remember { AtomicLong(0L) }
+    val detected     = remember { AtomicBoolean(false) }
 
-    // Gallery picker — uses the modern Photo Picker API.
-    val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                uriToBitmap(uri)?.let { runScan(it) }
-            }
-        }
-    }
+    var loadingUi  by remember { mutableStateOf(false) }
+    var scanResult by remember { mutableStateOf<IDScanResult?>(null) }
+    var statusText by remember { mutableStateOf("Align your ID card inside the frame") }
+    var attempts   by remember { mutableStateOf(0) }
 
-    // Camera capture — returns a small thumbnail Bitmap directly.
-    val cameraLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicturePreview()
-    ) { bm ->
-        if (bm != null) runScan(bm)
-    }
+    // Camera provider ref so we can unbind on dispose
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    val previewView    = remember { PreviewView(context) }
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
     ) {
-        Surface(
-            shape = RoundedCornerShape(32.dp),
-            color = CreamPage,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // ── Title ───────────────────────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Badge, contentDescription = null, tint = Burgundy, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Scan Egyptian National ID",
-                        color = Ink,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Text(
-                    "Take a photo or pick from gallery. Make sure the ID card is flat and well-lit.",
-                    color = Muted,
-                    fontSize = 14.sp
-                )
-
-                // ── Image preview / placeholder ──────────────────────────────
-                IDImageArea(
-                    bitmap = pickedBitmap,
-                    isScanning = isScanning
-                )
-
-                // ── Picker buttons ───────────────────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (!hasPermission) {
+                // Permission denied UI
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    OutlinedButton(
-                        onClick = { cameraLauncher.launch(null) },
-                        enabled = !isScanning,
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.5.dp, Burgundy),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Burgundy),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Camera", fontWeight = FontWeight.SemiBold)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            galleryLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                        enabled = !isScanning,
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.5.dp, Burgundy),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Burgundy),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Filled.Photo, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Gallery", fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Filled.Camera, contentDescription = null,
+                        tint = Color.White, modifier = Modifier.size(56.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text("Camera access required", color = Color.White,
+                        fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Grant camera permission to scan your ID",
+                        color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = { permLauncher.launch(Manifest.permission.CAMERA) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Burgundy)
+                    ) { Text("Grant Permission", color = Color.White) }
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel", color = Color.White.copy(alpha = 0.6f))
                     }
                 }
+            } else {
+                // Camera preview
+                AndroidView(
+                    factory = { previewView.apply { scaleType = PreviewView.ScaleType.FILL_CENTER } },
+                    modifier = Modifier.fillMaxSize()
+                )
 
-                // ── Result card ───────────────────────────────────────────────
-                val result = scanResult
-                if (result != null) {
-                    if (result.success && result.idNumber != null) {
-                        IDResultCard(result = result)
+                // Overlay: dim surround + card frame + corner marks
+                ScanOverlay(
+                    detected = scanResult?.success == true,
+                    loading  = loadingUi
+                )
 
-                        Button(
-                            onClick = { onIdDetected(result.idNumber) },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Burgundy),
-                            modifier = Modifier.fillMaxWidth()
+                // Top bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("✕", color = Color.White, fontSize = 22.sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("Scan National ID", color = Color.White,
+                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(48.dp))
+                }
+
+                // Bottom panel
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    val r = scanResult
+                    if (r != null && r.success) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Color.Black.copy(alpha = 0.75f),
+                                    RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                                )
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Use this ID Number", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Filled.CheckCircle, contentDescription = null,
+                                    tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
+                                Text("ID Detected!", color = Color.White,
+                                    fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            }
+                            if (r.idNumber != null) {
+                                Text(
+                                    r.idNumber,
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 2.sp
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                if (r.birthDate != null)
+                                    Text("📅 ${r.birthDate}", color = Color.White.copy(0.8f), fontSize = 13.sp)
+                                if (r.governorate != null)
+                                    Text("📍 ${r.governorate}", color = Color.White.copy(0.8f), fontSize = 13.sp)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Button(
+                                onClick = { r.idNumber?.let { onIdDetected(it) } },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                            ) {
+                                Text("Use this ID", color = Color.White,
+                                    fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(4.dp))
                         }
                     } else {
-                        IDErrorCard(message = result.message ?: "Could not read the ID card. Please try again.")
+                        Row(
+                            modifier = Modifier
+                                .padding(bottom = 56.dp)
+                                .background(Color.Black.copy(0.55f), RoundedCornerShape(16.dp))
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (loadingUi) {
+                                CircularProgressIndicator(
+                                    color = Color.White, strokeWidth = 2.dp,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text("Reading ID…", color = Color.White, fontSize = 14.sp)
+                            } else {
+                                Text(statusText, color = Color.White, fontSize = 14.sp)
+                            }
+                        }
                     }
-                }
-
-                // ── Cancel ────────────────────────────────────────────────────
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text("Cancel", color = Muted, fontWeight = FontWeight.Medium)
                 }
             }
         }
     }
-}
 
-// ── Sub-composables ────────────────────────────────────────────────────────────
+    // Bind CameraX when permission is granted
+    DisposableEffect(hasPermission) {
+        if (!hasPermission) return@DisposableEffect onDispose {}
 
-/**
- * Dashed-border card area that shows the picked [bitmap] at 16:9 aspect ratio while the OCR is
- * running, or a placeholder prompt when no image has been selected yet.
- */
-@Composable
-private fun IDImageArea(bitmap: Bitmap?, isScanning: Boolean) {
-    val dashColor = Burgundy.copy(alpha = 0.4f)
+        val executor = Executors.newSingleThreadExecutor()
+        val future   = ProcessCameraProvider.getInstance(context)
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Cream)
-            // Dashed border drawn via Canvas so we can use PathEffect.dashPathEffect.
-            .dashedBorder(color = dashColor, cornerRadius = 16.dp, dashWidth = 12.dp, gapWidth = 8.dp)
-    ) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Selected ID card image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+        future.addListener({
+            val cp = future.get()
+            cameraProvider = cp
+
+            val preview = Preview.Builder().build().also {
+                it.surfaceProvider = previewView.surfaceProvider
+            }
+
+            val analysis = ImageAnalysis.Builder()
+                .setTargetResolution(Size(1280, 720))
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+
+            @OptIn(ExperimentalGetImage::class)
+            analysis.setAnalyzer(executor) { proxy ->
+                val now = SystemClock.elapsedRealtime()
+                if (scanInFlight.get() || detected.get() || now - lastScanMs.get() < 1500L) {
+                    proxy.close()
+                    return@setAnalyzer
+                }
+                lastScanMs.set(now)
+                scanInFlight.set(true)
+
+                val bm = proxy.toOrientedBitmap()
+                proxy.close()
+
+                if (bm == null) { scanInFlight.set(false); return@setAnalyzer }
+
+                scope.launch {
+                    withContext(Dispatchers.Main) { loadingUi = true }
+                    val r = IDScanService.scan(bm)
+                    withContext(Dispatchers.Main) {
+                        loadingUi = false
+                        attempts++
+                        if (r.success) {
+                            detected.set(true)
+                            scanResult = r
+                            cp.unbindAll()
+                        } else {
+                            statusText = if (attempts > 2)
+                                "Hold still — keep the full card in frame"
+                            else
+                                "Align your ID card inside the frame"
+                        }
+                    }
+                    scanInFlight.set(false)
+                }
+            }
+
+            cp.unbindAll()
+            cp.bindToLifecycle(
+                lifecycleOwner,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview, analysis
             )
-            if (isScanning) {
-                // Translucent overlay + spinner while OCR is running.
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(8.dp))
-                        Text("Scanning…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Filled.Badge, contentDescription = null, tint = Burgundy.copy(alpha = 0.4f), modifier = Modifier.size(48.dp))
-                Spacer(Modifier.height(8.dp))
-                Text("No image selected", color = Muted, fontSize = 14.sp)
-                Text("Use Camera or Gallery below", color = Muted.copy(alpha = 0.7f), fontSize = 12.sp)
-            }
+        }, ContextCompat.getMainExecutor(context))
+
+        onDispose {
+            executor.shutdownNow()
+            cameraProvider?.unbindAll()
         }
     }
 }
 
-/** Green-tinted card showing the extracted ID fields after a successful scan. */
-@Composable
-private fun IDResultCard(result: IDScanResult) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ScanSuccessBg),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = ScanSuccessGreen, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("ID Detected", color = ScanSuccessGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            }
-            IDResultRow("ID Number",    result.idNumber ?: "—")
-            IDResultRow("Birth Date",   result.birthDate ?: "—")
-            IDResultRow("Governorate",  result.governorate ?: "—")
-            IDResultRow("Gender",       result.gender ?: "—")
-        }
-    }
-}
+// MARK: – Canvas overlay (dim surround + card border + corner marks)
 
 @Composable
-private fun IDResultRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        Text(value, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
+private fun ScanOverlay(detected: Boolean, loading: Boolean) {
+    val borderColor = if (detected) Color(0xFF4CAF50) else Color.White
+    val dimColor    = Color.Black.copy(alpha = 0.55f)
 
-/** Red-tinted error card shown when the OCR service returns success=false. */
-@Composable
-private fun IDErrorCard(message: String) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ScanErrorBg),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = message,
-            color = ScanErrorRed,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(16.dp)
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val cw = size.width * 0.88f
+        val ch = cw / (85.6f / 53.98f)
+        val cx = (size.width - cw) / 2f
+        val cy = (size.height - ch) / 2f
+
+        // Four dim rectangles around the card window
+        drawRect(dimColor, size = ComposeSize(size.width, cy))
+        drawRect(dimColor, topLeft = Offset(0f, cy + ch),
+            size = ComposeSize(size.width, size.height - cy - ch))
+        drawRect(dimColor, topLeft = Offset(0f, cy), size = ComposeSize(cx, ch))
+        drawRect(dimColor, topLeft = Offset(cx + cw, cy),
+            size = ComposeSize(size.width - cx - cw, ch))
+
+        // Card border
+        drawRoundRect(
+            color = borderColor,
+            topLeft = Offset(cx, cy),
+            size = ComposeSize(cw, ch),
+            cornerRadius = CornerRadius(16.dp.toPx()),
+            style = Stroke(width = if (detected) 3.5.dp.toPx() else 2.dp.toPx())
         )
+
+        // Corner marks (4 L-shapes)
+        val L  = 24.dp.toPx()
+        val lw = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+
+        fun cornerPath(sx: Float, sy: Float, ex: Float, ey: Float, mx: Float, my: Float) = Path().apply {
+            moveTo(sx, sy); lineTo(mx, my); lineTo(ex, ey)
+        }
+
+        drawPath(cornerPath(cx, cy + L, cx + L, cy, cx, cy), borderColor, style = lw)
+        drawPath(cornerPath(cx + cw - L, cy, cx + cw, cy + L, cx + cw, cy), borderColor, style = lw)
+        drawPath(cornerPath(cx + cw, cy + ch - L, cx + cw - L, cy + ch, cx + cw, cy + ch), borderColor, style = lw)
+        drawPath(cornerPath(cx + L, cy + ch, cx, cy + ch - L, cx, cy + ch), borderColor, style = lw)
     }
 }
 
-// Simple border extension replacing the dashed-border custom drawing (avoids Canvas imports)
-private fun Modifier.dashedBorder(
-    color: Color,
-    cornerRadius: androidx.compose.ui.unit.Dp,
-    @Suppress("UNUSED_PARAMETER") dashWidth: androidx.compose.ui.unit.Dp,
-    @Suppress("UNUSED_PARAMETER") gapWidth: androidx.compose.ui.unit.Dp
-): Modifier = this.border(1.5.dp, color, RoundedCornerShape(cornerRadius))
+// MARK: – ImageProxy → oriented Bitmap
+
+@SuppressLint("UnsafeOptInUsageError")
+private fun ImageProxy.toOrientedBitmap(): Bitmap? = runCatching {
+    val img   = image ?: return null
+    val yBuf  = img.planes[0].buffer
+    val vBuf  = img.planes[2].buffer
+    val uBuf  = img.planes[1].buffer
+    val ySize = yBuf.remaining()
+    val vArr  = ByteArray(vBuf.remaining()).also { vBuf.get(it) }
+    val uArr  = ByteArray(uBuf.remaining()).also { uBuf.get(it) }
+    val vStride    = img.planes[2].pixelStride
+    val uStride    = img.planes[1].pixelStride
+    val vRowStride = img.planes[2].rowStride
+    val uRowStride = img.planes[1].rowStride
+    val uvW = width / 2; val uvH = height / 2
+    val nv21 = ByteArray(ySize + uvW * uvH * 2)
+    yBuf.get(nv21, 0, ySize)
+    var idx = ySize
+    for (row in 0 until uvH) for (col in 0 until uvW) {
+        nv21[idx++] = vArr[row * vRowStride + col * vStride]
+        nv21[idx++] = uArr[row * uRowStride + col * uStride]
+    }
+    val yuv = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+    val out = ByteArrayOutputStream()
+    yuv.compressToJpeg(Rect(0, 0, width, height), 85, out)
+    var bm = BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size()) ?: return null
+    val rot = imageInfo.rotationDegrees
+    if (rot != 0) {
+        val m = Matrix().apply { postRotate(rot.toFloat()) }
+        bm = Bitmap.createBitmap(bm, 0, 0, bm.width, bm.height, m, true)
+    }
+    bm
+}.getOrNull()

@@ -11,12 +11,15 @@ struct IDScanResult: Decodable {
     let gender: String?
     /// Present when `success == false`.
     let message: String?
+    /// All digits the server found (useful for debugging scan failures).
+    let rawDigits: String?
 
     enum CodingKeys: String, CodingKey {
         case success, message, gender, governorate
         case idNumber   = "id_number"
         case birthDate  = "birth_date"
         case birthYear  = "birth_year"
+        case rawDigits  = "raw_digits"
     }
 
     /// Convenience init for error cases (not decoded from JSON).
@@ -28,6 +31,7 @@ struct IDScanResult: Decodable {
         self.birthYear   = nil
         self.governorate = nil
         self.gender      = nil
+        self.rawDigits   = nil
     }
 }
 
@@ -63,7 +67,7 @@ enum EgyptianIDScanService {
             throw URLError(.badURL)
         }
 
-        var request = URLRequest(url: url, timeoutInterval: 30)
+        var request = URLRequest(url: url, timeoutInterval: 90)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["image": b64])

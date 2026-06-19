@@ -123,9 +123,18 @@ struct EgyptianIDScanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .padding(.horizontal, 24)
                         } else {
+                            VStack(spacing: 6) {
                             Text(r.message ?? "Could not read the ID")
                                 .foregroundStyle(.red).font(.footnote)
-                                .multilineTextAlignment(.center).padding(.horizontal, 24)
+                                .multilineTextAlignment(.center)
+                            if let digits = r.rawDigits, !digits.isEmpty {
+                                Text("Digits found: \(digits)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding(.horizontal, 24)
                         }
                     }
 

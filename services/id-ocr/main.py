@@ -166,28 +166,18 @@ def detect_and_crop_card(image: np.ndarray) -> np.ndarray:
 
 def _preprocess_variants(cv_img: np.ndarray) -> list[np.ndarray]:
     """
-    Return several pre-processed variants of the cropped card image.
-    Running OCR on all of them maximises the chance of detecting digits
-    under poor lighting, blur, or low contrast.
+    Two pre-processed variants: original colour + CLAHE-enhanced grayscale.
+    (4 variants were too slow on CPU — pushed processing past the 30 s mobile timeout.)
     """
     gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
 
     # 1. Original colour
     variants: list[np.ndarray] = [cv_img]
 
-    # 2. CLAHE – adaptive histogram equalisation (fixes uneven lighting)
+    # 2. CLAHE – adaptive histogram equalisation (best single improvement for uneven lighting)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     clahe_gray = clahe.apply(gray)
     variants.append(cv2.cvtColor(clahe_gray, cv2.COLOR_GRAY2BGR))
-
-    # 3. Sharpened CLAHE (helps blurry phone photos)
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    sharp = cv2.filter2D(clahe_gray, -1, kernel)
-    variants.append(cv2.cvtColor(sharp, cv2.COLOR_GRAY2BGR))
-
-    # 4. Otsu binarisation – pure black/white, best for dense digit rows
-    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    variants.append(cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR))
 
     return variants
 
@@ -205,13 +195,20 @@ def find_id_number(texts: list[str]) -> Optional[str]:
     """
     Search for a valid 14-digit Egyptian National ID in OCR output.
 
-    Strategy 0 — look for 14+ consecutive Eastern-Arabic digits in raw text
-                 (EasyOCR sometimes returns them untranslated).
-    Strategy 1 — search each token after normalization (Eastern→Western, strip non-digits).
-    Strategy 2 — join ALL digits from ALL tokens into one string and slide a 14-char window.
+    Strategies (in order, strictest first):
+      0 — raw Eastern-Arabic digit sequences (٠-٩) directly in each OCR token
+      1 — per-token after Eastern→Western translation + non-digit strip
+      2 — digits from each token individually joined (no cross-contamination between
+          the 4 OCR variants), slide 14-char window with date validation
+      3 — lenient: any 14-digit window starting with 2 or 3 (no date check);
+          last resort when lighting/blur makes OCR produce imperfect dates
     """
-    # Strategy 0: raw Eastern-Arabic digit sequences (most reliable when found)
-    for text in texts:
+    # Deduplicate texts (4 OCR variants produce identical or near-identical tokens)
+    seen: set[str] = set()
+    unique = [t for t in texts if not (t in seen or seen.add(t))]  # type: ignore[func-returns-value]
+
+    # Strategy 0: raw Arabic-Indic sequences
+    for text in unique:
         for m in _AR_DIGITS_RE.finditer(text):
             west = m.group().translate(_AR_TO_WEST)
             for i in range(len(west) - 13):
@@ -219,19 +216,25 @@ def find_id_number(texts: list[str]) -> Optional[str]:
                 if _validate_id(cand):
                     return cand
 
-    # Strategy 1: per-token normalized search
-    for text in texts:
+    # Strategy 1: per-token Western digits
+    for text in unique:
         norm = _normalize(text)
         for m in re.finditer(r"\d{14}", norm):
             if _validate_id(m.group()):
                 return m.group()
 
-    # Strategy 2: concatenate ALL digits from ALL tokens, then slide
-    # Translate Arabic digits first at the raw level, then strip non-digits
-    all_digits = re.sub(r"\D", "", "".join(texts).translate(_AR_TO_WEST))
-    for i in range(len(all_digits) - 13):
-        cand = all_digits[i:i+14]
+    # Strategy 2: per-token digits joined (avoids pollution across variant repetitions)
+    token_digits = "".join(_normalize(t) for t in unique)
+    for i in range(len(token_digits) - 13):
+        cand = token_digits[i:i+14]
         if _validate_id(cand):
+            return cand
+
+    # Strategy 3 (lenient): any window starting with 2 or 3, skip date validation.
+    # Accepts partial OCR errors — user still confirms before the number is used.
+    for i in range(len(token_digits) - 13):
+        cand = token_digits[i:i+14]
+        if cand[0] in ("2", "3") and cand.isdigit():
             return cand
 
     return None
@@ -268,16 +271,24 @@ def process_image(image_bytes: bytes) -> dict:
         texts = [text for (_, text, conf) in results if conf > 0.1]
         all_texts.extend(texts)
 
+    # Log what was found for diagnosis
+    raw_digits = re.sub(r"\D", "", "".join(all_texts).translate(_AR_TO_WEST))
+    logger.info("OCR raw_texts=%s", all_texts)
+    logger.info("OCR raw_digits=%s", raw_digits)
+
     id_number = find_id_number(all_texts)
 
     if id_number:
+        logger.info("OCR SUCCESS id=%s", id_number)
         return {"success": True, **decode_id(id_number), "raw_texts": all_texts}
 
+    logger.info("OCR FAILED — no 14-digit ID found in digits: %s", raw_digits)
     return {
-        "success":   False,
-        "message":   "Could not detect a 14-digit national ID number. "
-                     "Make sure the full card is visible and well-lit.",
-        "raw_texts": all_texts,
+        "success":    False,
+        "message":    "Could not detect a 14-digit national ID number. "
+                      "Make sure the full card is visible and well-lit.",
+        "raw_texts":  all_texts,
+        "raw_digits": raw_digits,   # lets the client show what was found
     }
 
 

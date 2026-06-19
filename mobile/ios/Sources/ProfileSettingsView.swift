@@ -174,77 +174,69 @@ struct ProfileSettingsView: View {
     @State private var biometricOn = false
 
     var body: some View {
-        ZStack {
-            LinearGradient.qkPageWash.ignoresSafeArea()
-
-            if viewModel.isLoading && !viewModel.hasLoaded {
-                ProgressView().tint(.qkBurgundy)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        if let loadError = viewModel.loadError, !viewModel.hasLoaded {
-                            errorBanner(loadError, retry: true)
-                        }
-
-                        photoCard
-
-                        formCard
-
-                        if let saveError = viewModel.saveError {
-                            errorBanner(saveError, retry: false)
-                        }
-
-                        saveButton
-
-                        passwordCard
-
-                        if biometricKind != .none {
-                            securityCard
-                        }
-                    }
-                    .padding(20)
-                }
-                .scrollDismissesKeyboard(.interactively)
+        mainContent
+            .navigationTitle(loc.t("profile.editProfile"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.qkCream, for: .navigationBar)
+            .tint(.qkBurgundy)
+            .task { await viewModel.load() }
+            .onAppear {
+                biometricKind = BiometricAuth.shared.availableKind()
+                biometricOn = BiometricAuth.shared.hasStoredSession
             }
-        }
-        .navigationTitle(loc.t("profile.editProfile"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.qkCream, for: .navigationBar)
-        .tint(.qkBurgundy)
-        .task { await viewModel.load() }
-        .onAppear {
-            biometricKind = BiometricAuth.shared.availableKind()
-            biometricOn = BiometricAuth.shared.hasStoredSession
-        }
-        // Pop back to the profile shortly after a successful save, and push the
-        // saved name straight into the cached session so the Profile tab + any
-        // greeting reflect the edit IMMEDIATELY (no re-login needed).
-        .onChange(of: viewModel.didSave) { _, saved in
-            if saved {
+            .onChange(of: viewModel.didSave) { _, saved in
+                guard saved else { return }
                 auth.applyProfile(
                     fullName: viewModel.fullName.trimmingCharacters(in: .whitespacesAndNewlines),
                     avatarURL: viewModel.avatarURL
                 )
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { dismiss() }
             }
-        }
-        // Process a newly-picked avatar: downscale + encode into a data URL.
-        .onChange(of: photoItem) { _, item in
-            Task { await viewModel.handlePickedPhoto(item) }
-        }
-        // If the signed-in account changes while this screen is alive (e.g. a
-        // logout → login as someone else), reload so it never shows the previous
-        // account's name / age / id / phone.
-        .onChange(of: auth.user?.id) { _, _ in
-            viewModel.resetForAccountChange()
-            Task { await viewModel.load() }
-        }
-        // Egyptian National ID OCR sheet.
-        .sheet(isPresented: $showIDScan) {
-            EgyptianIDScanView { detectedID in
-                viewModel.idDocument = detectedID
+            .onChange(of: photoItem) { _, item in
+                Task { await viewModel.handlePickedPhoto(item) }
+            }
+            .onChange(of: auth.user?.id) { _, _ in
+                viewModel.resetForAccountChange()
+                Task { await viewModel.load() }
+            }
+            .sheet(isPresented: $showIDScan) {
+                EgyptianIDScanView { detectedID in
+                    viewModel.idDocument = detectedID
+                }
+            }
+    }
+
+    private var mainContent: some View {
+        ZStack {
+            LinearGradient.qkPageWash.ignoresSafeArea()
+            if viewModel.isLoading && !viewModel.hasLoaded {
+                ProgressView().tint(.qkBurgundy)
+            } else {
+                scrollContent
             }
         }
+    }
+
+    private var scrollContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let loadError = viewModel.loadError, !viewModel.hasLoaded {
+                    errorBanner(loadError, retry: true)
+                }
+                photoCard
+                formCard
+                if let saveError = viewModel.saveError {
+                    errorBanner(saveError, retry: false)
+                }
+                saveButton
+                passwordCard
+                if biometricKind != .none {
+                    securityCard
+                }
+            }
+            .padding(20)
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     // MARK: - Pieces

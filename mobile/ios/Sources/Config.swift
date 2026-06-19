@@ -52,7 +52,12 @@ enum Config {
     /// Base URL for the local Egyptian National ID OCR server.
     /// The iOS Simulator shares the host network so `localhost` resolves
     /// to the Mac running the Python server on port 8000.
+    #if targetEnvironment(simulator)
     static let idOcrBaseURL = "http://localhost:8000"
+    #else
+    // Physical device — must be on same WiFi as the Mac running the OCR server.
+    static let idOcrBaseURL = "http://192.168.8.24:8000"
+    #endif
 
     static var googleRedirectScheme: String? {
         guard !googleClientID.isEmpty else { return nil }

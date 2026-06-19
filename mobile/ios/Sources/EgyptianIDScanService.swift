@@ -18,6 +18,17 @@ struct IDScanResult: Decodable {
         case birthDate  = "birth_date"
         case birthYear  = "birth_year"
     }
+
+    /// Convenience init for error cases (not decoded from JSON).
+    init(success: Bool, message: String? = nil) {
+        self.success     = success
+        self.message     = message
+        self.idNumber    = nil
+        self.birthDate   = nil
+        self.birthYear   = nil
+        self.governorate = nil
+        self.gender      = nil
+    }
 }
 
 /// Sends a JPEG image to the local Python OCR server and decodes the result.

@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
 import UIKit
 
 // MARK: - Live camera preview
@@ -51,17 +52,129 @@ struct EgyptianIDScanView: View {
     private let burgundy = Color(red: 91/255, green: 15/255, blue: 22/255)
     private let ink      = Color(red: 26/255, green: 18/255, blue: 11/255)
 
-    @State private var session  = AVCaptureSession()
-    @State private var sampler  = FrameSampler()
-    @State private var started  = false
-    @State private var loading  = false
+    @State private var session   = AVCaptureSession()
+    @State private var sampler   = FrameSampler()
+    @State private var started   = false
+    @State private var loading   = false
     @State private var result: IDScanResult?
-    @State private var status   = "Align your ID card inside the frame"
-    @State private var attempts = 0
+    @State private var status    = "Align your ID card inside the frame"
+    @State private var attempts  = 0
+    // Simulator-only photo picker
+    @State private var pickerItem: PhotosPickerItem?
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        #if targetEnvironment(simulator)
+        simulatorBody
+        #else
+        cameraBody
+        #endif
+    }
+
+    // MARK: - Simulator body (photo picker → OCR)
+
+    private var simulatorBody: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 246/255, green: 241/255, blue: 230/255).ignoresSafeArea()
+                VStack(spacing: 24) {
+                    Spacer()
+                    Image(systemName: "creditcard.viewfinder")
+                        .font(.system(size: 64, weight: .light))
+                        .foregroundStyle(burgundy.opacity(0.5))
+                    Text("Simulator: no camera")
+                        .font(.headline)
+                        .foregroundStyle(burgundy)
+                    Text("Pick a photo of your Egyptian National ID card.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).padding(.horizontal, 40)
+
+                    if loading {
+                        ProgressView("Scanning with EasyOCR…").tint(burgundy)
+                    } else if let r = result {
+                        if r.success {
+                            VStack(spacing: 10) {
+                                Label("ID Detected", systemImage: "checkmark.seal.fill")
+                                    .foregroundStyle(.green).font(.headline)
+                                if let id = r.idNumber {
+                                    Text(id)
+                                        .font(.system(size: 22, weight: .heavy, design: .monospaced))
+                                        .tracking(2)
+                                }
+                                HStack(spacing: 16) {
+                                    if let bd = r.birthDate { Label(bd, systemImage: "calendar").font(.caption) }
+                                    if let gov = r.governorate { Label(gov, systemImage: "mappin.circle").font(.caption) }
+                                }
+                                Button {
+                                    if let id = r.idNumber { onIDDetected(id) }
+                                    dismiss()
+                                } label: {
+                                    Text("Use this ID")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .frame(maxWidth: .infinity).frame(height: 50)
+                                        .foregroundStyle(.white).background(Color.green)
+                                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                                }
+                                .buttonStyle(QKPressStyle())
+                            }
+                            .padding(20)
+                            .background(Color(red: 236/255, green: 253/255, blue: 245/255))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .padding(.horizontal, 24)
+                        } else {
+                            Text(r.message ?? "Could not read the ID")
+                                .foregroundStyle(.red).font(.footnote)
+                                .multilineTextAlignment(.center).padding(.horizontal, 24)
+                        }
+                    }
+
+                    PhotosPicker(selection: $pickerItem, matching: .images) {
+                        Label("Choose Photo of ID", systemImage: "photo.on.rectangle.angled")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity).frame(height: 50)
+                            .foregroundStyle(.white).background(burgundy)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
+                    .padding(.horizontal, 24)
+                    .disabled(loading)
+
+                    Spacer()
+                }
+            }
+            .navigationTitle("Scan National ID")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.foregroundStyle(burgundy)
+                }
+            }
+            .onChange(of: pickerItem) { _, item in
+                Task { await loadPickedPhoto(item) }
+            }
+        }
+    }
+
+    private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        result = nil
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+        loading = true
+        do {
+            let r = try await EgyptianIDScanService.scan(image: image)
+            await MainActor.run { result = r; loading = false }
+        } catch {
+            await MainActor.run {
+                result = IDScanResult(success: false, message: error.localizedDescription)
+                loading = false
+            }
+        }
+    }
+
+    // MARK: - Camera body (real device)
+
+    private var cameraBody: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             CameraPreview(session: session).ignoresSafeArea()
@@ -88,7 +201,7 @@ struct EgyptianIDScanView: View {
         .ignoresSafeArea()
         .onAppear(perform: startCamera)
         .onDisappear { session.stopRunning() }
-    }
+    }   // end cameraBody
 
     // MARK: - Overlay
 

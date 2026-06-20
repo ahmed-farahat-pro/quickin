@@ -112,7 +112,8 @@ const BOOKING_COLS = `
   CASE WHEN b.paid_at IS NULL THEN 'unpaid' ELSE 'paid' END AS payment_status,
   to_char(b.paid_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS paid_at,
   to_char(b.cancelled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS cancelled_at,
-  b.refund_percent,
+  b.refund_percent, b.host_notes,
+  'QK-' || upper(substr(b.id::text, 1, 8)) AS reservation_code,
   to_char(b.created_at, 'YYYY-MM-DD') AS created_at,
   l.title, l.location,
   (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS image
@@ -295,6 +296,85 @@ export async function getNotifications(userId: string): Promise<{ notifications:
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   if (!isUuid(userId)) return
   await pool.query(`UPDATE notifications SET read = true WHERE user_id = $1 AND read = false`, [userId])
+}
+
+export async function markNotificationRead(userId: string, id: string): Promise<void> {
+  if (!isUuid(userId) || !isUuid(id)) return
+  await pool.query(`UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2`, [id, userId])
+}
+
+export async function registerPushToken(userId: string, fcmToken: string, platform: string): Promise<void> {
+  if (!isUuid(userId) || !fcmToken) return
+  await pool.query(`UPDATE users SET fcm_token = $2, push_platform = $3 WHERE id = $1`, [userId, fcmToken, platform || null])
+}
+
+// ---- Single booking + host notes / status patch -----------------------------
+
+export async function getBookingById(userId: string, bookingId: string): Promise<Booking | null> {
+  if (!isUuid(bookingId) || !isUuid(userId)) return null
+  const { rows } = await pool.query(
+    `SELECT ${BOOKING_COLS} FROM bookings b JOIN listings l ON l.id = b.listing_id
+      WHERE b.id = $1 AND b.user_id = $2`,
+    [bookingId, userId]
+  )
+  return (rows[0] as Booking) ?? null
+}
+
+/** Patch host_notes and/or status (confirm|reject|<status>). Returns the updated booking. */
+export async function patchBooking(
+  bookingId: string,
+  hostNotes: string | null | undefined,
+  status: string | null | undefined
+): Promise<Booking | null> {
+  if (!isUuid(bookingId)) throw new Error('Invalid booking')
+  const sets: string[] = []
+  const params: unknown[] = [bookingId]
+  if (hostNotes !== undefined) { params.push(hostNotes); sets.push(`host_notes = $${params.length}`) }
+  if (status) {
+    const s = status === 'confirm' ? 'confirmed' : status === 'reject' ? 'rejected' : status
+    params.push(s); sets.push(`status = $${params.length}`)
+  }
+  const select = `SELECT ${BOOKING_COLS} FROM bookings b JOIN listings l ON l.id = b.listing_id WHERE b.id = $1`
+  if (!sets.length) {
+    const { rows } = await pool.query(select, [bookingId])
+    return (rows[0] as Booking) ?? null
+  }
+  const { rows } = await pool.query(
+    `WITH upd AS (UPDATE bookings SET ${sets.join(', ')} WHERE id = $1 RETURNING *)
+     SELECT ${BOOKING_COLS} FROM upd b JOIN listings l ON l.id = b.listing_id`,
+    params
+  )
+  return (rows[0] as Booking) ?? null
+}
+
+// ---- Promo codes (mock) -----------------------------------------------------
+
+const PROMO_CODES: Record<string, { kind: 'percent' | 'fixed'; value: number; message: string }> = {
+  WELCOME10: { kind: 'percent', value: 10, message: '10% off your stay' },
+  QUICKIN15: { kind: 'percent', value: 15, message: '15% off applied' },
+  SAVE50:    { kind: 'fixed',   value: 50, message: 'EGP 50 off applied' },
+}
+
+export function quotePromo(codeRaw: string, subtotal: number): {
+  valid: boolean; code: string; kind: string | null; value: number; discount: number; message: string
+} {
+  const code = String(codeRaw || '').trim().toUpperCase()
+  const sub = Math.max(0, Math.round(Number(subtotal) || 0))
+  const p = PROMO_CODES[code]
+  if (!p) return { valid: false, code, kind: null, value: 0, discount: 0, message: 'Invalid or expired promo code' }
+  const discount = p.kind === 'percent' ? Math.round((sub * p.value) / 100) : Math.min(p.value, sub)
+  return { valid: true, code, kind: p.kind, value: p.value, discount, message: p.message }
+}
+
+// ---- Referrals --------------------------------------------------------------
+
+/** A stable share code derived from the user id (no referral-tracking table yet). */
+export async function getReferralSummary(
+  userId: string
+): Promise<{ code: string; count: number; rewardTotal: number; referred: unknown[] }> {
+  if (!isUuid(userId)) return { code: '', count: 0, rewardTotal: 0, referred: [] }
+  const code = 'QK-' + userId.replace(/-/g, '').slice(0, 6).toUpperCase()
+  return { code, count: 0, rewardTotal: 0, referred: [] }
 }
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {

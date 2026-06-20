@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS users (
   full_name     text,
   provider      text NOT NULL DEFAULT 'email',
   avatar_url    text,
+  fcm_token     text,
+  push_platform text,
   created_at    timestamptz DEFAULT now()
 );
 
@@ -58,6 +60,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   paid_at        timestamptz,
   cancelled_at   timestamptz,
   refund_percent int,
+  host_notes     text,
   created_at     timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);

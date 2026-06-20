@@ -15,11 +15,15 @@ import java.net.URL
  */
 data class IDScanResult(
     val success: Boolean,
-    val idNumber: String? = null,
+    val idNumber: String? = null,        // 14-digit national ID (StructOCR personal_number)
+    val fullName: String? = null,        // given names + surname (Arabic)
+    val documentNumber: String? = null,  // card document number, e.g. "JA1234567"
     val birthDate: String? = null,
     val birthYear: Int? = null,
-    val governorate: String? = null,
+    val governorate: String? = null,     // derived from the ID number
     val gender: String? = null,
+    val nationality: String? = null,
+    val address: String? = null,         // Arabic address
     val message: String? = null
 )
 
@@ -69,13 +73,17 @@ object IDScanService {
 
             val json = JSONObject(text)
             IDScanResult(
-                success     = json.optBoolean("success", false),
-                idNumber    = json.optString("id_number").takeIf { it.isNotBlank() },
-                birthDate   = json.optString("birth_date").takeIf { it.isNotBlank() },
-                birthYear   = json.optInt("birth_year").takeIf { it != 0 },
-                governorate = json.optString("governorate").takeIf { it.isNotBlank() },
-                gender      = json.optString("gender").takeIf { it.isNotBlank() },
-                message     = json.optString("message").takeIf { it.isNotBlank() }
+                success        = json.optBoolean("success", false),
+                idNumber       = json.optString("id_number").takeIf { it.isNotBlank() },
+                fullName       = json.optString("full_name").takeIf { it.isNotBlank() },
+                documentNumber = json.optString("document_number").takeIf { it.isNotBlank() },
+                birthDate      = json.optString("birth_date").takeIf { it.isNotBlank() },
+                birthYear      = json.optInt("birth_year").takeIf { it != 0 },
+                governorate    = json.optString("governorate").takeIf { it.isNotBlank() },
+                gender         = json.optString("gender").takeIf { it.isNotBlank() },
+                nationality    = json.optString("nationality").takeIf { it.isNotBlank() },
+                address        = json.optString("address").takeIf { it.isNotBlank() },
+                message        = json.optString("message").takeIf { it.isNotBlank() }
             )
         } catch (e: Exception) {
             IDScanResult(success = false, message = e.message ?: "Unknown error")

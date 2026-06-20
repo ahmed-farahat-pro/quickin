@@ -138,6 +138,7 @@ export default function ReservePanel({
             id="rp-checkin"
             type="date"
             value={checkIn}
+            min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => {
               setCheckIn(e.target.value)
               setStatus({ kind: 'idle' })
@@ -153,7 +154,7 @@ export default function ReservePanel({
             id="rp-checkout"
             type="date"
             value={checkOut}
-            min={checkIn || undefined}
+            min={checkIn || new Date().toISOString().slice(0, 10)}
             onChange={(e) => {
               setCheckOut(e.target.value)
               setStatus({ kind: 'idle' })

@@ -51,6 +51,9 @@ struct EgyptianIDScanView: View {
     @State private var isScanning = false
     @State private var scanResult: IDScanResult?
     @State private var errorMessage: String?
+    @State private var manualSubmitting = false
+    @State private var manualSubmitted = false
+    @State private var manualError: String?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -62,7 +65,9 @@ struct EgyptianIDScanView: View {
                     VStack(spacing: 20) {
                         imagePreview
                         pickerButtons
-                        if isScanning {
+                        if manualSubmitted {
+                            manualSubmittedCard
+                        } else if isScanning {
                             scanningCard
                         } else if let r = scanResult {
                             if r.success { successCard(r) }
@@ -189,10 +194,14 @@ struct EgyptianIDScanView: View {
             }
             Divider()
             VStack(alignment: .leading, spacing: 10) {
-                if let id  = r.idNumber    { row("ID Number",    id,  "number.square.fill") }
-                if let bd  = r.birthDate   { row("Birth Date",   bd,  "calendar") }
-                if let gov = r.governorate { row("Governorate",  gov, "mappin.circle.fill") }
-                if let g   = r.gender      { row("Gender",       g,   "person.fill") }
+                if let nm  = r.fullName       { row("Name",          nm,  "person.text.rectangle.fill") }
+                if let id  = r.idNumber       { row("ID Number",     id,  "number.square.fill") }
+                if let bd  = r.birthDate      { row("Birth Date",    bd,  "calendar") }
+                if let gov = r.governorate    { row("Governorate",   gov, "mappin.circle.fill") }
+                if let g   = r.gender         { row("Gender",        g,   "person.fill") }
+                if let nat = r.nationality    { row("Nationality",   nat, "globe") }
+                if let ad  = r.address        { row("Address",       ad,  "house.fill") }
+                if let dn  = r.documentNumber { row("Document No.",  dn,  "doc.text.fill") }
             }
             if let id = r.idNumber {
                 Button {
@@ -229,17 +238,43 @@ struct EgyptianIDScanView: View {
                 Text("Digits detected: \(d)")
                     .font(.system(size: 11, design: .monospaced)).foregroundStyle(muted.opacity(0.7))
             }
-            Button {
-                scanResult = nil; errorMessage = nil
-                selectedImage = nil; pickerItem = nil
-            } label: {
-                Text("Try Again")
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(burgundy)
-                    .frame(maxWidth: .infinity).frame(height: 44)
-                    .background(tan)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            if selectedImage != nil {
+                Text("No problem — upload this photo and our team will verify it for you.")
+                    .font(.footnote).foregroundStyle(muted).fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(QKPressStyle())
+            if manualSubmitting {
+                HStack(spacing: 10) {
+                    ProgressView().tint(burgundy)
+                    Text("Uploading for review…").font(.footnote).foregroundStyle(muted)
+                }
+                .frame(maxWidth: .infinity).frame(height: 50)
+            } else {
+                if selectedImage != nil {
+                    Button { submitManual() } label: {
+                        Label("Upload for manual review", systemImage: "tray.and.arrow.up.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(maxWidth: .infinity).frame(height: 50)
+                            .foregroundStyle(.white).background(burgundy)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    }
+                    .buttonStyle(QKPressStyle())
+                }
+                Button {
+                    scanResult = nil; errorMessage = nil; manualError = nil
+                    selectedImage = nil; pickerItem = nil
+                } label: {
+                    Text("Try Again")
+                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(burgundy)
+                        .frame(maxWidth: .infinity).frame(height: 44)
+                        .background(tan)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+                .buttonStyle(QKPressStyle())
+            }
+            if let manualError {
+                Text(manualError).font(.caption).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(18)
         .background(Color(red: 255/255, green: 242/255, blue: 242/255))
@@ -255,11 +290,56 @@ struct EgyptianIDScanView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(.caption.weight(.semibold)).foregroundStyle(muted)
                 Text(value).font(.system(size: 15, weight: .medium)).foregroundStyle(ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
         }
     }
 
+    private var manualSubmittedCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "clock.badge.checkmark.fill").font(.system(size: 20)).foregroundStyle(.green)
+                Text("Submitted for review").font(.system(size: 16, weight: .bold)).foregroundStyle(ink)
+            }
+            Text("Thanks! We've received your ID. Our team will verify it shortly — you'll be notified once it's approved.")
+                .font(.footnote).foregroundStyle(muted).fixedSize(horizontal: false, vertical: true)
+            Button { dismiss() } label: {
+                Text("Done")
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity).frame(height: 50)
+                    .foregroundStyle(.white).background(burgundy)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(QKPressStyle())
+        }
+        .padding(18)
+        .background(Color(red: 236/255, green: 253/255, blue: 245/255))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .strokeBorder(.green.opacity(0.3), lineWidth: 1.5))
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
+    }
+
     // MARK: – Scan logic
+
+    /// Manual fallback: upload the captured photo to the backend for admin review.
+    private func submitManual() {
+        guard let img = selectedImage,
+              let dataURL = QKAvatarImage.makeDataURL(from: img, maxDimension: 1400, quality: 0.85) else {
+            manualError = "Couldn't prepare the image. Please choose another photo."
+            return
+        }
+        manualError = nil; manualSubmitting = true
+        Task {
+            do {
+                _ = try await TrustService.shared.submitVerification(doc: dataURL)
+                await MainActor.run { manualSubmitting = false; manualSubmitted = true }
+            } catch {
+                await MainActor.run { manualSubmitting = false; manualError = error.localizedDescription }
+            }
+        }
+    }
 
     private func scan(_ image: UIImage) {
         scanResult = nil; errorMessage = nil; isScanning = true

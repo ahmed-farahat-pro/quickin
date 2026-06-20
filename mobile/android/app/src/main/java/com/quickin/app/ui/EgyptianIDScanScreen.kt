@@ -2,6 +2,7 @@ package com.quickin.app.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -9,7 +10,6 @@ import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
-import android.os.SystemClock
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -70,8 +70,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import com.quickin.app.AuthViewModel
+import com.quickin.app.AvatarImage
 import com.quickin.app.IDScanResult
 import com.quickin.app.IDScanService
+import com.quickin.app.TrustService
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Muted
 import kotlinx.coroutines.Dispatchers
@@ -80,7 +83,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Full-screen live-camera dialog that detects an Egyptian National ID card in real-time.
@@ -110,15 +112,41 @@ fun EgyptianIDScanScreen(
         if (!hasPermission) permLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // Scan state (atomic refs for cross-thread access from the analyser thread)
-    val scanInFlight = remember { AtomicBoolean(false) }
-    val lastScanMs   = remember { AtomicLong(0L) }
-    val detected     = remember { AtomicBoolean(false) }
+    // Scan state (atomic refs for cross-thread access from the analyser thread).
+    // captureRequested gates the (paid) OCR call — set only when the user taps Capture,
+    // so frames are NEVER streamed automatically to the backend.
+    val scanInFlight     = remember { AtomicBoolean(false) }
+    val captureRequested = remember { AtomicBoolean(false) }
+    val detected         = remember { AtomicBoolean(false) }
 
     var loadingUi  by remember { mutableStateOf(false) }
     var scanResult by remember { mutableStateOf<IDScanResult?>(null) }
-    var statusText by remember { mutableStateOf("Align your ID card inside the frame") }
-    var attempts   by remember { mutableStateOf(0) }
+    var statusText by remember { mutableStateOf("Align your ID card inside the frame, then tap Capture") }
+
+    // Manual fallback (used when the auto-scan fails or the OCR is out of credits): the last
+    // captured frame is uploaded to the backend for an admin to verify.
+    var lastBitmap      by remember { mutableStateOf<Bitmap?>(null) }
+    var scanFailed      by remember { mutableStateOf(false) }
+    var manualSubmitting by remember { mutableStateOf(false) }
+    var manualSubmitted by remember { mutableStateOf(false) }
+    var manualError     by remember { mutableStateOf<String?>(null) }
+
+    fun submitManual() {
+        val bmp = lastBitmap ?: return
+        val token = context.getSharedPreferences(AuthViewModel.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(AuthViewModel.KEY_TOKEN, null)
+        if (token.isNullOrBlank()) { manualError = "Please sign in to submit your ID."; return }
+        manualError = null; manualSubmitting = true
+        scope.launch {
+            val doc = withContext(Dispatchers.IO) { AvatarImage.bitmapToJpegDataUrl(bmp, 1024) }
+            try {
+                TrustService.submitVerification(token, doc)
+                manualSubmitting = false; manualSubmitted = true
+            } catch (e: Exception) {
+                manualSubmitting = false; manualError = e.message ?: "Upload failed. Please try again."
+            }
+        }
+    }
 
     // Camera provider ref so we can unbind on dispose
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
@@ -197,7 +225,31 @@ fun EgyptianIDScanScreen(
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     val r = scanResult
-                    if (r != null && r.success) {
+                    if (manualSubmitted) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.78f),
+                                    RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null,
+                                tint = Color(0xFF4CAF50), modifier = Modifier.size(34.dp))
+                            Text("Submitted for review", color = Color.White,
+                                fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Text("We've received your ID. Our team will verify it shortly.",
+                                color = Color.White.copy(0.8f), fontSize = 13.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                            ) { Text("Done", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+                        }
+                    } else if (r != null && r.success) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -216,6 +268,10 @@ fun EgyptianIDScanScreen(
                                 Text("ID Detected!", color = Color.White,
                                     fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             }
+                            if (r.fullName != null) {
+                                Text(r.fullName, color = Color.White, fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold)
+                            }
                             if (r.idNumber != null) {
                                 Text(
                                     r.idNumber,
@@ -231,6 +287,11 @@ fun EgyptianIDScanScreen(
                                     Text("📅 ${r.birthDate}", color = Color.White.copy(0.8f), fontSize = 13.sp)
                                 if (r.governorate != null)
                                     Text("📍 ${r.governorate}", color = Color.White.copy(0.8f), fontSize = 13.sp)
+                                if (r.gender != null)
+                                    Text("⚧ ${r.gender}", color = Color.White.copy(0.8f), fontSize = 13.sp)
+                            }
+                            if (r.address != null) {
+                                Text("🏠 ${r.address}", color = Color.White.copy(0.7f), fontSize = 12.sp)
                             }
                             Spacer(Modifier.height(4.dp))
                             Button(
@@ -245,22 +306,61 @@ fun EgyptianIDScanScreen(
                             Spacer(Modifier.height(4.dp))
                         }
                     } else {
-                        Row(
+                        Column(
                             modifier = Modifier
-                                .padding(bottom = 56.dp)
-                                .background(Color.Black.copy(0.55f), RoundedCornerShape(16.dp))
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                .fillMaxWidth()
+                                .padding(bottom = 48.dp, start = 24.dp, end = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            if (loadingUi) {
-                                CircularProgressIndicator(
-                                    color = Color.White, strokeWidth = 2.dp,
-                                    modifier = Modifier.size(16.dp)
+                            Row(
+                                modifier = Modifier
+                                    .background(Color.Black.copy(0.55f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (loadingUi) {
+                                    CircularProgressIndicator(
+                                        color = Color.White, strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text("Reading ID…", color = Color.White, fontSize = 14.sp)
+                                } else {
+                                    Text(statusText, color = Color.White, fontSize = 14.sp)
+                                }
+                            }
+                            // Manual shutter — one OCR call per tap (the backend bills per scan).
+                            Button(
+                                onClick = { if (!loadingUi) captureRequested.set(true) },
+                                enabled = !loadingUi && !manualSubmitting,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Burgundy)
+                            ) {
+                                Text(
+                                    if (loadingUi) "Scanning…" else "Capture & Scan",
+                                    color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold
                                 )
-                                Text("Reading ID…", color = Color.White, fontSize = 14.sp)
-                            } else {
-                                Text(statusText, color = Color.White, fontSize = 14.sp)
+                            }
+                            // Manual fallback, shown once an auto-scan has failed: upload the
+                            // captured frame for an admin to verify.
+                            if (scanFailed) {
+                                Button(
+                                    onClick = { submitManual() },
+                                    enabled = !manualSubmitting && !loadingUi,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(0.16f))
+                                ) {
+                                    Text(
+                                        if (manualSubmitting) "Uploading…" else "Upload for manual review",
+                                        color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                manualError?.let {
+                                    Text(it, color = Color(0xFFFFB4A9), fontSize = 12.sp)
+                                }
                             }
                         }
                     }
@@ -291,12 +391,12 @@ fun EgyptianIDScanScreen(
 
             @OptIn(ExperimentalGetImage::class)
             analysis.setAnalyzer(executor) { proxy ->
-                val now = SystemClock.elapsedRealtime()
-                if (scanInFlight.get() || detected.get() || now - lastScanMs.get() < 1500L) {
+                // Only grab a frame and call the OCR backend when the user taps Capture.
+                if (!captureRequested.get() || scanInFlight.get() || detected.get()) {
                     proxy.close()
                     return@setAnalyzer
                 }
-                lastScanMs.set(now)
+                captureRequested.set(false)
                 scanInFlight.set(true)
 
                 val bm = proxy.toOrientedBitmap()
@@ -305,20 +405,18 @@ fun EgyptianIDScanScreen(
                 if (bm == null) { scanInFlight.set(false); return@setAnalyzer }
 
                 scope.launch {
-                    withContext(Dispatchers.Main) { loadingUi = true }
+                    withContext(Dispatchers.Main) { loadingUi = true; lastBitmap = bm }
                     val r = IDScanService.scan(bm)
                     withContext(Dispatchers.Main) {
                         loadingUi = false
-                        attempts++
                         if (r.success) {
                             detected.set(true)
                             scanResult = r
                             cp.unbindAll()
                         } else {
-                            statusText = if (attempts > 2)
-                                "Hold still — keep the full card in frame"
-                            else
-                                "Align your ID card inside the frame"
+                            scanFailed = true
+                            statusText = r.message
+                                ?: "Couldn't read the card automatically. You can upload it for manual review."
                         }
                     }
                     scanInFlight.set(false)

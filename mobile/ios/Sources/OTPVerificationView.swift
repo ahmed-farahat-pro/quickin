@@ -30,6 +30,7 @@ struct OTPVerificationView: View {
     @State private var code = ""
     @FocusState private var fieldFocused: Bool
     @State private var didResend = false
+    @State private var resendCooldown = 0
 
     private var canVerify: Bool {
         code.count == codeLength && !auth.isLoading
@@ -171,14 +172,20 @@ struct OTPVerificationView: View {
                 Text(loc.t("otp.didntGet"))
                     .font(.footnote)
                     .foregroundStyle(Color.qkMuted)
-                Button {
-                    Task { await resend() }
-                } label: {
-                    Text(loc.t("otp.resend"))
+                if resendCooldown > 0 {
+                    Text(verbatim: "Resend in \(resendCooldown)s")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color.qkBurgundy)
+                        .foregroundStyle(Color.qkMuted)
+                } else {
+                    Button {
+                        Task { await resend() }
+                    } label: {
+                        Text(loc.t("otp.resend"))
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.qkBurgundy)
+                    }
+                    .disabled(auth.isLoading)
                 }
-                .disabled(auth.isLoading)
             }
             if didResend {
                 Text(loc.t("otp.resent"))
@@ -205,6 +212,18 @@ struct OTPVerificationView: View {
             code = ""
             didResend = true
             fieldFocused = true
+            startCooldown()
+        }
+    }
+
+    /// 30-second countdown that disables Resend (mirrors the server's resend cooldown).
+    private func startCooldown() {
+        resendCooldown = 30
+        Task {
+            while resendCooldown > 0 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await MainActor.run { if resendCooldown > 0 { resendCooldown -= 1 } }
+            }
         }
     }
 }

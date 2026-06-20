@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class AuthUiState(
@@ -26,7 +27,9 @@ data class AuthUiState(
      * Set to the email awaiting OTP verification after a sign-up (or an unverified
      * login). Non-null drives the OTP screen; cleared once verified or cancelled.
      */
-    val pendingEmail: String? = null
+    val pendingEmail: String? = null,
+    /** Seconds left before "Resend code" is allowed again (mirrors the server cooldown). */
+    val otpResendCooldown: Int = 0
 )
 
 /**
@@ -125,18 +128,30 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     /** Requests a fresh OTP for the pending email (no-op if nothing is pending). */
     fun resendOtp() {
         val email = _state.value.pendingEmail ?: return
-        if (_state.value.isLoading) return
+        if (_state.value.isLoading || _state.value.otpResendCooldown > 0) return
         _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
                 AuthService.resendOtp(email)
                 _state.value = _state.value.copy(isLoading = false)
+                startOtpCooldown()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = e.message ?: "Couldn't resend the code."
                 )
             }
+        }
+    }
+
+    /** 30-second countdown that disables "Resend code" (mirrors the server cooldown). */
+    private fun startOtpCooldown() {
+        viewModelScope.launch {
+            for (s in 30 downTo 1) {
+                _state.value = _state.value.copy(otpResendCooldown = s)
+                delay(1000)
+            }
+            _state.value = _state.value.copy(otpResendCooldown = 0)
         }
     }
 

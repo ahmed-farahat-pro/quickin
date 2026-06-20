@@ -74,6 +74,21 @@ object AvatarImage {
     }
 
     /**
+     * Downscales [bitmap] so its longest edge is ≤ [maxDim]px, JPEG-compresses it, and returns a
+     * `data:image/jpeg;base64,…` data URL. Used by the manual ID-verification fallback to upload a
+     * camera frame the OCR couldn't read.
+     */
+    fun bitmapToJpegDataUrl(bitmap: Bitmap, maxDim: Int = MAX_REVIEW_DIM): String {
+        val scaled = scaleToFit(bitmap, maxDim)
+        val bytes = ByteArrayOutputStream().use { out ->
+            scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            out.toByteArray()
+        }
+        if (scaled !== bitmap) scaled.recycle()
+        return "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    /**
      * Decodes a `data:image/...;base64,…` data URL to a [Bitmap] for display, or null if [dataUrl]
      * is not a (decodable) base64 data URL.
      */

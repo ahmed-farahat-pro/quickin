@@ -1,37 +1,52 @@
 import Foundation
 import UIKit
 
-/// Decoded response from the local OCR server at `Config.idOcrBaseURL`.
+/// Decoded response from the OCR backend at `Config.idOcrBaseURL`.
+/// The backend proxies StructOCR, so this carries the full extracted ID data.
 struct IDScanResult: Decodable {
     let success: Bool
-    let idNumber: String?
+    let idNumber: String?          // 14-digit national ID (StructOCR `personal_number`)
+    let fullName: String?          // given names + surname (Arabic)
+    let documentNumber: String?    // card document number, e.g. "JA1234567"
     let birthDate: String?
     let birthYear: Int?
-    let governorate: String?
+    let governorate: String?       // derived from the ID number
     let gender: String?
+    let nationality: String?
+    let address: String?           // Arabic address
     /// Present when `success == false`.
     let message: String?
     /// All digits the server found (useful for debugging scan failures).
     let rawDigits: String?
+    /// Server hint that the auto-scan failed / is out of credits → offer manual upload.
+    let needsManual: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case success, message, gender, governorate
-        case idNumber   = "id_number"
-        case birthDate  = "birth_date"
-        case birthYear  = "birth_year"
-        case rawDigits  = "raw_digits"
+        case success, message, gender, governorate, nationality, address
+        case idNumber        = "id_number"
+        case fullName        = "full_name"
+        case documentNumber  = "document_number"
+        case birthDate       = "birth_date"
+        case birthYear       = "birth_year"
+        case rawDigits       = "raw_digits"
+        case needsManual     = "needs_manual"
     }
 
     /// Convenience init for error cases (not decoded from JSON).
     init(success: Bool, message: String? = nil) {
-        self.success     = success
-        self.message     = message
-        self.idNumber    = nil
-        self.birthDate   = nil
-        self.birthYear   = nil
-        self.governorate = nil
-        self.gender      = nil
-        self.rawDigits   = nil
+        self.success        = success
+        self.message        = message
+        self.idNumber       = nil
+        self.fullName       = nil
+        self.documentNumber = nil
+        self.birthDate      = nil
+        self.birthYear      = nil
+        self.governorate    = nil
+        self.gender         = nil
+        self.nationality    = nil
+        self.address        = nil
+        self.rawDigits      = nil
+        self.needsManual    = nil
     }
 }
 

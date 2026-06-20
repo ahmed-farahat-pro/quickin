@@ -170,12 +170,17 @@ fun OtpScreen(
 
             Spacer(Modifier.height(8.dp))
 
+            val cooldown = state.otpResendCooldown
             TextButton(
                 onClick = onResend,
-                enabled = !loading,
+                enabled = !loading && cooldown == 0,
                 colors = ButtonDefaults.textButtonColors(contentColor = Burgundy)
             ) {
-                Text(stringResource(R.string.otp_resend), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(
+                    if (cooldown > 0) "Resend in ${cooldown}s"
+                    else stringResource(R.string.otp_resend),
+                    fontWeight = FontWeight.SemiBold, fontSize = 14.sp
+                )
             }
         }
     }

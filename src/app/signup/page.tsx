@@ -78,6 +78,60 @@ export default function SignupPage() {
   const [gisReady, setGisReady] = useState(false)
   const googleBtnRef = useRef<HTMLDivElement | null>(null)
 
+  // OTP email-verification step (shown after a successful signup).
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendCooldown])
+
+  async function verifyOtp(e: React.FormEvent) {
+    e.preventDefault()
+    if (!pendingEmail) return
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, code: otpCode }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data?.error || 'That code is invalid or expired.')
+        setLoading(false)
+        return
+      }
+      window.location.href = '/explore'
+    } catch {
+      setError('Network error. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  async function resendOtp() {
+    if (!pendingEmail || resendCooldown > 0) return
+    setError(null)
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setResendCooldown(Number(data?.cooldown) || 30)
+      if (!res.ok) setError(data?.error || null)
+      else setNotice('A new code is on its way.')
+    } catch {
+      setError('Network error. Please try again.')
+    }
+  }
+
   const googleEnabled = Boolean(GOOGLE_CLIENT_ID)
 
   // Send a verified Google ID token to the real backend.
@@ -152,6 +206,14 @@ export default function SignupPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data?.error || 'Unable to create account. Please try again.')
+        setLoading(false)
+        return
+      }
+      if (data?.pending) {
+        // Email verification required — switch to the OTP step.
+        setPendingEmail(data.email || email)
+        setNotice(`We sent a 6-digit code to ${data.email || email}.`)
+        setResendCooldown(30)
         setLoading(false)
         return
       }
@@ -252,6 +314,48 @@ export default function SignupPage() {
           </div>
         )}
 
+        {pendingEmail ? (
+          <form onSubmit={verifyOtp}>
+            <label style={{ display: 'block', marginBottom: 16 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: COLORS.ink, marginBottom: 6 }}>
+                Verification code
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="6-digit code"
+                style={{ ...inputStyle, letterSpacing: 6, textAlign: 'center', fontSize: 20 }}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={loading || otpCode.length < 6}
+              style={primaryButtonStyle(loading || otpCode.length < 6)}
+            >
+              {loading ? 'Verifying…' : 'Verify & continue'}
+            </button>
+            <p style={{ margin: '18px 0 0', textAlign: 'center', fontSize: 14, color: COLORS.muted }}>
+              Didn&apos;t get it?{' '}
+              {resendCooldown > 0 ? (
+                <span>Resend in {resendCooldown}s</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={resendOtp}
+                  style={{ background: 'none', border: 'none', color: COLORS.burgundy, fontWeight: 600, cursor: 'pointer', fontSize: 14, padding: 0 }}
+                >
+                  Resend code
+                </button>
+              )}
+            </p>
+          </form>
+        ) : (
+          <>
         <form onSubmit={handleSubmit}>
           <label style={{ display: 'block', marginBottom: 16 }}>
             <span
@@ -396,6 +500,8 @@ export default function SignupPage() {
             >
               Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in
             </p>
+          </>
+        )}
           </>
         )}
 

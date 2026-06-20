@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getUserRowByEmail, verifyPassword, signToken } from '@/lib/local/auth'
+import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp } from '@/lib/local/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +10,14 @@ export async function POST(req: Request) {
     const { email, password } = await req.json()
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400, headers: CORS })
+    }
+    // Throttle brute-force: max 10 attempts per 5 min per IP+email.
+    const wait = rateLimit(`login:${clientIp(req)}:${String(email).toLowerCase().trim()}`, 10, 5 * 60_000)
+    if (wait) {
+      return NextResponse.json(
+        { error: `Too many login attempts. Please try again in ${wait}s.` },
+        { status: 429, headers: { ...CORS, 'Retry-After': String(wait) } }
+      )
     }
     const row = await getUserRowByEmail(String(email).trim())
     if (!row || !verifyPassword(String(password), row.password_hash)) {

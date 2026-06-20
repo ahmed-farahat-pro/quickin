@@ -38,7 +38,21 @@ const getStats = () =>
     'listings',(SELECT count(*) FROM listings),
     'published',(SELECT count(*) FROM listings WHERE is_published),
     'users',(SELECT count(*) FROM users),
-    'images',(SELECT count(*) FROM listing_images))`)
+    'images',(SELECT count(*) FROM listing_images),
+    'pending_ids',(SELECT count(*) FROM id_verifications WHERE status='pending'))`)
+// Most-recent ID verification submissions, pending first. image_data is a base64
+// data URL we render inline. LIMIT keeps the (large) image payloads bounded.
+const getVerifications = () =>
+  psqlJson(`SELECT COALESCE(json_agg(json_build_object(
+    'id',id,'email',email,'full_name',full_name,'id_number',id_number,'source',source,
+    'status',status,'notes',notes,'submitted',submitted,'image_data',image_data
+  ) ORDER BY is_pending DESC, sat DESC),'[]') FROM (
+    SELECT v.id, u.email, v.full_name, v.id_number, v.source, v.status, v.notes,
+           to_char(v.submitted_at,'YYYY-MM-DD HH24:MI') submitted, v.submitted_at sat,
+           (v.status='pending') is_pending, v.image_data
+    FROM id_verifications v JOIN users u ON u.id = v.user_id
+    ORDER BY (v.status='pending') DESC, v.submitted_at DESC LIMIT 20
+  ) t`)
 const getListings = () =>
   psqlJson(`SELECT COALESCE(json_agg(json_build_object(
     'id',id,'title',title,'location',location,'price_per_night',price_per_night::float8,
@@ -95,6 +109,30 @@ function listingRow(l) {
 const btn = (bg, color) =>
   `background:${bg};color:${color};border:none;border-radius:10px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;margin-right:6px`
 
+function verificationRow(v) {
+  const sc = { pending: '#b58100', verified: '#177245', rejected: '#b3261e' }[v.status] || C.muted
+  const statusPill = `<span style="background:${sc}1a;color:${sc};font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;text-transform:capitalize">${esc(v.status)}</span>`
+  const thumb = v.image_data
+    ? `<a href="${v.image_data}" target="_blank"><img src="${v.image_data}" style="width:132px;height:84px;object-fit:cover;border-radius:8px;border:1px solid ${C.tan}" /></a>`
+    : `<div style="width:132px;height:84px;background:${C.tan};border-radius:8px"></div>`
+  const srcBadge = `<span style="background:${C.tan};color:${C.muted};font-size:11px;padding:2px 8px;border-radius:999px">${esc(v.source)}</span>`
+  const actions = v.status === 'pending'
+    ? `<form method="post" action="/verifications/${v.id}/approve" style="display:inline">
+         <button style="${btn('#e7f5ec', '#177245')};border:1px solid #bfe3cc">Approve</button></form>
+       <form method="post" action="/verifications/${v.id}/reject" style="display:inline;white-space:nowrap">
+         <input name="note" placeholder="reason (optional)" style="padding:6px 9px;border:1px solid ${C.tan};border-radius:8px;font-size:12px;width:120px" />
+         <button style="${btn('#fff', '#b3261e')};border:1px solid #f0caca">Reject</button></form>`
+    : `<span style="color:${C.muted};font-size:12px">reviewed${v.notes ? ' · ' + esc(v.notes) : ''}</span>`
+  return `<tr style="border-top:1px solid ${C.tan}">
+    <td style="padding:10px 8px">${thumb}</td>
+    <td style="padding:10px 8px;color:${C.ink}"><div style="font-weight:600">${esc(v.full_name || '—')}</div><div style="color:${C.muted};font-size:12px">${esc(v.email)}</div></td>
+    <td style="padding:10px 8px;font-family:ui-monospace,monospace;color:${C.ink}">${esc(v.id_number || '—')}</td>
+    <td style="padding:10px 8px">${srcBadge}</td>
+    <td style="padding:10px 8px">${statusPill}</td>
+    <td style="padding:10px 8px;color:${C.muted};white-space:nowrap;font-size:12px">${esc(v.submitted || '')}</td>
+    <td style="padding:10px 8px">${actions}</td></tr>`
+}
+
 function userRow(u) {
   const badge = { google: '#4285F4', apple: '#111', email: C.burgundy }[u.provider] || C.muted
   return `<tr style="border-top:1px solid ${C.tan}">
@@ -104,7 +142,7 @@ function userRow(u) {
     <td style="padding:9px 8px;color:${C.muted}">${esc(u.created || '')}</td></tr>`
 }
 
-function page(stats, listings, users) {
+function page(stats, listings, users, verifications) {
   const field = (name, label, type = 'text', extra = '') =>
     `<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:${C.muted}">${label}
       <input name="${name}" type="${type}" ${extra} style="padding:9px 11px;border:1px solid ${C.tan};border-radius:10px;font-size:14px;background:#fff" /></label>`
@@ -121,6 +159,7 @@ function page(stats, listings, users) {
       ${statCard('Published', stats.published)}
       ${statCard('Users', stats.users)}
       ${statCard('Photos', stats.images)}
+      ${statCard('Pending IDs', stats.pending_ids ?? 0)}
     </div>
 
     <h2 style="font-size:18px;margin:0 0 12px">Add a listing</h2>
@@ -147,6 +186,16 @@ function page(stats, listings, users) {
         </tr></thead><tbody>${listings.map(listingRow).join('')}</tbody></table>
     </div>
 
+    <h2 style="font-size:18px;margin:0 0 12px">ID Verifications (${verifications.length}) — <span style="color:${C.burgundy}">${stats.pending_ids ?? 0} pending</span></h2>
+    <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 16px rgba(42,34,32,.06);margin-bottom:36px">
+      ${verifications.length ? `<table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:${C.tan};text-align:left">
+          <th style="padding:11px 8px">ID photo</th><th style="padding:11px 8px">User</th><th style="padding:11px 8px">ID number</th>
+          <th style="padding:11px 8px">Source</th><th style="padding:11px 8px">Status</th><th style="padding:11px 8px">Submitted</th><th style="padding:11px 8px">Review</th>
+        </tr></thead><tbody>${verifications.map(verificationRow).join('')}</tbody></table>`
+        : `<div style="padding:22px;color:${C.muted}">No ID submissions yet.</div>`}
+    </div>
+
     <h2 style="font-size:18px;margin:0 0 12px">Users (${users.length})</h2>
     <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 16px rgba(42,34,32,.06)">
       <table style="width:100%;border-collapse:collapse;font-size:14px">
@@ -171,8 +220,10 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && u.pathname === '/') {
-      const [stats, listings, users] = await Promise.all([getStats(), getListings(), getUsers()])
-      return send(200, page(stats, listings, users))
+      const [stats, listings, users, verifications] = await Promise.all([
+        getStats(), getListings(), getUsers(), getVerifications(),
+      ])
+      return send(200, page(stats, listings, users, verifications))
     }
     if (req.method === 'POST' && u.pathname === '/listings/create') {
       const f = parseForm(await readBody(req))
@@ -194,6 +245,18 @@ const server = createServer(async (req, res) => {
       const [, id, action] = m
       if (action === 'delete') await psql(`DELETE FROM listings WHERE id=${q(id)}`)
       else await psql(`UPDATE listings SET is_published = NOT is_published WHERE id=${q(id)}`)
+      return redirect()
+    }
+    const mv = u.pathname.match(/^\/verifications\/([0-9a-fA-F-]{36})\/(approve|reject)$/)
+    if (req.method === 'POST' && mv) {
+      const [, id, action] = mv
+      if (action === 'approve') {
+        await psql(`UPDATE id_verifications SET status='verified', reviewed_at=now(), reviewed_by='admin', notes=NULL WHERE id=${q(id)}`)
+      } else {
+        const f = parseForm(await readBody(req))
+        const note = (f.note || '').trim() || 'Rejected by admin'
+        await psql(`UPDATE id_verifications SET status='rejected', reviewed_at=now(), reviewed_by='admin', notes=${q(note)} WHERE id=${q(id)}`)
+      }
       return redirect()
     }
     send(404, 'Not found', 'text/plain')

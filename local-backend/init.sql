@@ -52,13 +52,71 @@ CREATE TABLE IF NOT EXISTS bookings (
   user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   check_in    date NOT NULL,
   check_out   date NOT NULL,
-  guests      int NOT NULL DEFAULT 1,
-  total_price numeric NOT NULL DEFAULT 0,
-  status      text NOT NULL DEFAULT 'confirmed',
-  created_at  timestamptz DEFAULT now()
+  guests         int NOT NULL DEFAULT 1,
+  total_price    numeric NOT NULL DEFAULT 0,
+  status         text NOT NULL DEFAULT 'confirmed',
+  cancelled_at   timestamptz,
+  refund_percent int,
+  created_at     timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_listing ON bookings(listing_id);
+
+-- ID verification: one active submission per user. The ID photo is stored inline
+-- as a base64 data URL (no blob service — works on serverless). Auto path fills
+-- id_number from StructOCR; manual path leaves it null for the admin to read off
+-- the image. Admin reviews pending rows and sets status verified/rejected.
+CREATE TABLE IF NOT EXISTS id_verifications (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  image_data   text NOT NULL,                       -- data:image/jpeg;base64,...
+  id_number    text,                                -- 14-digit national ID, if known
+  full_name    text,
+  source       text NOT NULL DEFAULT 'manual',      -- 'manual' | 'structocr'
+  status       text NOT NULL DEFAULT 'pending',     -- 'pending' | 'verified' | 'rejected'
+  notes        text,                                 -- admin note (e.g. rejection reason)
+  submitted_at timestamptz DEFAULT now(),
+  reviewed_at  timestamptz,
+  reviewed_by  text
+);
+CREATE INDEX IF NOT EXISTS idx_id_verifications_user   ON id_verifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_id_verifications_status ON id_verifications(status);
+
+-- Guest → listing reviews ("rate the place"). One review per booking per guest.
+CREATE TABLE IF NOT EXISTS reviews (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id  uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  listing_id  uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  reviewer_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating      int  NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment     text,
+  photos      jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at  timestamptz DEFAULT now(),
+  UNIQUE (booking_id, reviewer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_listing ON reviews(listing_id);
+
+-- Host → guest reviews. host_id is nullable (listings carry no owner in this schema).
+CREATE TABLE IF NOT EXISTS guest_reviews (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id  uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  guest_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  host_id     uuid REFERENCES users(id) ON DELETE SET NULL,
+  rating      int  NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment     text,
+  created_at  timestamptz DEFAULT now(),
+  UNIQUE (booking_id)
+);
+CREATE INDEX IF NOT EXISTS idx_guest_reviews_guest ON guest_reviews(guest_id);
+
+-- Email OTP verification codes. One active code per email (upserted on resend).
+CREATE TABLE IF NOT EXISTS otp_codes (
+  email      text PRIMARY KEY,
+  code       text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  attempts   int NOT NULL DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);
 
 -- ---- Seed listings (only if the table is empty) -----------------------------
 DO $$

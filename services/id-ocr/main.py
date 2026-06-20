@@ -1,13 +1,31 @@
+"""
+QuickIn Egyptian National ID OCR — StructOCR proxy.
+
+The mobile apps POST the ID photo to THIS backend (same endpoints as before:
+/scan and /scan-base64). The backend then calls StructOCR's pre-trained Egyptian
+National ID model and returns a unified result. The StructOCR API key lives ONLY
+here (env var) — never in the iOS/Android apps, per StructOCR's security guidance.
+
+StructOCR:  POST https://api.structocr.com/v1/national-id
+            headers: x-api-key: <key>, Content-Type: application/json
+            body:    {"img": "data:image/jpeg;base64,<…>"}
+            -> {"success": true, "data": {personal_number, surname, given_names,
+                                          sex, date_of_birth, address, …}}
+
+Only stdlib + Pillow are used (no requests/httpx; installs are throttled here).
+"""
+
 import io
+import os
 import re
+import json
 import base64
 import logging
-from contextlib import asynccontextmanager
+import urllib.request
+import urllib.error
+from pathlib import Path
 from typing import Optional
 
-import cv2
-import numpy as np
-import easyocr
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ExifTags
@@ -17,32 +35,40 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# EasyOCR reader (downloads ~2 GB of models on first run — only once)
+# Config (env-driven). Drop a `.env` file next to this script with:
+#     STRUCTOCR_API_KEY=sk_live_…
+# Get a key + 20 free credits at https://structocr.com (each ID scan = 2 credits).
 # ---------------------------------------------------------------------------
 
-_reader: Optional[easyocr.Reader] = None
+def _load_dotenv() -> None:
+    """Minimal .env loader (python-dotenv isn't installed). KEY=VALUE per line."""
+    env_path = Path(__file__).with_name(".env")
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
 
 
-def get_reader() -> easyocr.Reader:
-    global _reader
-    if _reader is None:
-        logger.info("Loading EasyOCR Arabic+English models (first run downloads ~2 GB)…")
-        _reader = easyocr.Reader(["ar", "en"], gpu=False)
-        logger.info("EasyOCR ready.")
-    return _reader
+_load_dotenv()
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    get_reader()          # warm up at startup so the first /scan isn't slow
-    yield
-
+STRUCTOCR_API_KEY = os.environ.get("STRUCTOCR_API_KEY", "").strip()
+STRUCTOCR_API_URL = os.environ.get(
+    "STRUCTOCR_API_URL", "https://api.structocr.com/v1/national-id"
+).strip()
+# StructOCR recommends images < 300 KB / ≤ 1920 px for sub-3 s responses.
+MAX_DIM = int(os.environ.get("STRUCTOCR_MAX_DIM", "1920"))
+JPEG_QUALITY = int(os.environ.get("STRUCTOCR_JPEG_QUALITY", "85"))
+HTTP_TIMEOUT = int(os.environ.get("STRUCTOCR_TIMEOUT", "30"))
 
 # ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="QuickIn Egyptian ID OCR", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="QuickIn Egyptian ID OCR (StructOCR)", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,7 +78,8 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# Egyptian ID decoder — verified structure (4 independent GitHub decoders)
+# Egyptian ID number decoder — used to enrich StructOCR's output with the
+# governorate (which StructOCR doesn't return) and to cross-check birth/gender.
 # ---------------------------------------------------------------------------
 
 GOVERNORATES: dict[str, str] = {
@@ -68,14 +95,19 @@ GOVERNORATES: dict[str, str] = {
     "88": "Foreign",
 }
 
-# Eastern Arabic ٠–٩  →  Western 0–9
 _AR_TO_WEST = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
-# Regex to find 14+ consecutive Eastern-Arabic digits directly in raw OCR text
-_AR_DIGITS_RE = re.compile(r"[٠١٢٣٤٥٦٧٨٩]{14,}")
+
+def _digits14(value: Optional[str]) -> Optional[str]:
+    """Normalise to a 14-digit Western string, or None if it isn't one."""
+    if not value:
+        return None
+    digits = re.sub(r"\D", "", str(value).translate(_AR_TO_WEST))
+    return digits if len(digits) == 14 and digits[0] in ("2", "3") else None
 
 
 def decode_id(id_number: str) -> dict:
+    """Derive birth date / governorate / gender from the 14-digit ID number."""
     century = int(id_number[0])
     year_prefix = "19" if century == 2 else "20"
     year  = year_prefix + id_number[1:3]
@@ -84,7 +116,6 @@ def decode_id(id_number: str) -> dict:
     gov   = id_number[7:9]
     gender_digit = int(id_number[12])
     return {
-        "id_number":        id_number,
         "birth_date":       f"{year}-{month}-{day}",
         "birth_year":       int(year),
         "birth_month":      int(month),
@@ -100,7 +131,7 @@ def decode_id(id_number: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _fix_exif_orientation(pil_img: Image.Image) -> Image.Image:
-    """Rotate image so it matches the EXIF orientation tag (mobile photos)."""
+    """Rotate so the image matches its EXIF orientation tag (mobile photos)."""
     try:
         exif = pil_img._getexif()          # type: ignore[attr-defined]
         if exif is None:
@@ -118,187 +149,162 @@ def _fix_exif_orientation(pil_img: Image.Image) -> Image.Image:
     return pil_img
 
 
-def _order_pts(pts: np.ndarray) -> np.ndarray:
-    rect = np.zeros((4, 2), dtype="float32")
-    s    = pts.sum(axis=1)
-    diff = np.diff(pts, axis=1)
-    rect[0] = pts[np.argmin(s)]    # top-left
-    rect[2] = pts[np.argmax(s)]    # bottom-right
-    rect[1] = pts[np.argmin(diff)] # top-right
-    rect[3] = pts[np.argmax(diff)] # bottom-left
-    return rect
-
-
-def _four_point_transform(image: np.ndarray, pts: np.ndarray) -> np.ndarray:
-    rect = _order_pts(pts)
-    tl, tr, br, bl = rect
-    w = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
-    h = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
-    dst = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype="float32")
-    M = cv2.getPerspectiveTransform(rect, dst)
-    return cv2.warpPerspective(image, M, (w, h))
-
-
-def detect_and_crop_card(image: np.ndarray) -> np.ndarray:
-    """
-    Find the largest 4-corner contour (the card boundary), deskew it, and
-    return the cropped card.  Falls back to the full image if detection fails.
-    """
-    orig   = image.copy()
-    gray   = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur   = cv2.bilateralFilter(gray, 9, 75, 75)
-    edged  = cv2.Canny(blur, 50, 150)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    edged  = cv2.dilate(edged, kernel, iterations=1)
-
-    contours, _ = cv2.findContours(edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
-    img_area = image.shape[0] * image.shape[1]
-
-    for c in contours:
-        peri  = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-        if len(approx) == 4 and cv2.contourArea(approx) > img_area * 0.10:
-            return _four_point_transform(orig, approx.reshape(4, 2))
-
-    return orig  # no card detected — return original
-
-
-def _preprocess_variants(cv_img: np.ndarray) -> list[np.ndarray]:
-    """
-    Two pre-processed variants: original colour + CLAHE-enhanced grayscale.
-    (4 variants were too slow on CPU — pushed processing past the 30 s mobile timeout.)
-    """
-    gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-
-    # 1. Original colour
-    variants: list[np.ndarray] = [cv_img]
-
-    # 2. CLAHE – adaptive histogram equalisation (best single improvement for uneven lighting)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    clahe_gray = clahe.apply(gray)
-    variants.append(cv2.cvtColor(clahe_gray, cv2.COLOR_GRAY2BGR))
-
-    return variants
+def _to_data_url(image_bytes: bytes) -> str:
+    """Fix orientation, downscale ≤ MAX_DIM, JPEG-compress, return a data URL."""
+    pil = _fix_exif_orientation(Image.open(io.BytesIO(image_bytes)).convert("RGB"))
+    pil.thumbnail((MAX_DIM, MAX_DIM))
+    buf = io.BytesIO()
+    pil.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    logger.info("Prepared image: %dx%d, %d KB", *pil.size, len(buf.getvalue()) // 1024)
+    return f"data:image/jpeg;base64,{b64}"
 
 
 # ---------------------------------------------------------------------------
-# OCR + ID extraction
+# StructOCR call
 # ---------------------------------------------------------------------------
 
-def _normalize(text: str) -> str:
-    """Translate Eastern Arabic digits → Western, then strip every non-digit."""
-    return re.sub(r"\D", "", text.translate(_AR_TO_WEST))
+def _clean(value) -> Optional[str]:
+    """StructOCR uses the literal string 'null' for empty fields — drop those."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return None if s == "" or s.lower() == "null" else s
 
 
-def find_id_number(texts: list[str]) -> Optional[str]:
-    """
-    Search for a valid 14-digit Egyptian National ID in OCR output.
-
-    Strategies (in order, strictest first):
-      0 — raw Eastern-Arabic digit sequences (٠-٩) directly in each OCR token
-      1 — per-token after Eastern→Western translation + non-digit strip
-      2 — digits from each token individually joined (no cross-contamination between
-          the 4 OCR variants), slide 14-char window with date validation
-      3 — lenient: any 14-digit window starting with 2 or 3 (no date check);
-          last resort when lighting/blur makes OCR produce imperfect dates
-    """
-    # Deduplicate texts (4 OCR variants produce identical or near-identical tokens)
-    seen: set[str] = set()
-    unique = [t for t in texts if not (t in seen or seen.add(t))]  # type: ignore[func-returns-value]
-
-    # Strategy 0: raw Arabic-Indic sequences
-    for text in unique:
-        for m in _AR_DIGITS_RE.finditer(text):
-            west = m.group().translate(_AR_TO_WEST)
-            for i in range(len(west) - 13):
-                cand = west[i:i+14]
-                if _validate_id(cand):
-                    return cand
-
-    # Strategy 1: per-token Western digits
-    for text in unique:
-        norm = _normalize(text)
-        for m in re.finditer(r"\d{14}", norm):
-            if _validate_id(m.group()):
-                return m.group()
-
-    # Strategy 2: per-token digits joined (avoids pollution across variant repetitions)
-    token_digits = "".join(_normalize(t) for t in unique)
-    for i in range(len(token_digits) - 13):
-        cand = token_digits[i:i+14]
-        if _validate_id(cand):
-            return cand
-
-    # Strategy 3 (lenient): any window starting with 2 or 3, skip date validation.
-    # Accepts partial OCR errors — user still confirms before the number is used.
-    for i in range(len(token_digits) - 13):
-        cand = token_digits[i:i+14]
-        if cand[0] in ("2", "3") and cand.isdigit():
-            return cand
-
-    return None
+class StructOCRError(Exception):
+    """Carries a client-facing message plus a machine reason for the fallback."""
+    def __init__(self, message: str, reason: str):
+        super().__init__(message)
+        self.message = message
+        self.reason = reason          # 'quota' | 'http_error' | 'unreachable'
 
 
-def _validate_id(id_number: str) -> bool:
-    if len(id_number) != 14:
-        return False
-    if id_number[0] not in ("2", "3"):
-        return False
+# Words that mean "you're out of credits / must pay" in StructOCR error bodies.
+_QUOTA_WORDS = ("credit", "insufficient", "quota", "payment", "balance", "upgrade", "limit")
+
+
+def _call_structocr(data_url: str) -> dict:
+    """POST the image to StructOCR and return the parsed JSON (raises StructOCRError)."""
+    payload = json.dumps({"img": data_url}).encode()
+    req = urllib.request.Request(
+        STRUCTOCR_API_URL,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": STRUCTOCR_API_KEY,
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
     try:
-        month = int(id_number[3:5])
-        day   = int(id_number[5:7])
-        return 1 <= month <= 12 and 1 <= day <= 31
-    except ValueError:
-        return False
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        logger.warning("StructOCR HTTP %s: %s", e.code, body)
+        try:
+            parsed = json.loads(body)
+            msg = parsed.get("error") or parsed.get("message") or body
+        except Exception:
+            msg = body or f"StructOCR returned HTTP {e.code}"
+        # 402 Payment Required, or 401/403/429 whose body mentions credits/quota → out of credits.
+        out_of_credits = e.code == 402 or (
+            e.code in (401, 403, 429) and any(w in body.lower() for w in _QUOTA_WORDS)
+        )
+        if out_of_credits:
+            raise StructOCRError(
+                "Automatic scanning is temporarily unavailable. Please upload your ID for review.",
+                "quota",
+            ) from e
+        raise StructOCRError(f"StructOCR error (HTTP {e.code}): {msg}", "http_error") from e
+    except urllib.error.URLError as e:
+        raise StructOCRError(f"Could not reach StructOCR: {e.reason}", "unreachable") from e
 
 
 def process_image(image_bytes: bytes) -> dict:
-    # Open + fix orientation
-    pil = _fix_exif_orientation(Image.open(io.BytesIO(image_bytes)).convert("RGB"))
-    cv_img = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+    """Send the ID photo to StructOCR and return QuickIn's unified result shape."""
+    if not STRUCTOCR_API_KEY:
+        logger.error("STRUCTOCR_API_KEY is not set — cannot scan.")
+        return {
+            "success": False,
+            "needs_manual": True,          # clients should offer manual upload
+            "reason": "not_configured",
+            "message": "Automatic scanning is unavailable right now. "
+                       "Please upload your ID for manual review.",
+        }
 
-    # Detect + deskew
-    cropped = detect_and_crop_card(cv_img)
+    data_url = _to_data_url(image_bytes)
 
-    reader = get_reader()
-    all_texts: list[str] = []
+    try:
+        resp = _call_structocr(data_url)
+    except StructOCRError as e:
+        return {"success": False, "needs_manual": True, "reason": e.reason, "message": e.message}
 
-    # Run OCR on every preprocessing variant; collect all tokens with conf > 0.1
-    # (was 0.3 — the old threshold discarded many valid but low-confidence digits)
-    for variant in _preprocess_variants(cropped):
-        results = reader.readtext(variant, detail=1, paragraph=False)
-        texts = [text for (_, text, conf) in results if conf > 0.1]
-        all_texts.extend(texts)
+    # StructOCR returns success as bool true or the string "true".
+    ok = resp.get("success") in (True, "true", "True", 1)
+    data = resp.get("data") or {}
 
-    # Log what was found for diagnosis
-    raw_digits = re.sub(r"\D", "", "".join(all_texts).translate(_AR_TO_WEST))
-    logger.info("OCR raw_texts=%s", all_texts)
-    logger.info("OCR raw_digits=%s", raw_digits)
+    if not ok or not data:
+        msg = _clean(resp.get("error")) or _clean(resp.get("message")) \
+            or "Couldn't read the card automatically. You can upload it for manual review."
+        logger.info("StructOCR FAILED: %s", msg)
+        return {"success": False, "needs_manual": True, "reason": "unreadable", "message": msg}
 
-    id_number = find_id_number(all_texts)
+    personal_number = _clean(data.get("personal_number"))
+    id14 = _digits14(personal_number)
 
-    if id_number:
-        logger.info("OCR SUCCESS id=%s", id_number)
-        return {"success": True, **decode_id(id_number), "raw_texts": all_texts}
+    surname     = _clean(data.get("surname"))
+    given_names = _clean(data.get("given_names"))
+    full_name   = " ".join(p for p in (given_names, surname) if p) or None
 
-    logger.info("OCR FAILED — no 14-digit ID found in digits: %s", raw_digits)
-    return {
-        "success":    False,
-        "message":    "Could not detect a 14-digit national ID number. "
-                      "Make sure the full card is visible and well-lit.",
-        "raw_texts":  all_texts,
-        "raw_digits": raw_digits,   # lets the client show what was found
+    sex_raw = (_clean(data.get("sex")) or "").upper()
+    gender  = {"M": "Male", "F": "Female"}.get(sex_raw)
+
+    result: dict = {
+        "success":         True,
+        "id_number":       id14 or personal_number,
+        "document_number": _clean(data.get("document_number")),
+        "full_name":       full_name,
+        "first_name":      given_names,
+        "last_name":       surname,
+        "address":         _clean(data.get("address")),
+        "nationality":     _clean(data.get("nationality")),
+        "date_of_expiry":  _clean(data.get("date_of_expiry")),
+        "birth_date":      _clean(data.get("date_of_birth")),
+        "gender":          gender,
+        "raw":             data,            # full StructOCR payload for debugging
     }
+
+    # Enrich/cross-check from the 14-digit number (governorate isn't in StructOCR's
+    # response; birth date & gender are recomputed as a fallback if StructOCR omits them).
+    if id14:
+        decoded = decode_id(id14)
+        result["governorate"]      = decoded["governorate"]
+        result["governorate_code"] = decoded["governorate_code"]
+        result.setdefault("birth_date", None)
+        result["birth_date"]  = result["birth_date"] or decoded["birth_date"]
+        result["birth_year"]  = decoded["birth_year"]
+        result["gender"]      = result["gender"] or decoded["gender"]
+
+    logger.info("StructOCR SUCCESS id=%s name=%s gov=%s",
+                result.get("id_number"), full_name, result.get("governorate"))
+    return result
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Endpoints (unchanged paths — the iOS/Android apps keep calling /scan-base64)
 # ---------------------------------------------------------------------------
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "QuickIn Egyptian ID OCR"}
+    return {
+        "status": "ok",
+        "service": "QuickIn Egyptian ID OCR (StructOCR)",
+        "engine": "structocr",
+        "api_key_configured": bool(STRUCTOCR_API_KEY),
+        "endpoint": STRUCTOCR_API_URL,
+    }
 
 
 @app.post("/scan")
@@ -311,12 +317,12 @@ async def scan_file(file: UploadFile = File(...)):
 
 
 class Base64Request(BaseModel):
-    image: str   # base64-encoded image, optionally with data:image/… prefix
+    image: str   # base64-encoded image, optionally with a data:image/… prefix
 
 
 @app.post("/scan-base64")
 async def scan_base64(req: Base64Request):
-    """Send the ID card image as a base64 string (mobile-friendly)."""
+    """Send the ID card image as a base64 string (what the mobile apps use)."""
     img_data = req.image
     if "," in img_data:          # strip data:image/jpeg;base64, prefix
         img_data = img_data.split(",", 1)[1]
@@ -329,4 +335,7 @@ async def scan_base64(req: Base64Request):
 
 if __name__ == "__main__":
     import uvicorn
+    if not STRUCTOCR_API_KEY:
+        logger.warning("STRUCTOCR_API_KEY not set — scans will return a config error. "
+                       "Add it to services/id-ocr/.env (see .env.example).")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)

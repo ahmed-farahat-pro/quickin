@@ -1,10 +1,68 @@
-import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypto'
+import { scryptSync, randomBytes, timingSafeEqual, createHmac, randomInt } from 'node:crypto'
 import { pool } from './pool'
+
+/** A cryptographically-random 6-digit OTP, as a zero-padded string. */
+export function generateOtp(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0')
+}
 
 // Local auth — no Supabase. Postgres via node-postgres (Vercel/Neon-ready),
 // password hashing via node:crypto (scrypt), stateless HMAC-signed tokens.
 
 const SECRET = process.env.AUTH_SECRET || 'quickin-local-dev-secret-change-me'
+
+// ---- Email validation + disposable-domain blocklist -------------------------
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Common disposable / temp-mail domains we refuse at signup. */
+const DISPOSABLE_DOMAINS = new Set([
+  'mailinator.com', 'guerrillamail.com', 'guerrillamail.info', 'guerrillamail.biz',
+  '10minutemail.com', '10minutemail.net', 'tempmail.com', 'temp-mail.org', 'temp-mail.io',
+  'tempmail.dev', 'throwawaymail.com', 'throwaway.email', 'getnada.com', 'nada.email',
+  'dispostable.com', 'yopmail.com', 'yopmail.fr', 'sharklasers.com', 'grr.la', 'spam4.me',
+  'trashmail.com', 'maildrop.cc', 'mailnesia.com', 'fakeinbox.com', 'tempinbox.com',
+  'mintemail.com', 'mohmal.com', 'emailondeck.com', 'mailcatch.com', 'tempr.email',
+  'discard.email', 'moakt.com', 'inboxbear.com', '1secmail.com', 'fakemail.net',
+  'mailpoof.com', 'burnermail.io', 'tmpmail.org', 'tmail.ws', 'einrot.com', 'mvrht.com',
+])
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(String(email).trim())
+}
+
+export function isDisposableEmail(email: string): boolean {
+  const domain = String(email).trim().toLowerCase().split('@')[1]
+  return domain ? DISPOSABLE_DOMAINS.has(domain) : false
+}
+
+// ---- In-memory rate limiter (per-process; good enough for this stack) --------
+
+type Hit = { count: number; resetAt: number }
+const _buckets = new Map<string, Hit>()
+
+/**
+ * Returns null when the action is allowed, or the seconds the caller must wait
+ * once [key] exceeds [max] hits within [windowMs]. Best-effort, per-process.
+ */
+export function rateLimit(key: string, max: number, windowMs: number): number | null {
+  const now = Date.now()
+  const hit = _buckets.get(key)
+  if (!hit || now >= hit.resetAt) {
+    _buckets.set(key, { count: 1, resetAt: now + windowMs })
+    return null
+  }
+  if (hit.count >= max) return Math.ceil((hit.resetAt - now) / 1000)
+  hit.count++
+  return null
+}
+
+/** Best-effort client IP from proxy headers (Vercel/Next). */
+export function clientIp(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) return xff.split(',')[0].trim()
+  return req.headers.get('x-real-ip') || 'local'
+}
 
 export interface User {
   id: string

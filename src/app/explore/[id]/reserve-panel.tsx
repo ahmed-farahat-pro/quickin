@@ -306,10 +306,10 @@ export default function ReservePanel({
           }}
         >
           <strong style={{ display: 'block', marginBottom: 4 }}>
-            Reserved! 🎉
+            Request sent! ⏳
           </strong>
-          {status.nights} {status.nights === 1 ? 'night' : 'nights'} · $
-          {status.total} total.{' '}
+          {status.nights} {status.nights === 1 ? 'night' : 'nights'} · ${status.total} total.
+          {' '}Awaiting host approval — you&apos;ll be notified once it&apos;s confirmed.{' '}
           <a
             href="/reservations"
             style={{ color: '#fff', fontWeight: 700, textDecoration: 'underline' }}

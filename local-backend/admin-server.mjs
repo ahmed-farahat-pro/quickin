@@ -39,7 +39,18 @@ const getStats = () =>
     'published',(SELECT count(*) FROM listings WHERE is_published),
     'users',(SELECT count(*) FROM users),
     'images',(SELECT count(*) FROM listing_images),
-    'pending_ids',(SELECT count(*) FROM id_verifications WHERE status='pending'))`)
+    'pending_ids',(SELECT count(*) FROM id_verifications WHERE status='pending'),
+    'pending_bookings',(SELECT count(*) FROM bookings WHERE status='pending'))`)
+// Bookings awaiting host approval (newest first).
+const getPendingBookings = () =>
+  psqlJson(`SELECT COALESCE(json_agg(json_build_object(
+    'id', b.id, 'email', u.email, 'guest', u.full_name, 'title', l.title,
+    'check_in', to_char(b.check_in,'YYYY-MM-DD'), 'check_out', to_char(b.check_out,'YYYY-MM-DD'),
+    'total', b.total_price::float8, 'paid', (b.paid_at IS NOT NULL),
+    'created', to_char(b.created_at,'YYYY-MM-DD HH24:MI')
+  ) ORDER BY b.created_at DESC),'[]')
+  FROM bookings b JOIN users u ON u.id=b.user_id JOIN listings l ON l.id=b.listing_id
+  WHERE b.status='pending'`)
 // Most-recent ID verification submissions, pending first. image_data is a base64
 // data URL we render inline. LIMIT keeps the (large) image payloads bounded.
 const getVerifications = () =>
@@ -133,6 +144,24 @@ function verificationRow(v) {
     <td style="padding:10px 8px">${actions}</td></tr>`
 }
 
+function bookingRow(b) {
+  const paid = b.paid
+    ? `<span style="background:#e7f5ec;color:#177245;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px">Paid</span>`
+    : `<span style="background:${C.tan};color:${C.muted};font-size:11px;padding:2px 8px;border-radius:999px">Unpaid</span>`
+  return `<tr style="border-top:1px solid ${C.tan}">
+    <td style="padding:10px 8px;color:${C.ink}"><div style="font-weight:600">${esc(b.guest || '—')}</div><div style="color:${C.muted};font-size:12px">${esc(b.email)}</div></td>
+    <td style="padding:10px 8px;color:${C.ink}">${esc(b.title)}</td>
+    <td style="padding:10px 8px;color:${C.muted};font-size:12px;white-space:nowrap">${esc(b.check_in)} → ${esc(b.check_out)}</td>
+    <td style="padding:10px 8px;color:${C.ink}">${Math.round(b.total)}</td>
+    <td style="padding:10px 8px">${paid}</td>
+    <td style="padding:10px 8px;white-space:nowrap">
+      <form method="post" action="/bookings/${b.id}/approve" style="display:inline">
+        <button style="${btn('#e7f5ec', '#177245')};border:1px solid #bfe3cc">Approve</button></form>
+      <form method="post" action="/bookings/${b.id}/reject" style="display:inline" onsubmit="return confirm('Reject this booking?')">
+        <button style="${btn('#fff', '#b3261e')};border:1px solid #f0caca">Reject</button></form>
+    </td></tr>`
+}
+
 function userRow(u) {
   const badge = { google: '#4285F4', apple: '#111', email: C.burgundy }[u.provider] || C.muted
   return `<tr style="border-top:1px solid ${C.tan}">
@@ -142,7 +171,7 @@ function userRow(u) {
     <td style="padding:9px 8px;color:${C.muted}">${esc(u.created || '')}</td></tr>`
 }
 
-function page(stats, listings, users, verifications) {
+function page(stats, listings, users, verifications, pendingBookings) {
   const field = (name, label, type = 'text', extra = '') =>
     `<label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:${C.muted}">${label}
       <input name="${name}" type="${type}" ${extra} style="padding:9px 11px;border:1px solid ${C.tan};border-radius:10px;font-size:14px;background:#fff" /></label>`
@@ -160,6 +189,7 @@ function page(stats, listings, users, verifications) {
       ${statCard('Users', stats.users)}
       ${statCard('Photos', stats.images)}
       ${statCard('Pending IDs', stats.pending_ids ?? 0)}
+      ${statCard('Pending bookings', stats.pending_bookings ?? 0)}
     </div>
 
     <h2 style="font-size:18px;margin:0 0 12px">Add a listing</h2>
@@ -184,6 +214,16 @@ function page(stats, listings, users, verifications) {
           <th style="padding:11px 8px"></th><th style="padding:11px 8px">Title</th><th style="padding:11px 8px">Location</th>
           <th style="padding:11px 8px">Price</th><th style="padding:11px 8px">Fav</th><th style="padding:11px 8px">Status</th><th style="padding:11px 8px"></th>
         </tr></thead><tbody>${listings.map(listingRow).join('')}</tbody></table>
+    </div>
+
+    <h2 style="font-size:18px;margin:0 0 12px">Bookings awaiting approval (${pendingBookings.length})</h2>
+    <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 16px rgba(42,34,32,.06);margin-bottom:36px">
+      ${pendingBookings.length ? `<table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:${C.tan};text-align:left">
+          <th style="padding:11px 8px">Guest</th><th style="padding:11px 8px">Listing</th><th style="padding:11px 8px">Dates</th>
+          <th style="padding:11px 8px">Total</th><th style="padding:11px 8px">Payment</th><th style="padding:11px 8px">Decision</th>
+        </tr></thead><tbody>${pendingBookings.map(bookingRow).join('')}</tbody></table>`
+        : `<div style="padding:22px;color:${C.muted}">No bookings awaiting approval.</div>`}
     </div>
 
     <h2 style="font-size:18px;margin:0 0 12px">ID Verifications (${verifications.length}) — <span style="color:${C.burgundy}">${stats.pending_ids ?? 0} pending</span></h2>
@@ -220,10 +260,10 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && u.pathname === '/') {
-      const [stats, listings, users, verifications] = await Promise.all([
-        getStats(), getListings(), getUsers(), getVerifications(),
+      const [stats, listings, users, verifications, pendingBookings] = await Promise.all([
+        getStats(), getListings(), getUsers(), getVerifications(), getPendingBookings(),
       ])
-      return send(200, page(stats, listings, users, verifications))
+      return send(200, page(stats, listings, users, verifications, pendingBookings))
     }
     if (req.method === 'POST' && u.pathname === '/listings/create') {
       const f = parseForm(await readBody(req))
@@ -245,6 +285,27 @@ const server = createServer(async (req, res) => {
       const [, id, action] = m
       if (action === 'delete') await psql(`DELETE FROM listings WHERE id=${q(id)}`)
       else await psql(`UPDATE listings SET is_published = NOT is_published WHERE id=${q(id)}`)
+      return redirect()
+    }
+    const mb = u.pathname.match(/^\/bookings\/([0-9a-fA-F-]{36})\/(approve|reject)$/)
+    if (req.method === 'POST' && mb) {
+      const [, id, action] = mb
+      const status = action === 'approve' ? 'confirmed' : 'rejected'
+      // Flip the status and grab the guest + listing title for the notification.
+      const out = await psql(
+        `UPDATE bookings b SET status=${q(status)} FROM listings l
+         WHERE b.id=${q(id)} AND b.listing_id=l.id AND b.status='pending'
+         RETURNING b.user_id || '|' || l.title`)
+      const [uid, ...rest] = (out.trim().split('\n')[0] || '').split('|')
+      const title = rest.join('|')
+      if (isUuid(uid)) {
+        const nTitle = action === 'approve' ? 'Booking confirmed' : 'Booking declined'
+        const nBody = action === 'approve'
+          ? `Your reservation at ${title} was approved by the host. Enjoy your stay!`
+          : `Your reservation at ${title} was declined. Any payment will be refunded.`
+        await psql(`INSERT INTO notifications (user_id,type,title,body,link)
+          VALUES (${q(uid)},'booking',${q(nTitle)},${q(nBody)},'/reservations')`)
+      }
       return redirect()
     }
     const mv = u.pathname.match(/^\/verifications\/([0-9a-fA-F-]{36})\/(approve|reject)$/)

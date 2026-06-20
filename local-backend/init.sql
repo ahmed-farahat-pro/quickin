@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   check_out   date NOT NULL,
   guests         int NOT NULL DEFAULT 1,
   total_price    numeric NOT NULL DEFAULT 0,
-  status         text NOT NULL DEFAULT 'confirmed',
+  status         text NOT NULL DEFAULT 'pending',  -- pending → (pay) → host approves → confirmed
+  paid_at        timestamptz,
   cancelled_at   timestamptz,
   refund_percent int,
   created_at     timestamptz DEFAULT now()
@@ -108,6 +109,19 @@ CREATE TABLE IF NOT EXISTS guest_reviews (
   UNIQUE (booking_id)
 );
 CREATE INDEX IF NOT EXISTS idx_guest_reviews_guest ON guest_reviews(guest_id);
+
+-- In-app notifications (e.g. "your booking was approved"). Polled by the apps.
+CREATE TABLE IF NOT EXISTS notifications (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type       text NOT NULL DEFAULT 'general',
+  title      text NOT NULL,
+  body       text,
+  link       text,
+  read       boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 
 -- Email OTP verification codes. One active code per email (upserted on resend).
 CREATE TABLE IF NOT EXISTS otp_codes (

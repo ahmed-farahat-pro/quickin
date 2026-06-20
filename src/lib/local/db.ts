@@ -109,6 +109,8 @@ const BOOKING_COLS = `
   to_char(b.check_in, 'YYYY-MM-DD') AS check_in,
   to_char(b.check_out, 'YYYY-MM-DD') AS check_out,
   b.guests, b.total_price::float8 AS total_price, b.status,
+  CASE WHEN b.paid_at IS NULL THEN 'unpaid' ELSE 'paid' END AS payment_status,
+  to_char(b.paid_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS paid_at,
   to_char(b.cancelled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS cancelled_at,
   b.refund_percent,
   to_char(b.created_at, 'YYYY-MM-DD') AS created_at,
@@ -136,7 +138,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 
   const clash = await pool.query(
     `SELECT 1 FROM bookings
-     WHERE listing_id = $1 AND status <> 'cancelled'
+     WHERE listing_id = $1 AND status NOT IN ('cancelled', 'rejected')
        AND check_in < $2 AND check_out > $3 LIMIT 1`,
     [listingId, checkOut, checkIn]
   )
@@ -145,7 +147,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   const { rows } = await pool.query(
     `WITH ins AS (
        INSERT INTO bookings (listing_id, user_id, check_in, check_out, guests, total_price, status)
-       SELECT $1, $2, $3, $4, $5, ($4::date - $3::date) * l.price_per_night, 'confirmed'
+       SELECT $1, $2, $3, $4, $5, ($4::date - $3::date) * l.price_per_night, 'pending'
        FROM listings l WHERE l.id = $1
        RETURNING *
      )
@@ -222,6 +224,77 @@ export async function cancelBooking(
     booking: rows[0] as Booking,
     refund: { refundPercent: percent, refundAmount: Math.round(b.total * percent) / 100, currency: b.currency },
   }
+}
+
+// ---- Mock payment (keeps the booking 'pending' awaiting host approval) ------
+
+export interface PaymentReceipt {
+  currency: string; nights: number; nightly: number; subtotal: number
+  serviceFee: number; methodFee: number; total: number; reference: string
+  paidAt: string; method: string; promoCode: string | null; promoDiscount: number
+}
+
+/** Records a mock payment. Booking stays 'pending' — a host must still approve it. */
+export async function payBooking(args: {
+  userId: string; bookingId: string; method?: string; promoCode?: string | null
+}): Promise<{ booking: Booking; receipt: PaymentReceipt }> {
+  const { userId, bookingId } = args
+  const method = args.method === 'bank_transfer' ? 'bank_transfer' : 'card'
+  if (!isUuid(bookingId)) throw new Error('Invalid booking')
+  const { rows: br } = await pool.query(
+    `SELECT b.status, b.total_price::float8 AS total, (b.check_out - b.check_in)::int AS nights,
+            l.price_per_night::float8 AS nightly, COALESCE(l.currency,'EGP') AS currency
+       FROM bookings b JOIN listings l ON l.id = b.listing_id
+      WHERE b.id = $1 AND b.user_id = $2`,
+    [bookingId, userId]
+  )
+  const b = br[0]
+  if (!b) throw new Error('Booking not found')
+  if (b.status === 'cancelled' || b.status === 'rejected') throw new Error('This booking can no longer be paid')
+  const { rows } = await pool.query(
+    `WITH upd AS (
+       UPDATE bookings SET paid_at = COALESCE(paid_at, now()) WHERE id = $1 AND user_id = $2 RETURNING *
+     )
+     SELECT ${BOOKING_COLS} FROM upd b JOIN listings l ON l.id = b.listing_id`,
+    [bookingId, userId]
+  )
+  const subtotal = Math.round(b.total)
+  const methodFee = method === 'card' ? Math.round(subtotal * 0.05) : -Math.round(subtotal * 0.05)
+  const receipt: PaymentReceipt = {
+    currency: b.currency, nights: b.nights, nightly: Math.round(b.nightly),
+    subtotal, serviceFee: 0, methodFee, total: subtotal + methodFee,
+    reference: 'QK-' + bookingId.slice(0, 8).toUpperCase(),
+    paidAt: (rows[0] as { paid_at?: string }).paid_at || new Date().toISOString(),
+    method, promoCode: null, promoDiscount: 0,
+  }
+  return { booking: rows[0] as Booking, receipt }
+}
+
+// ---- Notifications ----------------------------------------------------------
+
+export async function createNotification(
+  userId: string, type: string, title: string, body?: string | null, link?: string | null
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO notifications (user_id, type, title, body, link) VALUES ($1, $2, $3, $4, $5)`,
+    [userId, type, title, body ?? null, link ?? null]
+  )
+}
+
+export async function getNotifications(userId: string): Promise<{ notifications: unknown[]; unreadCount: number }> {
+  if (!isUuid(userId)) return { notifications: [], unreadCount: 0 }
+  const { rows } = await pool.query(
+    `SELECT id, type, title, body, link, read,
+            to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+       FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    [userId]
+  )
+  return { notifications: rows, unreadCount: rows.filter((r) => !r.read).length }
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  if (!isUuid(userId)) return
+  await pool.query(`UPDATE notifications SET read = true WHERE user_id = $1 AND read = false`, [userId])
 }
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {

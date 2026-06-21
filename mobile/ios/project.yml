@@ -75,7 +75,13 @@ targets:
         # saved session on the sign-in screen (LocalAuthentication). Touch ID
         # devices don't require a usage string.
         NSFaceIDUsageDescription: "Use Face ID to sign in to QuickIn faster."
-        # The app talks to the backend over HTTPS only — no ATS exception needed.
+        # ID verification: camera to photograph the National ID, photo library to
+        # pick an existing image, and a local-networking ATS exception so the app
+        # can reach the local OCR / dev server over plain HTTP.
+        NSCameraUsageDescription: "QuickIn needs camera access to photograph your National ID card for verification."
+        NSPhotoLibraryUsageDescription: "QuickIn needs photo library access to let you choose your National ID card image."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         # Declare no non-exempt encryption so TestFlight skips the export-compliance
         # prompt on every build (standard HTTPS/TLS is exempt).
         ITSAppUsesNonExemptEncryption: false
@@ -88,8 +94,9 @@ targets:
         SWIFT_VERSION: "5.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.quickin.ahmed
         CODE_SIGN_ENTITLEMENTS: QuickIn.entitlements
-        # Distribution signing. Open the project in Xcode and pick your Team under
-        # Signing & Capabilities (Automatically manage signing), or set your 10-char
-        # Apple Team ID below so CLI archives are fully signed:
+        # Automatically-managed signing under the same Apple Developer team as the
+        # other apps (mafeshSho8l, Droob, Bonyad, Tawazon…), so Xcode provisions
+        # QuickIn with the same certificate — fixes "Profile doesn't include the
+        # selected signing certificate".
         CODE_SIGN_STYLE: Automatic
-        # DEVELOPMENT_TEAM: ABCDE12345
+        DEVELOPMENT_TEAM: "97DNR5Y3Y5"

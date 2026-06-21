@@ -94,9 +94,10 @@ targets:
         SWIFT_VERSION: "5.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.quickin.ahmed
         CODE_SIGN_ENTITLEMENTS: QuickIn.entitlements
-        # Automatically-managed signing under the same Apple Developer team as the
-        # other apps (mafeshSho8l, Droob, Bonyad, Tawazon…), so Xcode provisions
-        # QuickIn with the same certificate — fixes "Profile doesn't include the
-        # selected signing certificate".
+        # Automatically-managed signing under the dev team that has valid Apple
+        # Development certs on this Mac (U4NBL42U65), so the app builds and runs on
+        # a device. (97DNR5Y3Y5 — mafesh's team — only has a Distribution cert here,
+        # which can't sign development builds → "Profile doesn't include the selected
+        # signing certificate". Switch to 97DNR5Y3Y5 only when archiving for TestFlight.)
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: "97DNR5Y3Y5"
+        DEVELOPMENT_TEAM: "U4NBL42U65"

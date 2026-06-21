@@ -129,6 +129,12 @@ struct EgyptianIDScanView: View {
             }
         }
         .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 4)
+        // VoiceOver: describe the preview as one element rather than reading the
+        // decorative icon + caption separately.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(selectedImage != nil
+            ? "Selected National ID photo"
+            : "No ID photo chosen yet. Take or choose a photo of your ID card.")
     }
 
     // MARK: – Picker buttons

@@ -116,6 +116,8 @@ struct RootView: View {
     @EnvironmentObject private var loc: LocalizationManager
     @State private var showSplash = !DebugRoute.skipSplash
     @State private var selectedTab = DebugRoute.initialTab
+    // Lets Siri App Intents (see QuickInShortcuts) jump to a tab.
+    @ObservedObject private var nav = AppNavigation.shared
 
     /// Whether the signed-in account manages a place (host or admin). Drives the
     /// host tab set. Guests (role "user") and signed-out visitors see the guest
@@ -156,6 +158,22 @@ struct RootView: View {
         // App-level "Added/Removed from wishlist" toast — floats above the tab
         // bar so every heart toggle (cards, detail hero, Saved) confirms visibly.
         .wishlistToast()
+        // Siri / Shortcuts navigation: apply a pending section to the right tab
+        // (mapping differs for guest vs host) when it arrives or on cold launch.
+        .onChange(of: nav.pendingSection) { _, section in applyPending(section) }
+        .onAppear { applyPending(nav.pendingSection) }
+    }
+
+    /// Map a Siri-requested section to the correct tab index for the current tab
+    /// set, then clear the request so it doesn't re-fire.
+    private func applyPending(_ section: AppNavigation.Section?) {
+        guard let section else { return }
+        switch section {
+        case .explore:      selectedTab = 0
+        case .reservations: selectedTab = isHost ? 1 : 3
+        case .profile:      selectedTab = isHost ? 3 : 4
+        }
+        AppNavigation.shared.pendingSection = nil
     }
 
     // MARK: - Guest tabs (role "user" / signed-out)

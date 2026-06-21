@@ -20,6 +20,7 @@
 		147CD92165B42D7949D71423 /* WishlistStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA4843395698B645C141F0A /* WishlistStore.swift */; };
 		1A4AC3FE89990424E503CBDA /* GoogleMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 663C90B61599D2C1BED1135A /* GoogleMaps */; };
 		1B76E12308A6EFFE1798C830 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8817D5DCCE26F954A93F06E3 /* Theme.swift */; };
+		1D512D51EC3FFE8CDAA446A0 /* QuickInShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A1CAC5476FA4F68E9A12FC /* QuickInShortcuts.swift */; };
 		21F9A6F3803EFB8426BA4F2C /* ReservationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C67C2658D20492C9EBFE963 /* ReservationsView.swift */; };
 		22D302DB560411F03AE6107C /* PhotoPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */; };
 		2359379D6F2F355A5A2A55D5 /* SocialSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB225E36B488F02AFD4BB298 /* SocialSignIn.swift */; };
@@ -38,6 +39,7 @@
 		4F472BB3085BC656F8488130 /* SignInCTAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59C3A4CC660C1BEDB4F65CA /* SignInCTAView.swift */; };
 		518EE070F79E35AADC453ECF /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73EA4426815D9C45C868B3B /* ProfileView.swift */; };
 		5884F7D73B4E2A02C1B9C7A7 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E65A538C06C3E18A4EA36C /* AIService.swift */; };
+		5F3936DB5582D07F6207CAD4 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 564CBB49DCC4FE31D224A240 /* AppNavigation.swift */; };
 		66CAD1DFE7591439F89A387F /* ListingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */; };
 		6B18AF95A6234F514B3AE686 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD6CED8EEA5425990B60EE8 /* AuthView.swift */; };
 		6BA9B585F48EB169AD7AB94B /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10F92154FB10BCA232F64D2 /* DeepLinkRouter.swift */; };
@@ -119,6 +121,7 @@
 		4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateRangePicker.swift; sourceTree = "<group>"; };
 		4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryPicker.swift; sourceTree = "<group>"; };
 		506EE15822C05E6365572A9A /* BookingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingService.swift; sourceTree = "<group>"; };
+		564CBB49DCC4FE31D224A240 /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		60A0CCF74AC12A50E823919B /* Amenities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Amenities.swift; sourceTree = "<group>"; };
 		6194B50F23543B7BD6ED9848 /* ListingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsView.swift; sourceTree = "<group>"; };
 		648236D0BF8116D765032E82 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -126,6 +129,7 @@
 		6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddListingView.swift; sourceTree = "<group>"; };
 		6E2EE36C50EACE071A2953FB /* WishlistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistService.swift; sourceTree = "<group>"; };
 		70A0C7B6FC44BF3B38DEDC5C /* BrandHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandHeader.swift; sourceTree = "<group>"; };
+		72A1CAC5476FA4F68E9A12FC /* QuickInShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickInShortcuts.swift; sourceTree = "<group>"; };
 		73E65A538C06C3E18A4EA36C /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
 		7666B3950D4FF4B2CDADBCA8 /* MySubscriptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MySubscriptionsView.swift; sourceTree = "<group>"; };
 		77523CB04274A6B5EA4FF2BE /* ShareLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareLinks.swift; sourceTree = "<group>"; };
@@ -198,6 +202,7 @@
 				235487B84E788632D3E5D0C8 /* AITravelChatService.swift */,
 				48C781C53A1BC070ED11E58D /* AITravelChatView.swift */,
 				60A0CCF74AC12A50E823919B /* Amenities.swift */,
+				564CBB49DCC4FE31D224A240 /* AppNavigation.swift */,
 				869EC528CD5922050D913E0E /* Assets.xcassets */,
 				68956C154CDD6E39CF7573F1 /* AuthService.swift */,
 				FCD6CED8EEA5425990B60EE8 /* AuthView.swift */,
@@ -249,6 +254,7 @@
 				F73EA4426815D9C45C868B3B /* ProfileView.swift */,
 				BC9FA3A19876C08BF97B6E09 /* PushManager.swift */,
 				260870CD6CEE7864B907DFDC /* QuickInApp.swift */,
+				72A1CAC5476FA4F68E9A12FC /* QuickInShortcuts.swift */,
 				F28DD1C2C6808A647F35F3A9 /* ReportSheet.swift */,
 				F061FB35515C4DB0267C1C79 /* ReservationDetailView.swift */,
 				0C67C2658D20492C9EBFE963 /* ReservationsView.swift */,
@@ -378,6 +384,7 @@
 				D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */,
 				9BB6EB10340C33DA709DE0B3 /* AddServiceView.swift in Sources */,
 				D88BF05687971D7367071E90 /* Amenities.swift in Sources */,
+				5F3936DB5582D07F6207CAD4 /* AppNavigation.swift in Sources */,
 				C88A8FF61C90A899C65299B3 /* AuthService.swift in Sources */,
 				6B18AF95A6234F514B3AE686 /* AuthView.swift in Sources */,
 				288D799AD0FDF4C040A3FD24 /* AvailabilityManagerView.swift in Sources */,
@@ -427,6 +434,7 @@
 				518EE070F79E35AADC453ECF /* ProfileView.swift in Sources */,
 				75140396ED57334A8B8B215D /* PushManager.swift in Sources */,
 				7E7C992DA0346D68EC0FEBEA /* QuickInApp.swift in Sources */,
+				1D512D51EC3FFE8CDAA446A0 /* QuickInShortcuts.swift in Sources */,
 				4A8016914327F2A82BF30B0A /* ReportSheet.swift in Sources */,
 				E29B72F943F69F30EA7C41EF /* ReservationDetailView.swift in Sources */,
 				21F9A6F3803EFB8426BA4F2C /* ReservationsView.swift in Sources */,

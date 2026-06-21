@@ -108,7 +108,8 @@ const BOOKING_COLS = `
   b.id, b.listing_id,
   to_char(b.check_in, 'YYYY-MM-DD') AS check_in,
   to_char(b.check_out, 'YYYY-MM-DD') AS check_out,
-  b.guests, b.total_price::float8 AS total_price, b.status,
+  b.guests, b.adults, b.children, b.infants, b.pets,
+  b.total_price::float8 AS total_price, b.status,
   CASE WHEN b.paid_at IS NULL THEN 'unpaid' ELSE 'paid' END AS payment_status,
   to_char(b.paid_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS paid_at,
   to_char(b.cancelled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS cancelled_at,
@@ -125,6 +126,10 @@ export interface CreateBookingInput {
   checkIn: string
   checkOut: string
   guests: number
+  adults?: number
+  children?: number
+  infants?: number
+  pets?: number
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<Booking> {
@@ -135,7 +140,13 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   const today = new Date().toISOString().slice(0, 10)
   if (checkIn < today) throw new Error('Check-in cannot be in the past')
   if (checkOut <= checkIn) throw new Error('Check-out must be after check-in')
-  const g = Math.max(1, Math.floor(Number(guests) || 1))
+  const nn = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0))
+  // Adults + children = the headcount. Infants and pets don't count toward it.
+  const adults = Math.max(1, nn(input.adults ?? guests))
+  const children = nn(input.children)
+  const infants = nn(input.infants)
+  const pets = nn(input.pets)
+  const g = Math.max(1, adults + children)
 
   const clash = await pool.query(
     `SELECT 1 FROM bookings
@@ -147,13 +158,13 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 
   const { rows } = await pool.query(
     `WITH ins AS (
-       INSERT INTO bookings (listing_id, user_id, check_in, check_out, guests, total_price, status)
-       SELECT $1, $2, $3, $4, $5, ($4::date - $3::date) * l.price_per_night, 'pending'
+       INSERT INTO bookings (listing_id, user_id, check_in, check_out, guests, adults, children, infants, pets, total_price, status)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, ($4::date - $3::date) * l.price_per_night, 'pending'
        FROM listings l WHERE l.id = $1
        RETURNING *
      )
      SELECT ${BOOKING_COLS} FROM ins b JOIN listings l ON l.id = b.listing_id`,
-    [listingId, userId, checkIn, checkOut, g]
+    [listingId, userId, checkIn, checkOut, g, adults, children, infants, pets]
   )
   if (!rows[0]) throw new Error('Could not create booking (listing not found)')
   return rows[0] as Booking

@@ -64,7 +64,11 @@ export default function ReservePanel({
 }) {
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
-  const [guests, setGuests] = useState(1)
+  const [adults, setAdults] = useState(1)
+  const [children, setChildren] = useState(0)
+  const [infants, setInfants] = useState(0)
+  const [pets, setPets] = useState(0)
+  const guests = adults + children // total headcount (infants/pets don't count)
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
   const nights = nightsBetween(checkIn, checkOut)
@@ -81,6 +85,10 @@ export default function ReservePanel({
           check_in: checkIn,
           check_out: checkOut,
           guests,
+          adults,
+          children,
+          infants,
+          pets,
         }),
       })
 
@@ -165,21 +173,23 @@ export default function ReservePanel({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <label htmlFor="rp-guests" style={labelStyle}>
-          Guests
-        </label>
-        <input
-          id="rp-guests"
-          type="number"
-          min={1}
-          max={maxGuests || undefined}
-          value={guests}
-          onChange={(e) => {
-            setGuests(Math.max(1, Number(e.target.value) || 1))
-            setStatus({ kind: 'idle' })
-          }}
-          style={inputStyle}
-        />
+        <label style={labelStyle}>Guests</label>
+        <div style={{ border: `1px solid rgba(42,34,32,0.14)`, borderRadius: 12, overflow: 'hidden' }}>
+          <GuestRow label="Adults" sub="Age 13+" value={adults} min={1} max={maxGuests || 16}
+            onChange={(v) => { setAdults(v); setStatus({ kind: 'idle' }) }} />
+          <GuestRow label="Children" sub="Ages 2–12" value={children} min={0}
+            max={maxGuests ? Math.max(0, maxGuests - adults) : 10}
+            onChange={(v) => { setChildren(v); setStatus({ kind: 'idle' }) }} divider />
+          <GuestRow label="Infants" sub="Under 2" value={infants} min={0} max={5}
+            onChange={(v) => { setInfants(v); setStatus({ kind: 'idle' }) }} divider />
+          <GuestRow label="Pets" sub="Service animals always welcome" value={pets} min={0} max={5}
+            onChange={(v) => { setPets(v); setStatus({ kind: 'idle' }) }} divider />
+        </div>
+        {maxGuests ? (
+          <p style={{ margin: '6px 2px 0', fontSize: 12, color: COLORS.muted }}>
+            Up to {maxGuests} {maxGuests === 1 ? 'guest' : 'guests'} (adults + children).
+          </p>
+        ) : null}
       </div>
 
       {/* Live total */}
@@ -318,6 +328,46 @@ export default function ReservePanel({
           </a>
         </div>
       )}
+    </div>
+  )
+}
+
+function GuestRow({
+  label, sub, value, min, max, onChange, divider,
+}: {
+  label: string
+  sub: string
+  value: number
+  min: number
+  max: number
+  onChange: (v: number) => void
+  divider?: boolean
+}) {
+  const round = (enabled: boolean): React.CSSProperties => ({
+    width: 30, height: 30, borderRadius: 999, border: `1px solid rgba(42,34,32,0.22)`,
+    background: '#fff', color: enabled ? COLORS.burgundy : 'rgba(42,34,32,0.25)',
+    fontSize: 18, lineHeight: 1, cursor: enabled ? 'pointer' : 'not-allowed',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+  })
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '11px 13px',
+        borderTop: divider ? `1px solid rgba(42,34,32,0.10)` : undefined,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: COLORS.ink }}>{label}</div>
+        <div style={{ fontSize: 12, color: COLORS.muted }}>{sub}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button type="button" aria-label={`Decrease ${label}`} disabled={value <= min}
+          onClick={() => onChange(Math.max(min, value - 1))} style={round(value > min)}>−</button>
+        <span style={{ minWidth: 16, textAlign: 'center', fontSize: 15, fontWeight: 600, color: COLORS.ink }}>{value}</span>
+        <button type="button" aria-label={`Increase ${label}`} disabled={value >= max}
+          onClick={() => onChange(Math.min(max, value + 1))} style={round(value < max)}>+</button>
+      </div>
     </div>
   )
 }

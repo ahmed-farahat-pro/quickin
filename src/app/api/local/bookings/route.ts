@@ -34,7 +34,10 @@ export async function POST(req: Request) {
     if (!listingId || !checkIn || !checkOut) {
       return NextResponse.json({ error: 'listing_id, check_in and check_out are required' }, { status: 400, headers: CORS })
     }
-    const booking = await createBooking({ listingId, userId: user.id, checkIn, checkOut, guests })
+    const booking = await createBooking({
+      listingId, userId: user.id, checkIn, checkOut, guests,
+      adults: body.adults, children: body.children, infants: body.infants, pets: body.pets,
+    })
     return NextResponse.json(booking, { status: 201, headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

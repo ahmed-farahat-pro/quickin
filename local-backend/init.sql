@@ -54,7 +54,11 @@ CREATE TABLE IF NOT EXISTS bookings (
   user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   check_in    date NOT NULL,
   check_out   date NOT NULL,
-  guests         int NOT NULL DEFAULT 1,
+  guests         int NOT NULL DEFAULT 1,  -- total headcount (= adults + children)
+  adults         int NOT NULL DEFAULT 1,
+  children       int NOT NULL DEFAULT 0,
+  infants        int NOT NULL DEFAULT 0,
+  pets           int NOT NULL DEFAULT 0,
   total_price    numeric NOT NULL DEFAULT 0,
   status         text NOT NULL DEFAULT 'pending',  -- pending → (pay) → host approves → confirmed
   paid_at        timestamptz,

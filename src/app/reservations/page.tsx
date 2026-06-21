@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { getUserBookings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { ReservationActions } from './reservation-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -329,8 +330,13 @@ async function ReservationsList({
                   }}
                 >
                   {b.guests} {b.guests === 1 ? 'guest' : 'guests'}
-                  {b.status ? ` · ${b.status}` : ''}
                 </p>
+                <ReservationActions
+                  bookingId={b.id}
+                  status={b.status}
+                  checkIn={b.check_in}
+                  checkOut={b.check_out}
+                />
               </div>
 
               <div

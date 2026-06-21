@@ -1,7 +1,7 @@
 // Local listing detail (no Supabase, no auth) — boutique stay view.
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getListingById } from '@/lib/local/db'
+import { getListingById, getListingReviews } from '@/lib/local/db'
 import ReservePanel from './reserve-panel'
 
 export const dynamic = 'force-dynamic'
@@ -87,6 +87,11 @@ export default async function ListingDetailPage({
   const { id } = await params
   const listing = await getListingById(id)
   if (!listing) notFound()
+
+  const reviews = await getListingReviews(listing.id)
+  const avgRating = reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : null
 
   const images = listing.listing_images
   const hero = images[0]?.url || FALLBACK_IMG
@@ -280,6 +285,34 @@ export default async function ListingDetailPage({
                 </p>
               </div>
             )}
+
+            {/* Guest reviews */}
+            <div style={{ marginTop: 26 }}>
+              <h2 style={{ margin: '0 0 12px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
+                {avgRating ? `★ ${avgRating} · ` : ''}Reviews{reviews.length ? ` (${reviews.length})` : ''}
+              </h2>
+              {reviews.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
+                  No reviews yet — be the first after your stay.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {reviews.map((r, i) => (
+                    <div key={i} style={{ background: '#fff', border: '1px solid rgba(42,34,32,0.06)', borderRadius: 14, padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <strong style={{ fontSize: 14.5, color: COLORS.ink }}>{r.reviewer_name || 'Guest'}</strong>
+                        <span style={{ fontSize: 13 }}>
+                          <span style={{ color: '#f5a623' }}>{'★'.repeat(r.rating)}</span>
+                          <span style={{ color: '#d8d2c8' }}>{'★'.repeat(5 - r.rating)}</span>
+                        </span>
+                        {r.created_at && <span style={{ fontSize: 12, color: COLORS.muted, marginLeft: 'auto' }}>{r.created_at}</span>}
+                      </div>
+                      {r.comment && <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: COLORS.ink }}>{r.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Reserve panel */}

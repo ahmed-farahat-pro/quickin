@@ -20,12 +20,21 @@ object LocaleManager {
     /** Supported UI languages. [tag] is the BCP-47 language tag used for the locale list. */
     enum class Language(val tag: String) {
         ENGLISH("en"),
-        ARABIC("ar");
+        ARABIC("ar"),
+        FRENCH("fr"),
+        SPANISH("es");
 
         companion object {
-            /** Maps a language tag (e.g. "ar-EG", "en-US") back to a [Language], defaulting to English. */
-            fun fromTag(tag: String?): Language =
-                if (tag != null && tag.lowercase().startsWith("ar")) ARABIC else ENGLISH
+            /** Maps a language tag (e.g. "ar-EG", "fr-FR", "en-US") back to a [Language]. */
+            fun fromTag(tag: String?): Language {
+                val t = tag?.lowercase() ?: return ENGLISH
+                return when {
+                    t.startsWith("ar") -> ARABIC
+                    t.startsWith("fr") -> FRENCH
+                    t.startsWith("es") -> SPANISH
+                    else -> ENGLISH
+                }
+            }
         }
     }
 

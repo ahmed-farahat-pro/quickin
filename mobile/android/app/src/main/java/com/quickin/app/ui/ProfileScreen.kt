@@ -409,22 +409,44 @@ private fun LanguagePicker(modifier: Modifier = Modifier) {
         shadowElevation = 4.dp,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            LanguageSegment(
-                label = "English",
-                selected = current == LocaleManager.Language.ENGLISH,
-                onClick = { LocaleManager.setLanguage(LocaleManager.Language.ENGLISH) },
-                modifier = Modifier.weight(1f)
-            )
-            LanguageSegment(
-                label = "العربية",
-                selected = current == LocaleManager.Language.ARABIC,
-                onClick = { LocaleManager.setLanguage(LocaleManager.Language.ARABIC) },
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                LanguageSegment(
+                    label = "English",
+                    selected = current == LocaleManager.Language.ENGLISH,
+                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.ENGLISH) },
+                    modifier = Modifier.weight(1f)
+                )
+                LanguageSegment(
+                    label = "العربية",
+                    selected = current == LocaleManager.Language.ARABIC,
+                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.ARABIC) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                LanguageSegment(
+                    label = "Français",
+                    selected = current == LocaleManager.Language.FRENCH,
+                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.FRENCH) },
+                    modifier = Modifier.weight(1f)
+                )
+                LanguageSegment(
+                    label = "Español",
+                    selected = current == LocaleManager.Language.SPANISH,
+                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.SPANISH) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }

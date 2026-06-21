@@ -27,7 +27,12 @@ struct ListingDetailView: View {
     // Reserve inputs
     @State private var checkIn = Calendar.current.startOfDay(for: Date())
     @State private var checkOut = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()
-    @State private var guests = 1
+    @State private var adults = 1
+    @State private var children = 0
+    @State private var infants = 0
+    @State private var pets = 0
+    /// Total headcount = adults + children (infants and pets don't count toward capacity).
+    private var guests: Int { adults + children }
     /// Presents the branded `DateRangePicker` for the reserve dates.
     @State private var showingDatePicker = false
 
@@ -921,14 +926,14 @@ struct ListingDetailView: View {
                 }
                 .buttonStyle(.plain)
 
-                Stepper(value: $guests, in: 1...(listing.maxGuests ?? 16)) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.2.fill").foregroundStyle(Color.qkBurgundy)
-                        Text("\(guests) guest\(guests == 1 ? "" : "s")")
-                            .foregroundStyle(Color.qkInk)
-                    }
+                VStack(spacing: 10) {
+                    guestStepper("Adults", "Age 13+", value: $adults,
+                                 range: 1...(listing.maxGuests ?? 16))
+                    guestStepper("Children", "Ages 2–12", value: $children,
+                                 range: 0...max(0, (listing.maxGuests ?? 16) - adults))
+                    guestStepper("Infants", "Under 2", value: $infants, range: 0...5)
+                    guestStepper("Pets", "Service animals welcome", value: $pets, range: 0...5)
                 }
-                .tint(.qkBurgundy)
             }
 
             // Seasonal-rates note — shown when the host set a weekend / per-month
@@ -1017,6 +1022,19 @@ struct ListingDetailView: View {
         .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.qkInk.opacity(0.08)), alignment: .top)
     }
 
+    /// One labelled +/- row used by the guest breakdown (adults/children/infants/pets).
+    @ViewBuilder
+    private func guestStepper(_ title: String, _ subtitle: String,
+                              value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        Stepper(value: value, in: range) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).foregroundStyle(Color.qkInk).font(.system(size: 15, weight: .semibold))
+                Text(subtitle).foregroundStyle(Color.qkMuted).font(.caption)
+            }
+        }
+        .tint(.qkBurgundy)
+    }
+
     // MARK: - Reserve action
 
     private func reserve() async {
@@ -1040,7 +1058,11 @@ struct ListingDetailView: View {
                 listingID: listing.id,
                 checkIn: fmt.string(from: checkIn),
                 checkOut: fmt.string(from: checkOut),
-                guests: guests
+                guests: guests,
+                adults: adults,
+                children: children,
+                infants: infants,
+                pets: pets
             )
             // Booking created → collect (mock) payment before confirming. The
             // PaymentSheet flips it to paid + confirmed, then we show the modal.

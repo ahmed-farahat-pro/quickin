@@ -30,7 +30,8 @@ struct BookingService {
     /// `BookingError.message` carrying the server's `{ error }` for 4xx
     /// responses (e.g. "Those dates are not available").
     @discardableResult
-    func reserve(listingID: String, checkIn: String, checkOut: String, guests: Int) async throws -> Booking {
+    func reserve(listingID: String, checkIn: String, checkOut: String, guests: Int,
+                 adults: Int = 1, children: Int = 0, infants: Int = 0, pets: Int = 0) async throws -> Booking {
         guard let token else { throw BookingError.notSignedIn }
 
         let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings")!
@@ -44,6 +45,10 @@ struct BookingService {
             "check_in": checkIn,
             "check_out": checkOut,
             "guests": guests,
+            "adults": adults,
+            "children": children,
+            "infants": infants,
+            "pets": pets,
         ])
 
         let (data, response) = try await session.data(for: request)

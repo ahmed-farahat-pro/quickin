@@ -48,9 +48,14 @@ android {
 
     buildTypes {
         debug {
-            // Live Vercel backend so the app shows real data on the emulator with no local
-            // server. For local dev against `npm run dev`, switch to "http://10.0.2.2:3000".
-            buildConfigField("String", "API_BASE_URL", "\"https://quickin-backend.vercel.app\"")
+            // Defaults to the live Vercel backend (real data on the emulator, no local server).
+            // To test against a local `npm run dev`, override at build time, e.g.:
+            //   ./gradlew assembleDebug -PDEV_API_BASE_URL=http://192.168.8.24:3000   (real phone on Wi-Fi)
+            //   ./gradlew assembleDebug -PDEV_API_BASE_URL=http://10.0.2.2:3000        (emulator)
+            // The LAN IP must be listed in res/xml/network_security_config.xml (cleartext).
+            val devApi = (project.findProperty("DEV_API_BASE_URL") as String?)
+                ?: "https://quickin-backend.vercel.app"
+            buildConfigField("String", "API_BASE_URL", "\"$devApi\"")
         }
         release {
             // Production API (deployed to Vercel).

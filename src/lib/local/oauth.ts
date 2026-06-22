@@ -7,6 +7,12 @@ import crypto from 'node:crypto'
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
 // Secondary Web client ID (e.g. the second OAuth client in google-services.json)
 const GOOGLE_CLIENT_ID_ALT = process.env.GOOGLE_CLIENT_ID_ALT || '293984451588-u9c2d10ecjq5qpfvm96kcda09iqr9iqs.apps.googleusercontent.com'
+// The Web client id the native apps (Android/iOS) pass to requestIdToken. Hardcoded — it's a
+// public client id, not a secret — so native Google sign-in verifies even when GOOGLE_CLIENT_ID
+// isn't set in the server env. Native tokens carry this value as their `aud`.
+const GOOGLE_CLIENT_ID_NATIVE = '293984451588-t58dlg9hss3qjk9qmikdu3tv7qln11sb.apps.googleusercontent.com'
+// Every Google web client id we accept as a valid ID-token audience.
+const GOOGLE_AUDIENCES = [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_ID_ALT, GOOGLE_CLIENT_ID_NATIVE].filter(Boolean)
 // Apple "aud" is your Services ID (web) or app bundle id (native iOS).
 export const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID || ''
 
@@ -85,11 +91,11 @@ async function verifyIdToken(
 /** Verify a Google ID token (the `credential` from Google Identity Services / a Google sign-in).
  *  Accepts tokens issued for either registered Web client ID. */
 export async function verifyGoogleIdToken(idToken: string): Promise<VerifiedClaims> {
-  if (!GOOGLE_CLIENT_ID) throw new Error('GOOGLE_CLIENT_ID is not configured')
+  if (GOOGLE_AUDIENCES.length === 0) throw new Error('No Google client IDs configured')
   return verifyIdToken(idToken, {
     jwksUrl: 'https://www.googleapis.com/oauth2/v3/certs',
     issuers: ['accounts.google.com', 'https://accounts.google.com'],
-    audiences: [GOOGLE_CLIENT_ID, GOOGLE_CLIENT_ID_ALT],
+    audiences: GOOGLE_AUDIENCES,
   })
 }
 
@@ -104,6 +110,6 @@ export async function verifyAppleIdToken(idToken: string): Promise<VerifiedClaim
 }
 
 export const oauthConfigured = {
-  google: () => Boolean(GOOGLE_CLIENT_ID),
+  google: () => GOOGLE_AUDIENCES.length > 0,
   apple: () => Boolean(APPLE_CLIENT_ID),
 }

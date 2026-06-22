@@ -119,7 +119,7 @@ async function RootLayoutInner({
       <body
         className="font-sans antialiased min-h-screen flex flex-col"
       >
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="Africa/Cairo">
           <AppDirectionProvider dir={dir}>
             <RouteProgressBar />
             <GlobalLoadingBar />

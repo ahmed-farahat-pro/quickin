@@ -7,12 +7,10 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, Search } from 'lucide-react'
-import { getRequestLocale } from '@/i18n/request-locale'
-import { localizePathname } from '@/lib/i18n/pathname'
 
-export default async function NotFound() {
-  const locale = await getRequestLocale()
-
+// No next-intl here — not-found is bundled into /_global-error which prerenders
+// outside the locale context.
+export default function NotFound() {
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center px-4">
       {/* Large 404 with gradient */}
@@ -44,13 +42,13 @@ export default async function NotFound() {
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button asChild variant="default" size="lg" className="gap-2">
-          <Link href={localizePathname('/', locale)}>
+          <Link href="/">
             <Home className="h-4 w-4" />
             Go home
           </Link>
         </Button>
         <Button asChild variant="outline" size="lg" className="gap-2">
-          <Link href={localizePathname('/', locale)}>
+          <Link href="/">
             <Search className="h-4 w-4" />
             Search stays
           </Link>

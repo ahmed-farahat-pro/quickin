@@ -1,0 +1,7 @@
+# Not part of the Next.js web deploy — keep the upload lean.
+mobile/
+*.apk
+STATUS.html
+demo-accounts.html
+ocr-service/
+*.log

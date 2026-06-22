@@ -8,14 +8,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft } from 'lucide-react'
-import type { Locale } from '@/i18n/config'
-import { localizePathname } from '@/lib/i18n/pathname'
 
+// No next-intl here: not-found is bundled into Next's /_global-error route, which
+// prerenders outside the locale provider — using next-intl breaks the production build.
 export default function NotFound() {
-  const locale = useLocale() as Locale
   const router = useRouter()
 
   return (
@@ -41,7 +39,7 @@ export default function NotFound() {
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button asChild variant="default" size="lg" className="gap-2">
-          <Link href={localizePathname('/', locale)}>
+          <Link href="/">
             <Home className="h-4 w-4" />
             Go home
           </Link>

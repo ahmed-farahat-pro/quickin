@@ -46,6 +46,8 @@ export interface Booking {
   guests: number
   total_price: number
   status: string
+  payment_status: 'paid' | 'unpaid'
+  paid_at: string | null
   created_at: string
   title: string
   location: string | null
@@ -246,7 +248,9 @@ export interface PaymentReceipt {
   paidAt: string; method: string; promoCode: string | null; promoDiscount: number
 }
 
-/** Records a mock payment. Booking stays 'pending' — a host must still approve it. */
+/** Records a mock payment. Only allowed once the host has APPROVED the request
+ *  (status 'confirmed'); a pending reservation can't be paid yet. Payment doesn't
+ *  change the status — it sets paid_at, so an approved booking becomes "confirmed & paid". */
 export async function payBooking(args: {
   userId: string; bookingId: string; method?: string; promoCode?: string | null
 }): Promise<{ booking: Booking; receipt: PaymentReceipt }> {
@@ -263,6 +267,8 @@ export async function payBooking(args: {
   const b = br[0]
   if (!b) throw new Error('Booking not found')
   if (b.status === 'cancelled' || b.status === 'rejected') throw new Error('This booking can no longer be paid')
+  if (b.status === 'pending') throw new Error('This reservation is awaiting host approval — you can pay once it is approved')
+  if (b.status !== 'confirmed') throw new Error('This reservation cannot be paid')
   const { rows } = await pool.query(
     `WITH upd AS (
        UPDATE bookings SET paid_at = COALESCE(paid_at, now()) WHERE id = $1 AND user_id = $2 RETURNING *
@@ -341,9 +347,10 @@ export async function patchBooking(
   const sets: string[] = []
   const params: unknown[] = [bookingId]
   if (hostNotes !== undefined) { params.push(hostNotes); sets.push(`host_notes = $${params.length}`) }
+  let newStatus: string | null = null
   if (status) {
-    const s = status === 'confirm' ? 'confirmed' : status === 'reject' ? 'rejected' : status
-    params.push(s); sets.push(`status = $${params.length}`)
+    newStatus = status === 'confirm' ? 'confirmed' : status === 'reject' ? 'rejected' : status
+    params.push(newStatus); sets.push(`status = $${params.length}`)
   }
   const select = `SELECT ${BOOKING_COLS} FROM bookings b JOIN listings l ON l.id = b.listing_id WHERE b.id = $1`
   if (!sets.length) {
@@ -352,10 +359,23 @@ export async function patchBooking(
   }
   const { rows } = await pool.query(
     `WITH upd AS (UPDATE bookings SET ${sets.join(', ')} WHERE id = $1 RETURNING *)
-     SELECT ${BOOKING_COLS} FROM upd b JOIN listings l ON l.id = b.listing_id`,
+     SELECT ${BOOKING_COLS}, b.user_id AS _uid FROM upd b JOIN listings l ON l.id = b.listing_id`,
     params
   )
-  return (rows[0] as Booking) ?? null
+  const row = rows[0] as (Booking & { _uid?: string; title?: string }) | undefined
+  // Notify the guest when the host approves (prompt them to pay) or declines.
+  if (row && row._uid && (newStatus === 'confirmed' || newStatus === 'rejected') && isUuid(row._uid)) {
+    const title = row.title ?? 'your stay'
+    if (newStatus === 'confirmed') {
+      await createNotification(row._uid!, 'booking', 'Reservation approved',
+        `Your reservation at ${title} was approved. Complete your payment to confirm your stay.`, '/reservations')
+    } else {
+      await createNotification(row._uid!, 'booking', 'Reservation declined',
+        `Your reservation at ${title} was declined by the host.`, '/reservations')
+    }
+  }
+  if (row) delete row._uid
+  return (row as Booking) ?? null
 }
 
 // ---- Promo codes (mock) -----------------------------------------------------

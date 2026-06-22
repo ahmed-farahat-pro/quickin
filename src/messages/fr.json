@@ -1612,6 +1612,11 @@
     "starRating": "{count, plural, one {# étoile} other {# étoiles}}",
     "submit": "Envoyer",
     "submitting": "Envoi…",
+    "payNow": "Payer maintenant",
+    "paying": "Traitement…",
+    "paid": "Payé",
+    "awaitingApproval": "En attente de l'approbation de l'hôte",
+    "payError": "Échec du paiement. Veuillez réessayer.",
     "errors": {
       "cancelFailed": "Annulation impossible",
       "reviewFailed": "Impossible d'envoyer l'avis"

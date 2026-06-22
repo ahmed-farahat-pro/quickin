@@ -1612,6 +1612,11 @@
     "starRating": "{count, plural, one {نجمة واحدة} other {# نجوم}}",
     "submit": "إرسال",
     "submitting": "جارٍ الإرسال…",
+    "payNow": "ادفع الآن",
+    "paying": "جارٍ المعالجة…",
+    "paid": "مدفوع",
+    "awaitingApproval": "في انتظار موافقة المضيف",
+    "payError": "فشل الدفع. حاول مرة أخرى.",
     "errors": {
       "cancelFailed": "تعذّر الإلغاء",
       "reviewFailed": "تعذّر إرسال التقييم"

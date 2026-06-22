@@ -603,22 +603,9 @@ private fun MainApp() {
         if (authState.isAuthenticated) showAuth = false
     }
 
-    // A freshly-created booking → show the MOCK payment sheet. We capture the booking id + the
-    // amounts (nightly from the listing the user just reserved, nights from the booking's dates)
-    // then clear the reserve state so the listing's own "Request sent" dialog is replaced by the
-    // pay flow. On pay success the booking is paid + confirmed and we continue to its reservation.
-    LaunchedEffect(reserveState.confirmed) {
-        val booking = reserveState.confirmed
-        if (booking != null && pendingPayment == null) {
-            val nights = nightsBetween(booking.checkIn, booking.checkOut).coerceAtLeast(1)
-            // Prefer the live listing price; fall back to deriving nightly from the booking total.
-            val nightly = selectedListing?.pricePerNight?.toInt()
-                ?: (booking.totalPrice / nights).toInt()
-            bookingsViewModel.resetPayment()
-            pendingPayment = Triple(booking.id, nightly, nights)
-            bookingsViewModel.resetReserve()
-        }
-    }
+    // A freshly-created booking stays 'pending' — it does NOT auto-open payment. The guest only
+    // pays AFTER the host approves (status 'confirmed'), via "Pay now" on the reservation detail.
+    // Reserve simply shows the listing's own "Request sent" confirmation (driven by reserveState).
 
     // Reflect a profile edit in the cached auth user the instant a save succeeds, so the Profile
     // tab header (which reads AuthViewModel's cached name) updates immediately — no re-login needed.

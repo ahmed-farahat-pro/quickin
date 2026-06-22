@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
 const C = { burgundy: '#5B0F16', tan: '#EFE6D8', ink: '#2A2220', muted: '#6B6055' }
@@ -20,19 +21,23 @@ const linkBtn: React.CSSProperties = {
   color: C.burgundy, fontWeight: 700, fontSize: 13.5, fontFamily: 'inherit',
 }
 
-/** Status chip + Cancel (upcoming) + Leave-a-review (past, confirmed) for one booking. */
+/** Status chip + Pay (confirmed & unpaid) + Cancel (upcoming) + Leave-a-review (past, confirmed) for one booking. */
 export function ReservationActions(props: {
   bookingId: string
   status: string
+  paid: boolean
   checkIn: string
   checkOut: string
 }) {
-  const { bookingId, status, checkIn, checkOut } = props
+  const { bookingId, status, paid, checkIn, checkOut } = props
   const t = useTranslations('reservationsLocal')
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState(false)
   const [reviewed, setReviewed] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [payErr, setPayErr] = useState<string | null>(null)
 
   const today = new Date().toISOString().slice(0, 10)
   const isPast = checkOut < today
@@ -59,11 +64,50 @@ export function ReservationActions(props: {
     }
   }
 
+  async function pay() {
+    setPaying(true); setPayErr(null)
+    try {
+      const res = await fetch(`/api/local/bookings/${bookingId}/pay`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'card' }),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}))
+        throw new Error(e.error || t('payError'))
+      }
+      router.refresh()
+    } catch (e) {
+      setPaying(false)
+      setPayErr(e instanceof Error ? e.message : t('payError'))
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 12 }}>
       <span style={{ background: chip.bg, color: chip.fg, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>
         {chipLabel}
       </span>
+
+      {status === 'confirmed' && paid && (
+        <span style={{ background: '#e7f5ec', color: '#177245', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>
+          ✓ {t('paid')}
+        </span>
+      )}
+
+      {status === 'confirmed' && !paid && (
+        <button
+          onClick={pay}
+          disabled={paying}
+          style={{ background: C.burgundy, color: '#fff', border: 'none', borderRadius: 10, padding: '7px 16px', fontWeight: 700, fontSize: 13.5, cursor: paying ? 'default' : 'pointer', opacity: paying ? 0.7 : 1, fontFamily: 'inherit' }}
+        >
+          {paying ? t('paying') : t('payNow')}
+        </button>
+      )}
+
+      {status === 'pending' && (
+        <span style={{ fontSize: 13, color: C.muted }}>{t('awaitingApproval')}</span>
+      )}
 
       {active && isUpcoming && (
         <button onClick={cancel} disabled={busy} style={{ ...linkBtn, color: '#b3261e' }}>
@@ -79,6 +123,7 @@ export function ReservationActions(props: {
 
       {reviewed && <span style={{ fontSize: 13, color: '#177245', fontWeight: 600 }}>{t('reviewThanks')}</span>}
       {note && <span style={{ fontSize: 13, color: '#b3261e' }}>{note}</span>}
+      {payErr && <span style={{ fontSize: 13, color: '#b3261e' }}>{payErr}</span>}
     </div>
   )
 }

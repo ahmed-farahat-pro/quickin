@@ -309,6 +309,8 @@
     <string name="reservation_from_host">From your host</string>
     <string name="reservation_host_notes_hint">Add notes for your guest — check-in details, Wi-Fi, house rules…</string>
     <string name="reservation_save_notes">Save notes</string>
+    <!-- Shown in place of "Pay now" while a request is still pending the host's approval -->
+    <string name="reservation_awaiting_approval">Awaiting host approval</string>
 
     <!-- Reviews -->
     <string name="reviews_title">Reviews</string>

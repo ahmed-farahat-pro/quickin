@@ -302,6 +302,7 @@
     <string name="reservation_from_host">من مضيفك</string>
     <string name="reservation_host_notes_hint">أضف ملاحظات لضيفك — تفاصيل الوصول، الواي فاي، قواعد المنزل…</string>
     <string name="reservation_save_notes">حفظ الملاحظات</string>
+    <string name="reservation_awaiting_approval">في انتظار موافقة المضيف</string>
 
     <!-- Reviews -->
     <string name="reviews_title">التقييمات</string>

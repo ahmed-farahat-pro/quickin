@@ -313,11 +313,15 @@ struct ReservationDetailView: View {
         }
     }
 
-    /// "Pay now" card shown only while the booking is unpaid. Opens the same
-    /// mock `PaymentSheet` used by the reserve flow.
+    /// Payment area. The new flow pays *after* approval: the guest can only pay
+    /// once the host has confirmed the booking (the backend rejects paying a
+    /// pending booking). So we branch on the status:
+    ///   • `.confirmed` & unpaid → the "Pay now" card (opens `PaymentSheet`).
+    ///   • `.pending`            → an "Awaiting host approval" hint, no Pay.
+    ///   • anything else / paid  → nothing.
     @ViewBuilder
     private func payNowCard(_ detail: ReservationDetail) -> some View {
-        if !detail.isPaid {
+        if detail.bookingStatus == .confirmed && !detail.isPaid {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     Image(systemName: "creditcard.fill")
@@ -344,6 +348,24 @@ struct ReservationDetailView: View {
                     )
                 }
                 .buttonStyle(QKPressStyle())
+            }
+            .padding(16)
+            .qkCard()
+        } else if detail.bookingStatus == .pending {
+            HStack(spacing: 12) {
+                Image(systemName: "clock.badge.checkmark")
+                    .font(.title3)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(loc.t("pay.awaitingApproval.title"))
+                        .font(.headline)
+                        .foregroundStyle(Color.qkInk)
+                    Text(loc.t("pay.awaitingApproval.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+                Spacer(minLength: 8)
             }
             .padding(16)
             .qkCard()

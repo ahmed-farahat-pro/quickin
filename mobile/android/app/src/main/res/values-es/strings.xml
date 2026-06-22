@@ -251,6 +251,7 @@
     <string name="reservation_from_host">De su anfitrión</string>
     <string name="reservation_host_notes_hint">Añada notas para su huésped — detalles de llegada, Wi-Fi, normas de la casa…</string>
     <string name="reservation_save_notes">Guardar notas</string>
+    <string name="reservation_awaiting_approval">Esperando la aprobación del anfitrión</string>
     <string name="reviews_title">Reseñas</string>
     <string name="reviews_loading">Cargando reseñas…</string>
     <string name="reviews_empty">Aún no hay reseñas — sea el primero en hospedarse y dejar una reseña.</string>

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
@@ -312,9 +313,12 @@ private fun ReservationCardContent(
             onSave = onSaveHostNotes
         )
 
-        // Unpaid reservation → offer the mock "Pay now" (opens the payment sheet). Paid stays
-        // skip this entirely. This is the primary CTA here, so it pulses.
-        if (onPayNow != null && !reservation.isPaid) {
+        // Payment is gated on host approval. The guest can only pay once the host has APPROVED the
+        // request (status 'confirmed') and it's still unpaid — paying a 'pending' booking is rejected
+        // by the backend. This is the primary CTA here, so it pulses.
+        val isApproved = reservation.status.equals("confirmed", ignoreCase = true)
+        val isAwaitingApproval = reservation.status.equals("pending", ignoreCase = true)
+        if (onPayNow != null && isApproved && !reservation.isPaid) {
             GradientButton(
                 onClick = onPayNow,
                 radius = 18.dp,
@@ -325,6 +329,31 @@ private fun ReservationCardContent(
                 Icon(Icons.Filled.CreditCard, null, tint = Color.White, modifier = Modifier.height(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.pay_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        } else if (isAwaitingApproval && !reservation.isPaid) {
+            // Pending request — no pay button yet; surface a hint that the host must approve first.
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Cream,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Filled.HourglassEmpty, null, tint = Burgundy, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.reservation_awaiting_approval),
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
 

@@ -48,9 +48,6 @@ struct ListingDetailView: View {
     @State private var reserveError: String?
     @State private var confirmation: Booking?
     @State private var showingAuth = false
-    /// The freshly-created booking awaiting (mock) payment. Set on a successful
-    /// reserve → drives the `PaymentSheet`. Cleared once paid or dismissed.
-    @State private var pendingPayment: Booking?
 
     // Seasonal pricing quote — the authoritative price for the chosen dates from
     // `POST /api/local/listings/:id/quote`. Fetched (debounced) whenever the
@@ -176,20 +173,6 @@ struct ListingDetailView: View {
         }
         .sheet(isPresented: $showingAuth) {
             AuthView().environmentObject(auth)
-        }
-        .sheet(item: $pendingPayment) { booking in
-            // Mock payment for the just-created booking. On success the booking
-            // is paid + confirmed; we then show the existing confirmation modal.
-            PaymentSheet(
-                bookingID: booking.id,
-                nightly: Int(listing.pricePerNight),
-                nights: nights
-            ) { _ in
-                // Reflect paid + confirmed locally so the confirmation modal
-                // reads "Reservation confirmed" rather than "Request sent".
-                confirmation = booking.markedPaidConfirmed()
-            }
-            .environmentObject(loc)
         }
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
@@ -1109,9 +1092,11 @@ struct ListingDetailView: View {
                 infants: infants,
                 pets: pets
             )
-            // Booking created → collect (mock) payment before confirming. The
-            // PaymentSheet flips it to paid + confirmed, then we show the modal.
-            pendingPayment = booking
+            // Booking created as `pending` — no payment yet. The guest pays only
+            // after the host approves (status → confirmed); the backend rejects
+            // paying a pending booking. Show the "Request sent / awaiting host
+            // approval" confirmation now, with no payment UI.
+            confirmation = booking
         } catch BookingError.notSignedIn {
             showingAuth = true
         } catch {

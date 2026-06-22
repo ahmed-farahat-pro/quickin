@@ -1669,6 +1669,11 @@
     "starRating": "{count, plural, one {# star} other {# stars}}",
     "submit": "Submit",
     "submitting": "Submitting…",
+    "payNow": "Pay now",
+    "paying": "Processing…",
+    "paid": "Paid",
+    "awaitingApproval": "Awaiting host approval",
+    "payError": "Payment failed. Please try again.",
     "errors": {
       "cancelFailed": "Could not cancel",
       "reviewFailed": "Could not submit review"

@@ -299,9 +299,9 @@ const server = createServer(async (req, res) => {
       const [uid, ...rest] = (out.trim().split('\n')[0] || '').split('|')
       const title = rest.join('|')
       if (isUuid(uid)) {
-        const nTitle = action === 'approve' ? 'Booking confirmed' : 'Booking declined'
+        const nTitle = action === 'approve' ? 'Reservation approved' : 'Booking declined'
         const nBody = action === 'approve'
-          ? `Your reservation at ${title} was approved by the host. Enjoy your stay!`
+          ? `Your reservation at ${title} was approved. Complete your payment to confirm your stay.`
           : `Your reservation at ${title} was declined. Any payment will be refunded.`
         await psql(`INSERT INTO notifications (user_id,type,title,body,link)
           VALUES (${q(uid)},'booking',${q(nTitle)},${q(nBody)},'/reservations')`)

@@ -339,6 +339,7 @@ async function ReservationsList({
                 <ReservationActions
                   bookingId={b.id}
                   status={b.status}
+                  paid={b.payment_status === 'paid'}
                   checkIn={b.check_in}
                   checkOut={b.check_out}
                 />

@@ -1024,16 +1024,60 @@ struct ListingDetailView: View {
     }
 
     /// One labelled +/- row used by the guest breakdown (adults/children/infants/pets).
-    @ViewBuilder
+    /// Custom control (not the native Stepper) so the chosen count is always visible.
     private func guestStepper(_ title: String, _ subtitle: String,
                               value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        Stepper(value: value, in: range) {
+        let canDec = value.wrappedValue > range.lowerBound
+        let canInc = value.wrappedValue < range.upperBound
+        return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).foregroundStyle(Color.qkInk).font(.system(size: 15, weight: .semibold))
                 Text(subtitle).foregroundStyle(Color.qkMuted).font(.caption)
             }
+            Spacer(minLength: 8)
+            HStack(spacing: 0) {
+                Button {
+                    if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(canDec ? Color.qkBurgundy : Color.qkMuted.opacity(0.35))
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .disabled(!canDec)
+
+                Text("\(value.wrappedValue)")
+                    .font(.system(size: 17, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.qkInk)
+                    .frame(minWidth: 30)
+
+                Button {
+                    if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(canInc ? Color.qkBurgundy : Color.qkMuted.opacity(0.35))
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .disabled(!canInc)
+            }
+            .background(Capsule().fill(Color.qkTan.opacity(0.4)))
+            .overlay(Capsule().strokeBorder(Color.qkBurgundy.opacity(0.18), lineWidth: 1))
         }
-        .tint(.qkBurgundy)
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(subtitle)")
+        .accessibilityValue("\(value.wrappedValue)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: if value.wrappedValue < range.upperBound { value.wrappedValue += 1 }
+            case .decrement: if value.wrappedValue > range.lowerBound { value.wrappedValue -= 1 }
+            @unknown default: break
+            }
+        }
     }
 
     // MARK: - Reserve action

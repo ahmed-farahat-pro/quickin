@@ -714,6 +714,7 @@ private struct LocationStep: View {
             } else if !searchQuery.isEmpty {
                 Button { onSearch() } label: {
                     Image(systemName: "arrow.right.circle.fill")
+                        .accessibilityLabel(L.t("common.search"))
                         .foregroundStyle(Color.qkBurgundy)
                 }
             }

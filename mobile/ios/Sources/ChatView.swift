@@ -207,6 +207,7 @@ struct ChatView: View {
                             ProgressView().tint(.white)
                         } else {
                             Image(systemName: "arrow.up")
+                                .accessibilityLabel(L.t("chat.send"))
                                 .font(.headline.weight(.bold))
                         }
                     }

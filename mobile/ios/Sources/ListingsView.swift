@@ -453,6 +453,7 @@ struct SearchHeader: View {
                     withAnimation(openClose) { searchExpanded = false }
                 } label: {
                     Image(systemName: "chevron.up")
+                        .accessibilityLabel(L.t("explore.collapse"))
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.qkBurgundy)
                         .padding(9)
@@ -478,6 +479,7 @@ struct SearchHeader: View {
                         viewModel.locationQuery = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
+                            .accessibilityLabel(L.t("common.clear"))
                             .foregroundStyle(Color.qkMuted.opacity(0.6))
                     }
                     .buttonStyle(.plain)
@@ -514,6 +516,7 @@ struct SearchHeader: View {
                             viewModel.applyDateRange(checkIn: nil, checkOut: nil)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
+                                .accessibilityLabel(L.t("common.clear"))
                                 .foregroundStyle(Color.qkMuted.opacity(0.6))
                         }
                         .buttonStyle(.plain)

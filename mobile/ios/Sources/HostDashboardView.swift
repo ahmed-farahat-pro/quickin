@@ -74,6 +74,7 @@ struct HostDashboardView: View {
                     showingAddListing = true
                 } label: {
                     Image(systemName: "plus")
+                        .accessibilityLabel(L.t("host.addListing"))
                 }
                 .tint(.qkBurgundy)
             }
@@ -164,6 +165,7 @@ struct HostDashboardView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "house.badge.plus")
+                    .accessibilityLabel(L.t("host.addListing"))
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(Color.qkBurgundy)
                     .frame(width: 44, height: 44)

@@ -475,6 +475,7 @@ struct AvailabilityManagerView: View {
                         .frame(width: 36, height: 36)
                 } else {
                     Image(systemName: "trash")
+                        .accessibilityLabel(L.t("availability.remove"))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.qkBurgundy)
                         .frame(width: 36, height: 36)

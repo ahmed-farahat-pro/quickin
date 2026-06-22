@@ -32,6 +32,7 @@ struct HostListingsTab: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showingAddListing = true } label: {
                         Image(systemName: "plus")
+                            .accessibilityLabel(L.t("host.addListing"))
                     }
                     .tint(.qkBurgundy)
                 }

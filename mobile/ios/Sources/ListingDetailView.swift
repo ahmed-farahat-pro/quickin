@@ -565,6 +565,7 @@ struct ListingDetailView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "flag")
+                    .accessibilityLabel(L.t("listing.report"))
                     .font(.system(size: 14, weight: .semibold))
                 Text(loc.t("report.reportListing"))
                     .font(.system(size: 14, weight: .semibold))

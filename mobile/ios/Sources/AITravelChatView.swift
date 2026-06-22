@@ -158,6 +158,7 @@ struct AITravelChatView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
+                    .accessibilityLabel(L.t("common.close"))
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.qkCream)
                     .frame(width: 36, height: 36)
@@ -353,6 +354,7 @@ struct AITravelChatView: View {
                         ProgressView().tint(.white)
                     } else {
                         Image(systemName: "arrow.up")
+                            .accessibilityLabel(L.t("chat.send"))
                             .font(.headline.weight(.bold))
                     }
                 }

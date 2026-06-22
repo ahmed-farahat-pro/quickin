@@ -146,6 +146,7 @@ struct ListingsMapView: View {
                 if let onClose {
                     Button(action: onClose) {
                         Image(systemName: "xmark")
+                            .accessibilityLabel(L.t("common.close"))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(Color.qkInk)
                             .frame(width: 44, height: 44)
@@ -187,6 +188,7 @@ struct ListingsMapView: View {
                     onSubmitSearch?("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
+                        .accessibilityLabel(L.t("common.close"))
                         .foregroundStyle(Color.qkMuted.opacity(0.6))
                 }
                 .buttonStyle(.plain)
@@ -611,6 +613,7 @@ private struct SelectedListingCard: View {
         .overlay(alignment: .topTrailing) {
             Button(action: onClose) {
                 Image(systemName: "xmark.circle.fill")
+                    .accessibilityLabel(L.t("common.close"))
                     .font(.title3)
                     .foregroundStyle(Color.qkMuted.opacity(0.7), Color.white)
             }

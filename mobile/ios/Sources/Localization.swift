@@ -99,6 +99,8 @@ enum L {
 /// Egyptian-friendly Modern Standard Arabic.
 enum Strings {
     static let en: [String: String] = [
+        "chat.send": "Send message",
+        "listing.report": "Report listing",
         // Tabs — guest
         "tab.explore": "Explore",
         "tab.services": "Services",
@@ -678,6 +680,8 @@ enum Strings {
     ]
 
     static let ar: [String: String] = [
+        "chat.send": "إرسال الرسالة",
+        "listing.report": "الإبلاغ عن العقار",
         // Tabs — guest
         "tab.explore": "استكشف",
         "tab.services": "الخدمات",
@@ -1258,6 +1262,8 @@ enum Strings {
 
     /// French (machine-translated, reviewable). LTR.
     static let fr: [String: String] = [
+        "chat.send": "Envoyer le message",
+        "listing.report": "Signaler l'annonce",
         "tab.explore": "Explorer",
         "tab.services": "Services",
         "tab.wishlist": "Favoris",
@@ -1754,6 +1760,8 @@ enum Strings {
 
     /// Spanish (machine-translated, reviewable). LTR.
     static let es: [String: String] = [
+        "chat.send": "Enviar mensaje",
+        "listing.report": "Reportar el alojamiento",
         "tab.explore": "Explorar",
         "tab.services": "Servicios",
         "tab.wishlist": "Favoritos",

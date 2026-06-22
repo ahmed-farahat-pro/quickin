@@ -4,6 +4,8 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { LocaleSwitcher } from '@/components/layout/locale-switcher'
+import { NotificationsBell } from './notifications-bell'
+import { MobileMenu } from './mobile-menu'
 import { getTranslations } from 'next-intl/server'
 import { getListings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
@@ -111,6 +113,13 @@ export default async function ExplorePage({
             grid-template-columns: 1fr !important;
           }
         }
+        /* Header: full nav on desktop, logo + bell + hamburger on mobile. */
+        .qk-nav-desktop { display: flex; align-items: center; gap: 18px; font-size: 14px; }
+        .qk-header-mobile { display: none; align-items: center; gap: 2px; }
+        @media (max-width: 820px) {
+          .qk-nav-desktop { display: none; }
+          .qk-header-mobile { display: flex; }
+        }
       `}</style>
 
       {/* Header bar */}
@@ -142,15 +151,9 @@ export default async function ExplorePage({
             />
           </a>
 
-          {/* Right side: become a host + auth */}
-          <nav
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 18,
-              fontSize: 14,
-            }}
-          >
+          {/* Right side (desktop ≥820px): notifications, language, host, auth */}
+          <nav className="qk-nav-desktop">
+            <NotificationsBell />
             <LocaleSwitcher className="font-semibold text-[color:var(--qk-ink,#3a2a23)]" />
             <a
               href="/host"
@@ -206,6 +209,12 @@ export default async function ExplorePage({
               </>
             )}
           </nav>
+
+          {/* Right side (mobile <820px): bell + hamburger that slides out the rest */}
+          <div className="qk-header-mobile">
+            <NotificationsBell />
+            <MobileMenu firstName={firstName} />
+          </div>
         </div>
       </header>
 

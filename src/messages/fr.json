@@ -1373,7 +1373,11 @@
       "greeting": "Bonjour, {name}",
       "logout": "Déconnexion",
       "login": "Connexion",
-      "signup": "Inscription"
+      "signup": "Inscription",
+      "notifications": "Notifications",
+      "menu": "Menu",
+      "markAllRead": "Tout marquer comme lu",
+      "noNotifications": "Aucune notification"
     },
     "hero": {
       "title": "Trouvez votre prochain séjour de charme",

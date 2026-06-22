@@ -1373,7 +1373,11 @@
       "greeting": "Hola, {name}",
       "logout": "Cerrar sesión",
       "login": "Iniciar sesión",
-      "signup": "Registrarse"
+      "signup": "Registrarse",
+      "notifications": "Notificaciones",
+      "menu": "Menú",
+      "markAllRead": "Marcar todo como leído",
+      "noNotifications": "Sin notificaciones"
     },
     "hero": {
       "title": "Encuentra tu próximo alojamiento boutique",

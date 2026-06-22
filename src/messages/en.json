@@ -1373,7 +1373,11 @@
       "greeting": "Hi, {name}",
       "logout": "Logout",
       "login": "Log in",
-      "signup": "Sign up"
+      "signup": "Sign up",
+      "notifications": "Notifications",
+      "menu": "Menu",
+      "markAllRead": "Mark all read",
+      "noNotifications": "No notifications yet"
     },
     "hero": {
       "title": "Find your next boutique stay",

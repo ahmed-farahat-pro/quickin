@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
   // (legacy Supabase) parts of the app block the Vercel build of the live
   // local-stack pages. Re-enable these once the legacy code is cleaned up.
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       {

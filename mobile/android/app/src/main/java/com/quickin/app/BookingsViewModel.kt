@@ -147,7 +147,10 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
      *  • error = {message} on a 400 (e.g. "Those dates are not available"),
      *  • confirmed = booking on 201.
      */
-    fun createBooking(listingId: String, checkIn: String, checkOut: String, guests: Int) {
+    fun createBooking(
+        listingId: String, checkIn: String, checkOut: String,
+        adults: Int, children: Int, infants: Int, pets: Int
+    ) {
         if (_reserve.value.isSubmitting) return
 
         val token = token()
@@ -156,10 +159,13 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             return
         }
 
+        val guests = (adults + children).coerceAtLeast(1) // headcount; infants/pets don't count
         _reserve.value = ReserveUiState(isSubmitting = true)
         viewModelScope.launch {
             try {
-                val booking = BookingService.createBooking(token, listingId, checkIn, checkOut, guests)
+                val booking = BookingService.createBooking(
+                    token, listingId, checkIn, checkOut, guests, adults, children, infants, pets
+                )
                 _reserve.value = ReserveUiState(confirmed = booking)
                 // Keep the Reservations tab fresh for the next visit.
                 loadReservations()

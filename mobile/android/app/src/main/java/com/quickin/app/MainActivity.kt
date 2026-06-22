@@ -871,8 +871,8 @@ private fun MainApp() {
                 selectedListing = null
             },
             reserveState = reserveState,
-            onReserve = { checkIn, checkOut, guests ->
-                bookingsViewModel.createBooking(current.id, checkIn, checkOut, guests)
+            onReserve = { checkIn, checkOut, adults, children, infants, pets ->
+                bookingsViewModel.createBooking(current.id, checkIn, checkOut, adults, children, infants, pets)
             },
             onSignIn = {
                 authViewModel.clearError()

@@ -30,13 +30,21 @@ object BookingService {
         listingId: String,
         checkIn: String,
         checkOut: String,
-        guests: Int
+        guests: Int,
+        adults: Int = 1,
+        children: Int = 0,
+        infants: Int = 0,
+        pets: Int = 0
     ): Booking = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("listing_id", listingId)
             put("check_in", checkIn)
             put("check_out", checkOut)
             put("guests", guests)
+            put("adults", adults)
+            put("children", children)
+            put("infants", infants)
+            put("pets", pets)
         }
 
         val conn = (URL("${Config.API_BASE_URL}/api/local/bookings").openConnection() as HttpURLConnection).apply {

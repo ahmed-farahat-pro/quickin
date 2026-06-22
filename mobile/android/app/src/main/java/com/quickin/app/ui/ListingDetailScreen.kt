@@ -80,6 +80,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -124,7 +126,7 @@ fun ListingDetailScreen(
     listing: Listing,
     onBack: () -> Unit,
     reserveState: ReserveUiState = ReserveUiState(),
-    onReserve: (checkIn: String, checkOut: String, guests: Int) -> Unit = { _, _, _ -> },
+    onReserve: (checkIn: String, checkOut: String, adults: Int, children: Int, infants: Int, pets: Int) -> Unit = { _, _, _, _, _, _ -> },
     onSignIn: () -> Unit = {},
     onResetReserve: () -> Unit = {},
     isSaved: Boolean = false,
@@ -601,7 +603,7 @@ private fun ReviewCard(review: Review) {
 private fun ReservePanel(
     listing: Listing,
     state: ReserveUiState,
-    onReserve: (checkIn: String, checkOut: String, guests: Int) -> Unit,
+    onReserve: (checkIn: String, checkOut: String, adults: Int, children: Int, infants: Int, pets: Int) -> Unit,
     onSignIn: () -> Unit,
     onResetReserve: () -> Unit,
     unavailableRanges: List<com.quickin.app.AvailabilityRange> = emptyList(),
@@ -616,7 +618,10 @@ private fun ReservePanel(
 ) {
     var checkIn by remember { mutableStateOf("") }
     var checkOut by remember { mutableStateOf("") }
-    var guests by remember { mutableStateOf("1") }
+    var adults by remember { mutableStateOf(1) }
+    var children by remember { mutableStateOf(0) }
+    var infants by remember { mutableStateOf(0) }
+    var pets by remember { mutableStateOf(0) }
     var showDatePicker by remember { mutableStateOf(false) }
     // Host-only: the "Manage availability" block/unblock sheet.
     var showAvailabilityManager by remember { mutableStateOf(false) }
@@ -737,24 +742,13 @@ private fun ReservePanel(
                 )
             }
 
-            OutlinedTextField(
-                value = guests,
-                onValueChange = { input -> guests = input.filter { it.isDigit() }.take(2) },
-                label = { Text(stringResource(R.string.search_guests)) },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Filled.People, contentDescription = null, tint = Burgundy) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                shape = RoundedCornerShape(18.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Burgundy,
-                    unfocusedBorderColor = Tan,
-                    focusedLabelColor = Burgundy,
-                    cursorColor = Burgundy,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
+            val maxGuests = listing.maxGuests ?: 16
+            Column(modifier = Modifier.fillMaxWidth()) {
+                GuestStepperRow("Adults", "Age 13+", adults, 1, maxGuests) { adults = it }
+                GuestStepperRow("Children", "Ages 2–12", children, 0, (maxGuests - adults).coerceAtLeast(0)) { children = it }
+                GuestStepperRow("Infants", "Under 2", infants, 0, 5) { infants = it }
+                GuestStepperRow("Pets", "Service animals welcome", pets, 0, 5) { pets = it }
+            }
 
             // Price breakdown. With no dates: a "select your dates" hint. With dates: the
             // authoritative quote (nightlyAvg × nights, subtotal, any length-of-stay discount, and
@@ -856,7 +850,7 @@ private fun ReservePanel(
                 // The primary CTA on this screen — burgundy gradient + pulsing ring (qkPulse).
                 GradientButton(
                     onClick = {
-                        onReserve(checkIn, checkOut, guests.toIntOrNull()?.coerceAtLeast(1) ?: 1)
+                        onReserve(checkIn, checkOut, adults, children, infants, pets)
                     },
                     enabled = canReserve,
                     pulse = canReserve,
@@ -1545,6 +1539,47 @@ private fun AvailabilityRow(
                     }
                 }
             }
+        }
+    }
+}
+
+/** One labelled +/- row of the guest breakdown (adults/children/infants/pets). */
+@Composable
+private fun GuestStepperRow(
+    label: String,
+    sub: String,
+    value: Int,
+    min: Int,
+    max: Int,
+    onChange: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(sub, fontSize = 12.sp, color = Muted)
+        }
+        IconButton(
+            onClick = { onChange(value - 1) },
+            enabled = value > min,
+            modifier = Modifier.semantics { contentDescription = "Decrease $label" }
+        ) {
+            Text("−", fontSize = 22.sp, color = if (value > min) Burgundy else Muted)
+        }
+        Text(
+            "$value",
+            modifier = Modifier.widthIn(min = 24.dp).padding(horizontal = 4.dp),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        IconButton(
+            onClick = { onChange(value + 1) },
+            enabled = value < max,
+            modifier = Modifier.semantics { contentDescription = "Increase $label" }
+        ) {
+            Text("+", fontSize = 22.sp, color = if (value < max) Burgundy else Muted)
         }
     }
 }

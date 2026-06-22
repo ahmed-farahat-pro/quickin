@@ -86,6 +86,11 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="quickin" />
             </intent-filter>
+
+            <!-- Launcher long-press quick actions / Assistant shortcuts (mirrors iOS Siri). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Firebase Cloud Messaging service: receives new device tokens (onNewToken → register

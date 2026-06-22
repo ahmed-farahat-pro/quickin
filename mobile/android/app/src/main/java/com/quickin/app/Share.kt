@@ -62,6 +62,8 @@ sealed interface DeepLink {
     data class Listing(override val id: String) : DeepLink
     data class Service(override val id: String) : DeepLink
     data class Reservation(override val id: String) : DeepLink
+    /** A bare tab route with no entity id, used by app shortcuts / Assistant (e.g. quickin://profile). */
+    data class Tab(val key: String) : DeepLink { override val id: String get() = key }
 
     companion object {
         /**
@@ -74,6 +76,16 @@ sealed interface DeepLink {
         fun parse(uri: Uri?): DeepLink? {
             if (uri == null) return null
             val scheme = uri.scheme?.lowercase()
+
+            // Bare tab routes (no entity id) from app shortcuts / Google Assistant, e.g.
+            // quickin://explore, quickin://reservations, quickin://profile.
+            if (scheme == Config.DEEP_LINK_SCHEME) {
+                val host = uri.host?.takeIf { it.isNotBlank() }?.lowercase()
+                val segs = uri.pathSegments.orEmpty().filter { it.isNotBlank() }
+                val bare = host ?: segs.firstOrNull()?.lowercase()
+                val hasId = if (host != null) segs.isNotEmpty() else segs.size > 1
+                if (bare != null && bare in TAB_KEYS && !hasId) return Tab(bare)
+            }
 
             // Path segments after the leading "/". For the custom scheme the route key can arrive
             // as the URI authority (quickin://explore/{id}) rather than a path segment, so fold the
@@ -118,5 +130,8 @@ sealed interface DeepLink {
             "services", "service",
             "reservation", "reservations"
         )
+
+        /** Bare tab destinations (no id) addressable by app shortcuts / Assistant. */
+        private val TAB_KEYS = setOf("explore", "services", "reservations", "trips", "profile")
     }
 }

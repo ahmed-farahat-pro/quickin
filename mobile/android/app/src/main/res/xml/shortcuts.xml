@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App shortcuts (launcher long-press + Assistant). Each fires a quickin:// tab
+     deep link handled by MainActivity → DeepLink.Tab. Mirrors the iOS Siri shortcuts. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="explore"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_explore_short"
+        android:shortcutLongLabel="@string/shortcut_explore_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="quickin://explore"
+            android:targetPackage="com.quickin.app"
+            android:targetClass="com.quickin.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="reservations"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_reservations_short"
+        android:shortcutLongLabel="@string/shortcut_reservations_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="quickin://reservations"
+            android:targetPackage="com.quickin.app"
+            android:targetClass="com.quickin.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="profile"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_profile_short"
+        android:shortcutLongLabel="@string/shortcut_profile_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="quickin://profile"
+            android:targetPackage="com.quickin.app"
+            android:targetClass="com.quickin.app.MainActivity" />
+    </shortcut>
+</shortcuts>

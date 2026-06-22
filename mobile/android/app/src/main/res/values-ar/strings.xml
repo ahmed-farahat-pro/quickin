@@ -587,4 +587,10 @@
     <string name="pricing_month_10">أكتوبر</string>
     <string name="pricing_month_11">نوفمبر</string>
     <string name="pricing_month_12">ديسمبر</string>
+    <string name="shortcut_explore_short">استكشف</string>
+    <string name="shortcut_explore_long">استكشف أماكن الإقامة</string>
+    <string name="shortcut_reservations_short">رحلاتي</string>
+    <string name="shortcut_reservations_long">حجوزاتي</string>
+    <string name="shortcut_profile_short">الملف الشخصي</string>
+    <string name="shortcut_profile_long">ملفي الشخصي</string>
 </resources>

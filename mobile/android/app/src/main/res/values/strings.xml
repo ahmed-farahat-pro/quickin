@@ -8,6 +8,13 @@
     <string name="tab_wishlist">Wishlist</string>
     <string name="tab_trips">Trips</string>
     <string name="tab_profile">Profile</string>
+    <!-- App shortcuts (launcher long-press / Assistant) -->
+    <string name="shortcut_explore_short">Explore</string>
+    <string name="shortcut_explore_long">Explore stays</string>
+    <string name="shortcut_reservations_short">Trips</string>
+    <string name="shortcut_reservations_long">My reservations</string>
+    <string name="shortcut_profile_short">Profile</string>
+    <string name="shortcut_profile_long">My profile</string>
     <!-- Bottom navigation tabs (host) -->
     <string name="tab_listings">Listings</string>
     <string name="tab_reservations">Reservations</string>

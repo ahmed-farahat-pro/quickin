@@ -552,6 +552,20 @@ private fun MainApp() {
                 selectedListing = null
                 selectedReservationId = link.id
             }
+            is DeepLink.Tab -> {
+                // App shortcut / Assistant: jump to a tab (mapping differs guest vs host).
+                selectedService = null
+                selectedListing = null
+                selectedReservationId = null
+                val activeTabs = if (isHost) HOST_TABS else GUEST_TABS
+                val targetKey = when (link.key) {
+                    "reservations", "trips" -> if (isHost) "Reservations" else "Trips"
+                    "profile" -> "Profile"
+                    "services" -> "Services"
+                    else -> activeTabs.first().key // explore → Explore (guest) / Listings (host)
+                }
+                selectedTab = activeTabs.indexOfFirst { it.key == targetKey }.coerceAtLeast(0)
+            }
             null -> {}
         }
         if (pendingDeepLink != null) activity?.clearPendingDeepLink()

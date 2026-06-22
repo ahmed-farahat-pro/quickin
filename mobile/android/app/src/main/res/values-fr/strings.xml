@@ -485,4 +485,10 @@
     <string name="pricing_month_10">Octobre</string>
     <string name="pricing_month_11">Novembre</string>
     <string name="pricing_month_12">Décembre</string>
+    <string name="shortcut_explore_short">Explorer</string>
+    <string name="shortcut_explore_long">Explorer les logements</string>
+    <string name="shortcut_reservations_short">Voyages</string>
+    <string name="shortcut_reservations_long">Mes réservations</string>
+    <string name="shortcut_profile_short">Profil</string>
+    <string name="shortcut_profile_long">Mon profil</string>
 </resources>

@@ -9,7 +9,8 @@
     "guest": "huésped",
     "guests": "huéspedes",
     "languageToggle": "العربية",
-    "languageLabel": "Español (ES)"
+    "languageLabel": "Español (ES)",
+    "loadingStays": "Cargando alojamientos increíbles..."
   },
   "nav": {
     "anywhere": "Cualquier lugar",
@@ -1357,6 +1358,378 @@
       "discard": "Descartar",
       "save": "Guardar",
       "saving": "Guardando..."
+    }
+  },
+  "explorePage": {
+    "meta": {
+      "title": "Explora alojamientos boutique",
+      "description": "Explora una colección cuidada de casas seleccionadas a mano — desde villas junto al lago hasta refugios en el desierto. Busca por ubicación, fechas y huéspedes.",
+      "ogTitle": "Explora alojamientos boutique | QuickIn",
+      "ogDescription": "Explora una colección cuidada de casas seleccionadas a mano — desde villas junto al lago hasta refugios en el desierto."
+    },
+    "logoAlt": "QuickIn",
+    "nav": {
+      "becomeHost": "Conviértete en anfitrión",
+      "greeting": "Hola, {name}",
+      "logout": "Cerrar sesión",
+      "login": "Iniciar sesión",
+      "signup": "Registrarse"
+    },
+    "hero": {
+      "title": "Encuentra tu próximo alojamiento boutique",
+      "subtitle": "Una colección cuidada de casas seleccionadas a mano — desde villas junto al lago hasta refugios en el desierto."
+    },
+    "search": {
+      "locationLabel": "Ubicación",
+      "locationPlaceholder": "¿A dónde vas?",
+      "checkInLabel": "Llegada",
+      "checkOutLabel": "Salida",
+      "guestsLabel": "Huéspedes",
+      "clear": "Borrar"
+    },
+    "results": {
+      "countFound": "{count, plural, one {# alojamiento encontrado} other {# alojamientos encontrados}}",
+      "searching": "Buscando…"
+    },
+    "view": {
+      "toggleLabel": "Elegir vista",
+      "list": "Lista",
+      "map": "Mapa"
+    },
+    "map": {
+      "loading": "Cargando el mapa…"
+    },
+    "error": {
+      "refresh": "No pudimos actualizar los resultados en este momento — te mostramos tus últimas coincidencias. Inténtalo de nuevo en un momento.",
+      "dismiss": "Descartar"
+    },
+    "empty": {
+      "title": "Ningún alojamiento coincide con tu búsqueda",
+      "subtitle": "Prueba a ampliar las fechas o la ubicación.",
+      "clearFilters": "Borrar filtros"
+    },
+    "card": {
+      "guestFavorite": "★ Favorito de los huéspedes",
+      "perNight": "/ noche"
+    },
+    "footer": {
+      "tagline": "QuickIn — alojamientos boutique para viajeros que aman los detalles.",
+      "support": {
+        "title": "Ayuda",
+        "helpCenter": "Centro de ayuda",
+        "cancellation": "Opciones de cancelación",
+        "safetyInfo": "Información de seguridad"
+      },
+      "hosting": {
+        "title": "Anfitriones",
+        "becomeHost": "Conviértete en anfitrión",
+        "hostResources": "Recursos para anfitriones",
+        "communityForum": "Foro de la comunidad"
+      },
+      "about": {
+        "title": "Acerca de",
+        "ourStory": "Nuestra historia",
+        "careers": "Empleo",
+        "press": "Prensa"
+      },
+      "copyright": "© 2026 QuickIn. Creado para el viajero curioso."
+    },
+    "notFound": {
+      "title": "Este alojamiento se te escapó",
+      "description": "No pudimos encontrar la casa que buscabas. Puede que la hayan reservado, pausado o trasladado — pero hay muchas más por descubrir.",
+      "browseStays": "Explorar alojamientos"
+    }
+  },
+  "listingPage": {
+    "meta": {
+      "notFoundTitle": "Alojamiento no encontrado",
+      "notFoundDescription": "No se encontró este alojamiento con encanto. Explora otras casas seleccionadas en QuickIn.",
+      "descriptionWithPlace": "Un alojamiento con encanto en {place} desde ${price} / noche en QuickIn.",
+      "description": "Un alojamiento con encanto desde ${price} / noche en QuickIn."
+    },
+    "backToExplore": "Volver a Explorar",
+    "photoAlt": "{title} foto {index}",
+    "guestFavorite": "Favorito de los huéspedes",
+    "specs": {
+      "guests": "Huéspedes",
+      "bedrooms": "Dormitorios",
+      "beds": "Camas",
+      "baths": "Baños"
+    },
+    "aboutThisStay": "Sobre este alojamiento",
+    "reviews": "Reseñas",
+    "reviewsWithCount": "Reseñas ({count})",
+    "noReviews": "Aún no hay reseñas — sé el primero tras tu estancia.",
+    "guest": "Huésped",
+    "listingCode": "Código del anuncio",
+    "perNight": "/ noche",
+    "pricesIn": "Precios en {currency}",
+    "checkIn": "Entrada",
+    "checkOut": "Salida",
+    "guests": "Huéspedes",
+    "guestTypes": {
+      "adults": "Adultos",
+      "adultsSub": "13 años o más",
+      "children": "Niños",
+      "childrenSub": "De 2 a 12 años",
+      "infants": "Bebés",
+      "infantsSub": "Menores de 2 años",
+      "pets": "Mascotas",
+      "petsSub": "Los animales de asistencia siempre son bienvenidos"
+    },
+    "maxGuests": "Hasta {count, plural, one {# huésped} other {# huéspedes}} (adultos + niños).",
+    "nightsCount": "{nights, plural, one {# noche} other {# noches}}",
+    "total": "Total",
+    "reserve": "Reservar",
+    "reserving": "Reservando…",
+    "pickDates": "Elige tus fechas para ver el total.",
+    "needsLogin": "Inicia sesión para reservar.",
+    "logIn": "Iniciar sesión",
+    "success": {
+      "title": "¡Solicitud enviada!",
+      "summary": "{nights, plural, one {# noche} other {# noches}} · ${total} en total.",
+      "awaitingApproval": "A la espera de la aprobación del anfitrión — te avisaremos cuando se confirme.",
+      "viewReservations": "Ver mis reservas"
+    },
+    "errors": {
+      "generic": "Algo salió mal. Inténtalo de nuevo.",
+      "network": "Error de red. Inténtalo de nuevo."
+    },
+    "decrease": "Disminuir {label}",
+    "increase": "Aumentar {label}"
+  },
+  "loginLocal": {
+    "subtitle": "Bienvenido de nuevo: inicia sesión para continuar",
+    "logoAlt": "QuickIn",
+    "emailLabel": "Correo electrónico",
+    "passwordLabel": "Contraseña",
+    "signIn": "Iniciar sesión",
+    "signingIn": "Iniciando sesión…",
+    "or": "o",
+    "continueWithApple": "Continuar con Apple",
+    "continueWithGoogle": "Continuar con Google",
+    "googleDisabledHint": "Añade NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar el inicio de sesión con Google",
+    "newHere": "¿Nuevo por aquí?",
+    "createAccount": "Crear una cuenta",
+    "errors": {
+      "googleFailed": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+      "unableToSignIn": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+      "network": "Error de red. Inténtalo de nuevo."
+    },
+    "notices": {
+      "appleSetup": "El inicio de sesión con Apple requiere HTTPS y un ID de Apple Developer Services (consulta OAUTH-SETUP.md)."
+    },
+    "meta": {
+      "title": "Iniciar sesión",
+      "ogTitle": "Iniciar sesión | QuickIn",
+      "description": "Inicia sesión en tu cuenta de QuickIn para gestionar reservas y reservar estancias boutique.",
+      "siteName": "QuickIn",
+      "imageAlt": "QuickIn"
+    }
+  },
+  "signupLocal": {
+    "subtitle": "Crea tu cuenta para empezar a explorar",
+    "errors": {
+      "invalidCode": "Ese código no es válido o ha caducado.",
+      "network": "Error de red. Inténtalo de nuevo.",
+      "googleFailed": "No se pudo iniciar sesión con Google. Inténtalo de nuevo.",
+      "createFailed": "No se pudo crear la cuenta. Inténtalo de nuevo."
+    },
+    "otp": {
+      "label": "Código de verificación",
+      "placeholder": "Código de 6 dígitos",
+      "verifying": "Verificando…",
+      "verifyContinue": "Verificar y continuar",
+      "didntGet": "¿No lo recibiste?",
+      "resendIn": "Reenviar en {seconds} s",
+      "resendCode": "Reenviar código",
+      "newCodeSent": "Un nuevo código está en camino.",
+      "codeSentTo": "Enviamos un código de 6 dígitos a {email}."
+    },
+    "fields": {
+      "fullName": "Nombre completo",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Al menos 6 caracteres"
+    },
+    "submit": {
+      "creating": "Creando cuenta…",
+      "createAccount": "Crear cuenta"
+    },
+    "divider": {
+      "or": "o"
+    },
+    "apple": {
+      "continue": "Continuar con Apple",
+      "requiresHttps": "El inicio de sesión con Apple requiere HTTPS y un ID de Apple Developer Services (consulta OAUTH-SETUP.md)."
+    },
+    "google": {
+      "continue": "Continuar con Google",
+      "enableHint": "Añade NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar el inicio de sesión con Google"
+    },
+    "signin": {
+      "prompt": "¿Ya tienes una cuenta?",
+      "link": "Iniciar sesión"
+    },
+    "meta": {
+      "title": "Crea tu cuenta",
+      "description": "Únete a QuickIn para descubrir y reservar una colección seleccionada de alojamientos vacacionales con encanto.",
+      "ogTitle": "Crea tu cuenta | QuickIn"
+    }
+  },
+  "reservationsLocal": {
+    "meta": {
+      "title": "Mis reservas",
+      "description": "Consulta y gestiona tus próximas estancias en QuickIn. Todas tus reservas de alojamientos boutique en un solo lugar.",
+      "ogTitle": "Mis reservas | QuickIn",
+      "ogDescription": "Consulta y gestiona tus próximas estancias en QuickIn."
+    },
+    "backToExplore": "Volver a Explorar",
+    "signedOut": {
+      "title": "Inicia sesión para ver tus reservas",
+      "subtitle": "Tus próximas estancias aparecerán aquí cuando inicies sesión.",
+      "logIn": "Iniciar sesión"
+    },
+    "listTitle": "Reservas de {name}",
+    "noneYet": "Aún no hay reservas.",
+    "countBooked": "{count, plural, one {# estancia reservada.} other {# estancias reservadas.}}",
+    "emptyState": "Todavía no has reservado ninguna estancia.",
+    "browseStays": "Explorar estancias",
+    "guestsCount": "{count, plural, one {# huésped} other {# huéspedes}}",
+    "total": "total",
+    "status": {
+      "pending": "Pendiente de aprobación",
+      "confirmed": "Confirmada",
+      "cancelled": "Cancelada",
+      "rejected": "Rechazada"
+    },
+    "confirmCancel": "¿Cancelar esta reserva? Cualquier pago se reembolsará según la política.",
+    "cancel": "Cancelar",
+    "cancelling": "Cancelando…",
+    "leaveReview": "Dejar una reseña",
+    "reviewThanks": "¡Gracias por tu reseña!",
+    "commentPlaceholder": "Añade un comentario (opcional)",
+    "starRating": "{count, plural, one {# estrella} other {# estrellas}}",
+    "submit": "Enviar",
+    "submitting": "Enviando…",
+    "errors": {
+      "cancelFailed": "No se pudo cancelar",
+      "reviewFailed": "No se pudo enviar la reseña"
+    }
+  },
+  "verifyIdPage": {
+    "meta": {
+      "title": "Verifica tu identidad",
+      "description": "Sube tu documento nacional de identidad para verificar tu cuenta de QuickIn."
+    },
+    "heading": "Verifica tu identidad",
+    "subtitle": "Las estancias boutique necesitan un huésped verificado: solo te llevará un minuto."
+  },
+  "planPage": {
+    "meta": {
+      "title": "Plan de lanzamiento | QuickIn",
+      "description": "Plan de preparación paso a paso para lanzar QuickIn en Web, iOS y Android."
+    },
+    "status": {
+      "done": "✓ Hecho",
+      "now": "⚙ Hacer ahora",
+      "key": "🔑 Necesita una clave"
+    },
+    "header": {
+      "title": "Plan de lanzamiento",
+      "subtitle": "Lanza QuickIn en Web · iOS · Android — cuatro vías paralelas."
+    },
+    "legend": {
+      "note": "· sin Supabase · PostgreSQL local → Vercel/Neon para producción"
+    },
+    "completed": {
+      "heading": "🟢 Completado (preparación del despliegue en Vercel)",
+      "backend": {
+        "title": "Backend",
+        "migrated": "Capa de datos migrada <b>de psql CLI al controlador <code>pg</code></b> (lista para Vercel/Neon, parametrizada).",
+        "verified": "Verificados anuncios · búsqueda · inicio de sesión · <b>inserción de reserva</b> · reservas.",
+        "initSql": "<code>init.sql</code> (esquema de prod + datos iniciales) · indicadores de compilación · <b><code>next build</code> pasa</b>."
+      },
+      "web": {
+        "title": "Web",
+        "seo": "<b>SEO</b> por página + imagen OG + favicon.",
+        "errorPages": "Páginas de error y 404, banner de error, cuadrículas adaptadas a móvil.",
+        "sitemap": "Corregido el error 500 de <code>/sitemap.xml</code>."
+      },
+      "ios": {
+        "title": "iOS",
+        "icon": "<b>Icono</b> de la app (marca QUICK IN).",
+        "apiBaseUrl": "<code>apiBaseURL</code> = local (debug) / Vercel (release).",
+        "builds": "Compila sin errores en iOS 26."
+      },
+      "android": {
+        "title": "Android",
+        "icon": "<b>Icono</b> de app adaptable (logo sobre fondo crema).",
+        "buildConfig": "<code>BuildConfig.API_BASE_URL</code> por tipo de compilación.",
+        "keystore": "<b>Keystore de release + APK firmado</b>; ambas compilaciones pasan."
+      }
+    },
+    "phase0": {
+      "heading": "🔑 Fase 0 — claves y cuentas (las creas tú; desbloquean todo)",
+      "note": "~45 min en total. Guía completa en SETUP.md / OAUTH‑SETUP.md / DEPLOY‑VERCEL.md.",
+      "cardTitle": "Crear primero",
+      "googleCloud": "Proyecto de <b>Google Cloud</b> + facturación.",
+      "mapsKey": "<b>Clave de API de Google Maps</b> (Maps JS · SDK de Android · SDK de iOS).",
+      "oauthClients": "<b>ID de cliente de Google OAuth</b> — Web, iOS, Android (+ SHA‑1).",
+      "appleDeveloper": "<b>Apple Developer</b> (99 USD/año) → App ID + Sign in with Apple + Team.",
+      "vercelPostgres": "<b>Vercel Postgres</b> (DATABASE_URL) + <b>dominio + HTTPS</b>."
+    },
+    "tracks": {
+      "heading": "Las cuatro vías paralelas (lo que queda)",
+      "backend": {
+        "title": "A · Backend / Infraestructura",
+        "tag": "compartido",
+        "hardenEnv": "Reforzar el entorno: <code>AUTH_SECRET</code> robusto, secretos solo en el entorno.",
+        "provisionDb": "Aprovisionar <b>Postgres de prod</b>; ejecutar <code>init.sql</code>; importar datos reales.",
+        "deploy": "<b>Desplegar</b> en Vercel; configurar <code>DATABASE_URL</code> + claves como variables de entorno.",
+        "apiBaseUrl": "Definir la <b>URL base de la API</b> pública para las apps.",
+        "later": "Más adelante: pagos (Stripe), subida/alojamiento de imágenes, copias de seguridad, monitorización."
+      },
+      "web": {
+        "title": "B · Web",
+        "flipMap": "Cambiar el mapa a <b>Google Maps</b> (pegar la clave de Maps).",
+        "googleLogin": "Activar el <b>inicio de sesión con Google</b> (+ Apple vía Services ID + HTTPS).",
+        "realListings": "Anuncios reales vía admin + <b>subida de fotos</b> de anuncios.",
+        "a11y": "Revisión de accesibilidad; desplegar en el dominio."
+      },
+      "ios": {
+        "title": "C · iOS",
+        "apiBaseUrl": "Apuntar la <code>apiBaseURL</code> de release a la URL de Vercel.",
+        "signing": "Firma en Xcode: definir <b>Team</b> + añadir <b>Sign in with Apple</b>.",
+        "maps": "(Si Google Maps) añadir el SDK de Maps para iOS + la clave; añadir el ID de cliente de Google para iOS.",
+        "device": "Probar en un dispositivo real.",
+        "testflight": "<b>TestFlight</b> → revisión de la App Store."
+      },
+      "android": {
+        "title": "D · Android",
+        "apiBaseUrl": "Apuntar la <code>API_BASE_URL</code> de release a la URL de Vercel.",
+        "mapsKey": "Añadir la <b>clave de Maps</b> (cambia desde osmdroid).",
+        "clientId": "Añadir el ID de cliente de Google + registrar el <b>SHA‑1 de debug y release</b>.",
+        "releaseAab": "Generar el <b>AAB de release</b> firmado; probar en un dispositivo real.",
+        "playConsole": "Play Console → <b>pruebas internas</b> → enviar."
+      }
+    },
+    "doNow": {
+      "title": "🚀 Hacer ahora, en paralelo (sin claves)",
+      "backend": "<b>Backend</b>: listo para desplegar (hecho) → subir a GitHub + importar a Vercel.",
+      "web": "<b>Web</b>: datos reales vía admin, subida de fotos, accesibilidad.",
+      "ios": "<b>iOS</b>: definir la URL de prod, prueba en dispositivo real.",
+      "android": "<b>Android</b>: definir la URL de prod, AAB de release firmado, prueba en dispositivo."
+    },
+    "ready": {
+      "title": "🏁 Definición de listo para lanzar",
+      "web": "Web en vivo en el dominio (HTTPS), datos reales, Maps + inicio de sesión con Google/Apple.",
+      "ios": "iOS en TestFlight (firmado, inicio de sesión real + mapas), funcionando en un dispositivo.",
+      "android": "Release de Android firmada en pruebas internas de Play, funcionando en un dispositivo.",
+      "db": "BD de producción con copias de seguridad; apps apuntando a la API de prod."
+    },
+    "footer": {
+      "source": "Fuente de verdad: <code>LAUNCH-PLAN.md</code> · pasos de despliegue: <code>DEPLOY-VERCEL.md</code> · claves: <code>SETUP.md</code>."
     }
   }
 }

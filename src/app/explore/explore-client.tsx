@@ -5,13 +5,14 @@
 // first page of listings as `initialListings` so the first paint is instant.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useTranslations } from 'next-intl'
 import type { Listing } from '@/lib/local/db'
 
 // Leaflet must never run on the server (it reads `window` at import time), so
 // the map is a client-only dynamic import with SSR disabled.
-const ListingsMap = dynamic(() => import('./listings-map'), {
-  ssr: false,
-  loading: () => (
+function MapLoading() {
+  const t = useTranslations('explorePage')
+  return (
     <div
       style={{
         height: '70vh',
@@ -26,9 +27,14 @@ const ListingsMap = dynamic(() => import('./listings-map'), {
         fontSize: 14,
       }}
     >
-      Loading map…
+      {t('map.loading')}
     </div>
-  ),
+  )
+}
+
+const ListingsMap = dynamic(() => import('./listings-map'), {
+  ssr: false,
+  loading: () => <MapLoading />,
 })
 
 const FALLBACK_IMG =
@@ -93,6 +99,7 @@ function buildQuery(f: Filters): string {
 const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '' }
 
 export default function ExploreClient({ initialListings, initialFilters }: Props) {
+  const t = useTranslations('explorePage')
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [listings, setListings] = useState<Listing[]>(initialListings)
   const [searching, setSearching] = useState(false)
@@ -178,7 +185,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
   )
 
   const count = listings.length
-  const countLabel = `${count} ${count === 1 ? 'stay' : 'stays'} found`
+  const countLabel = t('results.countFound', { count })
 
   return (
     <>
@@ -218,11 +225,10 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
               color: COLORS.burgundy,
             }}
           >
-            Find your next boutique stay
+            {t('hero.title')}
           </h1>
           <p style={{ margin: '10px 0 24px', fontSize: 15, color: COLORS.muted, maxWidth: 560 }}>
-            A curated collection of hand-picked homes — from lakeside villas to
-            desert hideaways.
+            {t('hero.subtitle')}
           </p>
 
           {/* Live search (no submit needed — filters as you type) */}
@@ -244,13 +250,13 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
           >
             <div className="qk-search-location">
               <label htmlFor="location" style={labelStyle}>
-                Location
+                {t('search.locationLabel')}
               </label>
               <input
                 id="location"
                 type="text"
                 name="location"
-                placeholder="Where to?"
+                placeholder={t('search.locationPlaceholder')}
                 autoComplete="off"
                 value={filters.location}
                 onChange={(e) => updateFilter({ location: e.target.value }, { debounce: true })}
@@ -259,7 +265,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
             </div>
             <div>
               <label htmlFor="checkIn" style={labelStyle}>
-                Check-in
+                {t('search.checkInLabel')}
               </label>
               <input
                 id="checkIn"
@@ -272,7 +278,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
             </div>
             <div>
               <label htmlFor="checkOut" style={labelStyle}>
-                Check-out
+                {t('search.checkOutLabel')}
               </label>
               <input
                 id="checkOut"
@@ -285,7 +291,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
             </div>
             <div>
               <label htmlFor="guests" style={labelStyle}>
-                Guests
+                {t('search.guestsLabel')}
               </label>
               <input
                 id="guests"
@@ -317,7 +323,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                 transition: 'background 0.15s ease',
               }}
             >
-              Clear
+              {t('search.clear')}
             </button>
           </div>
 
@@ -338,7 +344,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
               aria-busy={searching}
             >
               {searching ? (
-                <span style={{ color: COLORS.burgundy, fontWeight: 600 }}>Searching…</span>
+                <span style={{ color: COLORS.burgundy, fontWeight: 600 }}>{t('results.searching')}</span>
               ) : (
                 <span>{countLabel}</span>
               )}
@@ -347,7 +353,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
             {/* List / Map toggle */}
             <div
               role="tablist"
-              aria-label="Choose view"
+              aria-label={t('view.toggleLabel')}
               style={{
                 display: 'inline-flex',
                 background: COLORS.tan,
@@ -357,12 +363,12 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
               }}
             >
               <ToggleButton
-                label="List"
+                label={t('view.list')}
                 active={view === 'list'}
                 onClick={() => setView('list')}
               />
               <ToggleButton
-                label="Map"
+                label={t('view.map')}
                 active={view === 'map'}
                 onClick={() => setView('map')}
               />
@@ -389,13 +395,12 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
               }}
             >
               <span>
-                We couldn&apos;t refresh the results just now — showing your last
-                matches. Try again in a moment.
+                {t('error.refresh')}
               </span>
               <button
                 type="button"
                 onClick={() => setSearchError(false)}
-                aria-label="Dismiss"
+                aria-label={t('error.dismiss')}
                 style={{
                   appearance: 'none',
                   border: 'none',
@@ -431,10 +436,10 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
         ) : listings.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '64px 24px', color: COLORS.muted }}>
             <p style={{ margin: 0, fontSize: 20, fontWeight: 600, color: COLORS.ink }}>
-              No stays match your search
+              {t('empty.title')}
             </p>
             <p style={{ margin: '8px 0 18px', fontSize: 15 }}>
-              Try widening your dates or location.
+              {t('empty.subtitle')}
             </p>
             <button
               type="button"
@@ -452,7 +457,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                 cursor: 'pointer',
               }}
             >
-              Clear filters
+              {t('empty.clearFilters')}
             </button>
           </div>
         ) : (
@@ -519,7 +524,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                           boxShadow: '0 2px 8px rgba(42,34,32,0.14)',
                         }}
                       >
-                        ★ Guest favorite
+                        {t('card.guestFavorite')}
                       </span>
                     )}
                   </div>
@@ -546,7 +551,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                       <span style={{ fontWeight: 700, color: COLORS.burgundy }}>
                         ${listing.price_per_night}
                       </span>{' '}
-                      <span style={{ color: COLORS.muted }}>/ night</span>
+                      <span style={{ color: COLORS.muted }}>{t('card.perNight')}</span>
                     </p>
                   </div>
                 </a>

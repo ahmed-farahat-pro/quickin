@@ -1,6 +1,7 @@
 // Local listing detail (no Supabase, no auth) — boutique stay view.
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getListingById, getListingReviews } from '@/lib/local/db'
 import ReservePanel from './reserve-panel'
 
@@ -12,12 +13,13 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
+  const t = await getTranslations('listingPage')
   const listing = await getListingById(id).catch(() => null)
 
   if (!listing) {
     return {
-      title: 'Stay not found',
-      description: 'This boutique stay could not be found. Browse other curated homes on QuickIn.',
+      title: t('meta.notFoundTitle'),
+      description: t('meta.notFoundDescription'),
       robots: { index: false, follow: true },
     }
   }
@@ -25,7 +27,9 @@ export async function generateMetadata({
   const place = [listing.location, listing.country].filter(Boolean).join(', ')
   const description =
     listing.description?.trim() ||
-    `A boutique stay${place ? ` in ${place}` : ''} from $${listing.price_per_night} / night on QuickIn.`
+    (place
+      ? t('meta.descriptionWithPlace', { place, price: listing.price_per_night })
+      : t('meta.description', { price: listing.price_per_night }))
   const cover = listing.listing_images[0]?.url || '/logo.png'
 
   return {
@@ -85,6 +89,7 @@ export default async function ListingDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+  const t = await getTranslations('listingPage')
   const listing = await getListingById(id)
   if (!listing) notFound()
 
@@ -137,7 +142,7 @@ export default async function ListingDetailPage({
           }}
         >
           <span style={{ fontSize: 18, lineHeight: 1 }}>&larr;</span>
-          Back to Explore
+          {t('backToExplore')}
         </a>
 
         {/* Hero */}
@@ -177,7 +182,7 @@ export default async function ListingDetailPage({
               <img
                 key={`${img.url}-${i}`}
                 src={img.url}
-                alt={`${listing.title} photo ${i + 2}`}
+                alt={t('photoAlt', { title: listing.title, index: i + 2 })}
                 loading="lazy"
                 style={{
                   width: 132,
@@ -208,7 +213,7 @@ export default async function ListingDetailPage({
                 marginBottom: 12,
               }}
             >
-              ★ Guest favorite
+              ★ {t('guestFavorite')}
             </span>
           )}
           <h1
@@ -254,10 +259,10 @@ export default async function ListingDetailPage({
                 borderBottom: `1px solid rgba(42,34,32,0.10)`,
               }}
             >
-              <Spec label="Guests" value={listing.max_guests} />
-              <Spec label="Bedrooms" value={listing.bedrooms} />
-              <Spec label="Beds" value={listing.beds} />
-              <Spec label="Baths" value={listing.bathrooms} />
+              <Spec label={t('specs.guests')} value={listing.max_guests} />
+              <Spec label={t('specs.bedrooms')} value={listing.bedrooms} />
+              <Spec label={t('specs.beds')} value={listing.beds} />
+              <Spec label={t('specs.baths')} value={listing.bathrooms} />
             </div>
 
             {/* Description */}
@@ -271,7 +276,7 @@ export default async function ListingDetailPage({
                     color: COLORS.ink,
                   }}
                 >
-                  About this stay
+                  {t('aboutThisStay')}
                 </h2>
                 <p
                   style={{
@@ -289,18 +294,19 @@ export default async function ListingDetailPage({
             {/* Guest reviews */}
             <div style={{ marginTop: 26 }}>
               <h2 style={{ margin: '0 0 12px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
-                {avgRating ? `★ ${avgRating} · ` : ''}Reviews{reviews.length ? ` (${reviews.length})` : ''}
+                {avgRating ? `★ ${avgRating} · ` : ''}
+                {reviews.length ? t('reviewsWithCount', { count: reviews.length }) : t('reviews')}
               </h2>
               {reviews.length === 0 ? (
                 <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
-                  No reviews yet — be the first after your stay.
+                  {t('noReviews')}
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {reviews.map((r, i) => (
                     <div key={i} style={{ background: '#fff', border: '1px solid rgba(42,34,32,0.06)', borderRadius: 14, padding: '14px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <strong style={{ fontSize: 14.5, color: COLORS.ink }}>{r.reviewer_name || 'Guest'}</strong>
+                        <strong style={{ fontSize: 14.5, color: COLORS.ink }}>{r.reviewer_name || t('guest')}</strong>
                         <span style={{ fontSize: 13 }}>
                           <span style={{ color: '#f5a623' }}>{'★'.repeat(r.rating)}</span>
                           <span style={{ color: '#d8d2c8' }}>{'★'.repeat(5 - r.rating)}</span>
@@ -344,7 +350,7 @@ export default async function ListingDetailPage({
                   color: COLORS.muted,
                 }}
               >
-                Listing code{' '}
+                {t('listingCode')}{' '}
                 <span
                   style={{
                     fontFamily:

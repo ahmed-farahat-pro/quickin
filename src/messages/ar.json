@@ -9,7 +9,8 @@
     "guest": "ضيف",
     "guests": "ضيوف",
     "languageToggle": "English",
-    "languageLabel": "العربية"
+    "languageLabel": "العربية",
+    "loadingStays": "جارٍ تحميل أماكن إقامة رائعة..."
   },
   "nav": {
     "anywhere": "أي مكان",
@@ -1357,6 +1358,378 @@
       "discard": "تجاهل",
       "save": "حفظ",
       "saving": "جاري الحفظ..."
+    }
+  },
+  "explorePage": {
+    "meta": {
+      "title": "اكتشف إقامات بوتيك",
+      "description": "تصفح مجموعة منسقة من المنازل المنتقاة بعناية — من فلل على ضفاف البحيرات إلى ملاذات صحراوية. ابحث حسب الموقع والتواريخ وعدد الضيوف.",
+      "ogTitle": "اكتشف إقامات بوتيك | QuickIn",
+      "ogDescription": "تصفح مجموعة منسقة من المنازل المنتقاة بعناية — من فلل على ضفاف البحيرات إلى ملاذات صحراوية."
+    },
+    "logoAlt": "QuickIn",
+    "nav": {
+      "becomeHost": "كن مضيفًا",
+      "greeting": "أهلًا، {name}",
+      "logout": "تسجيل الخروج",
+      "login": "تسجيل الدخول",
+      "signup": "إنشاء حساب"
+    },
+    "hero": {
+      "title": "اعثر على إقامة البوتيك التالية",
+      "subtitle": "مجموعة منسقة من المنازل المنتقاة بعناية — من فلل على ضفاف البحيرات إلى ملاذات صحراوية."
+    },
+    "search": {
+      "locationLabel": "الموقع",
+      "locationPlaceholder": "إلى أين؟",
+      "checkInLabel": "تسجيل الوصول",
+      "checkOutLabel": "تسجيل المغادرة",
+      "guestsLabel": "الضيوف",
+      "clear": "مسح"
+    },
+    "results": {
+      "countFound": "{count, plural, one {تم العثور على إقامة #} other {تم العثور على # إقامات}}",
+      "searching": "جارٍ البحث…"
+    },
+    "view": {
+      "toggleLabel": "اختر طريقة العرض",
+      "list": "قائمة",
+      "map": "خريطة"
+    },
+    "map": {
+      "loading": "جارٍ تحميل الخريطة…"
+    },
+    "error": {
+      "refresh": "تعذّر علينا تحديث النتائج الآن — نعرض لك آخر إقامات مطابقة. حاول مرة أخرى بعد لحظات.",
+      "dismiss": "تجاهل"
+    },
+    "empty": {
+      "title": "لا توجد إقامات تطابق بحثك",
+      "subtitle": "جرّب توسيع نطاق التواريخ أو الموقع.",
+      "clearFilters": "مسح عوامل التصفية"
+    },
+    "card": {
+      "guestFavorite": "★ مفضّل لدى الضيوف",
+      "perNight": "/ الليلة"
+    },
+    "footer": {
+      "tagline": "QuickIn — إقامات بوتيك للمسافرين الذين يعشقون التفاصيل.",
+      "support": {
+        "title": "الدعم",
+        "helpCenter": "مركز المساعدة",
+        "cancellation": "خيارات الإلغاء",
+        "safetyInfo": "معلومات السلامة"
+      },
+      "hosting": {
+        "title": "الاستضافة",
+        "becomeHost": "كن مضيفًا",
+        "hostResources": "موارد المضيفين",
+        "communityForum": "منتدى المجتمع"
+      },
+      "about": {
+        "title": "نبذة عنا",
+        "ourStory": "قصتنا",
+        "careers": "الوظائف",
+        "press": "الصحافة"
+      },
+      "copyright": "© 2026 QuickIn. صُمم للمسافر الفضولي."
+    },
+    "notFound": {
+      "title": "لقد فاتتك هذه الإقامة",
+      "description": "تعذّر علينا العثور على المنزل الذي كنت تبحث عنه. ربما تم حجزه أو إيقافه مؤقتًا أو نقله — لكن هناك الكثير غيره لاكتشافه.",
+      "browseStays": "تصفح الإقامات"
+    }
+  },
+  "listingPage": {
+    "meta": {
+      "notFoundTitle": "لم يتم العثور على الإقامة",
+      "notFoundDescription": "تعذّر العثور على هذه الإقامة المميّزة. تصفّح بيوتًا منتقاة أخرى على QuickIn.",
+      "descriptionWithPlace": "إقامة مميّزة في {place} بدءًا من ${price} / الليلة على QuickIn.",
+      "description": "إقامة مميّزة بدءًا من ${price} / الليلة على QuickIn."
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "photoAlt": "صورة {title} رقم {index}",
+    "guestFavorite": "المفضّل لدى الضيوف",
+    "specs": {
+      "guests": "الضيوف",
+      "bedrooms": "غرف النوم",
+      "beds": "الأسرّة",
+      "baths": "الحمّامات"
+    },
+    "aboutThisStay": "عن هذه الإقامة",
+    "reviews": "التقييمات",
+    "reviewsWithCount": "التقييمات ({count})",
+    "noReviews": "لا توجد تقييمات بعد — كن أول من يقيّم بعد إقامتك.",
+    "guest": "ضيف",
+    "listingCode": "رمز الإعلان",
+    "perNight": "/ الليلة",
+    "pricesIn": "الأسعار بعملة {currency}",
+    "checkIn": "تسجيل الوصول",
+    "checkOut": "تسجيل المغادرة",
+    "guests": "الضيوف",
+    "guestTypes": {
+      "adults": "البالغون",
+      "adultsSub": "13 سنة فأكثر",
+      "children": "الأطفال",
+      "childrenSub": "من 2 إلى 12 سنة",
+      "infants": "الرضّع",
+      "infantsSub": "أقل من سنتين",
+      "pets": "الحيوانات الأليفة",
+      "petsSub": "حيوانات الخدمة مرحّب بها دائمًا"
+    },
+    "maxGuests": "حتى {count, plural, one {# ضيف} other {# ضيوف}} (بالغون + أطفال).",
+    "nightsCount": "{nights, plural, one {# ليلة} other {# ليالٍ}}",
+    "total": "الإجمالي",
+    "reserve": "احجز",
+    "reserving": "جارٍ الحجز…",
+    "pickDates": "اختر تواريخك لعرض الإجمالي.",
+    "needsLogin": "يُرجى تسجيل الدخول للحجز.",
+    "logIn": "تسجيل الدخول",
+    "success": {
+      "title": "تم إرسال الطلب!",
+      "summary": "{nights, plural, one {# ليلة} other {# ليالٍ}} · ${total} الإجمالي.",
+      "awaitingApproval": "بانتظار موافقة المضيف — سنخطرك بمجرد تأكيده.",
+      "viewReservations": "عرض حجوزاتي"
+    },
+    "errors": {
+      "generic": "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
+      "network": "خطأ في الشبكة. يُرجى المحاولة مرة أخرى."
+    },
+    "decrease": "إنقاص {label}",
+    "increase": "زيادة {label}"
+  },
+  "loginLocal": {
+    "subtitle": "أهلاً بعودتك — سجّل الدخول للمتابعة",
+    "logoAlt": "QuickIn",
+    "emailLabel": "البريد الإلكتروني",
+    "passwordLabel": "كلمة المرور",
+    "signIn": "تسجيل الدخول",
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "or": "أو",
+    "continueWithApple": "المتابعة باستخدام Apple",
+    "continueWithGoogle": "المتابعة باستخدام Google",
+    "googleDisabledHint": "أضف NEXT_PUBLIC_GOOGLE_CLIENT_ID لتفعيل تسجيل الدخول عبر Google",
+    "newHere": "جديد هنا؟",
+    "createAccount": "إنشاء حساب",
+    "errors": {
+      "googleFailed": "فشل تسجيل الدخول عبر Google. من فضلك حاول مرة أخرى.",
+      "unableToSignIn": "تعذّر تسجيل الدخول. من فضلك حاول مرة أخرى.",
+      "network": "خطأ في الشبكة. من فضلك حاول مرة أخرى."
+    },
+    "notices": {
+      "appleSetup": "يتطلب تسجيل الدخول عبر Apple اتصال HTTPS ومُعرّف Apple Developer Services (راجع OAUTH-SETUP.md)."
+    },
+    "meta": {
+      "title": "تسجيل الدخول",
+      "ogTitle": "تسجيل الدخول | QuickIn",
+      "description": "سجّل الدخول إلى حسابك على QuickIn لإدارة الحجوزات وحجز إقامات بوتيك مميزة.",
+      "siteName": "QuickIn",
+      "imageAlt": "QuickIn"
+    }
+  },
+  "signupLocal": {
+    "subtitle": "أنشئ حسابك لبدء الاستكشاف",
+    "errors": {
+      "invalidCode": "هذا الرمز غير صالح أو منتهي الصلاحية.",
+      "network": "خطأ في الشبكة. يُرجى المحاولة مرة أخرى.",
+      "googleFailed": "فشل تسجيل الدخول عبر Google. يُرجى المحاولة مرة أخرى.",
+      "createFailed": "تعذّر إنشاء الحساب. يُرجى المحاولة مرة أخرى."
+    },
+    "otp": {
+      "label": "رمز التحقق",
+      "placeholder": "رمز من 6 أرقام",
+      "verifying": "جارٍ التحقق…",
+      "verifyContinue": "تحقّق وتابع",
+      "didntGet": "لم يصلك الرمز؟",
+      "resendIn": "إعادة الإرسال خلال {seconds} ث",
+      "resendCode": "إعادة إرسال الرمز",
+      "newCodeSent": "رمز جديد في طريقه إليك.",
+      "codeSentTo": "أرسلنا رمزًا من 6 أرقام إلى {email}."
+    },
+    "fields": {
+      "fullName": "الاسم الكامل",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "passwordPlaceholder": "6 أحرف على الأقل"
+    },
+    "submit": {
+      "creating": "جارٍ إنشاء الحساب…",
+      "createAccount": "إنشاء حساب"
+    },
+    "divider": {
+      "or": "أو"
+    },
+    "apple": {
+      "continue": "المتابعة باستخدام Apple",
+      "requiresHttps": "يتطلّب تسجيل الدخول عبر Apple بروتوكول HTTPS ومعرّف Apple Developer Services (راجع OAUTH-SETUP.md)."
+    },
+    "google": {
+      "continue": "المتابعة باستخدام Google",
+      "enableHint": "أضِف NEXT_PUBLIC_GOOGLE_CLIENT_ID لتفعيل تسجيل الدخول عبر Google"
+    },
+    "signin": {
+      "prompt": "هل لديك حساب بالفعل؟",
+      "link": "تسجيل الدخول"
+    },
+    "meta": {
+      "title": "أنشئ حسابك",
+      "description": "انضم إلى QuickIn لاكتشاف وحجز مجموعة منتقاة من بيوت العطلات البوتيكية.",
+      "ogTitle": "أنشئ حسابك | QuickIn"
+    }
+  },
+  "reservationsLocal": {
+    "meta": {
+      "title": "حجوزاتي",
+      "description": "اعرض حجوزات إقامتك القادمة على QuickIn وأدِرها. كل حجوزات الإقامات البوتيكية في مكان واحد.",
+      "ogTitle": "حجوزاتي | QuickIn",
+      "ogDescription": "اعرض حجوزات إقامتك القادمة على QuickIn وأدِرها."
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "signedOut": {
+      "title": "سجّل الدخول لعرض حجوزاتك",
+      "subtitle": "ستظهر إقاماتك القادمة هنا بمجرد تسجيل الدخول.",
+      "logIn": "تسجيل الدخول"
+    },
+    "listTitle": "حجوزات {name}",
+    "noneYet": "لا توجد حجوزات حتى الآن.",
+    "countBooked": "{count, plural, one {تم حجز إقامة واحدة.} other {تم حجز # إقامات.}}",
+    "emptyState": "لم تحجز أي إقامة حتى الآن.",
+    "browseStays": "تصفّح الإقامات",
+    "guestsCount": "{count, plural, one {ضيف واحد} other {# ضيوف}}",
+    "total": "الإجمالي",
+    "status": {
+      "pending": "في انتظار الموافقة",
+      "confirmed": "مؤكَّد",
+      "cancelled": "ملغى",
+      "rejected": "مرفوض"
+    },
+    "confirmCancel": "هل تريد إلغاء هذا الحجز؟ سيتم استرداد أي مبلغ مدفوع وفقًا للسياسة.",
+    "cancel": "إلغاء",
+    "cancelling": "جارٍ الإلغاء…",
+    "leaveReview": "اكتب تقييمًا",
+    "reviewThanks": "شكرًا على تقييمك!",
+    "commentPlaceholder": "أضف تعليقًا (اختياري)",
+    "starRating": "{count, plural, one {نجمة واحدة} other {# نجوم}}",
+    "submit": "إرسال",
+    "submitting": "جارٍ الإرسال…",
+    "errors": {
+      "cancelFailed": "تعذّر الإلغاء",
+      "reviewFailed": "تعذّر إرسال التقييم"
+    }
+  },
+  "verifyIdPage": {
+    "meta": {
+      "title": "تأكيد هويتك",
+      "description": "ارفع بطاقة الرقم القومي لتأكيد حسابك على QuickIn."
+    },
+    "heading": "تأكيد هويتك",
+    "subtitle": "إقامات البوتيك بتحتاج ضيف موثّق — مش هياخد منك غير دقيقة."
+  },
+  "planPage": {
+    "meta": {
+      "title": "خطة الإطلاق | QuickIn",
+      "description": "خطة جاهزية خطوة بخطوة لإطلاق QuickIn عبر الويب و iOS و Android."
+    },
+    "status": {
+      "done": "✓ مكتمل",
+      "now": "⚙ نفّذ الآن",
+      "key": "🔑 يحتاج مفتاحًا"
+    },
+    "header": {
+      "title": "خطة الإطلاق",
+      "subtitle": "أطلِق QuickIn عبر الويب · iOS · Android — أربعة مسارات متوازية."
+    },
+    "legend": {
+      "note": "· بدون Supabase · PostgreSQL محلي → Vercel/Neon للإنتاج"
+    },
+    "completed": {
+      "heading": "🟢 مكتمل (تجهيز النشر على Vercel)",
+      "backend": {
+        "title": "الواجهة الخلفية",
+        "migrated": "تم ترحيل طبقة البيانات <b>من psql CLI إلى محرّك <code>pg</code></b> (جاهزة لـ Vercel/Neon، بمعاملات).",
+        "verified": "تم التحقق من القوائم · البحث · تسجيل الدخول · <b>إدراج الحجز</b> · الحجوزات.",
+        "initSql": "<code>init.sql</code> (مخطط الإنتاج + البيانات الأولية) · أعلام البناء · <b><code>next build</code> ينجح</b>."
+      },
+      "web": {
+        "title": "الويب",
+        "seo": "<b>SEO</b> لكل صفحة + صورة OG + أيقونة الموقع.",
+        "errorPages": "صفحات الأخطاء و404، شريط الخطأ، شبكات متجاوبة مع الجوال.",
+        "sitemap": "إصلاح خطأ 500 في <code>/sitemap.xml</code>."
+      },
+      "ios": {
+        "title": "iOS",
+        "icon": "<b>أيقونة</b> التطبيق (علامة QUICK IN).",
+        "apiBaseUrl": "<code>apiBaseURL</code> = محلي (debug) / Vercel (release).",
+        "builds": "البناء نظيف على iOS 26."
+      },
+      "android": {
+        "title": "Android",
+        "icon": "<b>أيقونة</b> تطبيق متكيّفة (الشعار على خلفية كريمية).",
+        "buildConfig": "<code>BuildConfig.API_BASE_URL</code> لكل نوع بناء.",
+        "keystore": "<b>مخزن مفاتيح الإصدار + APK موقّع</b>؛ كلا البناءين ينجحان."
+      }
+    },
+    "phase0": {
+      "heading": "🔑 المرحلة 0 — المفاتيح والحسابات (أنت من ينشئها؛ تفتح كل شيء)",
+      "note": "حوالي 45 دقيقة إجمالًا. الدليل الكامل في SETUP.md / OAUTH‑SETUP.md / DEPLOY‑VERCEL.md.",
+      "cardTitle": "أنشئ أولًا",
+      "googleCloud": "مشروع <b>Google Cloud</b> + الفوترة.",
+      "mapsKey": "<b>مفتاح Google Maps API</b> (Maps JS · Android SDK · iOS SDK).",
+      "oauthClients": "<b>معرّفات عميل Google OAuth</b> — الويب و iOS و Android (+ SHA‑1).",
+      "appleDeveloper": "<b>Apple Developer</b> (99 دولارًا/سنة) → App ID + تسجيل الدخول بحساب Apple + Team.",
+      "vercelPostgres": "<b>Vercel Postgres</b> (DATABASE_URL) + <b>نطاق + HTTPS</b>."
+    },
+    "tracks": {
+      "heading": "المسارات الأربعة المتوازية (ما تبقّى)",
+      "backend": {
+        "title": "أ · الواجهة الخلفية / البنية التحتية",
+        "tag": "مشترك",
+        "hardenEnv": "تأمين البيئة: <code>AUTH_SECRET</code> قوي، والأسرار في البيئة فقط.",
+        "provisionDb": "تجهيز <b>Postgres الإنتاج</b>؛ تشغيل <code>init.sql</code>؛ استيراد البيانات الحقيقية.",
+        "deploy": "<b>النشر</b> على Vercel؛ ضبط <code>DATABASE_URL</code> + المفاتيح كمتغيرات بيئة.",
+        "apiBaseUrl": "تحديد <b>عنوان API الأساسي</b> العام للتطبيقات.",
+        "later": "لاحقًا: المدفوعات (Stripe)، رفع/استضافة الصور، النسخ الاحتياطي، المراقبة."
+      },
+      "web": {
+        "title": "ب · الويب",
+        "flipMap": "تبديل الخريطة إلى <b>Google Maps</b> (الصق مفتاح Maps).",
+        "googleLogin": "تفعيل <b>تسجيل الدخول بحساب Google</b> (+ Apple عبر Services ID + HTTPS).",
+        "realListings": "قوائم حقيقية عبر لوحة الإدارة + <b>رفع صور</b> القوائم.",
+        "a11y": "مراجعة إمكانية الوصول؛ النشر على النطاق."
+      },
+      "ios": {
+        "title": "ج · iOS",
+        "apiBaseUrl": "توجيه <code>apiBaseURL</code> الخاص بالإصدار إلى عنوان Vercel.",
+        "signing": "توقيع Xcode: ضبط <b>Team</b> + إضافة <b>تسجيل الدخول بحساب Apple</b>.",
+        "maps": "(في حال Google Maps) أضف Maps iOS SDK + المفتاح؛ أضف معرّف عميل Google لـ iOS.",
+        "device": "الاختبار على جهاز حقيقي.",
+        "testflight": "<b>TestFlight</b> → مراجعة App Store."
+      },
+      "android": {
+        "title": "د · Android",
+        "apiBaseUrl": "توجيه <code>API_BASE_URL</code> الخاص بالإصدار إلى عنوان Vercel.",
+        "mapsKey": "أضف <b>مفتاح Maps</b> (يبدّل من osmdroid).",
+        "clientId": "أضف معرّف عميل Google + سجّل <b>SHA‑1 للـ debug والإصدار</b>.",
+        "releaseAab": "ابنِ <b>AAB الإصدار</b> الموقّع؛ اختبر على جهاز حقيقي.",
+        "playConsole": "Play Console → <b>الاختبار الداخلي</b> → إرسال."
+      }
+    },
+    "doNow": {
+      "title": "🚀 نفّذ الآن، بالتوازي (بدون مفاتيح)",
+      "backend": "<b>الواجهة الخلفية</b>: جاهزة للنشر (مكتمل) → ادفع إلى GitHub + استورد إلى Vercel.",
+      "web": "<b>الويب</b>: بيانات حقيقية عبر لوحة الإدارة، رفع الصور، إمكانية الوصول.",
+      "ios": "<b>iOS</b>: ضبط عنوان الإنتاج، اختبار على جهاز حقيقي.",
+      "android": "<b>Android</b>: ضبط عنوان الإنتاج، AAB إصدار موقّع، اختبار على جهاز."
+    },
+    "ready": {
+      "title": "🏁 تعريف الجاهزية للإطلاق",
+      "web": "الويب يعمل مباشرةً على النطاق (HTTPS)، بيانات حقيقية، Maps + تسجيل دخول Google/Apple.",
+      "ios": "iOS على TestFlight (موقّع، تسجيل دخول حقيقي + خرائط)، يعمل على جهاز.",
+      "android": "إصدار Android موقّع على الاختبار الداخلي في Play، يعمل على جهاز.",
+      "db": "قاعدة بيانات إنتاج مع نسخ احتياطي؛ التطبيقات موجّهة إلى API الإنتاج."
+    },
+    "footer": {
+      "source": "المصدر الموثوق: <code>LAUNCH-PLAN.md</code> · خطوات النشر: <code>DEPLOY-VERCEL.md</code> · المفاتيح: <code>SETUP.md</code>."
     }
   }
 }

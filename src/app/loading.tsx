@@ -6,8 +6,10 @@
 // =============================================================================
 
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { getTranslations } from 'next-intl/server'
 
-export default function Loading() {
+export default async function Loading() {
+  const t = await getTranslations('common')
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
       {/* Animated Logo */}
@@ -31,7 +33,7 @@ export default function Loading() {
       <h1 className="text-2xl font-bold text-primary mb-2">QuickIn</h1>
       
       {/* Loading text */}
-      <p className="text-background animate-pulse">Loading amazing stays...</p>
+      <p className="text-background animate-pulse">{t('loadingStays')}</p>
       
       {/* Decorative dots */}
       <div className="flex gap-1 mt-6">

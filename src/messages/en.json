@@ -9,7 +9,8 @@
     "guest": "guest",
     "guests": "guests",
     "languageToggle": "العربية",
-    "languageLabel": "English (US)"
+    "languageLabel": "English (US)",
+    "loadingStays": "Loading amazing stays..."
   },
   "nav": {
     "anywhere": "Anywhere",
@@ -616,7 +617,6 @@
       "cancel": "Cancel",
       "confirm": "Unpublish Listing"
     },
-
     "sort": {
       "placeholder": "Sort by",
       "newest": "Newest first",
@@ -1359,5 +1359,377 @@
       "save": "Save",
       "saving": "Saving..."
     }
+  },
+  "explorePage": {
+    "meta": {
+      "title": "Explore boutique stays",
+      "description": "Browse a curated collection of hand-picked homes — from lakeside villas to desert hideaways. Search by location, dates, and guests.",
+      "ogTitle": "Explore boutique stays | QuickIn",
+      "ogDescription": "Browse a curated collection of hand-picked homes — from lakeside villas to desert hideaways."
+    },
+    "logoAlt": "QuickIn",
+    "nav": {
+      "becomeHost": "Become a host",
+      "greeting": "Hi, {name}",
+      "logout": "Logout",
+      "login": "Log in",
+      "signup": "Sign up"
+    },
+    "hero": {
+      "title": "Find your next boutique stay",
+      "subtitle": "A curated collection of hand-picked homes — from lakeside villas to desert hideaways."
+    },
+    "search": {
+      "locationLabel": "Location",
+      "locationPlaceholder": "Where to?",
+      "checkInLabel": "Check-in",
+      "checkOutLabel": "Check-out",
+      "guestsLabel": "Guests",
+      "clear": "Clear"
+    },
+    "results": {
+      "countFound": "{count, plural, one {# stay} other {# stays}} found",
+      "searching": "Searching…"
+    },
+    "view": {
+      "toggleLabel": "Choose view",
+      "list": "List",
+      "map": "Map"
+    },
+    "map": {
+      "loading": "Loading map…"
+    },
+    "error": {
+      "refresh": "We couldn't refresh the results just now — showing your last matches. Try again in a moment.",
+      "dismiss": "Dismiss"
+    },
+    "empty": {
+      "title": "No stays match your search",
+      "subtitle": "Try widening your dates or location.",
+      "clearFilters": "Clear filters"
+    },
+    "card": {
+      "guestFavorite": "★ Guest favorite",
+      "perNight": "/ night"
+    },
+    "footer": {
+      "tagline": "QuickIn — boutique stays for travelers who love the details.",
+      "support": {
+        "title": "Support",
+        "helpCenter": "Help center",
+        "cancellation": "Cancellation options",
+        "safetyInfo": "Safety info"
+      },
+      "hosting": {
+        "title": "Hosting",
+        "becomeHost": "Become a host",
+        "hostResources": "Host resources",
+        "communityForum": "Community forum"
+      },
+      "about": {
+        "title": "About",
+        "ourStory": "Our story",
+        "careers": "Careers",
+        "press": "Press"
+      },
+      "copyright": "© 2026 QuickIn. Crafted for the curious traveler."
+    },
+    "notFound": {
+      "title": "This stay slipped away",
+      "description": "We couldn't find the home you were looking for. It may have been booked, paused, or moved — but there are plenty more to discover.",
+      "browseStays": "Browse stays"
+    }
+  },
+  "listingPage": {
+    "meta": {
+      "notFoundTitle": "Stay not found",
+      "notFoundDescription": "This boutique stay could not be found. Browse other curated homes on QuickIn.",
+      "descriptionWithPlace": "A boutique stay in {place} from ${price} / night on QuickIn.",
+      "description": "A boutique stay from ${price} / night on QuickIn."
+    },
+    "backToExplore": "Back to Explore",
+    "photoAlt": "{title} photo {index}",
+    "guestFavorite": "Guest favorite",
+    "specs": {
+      "guests": "Guests",
+      "bedrooms": "Bedrooms",
+      "beds": "Beds",
+      "baths": "Baths"
+    },
+    "aboutThisStay": "About this stay",
+    "reviews": "Reviews",
+    "reviewsWithCount": "Reviews ({count})",
+    "noReviews": "No reviews yet — be the first after your stay.",
+    "guest": "Guest",
+    "listingCode": "Listing code",
+    "perNight": "/ night",
+    "pricesIn": "Prices in {currency}",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "guests": "Guests",
+    "guestTypes": {
+      "adults": "Adults",
+      "adultsSub": "Age 13+",
+      "children": "Children",
+      "childrenSub": "Ages 2–12",
+      "infants": "Infants",
+      "infantsSub": "Under 2",
+      "pets": "Pets",
+      "petsSub": "Service animals always welcome"
+    },
+    "maxGuests": "Up to {count, plural, one {# guest} other {# guests}} (adults + children).",
+    "nightsCount": "{nights, plural, one {# night} other {# nights}}",
+    "total": "Total",
+    "reserve": "Reserve",
+    "reserving": "Reserving…",
+    "pickDates": "Pick your dates to see the total.",
+    "needsLogin": "Please sign in to reserve.",
+    "logIn": "Log in",
+    "success": {
+      "title": "Request sent!",
+      "summary": "{nights, plural, one {# night} other {# nights}} · ${total} total.",
+      "awaitingApproval": "Awaiting host approval — you'll be notified once it's confirmed.",
+      "viewReservations": "View my reservations"
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "network": "Network error. Please try again."
+    },
+    "decrease": "Decrease {label}",
+    "increase": "Increase {label}"
+  },
+  "loginLocal": {
+    "subtitle": "Welcome back — sign in to continue",
+    "logoAlt": "QuickIn",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "or": "or",
+    "continueWithApple": "Continue with Apple",
+    "continueWithGoogle": "Continue with Google",
+    "googleDisabledHint": "Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in",
+    "newHere": "New here?",
+    "createAccount": "Create an account",
+    "errors": {
+      "googleFailed": "Google sign-in failed. Please try again.",
+      "unableToSignIn": "Unable to sign in. Please try again.",
+      "network": "Network error. Please try again."
+    },
+    "notices": {
+      "appleSetup": "Apple sign-in requires HTTPS + an Apple Developer Services ID (see OAUTH-SETUP.md)."
+    },
+    "meta": {
+      "title": "Log in",
+      "ogTitle": "Log in | QuickIn",
+      "description": "Sign in to your QuickIn account to manage reservations and book boutique stays.",
+      "siteName": "QuickIn",
+      "imageAlt": "QuickIn"
+    }
+  },
+  "planPage": {
+    "meta": {
+      "title": "Launch Plan | QuickIn",
+      "description": "Step-by-step readiness plan for shipping QuickIn across Web, iOS and Android."
+    },
+    "status": {
+      "done": "✓ Done",
+      "now": "⚙ Do now",
+      "key": "🔑 Needs a key"
+    },
+    "header": {
+      "title": "Launch Plan",
+      "subtitle": "Ship QuickIn across Web · iOS · Android — four parallel tracks."
+    },
+    "legend": {
+      "note": "· no Supabase · local PostgreSQL → Vercel/Neon for production"
+    },
+    "completed": {
+      "heading": "🟢 Completed (Vercel deploy prep)",
+      "backend": {
+        "title": "Backend",
+        "migrated": "Migrated data layer <b>psql CLI → <code>pg</code> driver</b> (Vercel/Neon‑ready, parameterized).",
+        "verified": "Verified listings · search · login · <b>booking insert</b> · reservations.",
+        "initSql": "<code>init.sql</code> (prod schema + seed) · build flags · <b><code>next build</code> passes</b>."
+      },
+      "web": {
+        "title": "Web",
+        "seo": "Per‑page <b>SEO</b> + OG image + favicon.",
+        "errorPages": "Error & 404 pages, error banner, mobile‑responsive grids.",
+        "sitemap": "Fixed <code>/sitemap.xml</code> 500."
+      },
+      "ios": {
+        "title": "iOS",
+        "icon": "App <b>icon</b> (QUICK IN mark).",
+        "apiBaseUrl": "<code>apiBaseURL</code> = local (debug) / Vercel (release).",
+        "builds": "Builds clean on iOS 26."
+      },
+      "android": {
+        "title": "Android",
+        "icon": "Adaptive app <b>icon</b> (logo on cream).",
+        "buildConfig": "<code>BuildConfig.API_BASE_URL</code> per build type.",
+        "keystore": "<b>Release keystore + signed APK</b>; both builds pass."
+      }
+    },
+    "phase0": {
+      "heading": "🔑 Phase 0 — keys & accounts (you create these; unblock everything)",
+      "note": "~45 min total. Full how‑to in SETUP.md / OAUTH‑SETUP.md / DEPLOY‑VERCEL.md.",
+      "cardTitle": "Create first",
+      "googleCloud": "<b>Google Cloud</b> project + billing.",
+      "mapsKey": "<b>Google Maps API key</b> (Maps JS · Android SDK · iOS SDK).",
+      "oauthClients": "<b>Google OAuth client IDs</b> — Web, iOS, Android (+ SHA‑1).",
+      "appleDeveloper": "<b>Apple Developer</b> ($99/yr) → App ID + Sign in with Apple + Team.",
+      "vercelPostgres": "<b>Vercel Postgres</b> (DATABASE_URL) + <b>domain + HTTPS</b>."
+    },
+    "tracks": {
+      "heading": "The four parallel tracks (what's left)",
+      "backend": {
+        "title": "A · Backend / Infra",
+        "tag": "shared",
+        "hardenEnv": "Harden env: strong <code>AUTH_SECRET</code>, secrets in env only.",
+        "provisionDb": "Provision <b>prod Postgres</b>; run <code>init.sql</code>; import real data.",
+        "deploy": "<b>Deploy</b> to Vercel; set <code>DATABASE_URL</code> + keys as env.",
+        "apiBaseUrl": "Decide the public <b>API base URL</b> for the apps.",
+        "later": "Later: payments (Stripe), image upload/host, backups, monitoring."
+      },
+      "web": {
+        "title": "B · Web",
+        "flipMap": "Flip map to <b>Google Maps</b> (paste Maps key).",
+        "googleLogin": "Turn on <b>Google login</b> (+ Apple via Services ID + HTTPS).",
+        "realListings": "Real listings via admin + listing <b>photo upload</b>.",
+        "a11y": "A11y pass; deploy to the domain."
+      },
+      "ios": {
+        "title": "C · iOS",
+        "apiBaseUrl": "Point release <code>apiBaseURL</code> at the Vercel URL.",
+        "signing": "Xcode signing: set <b>Team</b> + add <b>Sign in with Apple</b>.",
+        "maps": "(If Google Maps) add Maps iOS SDK + key; add Google iOS client id.",
+        "device": "Test on a real device.",
+        "testflight": "<b>TestFlight</b> → App Store review."
+      },
+      "android": {
+        "title": "D · Android",
+        "apiBaseUrl": "Point release <code>API_BASE_URL</code> at the Vercel URL.",
+        "mapsKey": "Add <b>Maps key</b> (flips from osmdroid).",
+        "clientId": "Add Google client id + register <b>debug & release SHA‑1</b>.",
+        "releaseAab": "Build signed <b>release AAB</b>; test on a real device.",
+        "playConsole": "Play Console → <b>internal testing</b> → submit."
+      }
+    },
+    "doNow": {
+      "title": "🚀 Do now, in parallel (no keys)",
+      "backend": "<b>Backend</b>: deploy‑ready (done) → push to GitHub + import to Vercel.",
+      "web": "<b>Web</b>: real data via admin, photo upload, a11y.",
+      "ios": "<b>iOS</b>: set prod URL, real‑device test.",
+      "android": "<b>Android</b>: set prod URL, signed release AAB, device test."
+    },
+    "ready": {
+      "title": "🏁 Definition of ready to ship",
+      "web": "Web live on the domain (HTTPS), real data, Maps + Google/Apple login.",
+      "ios": "iOS on TestFlight (signed, real login + maps), passing on a device.",
+      "android": "Android signed release on Play internal testing, passing on a device.",
+      "db": "Production DB with backups; apps pointed at the prod API."
+    },
+    "footer": {
+      "source": "Source of truth: <code>LAUNCH-PLAN.md</code> · deploy steps: <code>DEPLOY-VERCEL.md</code> · keys: <code>SETUP.md</code>."
+    }
+  },
+  "reservationsLocal": {
+    "meta": {
+      "title": "My reservations",
+      "description": "View and manage your upcoming QuickIn stays. Your boutique-rental bookings, all in one place.",
+      "ogTitle": "My reservations | QuickIn",
+      "ogDescription": "View and manage your upcoming QuickIn stays."
+    },
+    "backToExplore": "Back to Explore",
+    "signedOut": {
+      "title": "Sign in to see your reservations",
+      "subtitle": "Your upcoming stays will appear here once you log in.",
+      "logIn": "Log in"
+    },
+    "listTitle": "{name}'s reservations",
+    "noneYet": "No reservations yet.",
+    "countBooked": "{count, plural, one {# stay booked.} other {# stays booked.}}",
+    "emptyState": "You haven't booked any stays yet.",
+    "browseStays": "Browse stays",
+    "guestsCount": "{count, plural, one {# guest} other {# guests}}",
+    "total": "total",
+    "status": {
+      "pending": "Pending approval",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "rejected": "Declined"
+    },
+    "confirmCancel": "Cancel this reservation? Any payment will be refunded per the policy.",
+    "cancel": "Cancel",
+    "cancelling": "Cancelling…",
+    "leaveReview": "Leave a review",
+    "reviewThanks": "Thanks for your review!",
+    "commentPlaceholder": "Add a comment (optional)",
+    "starRating": "{count, plural, one {# star} other {# stars}}",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "errors": {
+      "cancelFailed": "Could not cancel",
+      "reviewFailed": "Could not submit review"
+    }
+  },
+  "signupLocal": {
+    "subtitle": "Create your account to start exploring",
+    "errors": {
+      "invalidCode": "That code is invalid or expired.",
+      "network": "Network error. Please try again.",
+      "googleFailed": "Google sign-in failed. Please try again.",
+      "createFailed": "Unable to create account. Please try again."
+    },
+    "otp": {
+      "label": "Verification code",
+      "placeholder": "6-digit code",
+      "verifying": "Verifying…",
+      "verifyContinue": "Verify & continue",
+      "didntGet": "Didn't get it?",
+      "resendIn": "Resend in {seconds}s",
+      "resendCode": "Resend code",
+      "newCodeSent": "A new code is on its way.",
+      "codeSentTo": "We sent a 6-digit code to {email}."
+    },
+    "fields": {
+      "fullName": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "passwordPlaceholder": "At least 6 characters"
+    },
+    "submit": {
+      "creating": "Creating account…",
+      "createAccount": "Create account"
+    },
+    "divider": {
+      "or": "or"
+    },
+    "apple": {
+      "continue": "Continue with Apple",
+      "requiresHttps": "Apple sign-in requires HTTPS + an Apple Developer Services ID (see OAUTH-SETUP.md)."
+    },
+    "google": {
+      "continue": "Continue with Google",
+      "enableHint": "Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in"
+    },
+    "signin": {
+      "prompt": "Already have an account?",
+      "link": "Sign in"
+    },
+    "meta": {
+      "title": "Create your account",
+      "description": "Join QuickIn to discover and book a curated collection of boutique vacation rentals.",
+      "ogTitle": "Create your account | QuickIn"
+    }
+  },
+  "verifyIdPage": {
+    "meta": {
+      "title": "Verify your identity",
+      "description": "Upload your National ID to verify your QuickIn account."
+    },
+    "heading": "Verify your identity",
+    "subtitle": "Boutique stays need a verified guest — it only takes a minute."
   }
 }

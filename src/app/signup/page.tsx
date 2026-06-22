@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
+import { useTranslations } from 'next-intl'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -69,6 +70,7 @@ function AppleGlyph() {
 }
 
 export default function SignupPage() {
+  const t = useTranslations('signupLocal')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -103,13 +105,13 @@ export default function SignupPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'That code is invalid or expired.')
+        setError(data?.error || t('errors.invalidCode'))
         setLoading(false)
         return
       }
       window.location.href = '/explore'
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
       setLoading(false)
     }
   }
@@ -126,9 +128,9 @@ export default function SignupPage() {
       const data = await res.json().catch(() => ({}))
       setResendCooldown(Number(data?.cooldown) || 30)
       if (!res.ok) setError(data?.error || null)
-      else setNotice('A new code is on its way.')
+      else setNotice(t('otp.newCodeSent'))
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
     }
   }
 
@@ -147,13 +149,13 @@ export default function SignupPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'Google sign-in failed. Please try again.')
+        setError(data?.error || t('errors.googleFailed'))
         setLoading(false)
         return
       }
       window.location.href = '/explore'
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
       setLoading(false)
     }
   }
@@ -205,21 +207,21 @@ export default function SignupPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'Unable to create account. Please try again.')
+        setError(data?.error || t('errors.createFailed'))
         setLoading(false)
         return
       }
       if (data?.pending) {
         // Email verification required — switch to the OTP step.
         setPendingEmail(data.email || email)
-        setNotice(`We sent a 6-digit code to ${data.email || email}.`)
+        setNotice(t('otp.codeSentTo', { email: data.email || email }))
         setResendCooldown(30)
         setLoading(false)
         return
       }
       window.location.href = '/explore'
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
       setLoading(false)
     }
   }
@@ -235,9 +237,7 @@ export default function SignupPage() {
 
   function handleAppleClick() {
     setError(null)
-    setNotice(
-      'Apple sign-in requires HTTPS + an Apple Developer Services ID (see OAUTH-SETUP.md).'
-    )
+    setNotice(t('apple.requiresHttps'))
   }
 
   return (
@@ -278,7 +278,7 @@ export default function SignupPage() {
             style={{ height: 54, width: 'auto', margin: '0 auto', display: 'block' }}
           />
           <p style={{ margin: '14px 0 0', fontSize: 15, color: COLORS.muted }}>
-            Create your account to start exploring
+            {t('subtitle')}
           </p>
         </div>
 
@@ -318,7 +318,7 @@ export default function SignupPage() {
           <form onSubmit={verifyOtp}>
             <label style={{ display: 'block', marginBottom: 16 }}>
               <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: COLORS.ink, marginBottom: 6 }}>
-                Verification code
+                {t('otp.label')}
               </span>
               <input
                 type="text"
@@ -328,7 +328,7 @@ export default function SignupPage() {
                 maxLength={6}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="6-digit code"
+                placeholder={t('otp.placeholder')}
                 style={{ ...inputStyle, letterSpacing: 6, textAlign: 'center', fontSize: 20 }}
               />
             </label>
@@ -337,19 +337,19 @@ export default function SignupPage() {
               disabled={loading || otpCode.length < 6}
               style={primaryButtonStyle(loading || otpCode.length < 6)}
             >
-              {loading ? 'Verifying…' : 'Verify & continue'}
+              {loading ? t('otp.verifying') : t('otp.verifyContinue')}
             </button>
             <p style={{ margin: '18px 0 0', textAlign: 'center', fontSize: 14, color: COLORS.muted }}>
-              Didn&apos;t get it?{' '}
+              {t('otp.didntGet')}{' '}
               {resendCooldown > 0 ? (
-                <span>Resend in {resendCooldown}s</span>
+                <span>{t('otp.resendIn', { seconds: resendCooldown })}</span>
               ) : (
                 <button
                   type="button"
                   onClick={resendOtp}
                   style={{ background: 'none', border: 'none', color: COLORS.burgundy, fontWeight: 600, cursor: 'pointer', fontSize: 14, padding: 0 }}
                 >
-                  Resend code
+                  {t('otp.resendCode')}
                 </button>
               )}
             </p>
@@ -367,7 +367,7 @@ export default function SignupPage() {
                 marginBottom: 6,
               }}
             >
-              Full name
+              {t('fields.fullName')}
             </span>
             <input
               type="text"
@@ -390,7 +390,7 @@ export default function SignupPage() {
                 marginBottom: 6,
               }}
             >
-              Email
+              {t('fields.email')}
             </span>
             <input
               type="email"
@@ -413,7 +413,7 @@ export default function SignupPage() {
                 marginBottom: 6,
               }}
             >
-              Password
+              {t('fields.password')}
             </span>
             <input
               type="password"
@@ -422,13 +422,13 @@ export default function SignupPage() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder={t('fields.passwordPlaceholder')}
               style={inputStyle}
             />
           </label>
 
           <button type="submit" disabled={loading} style={primaryButtonStyle(loading)}>
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? t('submit.creating') : t('submit.createAccount')}
           </button>
         </form>
 
@@ -441,7 +441,7 @@ export default function SignupPage() {
           }}
         >
           <span style={{ flex: 1, height: 1, background: 'rgba(42,34,32,0.12)' }} />
-          <span style={{ fontSize: 12, color: COLORS.muted }}>or</span>
+          <span style={{ fontSize: 12, color: COLORS.muted }}>{t('divider.or')}</span>
           <span style={{ flex: 1, height: 1, background: 'rgba(42,34,32,0.12)' }} />
         </div>
 
@@ -451,7 +451,7 @@ export default function SignupPage() {
           style={appleButtonStyle(false)}
         >
           <AppleGlyph />
-          Continue with Apple
+          {t('apple.continue')}
         </button>
 
         {/* Real Google sign-in. When configured, GIS renders its own button into
@@ -474,7 +474,7 @@ export default function SignupPage() {
                 style={googleButtonStyle(loading)}
               >
                 <GoogleG />
-                Continue with Google
+                {t('google.continue')}
               </button>
             )}
           </>
@@ -484,11 +484,11 @@ export default function SignupPage() {
               type="button"
               disabled
               aria-disabled="true"
-              title="Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in"
+              title={t('google.enableHint')}
               style={googleButtonStyle(true)}
             >
               <GoogleG />
-              Continue with Google
+              {t('google.continue')}
             </button>
             <p
               style={{
@@ -498,7 +498,7 @@ export default function SignupPage() {
                 textAlign: 'center',
               }}
             >
-              Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in
+              {t('google.enableHint')}
             </p>
           </>
         )}
@@ -506,9 +506,9 @@ export default function SignupPage() {
         )}
 
         <p style={{ margin: '26px 0 0', textAlign: 'center', fontSize: 14, color: COLORS.muted }}>
-          Already have an account?{' '}
+          {t('signin.prompt')}{' '}
           <a href="/login" style={{ color: COLORS.burgundy, fontWeight: 600, textDecoration: 'none' }}>
-            Sign in
+            {t('signin.link')}
           </a>
         </p>
       </div>

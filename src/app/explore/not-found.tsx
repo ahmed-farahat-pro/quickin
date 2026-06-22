@@ -1,6 +1,7 @@
 // Friendly, brand-styled 404 for the local browse experience. Renders when a
 // listing under /explore/[id] calls notFound() (e.g. an unknown stay id).
-// Self-contained inline styles keep it independent of Tailwind / i18n context.
+// Self-contained inline styles keep it independent of Tailwind.
+import { getTranslations } from 'next-intl/server'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -12,7 +13,8 @@ const COLORS = {
 
 const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 
-export default function ExploreNotFound() {
+export default async function ExploreNotFound() {
+  const t = await getTranslations('explorePage')
   return (
     <main
       style={{
@@ -30,7 +32,7 @@ export default function ExploreNotFound() {
       <div style={{ maxWidth: 460 }}>
         <img
           src="/logo.png"
-          alt="QuickIn"
+          alt={t('logoAlt')}
           style={{ height: 46, width: 'auto', margin: '0 auto 28px', display: 'block' }}
         />
         <p
@@ -55,11 +57,10 @@ export default function ExploreNotFound() {
             color: COLORS.burgundy,
           }}
         >
-          This stay slipped away
+          {t('notFound.title')}
         </h1>
         <p style={{ margin: '12px 0 28px', fontSize: 15, lineHeight: 1.6, color: COLORS.muted }}>
-          We couldn&apos;t find the home you were looking for. It may have been
-          booked, paused, or moved — but there are plenty more to discover.
+          {t('notFound.description')}
         </p>
         <a
           href="/explore"
@@ -75,7 +76,7 @@ export default function ExploreNotFound() {
             padding: '12px 30px',
           }}
         >
-          Browse stays
+          {t('notFound.browseStays')}
         </a>
       </div>
     </main>

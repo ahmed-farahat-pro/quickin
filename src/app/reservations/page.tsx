@@ -1,26 +1,29 @@
 // My reservations (no Supabase) — the signed-in user's bookings.
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { getUserBookings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { ReservationActions } from './reservation-actions'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'My reservations',
-  description:
-    'View and manage your upcoming QuickIn stays. Your boutique-rental bookings, all in one place.',
-  alternates: { canonical: '/reservations' },
-  robots: { index: false, follow: true },
-  openGraph: {
-    title: 'My reservations | QuickIn',
-    description: 'View and manage your upcoming QuickIn stays.',
-    url: '/reservations',
-    type: 'website',
-    siteName: 'QuickIn',
-    images: [{ url: '/logo.png', width: 700, height: 454, alt: 'QuickIn' }],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('reservationsLocal')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/reservations' },
+    robots: { index: false, follow: true },
+    openGraph: {
+      title: t('meta.ogTitle'),
+      description: t('meta.ogDescription'),
+      url: '/reservations',
+      type: 'website',
+      siteName: 'QuickIn',
+      images: [{ url: '/logo.png', width: 700, height: 454, alt: 'QuickIn' }],
+    },
+  }
 }
 
 const FALLBACK_IMG =
@@ -62,7 +65,7 @@ function fmtDate(d: string): string {
   })
 }
 
-function Header() {
+function Header({ backLabel }: { backLabel: string }) {
   return (
     <header
       style={{
@@ -98,7 +101,7 @@ function Header() {
             fontSize: 14,
           }}
         >
-          ← Back to Explore
+          ← {backLabel}
         </a>
       </div>
     </header>
@@ -107,6 +110,7 @@ function Header() {
 
 export default async function ReservationsPage() {
   const user = await getCurrentUser()
+  const t = await getTranslations('reservationsLocal')
 
   return (
     <main
@@ -140,7 +144,7 @@ export default async function ReservationsPage() {
         }
       `}</style>
 
-      <Header />
+      <Header backLabel={t('backToExplore')} />
 
       <section
         style={{
@@ -166,10 +170,10 @@ export default async function ReservationsPage() {
                 color: COLORS.burgundy,
               }}
             >
-              Sign in to see your reservations
+              {t('signedOut.title')}
             </h1>
             <p style={{ margin: '12px 0 22px', fontSize: 15 }}>
-              Your upcoming stays will appear here once you log in.
+              {t('signedOut.subtitle')}
             </p>
             <a
               href="/login"
@@ -183,7 +187,7 @@ export default async function ReservationsPage() {
                 borderRadius: 999,
               }}
             >
-              Log in
+              {t('signedOut.logIn')}
             </a>
           </div>
         ) : (
@@ -202,6 +206,7 @@ async function ReservationsList({
   firstName: string
 }) {
   const bookings = await getUserBookings(userId)
+  const t = await getTranslations('reservationsLocal')
 
   return (
     <>
@@ -215,12 +220,12 @@ async function ReservationsList({
           color: COLORS.burgundy,
         }}
       >
-        {firstName}&apos;s reservations
+        {t('listTitle', { name: firstName })}
       </h1>
       <p style={{ margin: '0 0 28px', fontSize: 15, color: COLORS.muted }}>
         {bookings.length === 0
-          ? 'No reservations yet.'
-          : `${bookings.length} ${bookings.length === 1 ? 'stay' : 'stays'} booked.`}
+          ? t('noneYet')
+          : t('countBooked', { count: bookings.length })}
       </p>
 
       {bookings.length === 0 ? (
@@ -236,7 +241,7 @@ async function ReservationsList({
           }}
         >
           <p style={{ margin: '0 0 18px', fontSize: 15 }}>
-            You haven&apos;t booked any stays yet.
+            {t('emptyState')}
           </p>
           <a
             href="/explore"
@@ -250,7 +255,7 @@ async function ReservationsList({
               borderRadius: 999,
             }}
           >
-            Browse stays
+            {t('browseStays')}
           </a>
         </div>
       ) : (
@@ -329,7 +334,7 @@ async function ReservationsList({
                     color: COLORS.muted,
                   }}
                 >
-                  {b.guests} {b.guests === 1 ? 'guest' : 'guests'}
+                  {t('guestsCount', { count: b.guests })}
                 </p>
                 <ReservationActions
                   bookingId={b.id}
@@ -356,7 +361,7 @@ async function ReservationsList({
                 >
                   ${b.total_price}
                 </div>
-                <div style={{ fontSize: 13, color: COLORS.muted }}>total</div>
+                <div style={{ fontSize: 13, color: COLORS.muted }}>{t('total')}</div>
               </div>
             </article>
           ))}

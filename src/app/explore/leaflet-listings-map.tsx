@@ -9,6 +9,7 @@
 // photo thumbnail + title + location + price + a link to /explore/[id].
 import { useEffect, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { useTranslations } from 'next-intl'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Listing } from '@/lib/local/db'
@@ -67,6 +68,7 @@ function FitBounds({ points }: { points: GeoListing[] }) {
 }
 
 export default function LeafletListingsMap({ listings }: { listings: Listing[] }) {
+  const t = useTranslations('explorePage')
   // Only listings with real coordinates can be placed on the map.
   const points = useMemo<GeoListing[]>(
     () =>
@@ -157,7 +159,7 @@ export default function LeafletListingsMap({ listings }: { listings: Listing[] }
                     <span style={{ fontWeight: 700, color: COLORS.burgundy }}>
                       {price}
                     </span>{' '}
-                    <span style={{ color: COLORS.muted }}>/ night</span>
+                    <span style={{ color: COLORS.muted }}>{t('card.perNight')}</span>
                   </div>
                 </a>
               </Popup>

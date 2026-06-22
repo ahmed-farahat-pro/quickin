@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 const C = { burgundy: '#5B0F16', tan: '#EFE6D8', ink: '#2A2220', muted: '#6B6055' }
 
-function statusChip(status: string): { bg: string; fg: string; label: string } {
+function statusChip(status: string): { bg: string; fg: string; labelKey: string } {
   switch (status) {
-    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00', label: 'Pending approval' }
-    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245', label: 'Confirmed' }
-    case 'cancelled': return { bg: '#f1efec', fg: C.muted,   label: 'Cancelled' }
-    case 'rejected':  return { bg: '#fdecea', fg: '#b3261e', label: 'Declined' }
-    default:          return { bg: '#f1efec', fg: C.muted,   label: status || '—' }
+    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00', labelKey: 'status.pending' }
+    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245', labelKey: 'status.confirmed' }
+    case 'cancelled': return { bg: '#f1efec', fg: C.muted,   labelKey: 'status.cancelled' }
+    case 'rejected':  return { bg: '#fdecea', fg: '#b3261e', labelKey: 'status.rejected' }
+    default:          return { bg: '#f1efec', fg: C.muted,   labelKey: '' }
   }
 }
 
@@ -27,6 +28,7 @@ export function ReservationActions(props: {
   checkOut: string
 }) {
   const { bookingId, status, checkIn, checkOut } = props
+  const t = useTranslations('reservationsLocal')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState(false)
@@ -37,9 +39,10 @@ export function ReservationActions(props: {
   const isUpcoming = checkIn >= today
   const active = status !== 'cancelled' && status !== 'rejected'
   const chip = statusChip(status)
+  const chipLabel = chip.labelKey ? t(chip.labelKey) : (status || '—')
 
   async function cancel() {
-    if (!confirm('Cancel this reservation? Any payment will be refunded per the policy.')) return
+    if (!confirm(t('confirmCancel'))) return
     setBusy(true); setNote(null)
     try {
       const res = await fetch(`/api/local/bookings/${bookingId}/cancel`, {
@@ -47,40 +50,41 @@ export function ReservationActions(props: {
       })
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
-        throw new Error(e.error || 'Could not cancel')
+        throw new Error(e.error || t('errors.cancelFailed'))
       }
       window.location.reload()
     } catch (e) {
       setBusy(false)
-      setNote(e instanceof Error ? e.message : 'Could not cancel')
+      setNote(e instanceof Error ? e.message : t('errors.cancelFailed'))
     }
   }
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 12 }}>
       <span style={{ background: chip.bg, color: chip.fg, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>
-        {chip.label}
+        {chipLabel}
       </span>
 
       {active && isUpcoming && (
         <button onClick={cancel} disabled={busy} style={{ ...linkBtn, color: '#b3261e' }}>
-          {busy ? 'Cancelling…' : 'Cancel'}
+          {busy ? t('cancelling') : t('cancel')}
         </button>
       )}
 
       {status === 'confirmed' && isPast && !reviewed && (
         reviewing
           ? <ReviewForm bookingId={bookingId} onDone={() => { setReviewing(false); setReviewed(true) }} />
-          : <button onClick={() => setReviewing(true)} style={linkBtn}>★ Leave a review</button>
+          : <button onClick={() => setReviewing(true)} style={linkBtn}>★ {t('leaveReview')}</button>
       )}
 
-      {reviewed && <span style={{ fontSize: 13, color: '#177245', fontWeight: 600 }}>Thanks for your review!</span>}
+      {reviewed && <span style={{ fontSize: 13, color: '#177245', fontWeight: 600 }}>{t('reviewThanks')}</span>}
       {note && <span style={{ fontSize: 13, color: '#b3261e' }}>{note}</span>}
     </div>
   )
 }
 
 function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => void }) {
+  const t = useTranslations('reservationsLocal')
   const [rating, setRating] = useState(5)
   const [hover, setHover] = useState(0)
   const [comment, setComment] = useState('')
@@ -97,12 +101,12 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
       })
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
-        throw new Error(e.error || 'Could not submit review')
+        throw new Error(e.error || t('errors.reviewFailed'))
       }
       onDone()
     } catch (e) {
       setBusy(false)
-      setErr(e instanceof Error ? e.message : 'Could not submit review')
+      setErr(e instanceof Error ? e.message : t('errors.reviewFailed'))
     }
   }
 
@@ -115,7 +119,7 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
             onMouseEnter={() => setHover(n)}
             onMouseLeave={() => setHover(0)}
             onClick={() => setRating(n)}
-            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+            aria-label={t('starRating', { count: n })}
             style={{ ...linkBtn, fontSize: 20, color: (hover || rating) >= n ? '#f5a623' : '#d8d2c8' }}
           >
             ★
@@ -125,7 +129,7 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
       <input
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Add a comment (optional)"
+        placeholder={t('commentPlaceholder')}
         style={{
           fontFamily: 'inherit', fontSize: 13.5, padding: '7px 11px', minWidth: 180,
           border: `1px solid ${C.tan}`, borderRadius: 10, background: '#fff', color: C.ink,
@@ -136,7 +140,7 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
         disabled={busy}
         style={{ background: C.burgundy, color: '#fff', border: 'none', borderRadius: 10, padding: '7px 14px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}
       >
-        {busy ? 'Submitting…' : 'Submit'}
+        {busy ? t('submitting') : t('submit')}
       </button>
       {err && <span style={{ fontSize: 13, color: '#b3261e' }}>{err}</span>}
     </div>

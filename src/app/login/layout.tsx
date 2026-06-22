@@ -2,22 +2,24 @@
 // `export const metadata` is only allowed in server files, so the page itself
 // stays a client component and this thin server layout carries the SEO tags.
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata: Metadata = {
-  title: 'Log in',
-  description:
-    'Sign in to your QuickIn account to manage reservations and book boutique stays.',
-  alternates: { canonical: '/login' },
-  robots: { index: false, follow: true },
-  openGraph: {
-    title: 'Log in | QuickIn',
-    description:
-      'Sign in to your QuickIn account to manage reservations and book boutique stays.',
-    url: '/login',
-    type: 'website',
-    siteName: 'QuickIn',
-    images: [{ url: '/logo.png', width: 700, height: 454, alt: 'QuickIn' }],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('loginLocal')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/login' },
+    robots: { index: false, follow: true },
+    openGraph: {
+      title: t('meta.ogTitle'),
+      description: t('meta.description'),
+      url: '/login',
+      type: 'website',
+      siteName: t('meta.siteName'),
+      images: [{ url: '/logo.png', width: 700, height: 454, alt: t('meta.imageAlt') }],
+    },
+  }
 }
 
 export default function LoginLayout({

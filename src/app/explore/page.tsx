@@ -3,33 +3,35 @@
 // search/grid/map lives in the client component below.
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
+import { LocaleSwitcher } from '@/components/layout/locale-switcher'
+import { getTranslations } from 'next-intl/server'
 import { getListings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import ExploreClient from './explore-client'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Explore boutique stays',
-  description:
-    'Browse a curated collection of hand-picked homes — from lakeside villas to desert hideaways. Search by location, dates, and guests.',
-  alternates: { canonical: '/explore' },
-  openGraph: {
-    title: 'Explore boutique stays | QuickIn',
-    description:
-      'Browse a curated collection of hand-picked homes — from lakeside villas to desert hideaways.',
-    url: '/explore',
-    type: 'website',
-    siteName: 'QuickIn',
-    images: [{ url: '/logo.png', width: 700, height: 454, alt: 'QuickIn' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Explore boutique stays | QuickIn',
-    description:
-      'Browse a curated collection of hand-picked homes — from lakeside villas to desert hideaways.',
-    images: ['/logo.png'],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('explorePage')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/explore' },
+    openGraph: {
+      title: t('meta.ogTitle'),
+      description: t('meta.ogDescription'),
+      url: '/explore',
+      type: 'website',
+      siteName: 'QuickIn',
+      images: [{ url: '/logo.png', width: 700, height: 454, alt: 'QuickIn' }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t('meta.ogTitle'),
+      description: t('meta.ogDescription'),
+      images: ['/logo.png'],
+    },
+  }
 }
 
 // Read the qk_token cookie and resolve the signed-in user's first name (or null).
@@ -67,6 +69,7 @@ export default async function ExplorePage({
     guests?: string
   }>
 }) {
+  const t = await getTranslations('explorePage')
   const sp = await searchParams
   const location = sp.location?.trim() || ''
   const checkIn = sp.checkIn?.trim() || ''
@@ -133,7 +136,7 @@ export default async function ExplorePage({
           <a href="/explore" style={{ display: 'inline-flex', alignItems: 'center' }}>
             <img
               src="/logo.png"
-              alt="QuickIn"
+              alt={t('logoAlt')}
               height={40}
               style={{ height: 40, width: 'auto', display: 'block' }}
             />
@@ -148,6 +151,7 @@ export default async function ExplorePage({
               fontSize: 14,
             }}
           >
+            <LocaleSwitcher className="font-semibold text-[color:var(--qk-ink,#3a2a23)]" />
             <a
               href="/host"
               style={{
@@ -156,12 +160,12 @@ export default async function ExplorePage({
                 fontWeight: 600,
               }}
             >
-              Become a host
+              {t('nav.becomeHost')}
             </a>
             {firstName ? (
               <>
                 <span style={{ color: COLORS.ink, fontWeight: 600 }}>
-                  Hi, {firstName}
+                  {t('nav.greeting', { name: firstName })}
                 </span>
                 <a
                   href="/api/auth/logout"
@@ -171,7 +175,7 @@ export default async function ExplorePage({
                     fontWeight: 600,
                   }}
                 >
-                  Logout
+                  {t('nav.logout')}
                 </a>
               </>
             ) : (
@@ -184,7 +188,7 @@ export default async function ExplorePage({
                     fontWeight: 600,
                   }}
                 >
-                  Log in
+                  {t('nav.login')}
                 </a>
                 <a
                   href="/signup"
@@ -197,7 +201,7 @@ export default async function ExplorePage({
                     borderRadius: 999,
                   }}
                 >
-                  Sign up
+                  {t('nav.signup')}
                 </a>
               </>
             )}
@@ -234,7 +238,7 @@ export default async function ExplorePage({
           <div>
             <img
               src="/logo.png"
-              alt="QuickIn"
+              alt={t('logoAlt')}
               height={36}
               style={{
                 height: 36,
@@ -253,21 +257,33 @@ export default async function ExplorePage({
                 maxWidth: 280,
               }}
             >
-              QuickIn — boutique stays for travelers who love the details.
+              {t('footer.tagline')}
             </p>
           </div>
 
           <FooterColumn
-            title="Support"
-            links={['Help center', 'Cancellation options', 'Safety info']}
+            title={t('footer.support.title')}
+            links={[
+              t('footer.support.helpCenter'),
+              t('footer.support.cancellation'),
+              t('footer.support.safetyInfo'),
+            ]}
           />
           <FooterColumn
-            title="Hosting"
-            links={['Become a host', 'Host resources', 'Community forum']}
+            title={t('footer.hosting.title')}
+            links={[
+              t('footer.hosting.becomeHost'),
+              t('footer.hosting.hostResources'),
+              t('footer.hosting.communityForum'),
+            ]}
           />
           <FooterColumn
-            title="About"
-            links={['Our story', 'Careers', 'Press']}
+            title={t('footer.about.title')}
+            links={[
+              t('footer.about.ourStory'),
+              t('footer.about.careers'),
+              t('footer.about.press'),
+            ]}
           />
         </div>
 
@@ -281,7 +297,7 @@ export default async function ExplorePage({
             color: 'rgba(246,241,230,0.7)',
           }}
         >
-          © 2026 QuickIn. Crafted for the curious traveler.
+          {t('footer.copyright')}
         </div>
       </footer>
     </main>

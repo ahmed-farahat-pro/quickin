@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -62,6 +63,7 @@ export default function ReservePanel({
   currency: string
   maxGuests: number | null
 }) {
+  const t = useTranslations('listingPage')
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [adults, setAdults] = useState(1)
@@ -111,12 +113,12 @@ export default function ReservePanel({
       // 400 and anything else → surface the server error message.
       setStatus({
         kind: 'error',
-        message: data.error || 'Something went wrong. Please try again.',
+        message: data.error || t('errors.generic'),
       })
     } catch {
       setStatus({
         kind: 'error',
-        message: 'Network error. Please try again.',
+        message: t('errors.network'),
       })
     }
   }
@@ -130,17 +132,17 @@ export default function ReservePanel({
         <span style={{ fontSize: 30, fontWeight: 800, color: COLORS.burgundy }}>
           ${pricePerNight}
         </span>
-        <span style={{ fontSize: 15, color: COLORS.muted }}>/ night</span>
+        <span style={{ fontSize: 15, color: COLORS.muted }}>{t('perNight')}</span>
       </div>
       <p style={{ margin: '6px 0 18px', fontSize: 13, color: COLORS.muted }}>
-        Prices in {currency}
+        {t('pricesIn', { currency })}
       </p>
 
       {/* Date inputs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label htmlFor="rp-checkin" style={labelStyle}>
-            Check-in
+            {t('checkIn')}
           </label>
           <input
             id="rp-checkin"
@@ -156,7 +158,7 @@ export default function ReservePanel({
         </div>
         <div>
           <label htmlFor="rp-checkout" style={labelStyle}>
-            Check-out
+            {t('checkOut')}
           </label>
           <input
             id="rp-checkout"
@@ -173,21 +175,21 @@ export default function ReservePanel({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <label style={labelStyle}>Guests</label>
+        <label style={labelStyle}>{t('guests')}</label>
         <div style={{ border: `1px solid rgba(42,34,32,0.14)`, borderRadius: 12, overflow: 'hidden' }}>
-          <GuestRow label="Adults" sub="Age 13+" value={adults} min={1} max={maxGuests || 16}
+          <GuestRow label={t('guestTypes.adults')} sub={t('guestTypes.adultsSub')} value={adults} min={1} max={maxGuests || 16}
             onChange={(v) => { setAdults(v); setStatus({ kind: 'idle' }) }} />
-          <GuestRow label="Children" sub="Ages 2–12" value={children} min={0}
+          <GuestRow label={t('guestTypes.children')} sub={t('guestTypes.childrenSub')} value={children} min={0}
             max={maxGuests ? Math.max(0, maxGuests - adults) : 10}
             onChange={(v) => { setChildren(v); setStatus({ kind: 'idle' }) }} divider />
-          <GuestRow label="Infants" sub="Under 2" value={infants} min={0} max={5}
+          <GuestRow label={t('guestTypes.infants')} sub={t('guestTypes.infantsSub')} value={infants} min={0} max={5}
             onChange={(v) => { setInfants(v); setStatus({ kind: 'idle' }) }} divider />
-          <GuestRow label="Pets" sub="Service animals always welcome" value={pets} min={0} max={5}
+          <GuestRow label={t('guestTypes.pets')} sub={t('guestTypes.petsSub')} value={pets} min={0} max={5}
             onChange={(v) => { setPets(v); setStatus({ kind: 'idle' }) }} divider />
         </div>
         {maxGuests ? (
           <p style={{ margin: '6px 2px 0', fontSize: 12, color: COLORS.muted }}>
-            Up to {maxGuests} {maxGuests === 1 ? 'guest' : 'guests'} (adults + children).
+            {t('maxGuests', { count: maxGuests })}
           </p>
         ) : null}
       </div>
@@ -209,7 +211,7 @@ export default function ReservePanel({
           }}
         >
           <span>
-            ${pricePerNight} × {nights} {nights === 1 ? 'night' : 'nights'}
+            ${pricePerNight} × {t('nightsCount', { nights })}
           </span>
           <span style={{ fontWeight: 700 }}>${total}</span>
         </div>
@@ -225,7 +227,7 @@ export default function ReservePanel({
             color: COLORS.burgundy,
           }}
         >
-          <span>Total</span>
+          <span>{t('total')}</span>
           <span>${total}</span>
         </div>
       </div>
@@ -249,7 +251,7 @@ export default function ReservePanel({
           opacity: canReserve ? 1 : 0.55,
         }}
       >
-        {status.kind === 'loading' ? 'Reserving…' : 'Reserve'}
+        {status.kind === 'loading' ? t('reserving') : t('reserve')}
       </button>
 
       {nights === 0 && status.kind === 'idle' && (
@@ -261,7 +263,7 @@ export default function ReservePanel({
             textAlign: 'center',
           }}
         >
-          Pick your dates to see the total.
+          {t('pickDates')}
         </p>
       )}
 
@@ -277,12 +279,12 @@ export default function ReservePanel({
             color: COLORS.ink,
           }}
         >
-          Please sign in to reserve.{' '}
+          {t('needsLogin')}{' '}
           <a
             href="/login"
             style={{ color: COLORS.burgundy, fontWeight: 700, textDecoration: 'none' }}
           >
-            Log in
+            {t('logIn')}
           </a>
         </div>
       )}
@@ -316,15 +318,15 @@ export default function ReservePanel({
           }}
         >
           <strong style={{ display: 'block', marginBottom: 4 }}>
-            Request sent! ⏳
+            {t('success.title')} ⏳
           </strong>
-          {status.nights} {status.nights === 1 ? 'night' : 'nights'} · ${status.total} total.
-          {' '}Awaiting host approval — you&apos;ll be notified once it&apos;s confirmed.{' '}
+          {t('success.summary', { nights: status.nights, total: status.total })}
+          {' '}{t('success.awaitingApproval')}{' '}
           <a
             href="/reservations"
             style={{ color: '#fff', fontWeight: 700, textDecoration: 'underline' }}
           >
-            View my reservations
+            {t('success.viewReservations')}
           </a>
         </div>
       )}
@@ -343,6 +345,7 @@ function GuestRow({
   onChange: (v: number) => void
   divider?: boolean
 }) {
+  const t = useTranslations('listingPage')
   const round = (enabled: boolean): React.CSSProperties => ({
     width: 30, height: 30, borderRadius: 999, border: `1px solid rgba(42,34,32,0.22)`,
     background: '#fff', color: enabled ? COLORS.burgundy : 'rgba(42,34,32,0.25)',
@@ -362,10 +365,10 @@ function GuestRow({
         <div style={{ fontSize: 12, color: COLORS.muted }}>{sub}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button type="button" aria-label={`Decrease ${label}`} disabled={value <= min}
+        <button type="button" aria-label={t('decrease', { label })} disabled={value <= min}
           onClick={() => onChange(Math.max(min, value - 1))} style={round(value > min)}>−</button>
         <span style={{ minWidth: 16, textAlign: 'center', fontSize: 15, fontWeight: 600, color: COLORS.ink }}>{value}</span>
-        <button type="button" aria-label={`Increase ${label}`} disabled={value >= max}
+        <button type="button" aria-label={t('increase', { label })} disabled={value >= max}
           onClick={() => onChange(Math.min(max, value + 1))} style={round(value < max)}>+</button>
       </div>
     </div>

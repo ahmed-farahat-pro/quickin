@@ -7,6 +7,7 @@
 // thumbnail + title + location + price + a link to /explore/[id]. The map fits
 // its bounds to the markers and rebuilds them whenever the listings change.
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import type { Listing } from '@/lib/local/db'
 
 const FALLBACK_IMG =
@@ -110,7 +111,8 @@ function makePill(label: string): HTMLDivElement {
 }
 
 // InfoWindow body: photo thumbnail + title + location + price + link.
-function infoHtml(listing: GeoListing): string {
+// `perNightLabel` is the already-translated "/ night" suffix.
+function infoHtml(listing: GeoListing, perNightLabel: string): string {
   const thumb = listing.listing_images[0]?.url || FALLBACK_IMG
   const price = priceLabel(listing)
   const esc = (s: string) =>
@@ -126,7 +128,7 @@ function infoHtml(listing: GeoListing): string {
       ${listing.location ? `<div style="font-size:12px;color:${COLORS.muted};margin-top:2px">${esc(listing.location)}</div>` : ''}
       <div style="font-size:13px;margin-top:6px">
         <span style="font-weight:700;color:${COLORS.burgundy}">${esc(price)}</span>
-        <span style="color:${COLORS.muted}"> / night</span>
+        <span style="color:${COLORS.muted}"> ${esc(perNightLabel)}</span>
       </div>
     </a>`
 }
@@ -138,6 +140,8 @@ export default function GoogleListingsMap({
   listings: Listing[]
   apiKey: string
 }) {
+  const t = useTranslations('explorePage')
+  const perNightLabel = t('card.perNight')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<GMap | null>(null)
   const apiRef = useRef<GMapsApi | null>(null)
@@ -209,7 +213,7 @@ export default function GoogleListingsMap({
       }
 
       marker.addListener('click', () => {
-        info.setContent(infoHtml(listing))
+        info.setContent(infoHtml(listing, perNightLabel))
         info.open({ map, anchor: marker })
       })
       markersRef.current.push(marker)

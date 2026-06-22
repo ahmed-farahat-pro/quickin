@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
+import { useTranslations } from 'next-intl'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -69,6 +70,7 @@ function AppleGlyph() {
 }
 
 export default function LoginPage() {
+  const t = useTranslations('loginLocal')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -92,13 +94,13 @@ export default function LoginPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'Google sign-in failed. Please try again.')
+        setError(data?.error || t('errors.googleFailed'))
         setLoading(false)
         return
       }
       window.location.href = '/explore'
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
       setLoading(false)
     }
   }
@@ -150,13 +152,13 @@ export default function LoginPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data?.error || 'Unable to sign in. Please try again.')
+        setError(data?.error || t('errors.unableToSignIn'))
         setLoading(false)
         return
       }
       window.location.href = '/explore'
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errors.network'))
       setLoading(false)
     }
   }
@@ -172,9 +174,7 @@ export default function LoginPage() {
 
   function handleAppleClick() {
     setError(null)
-    setNotice(
-      'Apple sign-in requires HTTPS + an Apple Developer Services ID (see OAUTH-SETUP.md).'
-    )
+    setNotice(t('notices.appleSetup'))
   }
 
   return (
@@ -211,11 +211,11 @@ export default function LoginPage() {
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <img
             src="/logo.png"
-            alt="QuickIn"
+            alt={t('logoAlt')}
             style={{ height: 54, width: 'auto', margin: '0 auto', display: 'block' }}
           />
           <p style={{ margin: '14px 0 0', fontSize: 15, color: COLORS.muted }}>
-            Welcome back — sign in to continue
+            {t('subtitle')}
           </p>
         </div>
 
@@ -262,7 +262,7 @@ export default function LoginPage() {
                 marginBottom: 6,
               }}
             >
-              Email
+              {t('emailLabel')}
             </span>
             <input
               type="email"
@@ -285,7 +285,7 @@ export default function LoginPage() {
                 marginBottom: 6,
               }}
             >
-              Password
+              {t('passwordLabel')}
             </span>
             <input
               type="password"
@@ -299,7 +299,7 @@ export default function LoginPage() {
           </label>
 
           <button type="submit" disabled={loading} style={primaryButtonStyle(loading)}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t('signingIn') : t('signIn')}
           </button>
         </form>
 
@@ -312,7 +312,7 @@ export default function LoginPage() {
           }}
         >
           <span style={{ flex: 1, height: 1, background: 'rgba(42,34,32,0.12)' }} />
-          <span style={{ fontSize: 12, color: COLORS.muted }}>or</span>
+          <span style={{ fontSize: 12, color: COLORS.muted }}>{t('or')}</span>
           <span style={{ flex: 1, height: 1, background: 'rgba(42,34,32,0.12)' }} />
         </div>
 
@@ -322,7 +322,7 @@ export default function LoginPage() {
           style={appleButtonStyle(false)}
         >
           <AppleGlyph />
-          Continue with Apple
+          {t('continueWithApple')}
         </button>
 
         {/* Real Google sign-in. When configured, GIS renders its own button into
@@ -345,7 +345,7 @@ export default function LoginPage() {
                 style={googleButtonStyle(loading)}
               >
                 <GoogleG />
-                Continue with Google
+                {t('continueWithGoogle')}
               </button>
             )}
           </>
@@ -355,11 +355,11 @@ export default function LoginPage() {
               type="button"
               disabled
               aria-disabled="true"
-              title="Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in"
+              title={t('googleDisabledHint')}
               style={googleButtonStyle(true)}
             >
               <GoogleG />
-              Continue with Google
+              {t('continueWithGoogle')}
             </button>
             <p
               style={{
@@ -369,15 +369,15 @@ export default function LoginPage() {
                 textAlign: 'center',
               }}
             >
-              Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in
+              {t('googleDisabledHint')}
             </p>
           </>
         )}
 
         <p style={{ margin: '26px 0 0', textAlign: 'center', fontSize: 14, color: COLORS.muted }}>
-          New here?{' '}
+          {t('newHere')}{' '}
           <a href="/signup" style={{ color: COLORS.burgundy, fontWeight: 600, textDecoration: 'none' }}>
-            Create an account
+            {t('createAccount')}
           </a>
         </p>
       </div>

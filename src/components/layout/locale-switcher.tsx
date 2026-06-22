@@ -1,10 +1,39 @@
 'use client'
 
-import { useLocale, useTranslations } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { Check } from 'lucide-react'
 import { replaceLocaleInPath } from '@/lib/i18n/pathname'
-import { localeCookieName, type Locale } from '@/i18n/config'
+import { localeCookieName, locales, localeNames, type Locale } from '@/i18n/config'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+// Circle-flag slugs for each language (kapowaz/circle-flags).
+const FLAG: Record<Locale, string> = {
+  en: 'gb',
+  ar: 'eg',
+  fr: 'fr',
+  es: 'es',
+}
+
+function Flag({ locale, size = 18 }: { locale: Locale; size?: number }) {
+  return (
+    <img
+      src={`https://kapowaz.github.io/circle-flags/flags/${FLAG[locale]}.svg`}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden
+      className="shrink-0 rounded-full"
+      style={{ filter: 'grayscale(0.4)' }}
+    />
+  )
+}
 
 export function LocaleSwitcher({
   className,
@@ -13,70 +42,52 @@ export function LocaleSwitcher({
 })
 {
   const locale = useLocale() as Locale
-  const t = useTranslations('common')
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const nextLocale: Locale = locale === 'en' ? 'ar' : 'en'
-
-  const handleSwitch = () =>
+  const switchTo = (next: Locale) =>
   {
-    document.cookie = `${localeCookieName}=${nextLocale}; path=/; max-age=${60 * 60 * 24 * 7}`
+    if (next === locale) return
+    document.cookie = `${localeCookieName}=${next}; path=/; max-age=${60 * 60 * 24 * 365}`
 
-    const nextPath = replaceLocaleInPath(pathname, nextLocale)
+    const nextPath = replaceLocaleInPath(pathname, next)
     const query = searchParams.toString()
-    const nextUrl = query ? `${nextPath}?${query}` : nextPath
-    window.location.assign(nextUrl)
+    window.location.assign(query ? `${nextPath}?${query}` : nextPath)
   }
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "group flex items-center transition-all duration-300",
-        locale === 'en' ? "font-sans" : "font-noto-sans-arabic",
-        className,
-        "gap-1 group-hover:gap-2"
-      )}
-      onClick={handleSwitch}
-    >
-      {locale === 'en' ? (
-        <img src="https://kapowaz.github.io/circle-flags/flags/eg.svg" width="16" style={{ filter: 'grayscale(0.7)', opacity: 0.8 }} className="shrink-0" />
-      ) : (
-        <img src="https://kapowaz.github.io/circle-flags/flags/gb.svg" width="16" style={{ filter: 'grayscale(0.7)', opacity: 0.8 }} className="shrink-0" />
-      )}
-      <span className={cn(
-        "overflow-hidden whitespace-nowrap max-w-0 opacity-0 transition-all duration-300 group-hover:max-w-[100px] group-hover:opacity-100",
-        locale === 'en' ? "font-noto-sans-arabic" : "font-sans"
-      )}>
-        {t('languageToggle')}
-      </span>
-    </button>
-  )
-}
-
-function UKFlag({ className }: { className?: string })
-{
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" className={className}>
-      <path d="M0,0 v30 h60 v-30 z" fill="#012169" />
-      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" />
-      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="4" />
-      <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10" />
-      <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6" />
-    </svg>
-  )
-}
-
-function ArabLeagueFlag({ className }: { className?: string })
-{
-  // Egypt Flag representation as requested fallback/preference
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2" className={className}>
-      <rect width="3" height="2" fill="#000" />
-      <rect width="3" height="1.33" fill="#fff" />
-      <rect width="3" height="0.67" fill="#c8102e" />
-      <path d="M1.5,1.1l0.1-0.15l0.1,0.15l-0.1-0.05l-0.1,0.05z" fill="#c09300" />
-    </svg>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Change language"
+          className={cn(
+            'group flex items-center gap-2 transition-all duration-300',
+            locale === 'ar' ? 'font-noto-sans-arabic' : 'font-sans',
+            className,
+          )}
+        >
+          <Flag locale={locale} />
+          <span className="whitespace-nowrap">{localeNames[locale]}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[170px] rounded-2xl p-1.5">
+        {locales.map((l) => (
+          <DropdownMenuItem
+            key={l}
+            onClick={() => switchTo(l)}
+            className={cn(
+              'flex items-center gap-2.5 rounded-xl px-3 py-2 cursor-pointer',
+              l === 'ar' ? 'font-noto-sans-arabic' : 'font-sans',
+              l === locale && 'bg-accent/50 font-semibold',
+            )}
+          >
+            <Flag locale={l} />
+            <span className="flex-1">{localeNames[l]}</span>
+            {l === locale && <Check className="h-4 w-4 text-primary" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

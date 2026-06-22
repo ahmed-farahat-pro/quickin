@@ -5,7 +5,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalLoadingBar } from "@/components/ui/global-loading-bar";
 import { RouteProgressBar } from "@/components/ui/route-progress-bar";
-import { getDirection } from '@/i18n/config'
+import { getDirection, type Locale } from '@/i18n/config'
 import { getMessages } from '@/i18n/messages'
 import { getRequestLocale } from '@/i18n/request-locale'
 import { AppDirectionProvider } from '@/components/providers/app-direction-provider'
@@ -107,7 +107,7 @@ async function RootLayoutInner({
   localePromise,
 }: Readonly<{
   children: React.ReactNode;
-  localePromise: Promise<'en' | 'ar'>;
+  localePromise: Promise<Locale>;
 }>)
 {
   const locale = await localePromise

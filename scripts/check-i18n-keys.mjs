@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+// English is the source of truth; every other locale must match its key set exactly.
 const basePath = path.resolve('src/messages/en.json')
-const comparePath = path.resolve('src/messages/ar.json')
+const locales = ['ar', 'fr', 'es']
 
 const base = JSON.parse(fs.readFileSync(basePath, 'utf8'))
-const compare = JSON.parse(fs.readFileSync(comparePath, 'utf8'))
 
 function flattenKeys(obj, prefix = '') {
   const keys = []
@@ -21,22 +21,35 @@ function flattenKeys(obj, prefix = '') {
 }
 
 const baseKeys = new Set(flattenKeys(base))
-const compareKeys = new Set(flattenKeys(compare))
+let failed = false
 
-const missingInAr = [...baseKeys].filter((key) => !compareKeys.has(key))
-const extraInAr = [...compareKeys].filter((key) => !baseKeys.has(key))
+for (const locale of locales) {
+  const comparePath = path.resolve(`src/messages/${locale}.json`)
+  if (!fs.existsSync(comparePath)) {
+    console.error(`Missing locale file: src/messages/${locale}.json`)
+    failed = true
+    continue
+  }
+  const compare = JSON.parse(fs.readFileSync(comparePath, 'utf8'))
+  const compareKeys = new Set(flattenKeys(compare))
 
-if (missingInAr.length || extraInAr.length) {
-  if (missingInAr.length) {
-    console.error('Missing keys in ar.json:')
-    for (const key of missingInAr) console.error(`  - ${key}`)
+  const missing = [...baseKeys].filter((key) => !compareKeys.has(key))
+  const extra = [...compareKeys].filter((key) => !baseKeys.has(key))
+
+  if (missing.length || extra.length) {
+    failed = true
+    if (missing.length) {
+      console.error(`Missing keys in ${locale}.json:`)
+      for (const key of missing) console.error(`  - ${key}`)
+    }
+    if (extra.length) {
+      console.error(`Extra keys in ${locale}.json:`)
+      for (const key of extra) console.error(`  - ${key}`)
+    }
+  } else {
+    console.log(`${locale}.json: key parity OK (${compareKeys.size} keys)`)
   }
-  if (extraInAr.length) {
-    console.error('Extra keys in ar.json:')
-    for (const key of extraInAr) console.error(`  - ${key}`)
-  }
-  process.exit(1)
 }
 
-console.log('i18n key parity check passed.')
-
+if (failed) process.exit(1)
+console.log('i18n key parity check passed for all locales.')

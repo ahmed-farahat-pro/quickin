@@ -1,0 +1,1362 @@
+{
+  "common": {
+    "brand": "QuickIn",
+    "loading": "Cargando...",
+    "retry": "Reintentar",
+    "search": "Buscar",
+    "night": "noche",
+    "nights": "noches",
+    "guest": "huésped",
+    "guests": "huéspedes",
+    "languageToggle": "العربية",
+    "languageLabel": "Español (ES)"
+  },
+  "nav": {
+    "anywhere": "Cualquier lugar",
+    "listings": "Anuncios",
+    "servicesManagement": "Gestión de servicios",
+    "becomeHost": "Conviértete en anfitrión",
+    "rent": "Alquilar",
+    "dashboard": "Panel",
+    "trips": "Viajes",
+    "wishlists": "Favoritos",
+    "manageListings": "Gestionar anuncios",
+    "bookings": "Reservas",
+    "account": "Cuenta",
+    "helpCenter": "Centro de ayuda",
+    "logout": "Cerrar sesión",
+    "signup": "Registrarse",
+    "login": "Iniciar sesión",
+    "hostYourHome": "Alquila tu alojamiento",
+    "pleaseLoginFirst": "Inicia sesión primero",
+    "userFallback": "Usuario"
+  },
+  "footer": {
+    "tagline": "Encuéntralo. Resérvalo. Vívelo.",
+    "description": "Estancias seleccionadas para viajeros sin prisa. Alojamientos elegidos con esmero, pensados para el confort, la belleza y la calma.",
+    "legalCompanyName": "QuickIn, Inc.",
+    "support": "Ayuda",
+    "hosting": "Anfitriones",
+    "company": "QuickIn",
+    "terms": "Condiciones",
+    "sitemap": "Mapa del sitio",
+    "privacy": "Privacidad",
+    "currency": "EGP",
+    "supportLinks": {
+      "helpCenter": "Centro de ayuda",
+      "safetyInfo": "Información de seguridad",
+      "cancellation": "Opciones de cancelación",
+      "reportConcern": "Informar de un problema"
+    },
+    "hostingLinks": {
+      "becomeHost": "Conviértete en anfitrión",
+      "hostResources": "Recursos para anfitriones",
+      "communityForum": "Foro de la comunidad",
+      "hostResponsibly": "Sé un anfitrión responsable"
+    },
+    "companyLinks": {
+      "about": "Sobre nosotros",
+      "newsroom": "Sala de prensa",
+      "careers": "Empleo",
+      "contact": "Contacto"
+    }
+  },
+  "auth": {
+    "loginTitle": "Iniciar sesión",
+    "signupTitle": "Registrarse",
+    "loginDescription": "Bienvenido de nuevo a QuickIn",
+    "signupDescription": "Crea una cuenta para empezar a reservar",
+    "resetTitle": "Restablecer tu contraseña",
+    "resetDescription": "Introduce tu correo electrónico y te enviaremos un enlace para restablecerla",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "fullName": "Nombre completo",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "sendResetLink": "Enviar enlace de restablecimiento",
+    "backToLogin": "Volver al inicio de sesión",
+    "checkYourEmail": "Revisa tu correo electrónico",
+    "checkEmailDescription": "Hemos enviado un enlace de confirmación a {email}. Verifica tu cuenta para continuar.",
+    "resendEmail": "Reenviar correo",
+    "resendEmailSent": "Correo reenviado — revisa tu bandeja de entrada",
+    "resendEmailCooldown": "Reenvío disponible en {seconds}s",
+    "mfaTitle": "Autenticación de dos factores",
+    "mfaDescription": "Introduce el código de tu aplicación de autenticación para continuar.",
+    "mfaPlaceholder": "000000",
+    "mfaVerifyButton": "Verificar",
+    "mfaEnrollTitle": "Configurar la autenticación de dos factores",
+    "mfaEnrollDescription": "Escanea el código QR con tu aplicación de autenticación (como Google Authenticator o Authy).",
+    "mfaEnrollSuccess": "¡Autenticación de dos factores activada correctamente!",
+    "mfaEnrollFailure": "No se pudo activar la autenticación de dos factores. Inténtalo de nuevo.",
+    "mfaUnenrollTitle": "Desactivar la autenticación de dos factores",
+    "mfaUnenrollDescription": "¿Seguro que quieres desactivar la autenticación de dos factores? Esto hará que tu cuenta sea menos segura.",
+    "mfaUnenrollButton": "Desactivar A2F",
+    "resetEmailSent": "¡Correo de restablecimiento de contraseña enviado!",
+    "retry": "Reintentar",
+    "unexpectedError": "Se produjo un error inesperado",
+    "failedProvider": "No se pudo conectar con el proveedor",
+    "welcomeBack": "¡Bienvenido de nuevo!",
+    "verificationSuccess": "¡Correo electrónico verificado correctamente! Ya puedes usar QuickIn.",
+    "signupSuccess": "¡Cuenta creada! Revisa tu correo para confirmarla.",
+    "pleaseEnterEmail": "Introduce tu dirección de correo electrónico",
+    "continueGoogle": "Continuar con Google",
+    "continueApple": "Continuar con Apple",
+    "or": "o",
+    "acceptTermsPrefix": "Acepto los ",
+    "acceptTermsLink": "Términos y condiciones",
+    "changeInfoTip": "No podrás cambiar tu nombre ni tu correo electrónico más adelante sin contactar con el servicio de asistencia.",
+    "dontHaveAccount": "¿No tienes una cuenta?",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "placeholderEmail": "tu@ejemplo.com",
+    "placeholderPassword": "••••••••",
+    "placeholderFullName": "Juan Pérez",
+    "loginButton": "Iniciar sesión",
+    "signupButton": "Registrarse",
+    "resetEmailHelp": "Introduce la dirección de correo electrónico asociada a tu cuenta y te enviaremos un enlace para restablecer tu contraseña.",
+    "resetLinkSentTo": "Hemos enviado un enlace para restablecer la contraseña a {email}"
+  },
+  "loginPage": {
+    "title": "Inicia sesión en QuickIn",
+    "subtitle": "¡Bienvenido de nuevo! Inicia sesión para continuar.",
+    "instruction": "Usa el menú de la esquina superior derecha para iniciar sesión o registrarte.",
+    "goHome": "Ir a la página de inicio"
+  },
+  "chat": {
+    "title": "QuickIn IA",
+    "poweredBy": "Con tecnología de Gemini",
+    "welcome": "¡Hola! Soy tu asistente de QuickIn. Puedo ayudarte a encontrar el alojamiento perfecto, responder preguntas sobre los anuncios o darte recomendaciones de viaje. ¿En qué puedo ayudarte hoy?",
+    "placeholder": "Pregúntame lo que quieras...",
+    "suggested": {
+      "beach": "Buscar alojamientos frente al mar",
+      "included": "¿Qué incluye este anuncio?",
+      "destination": "Recomendar un destino de vacaciones",
+      "plan": "Ayúdame a planificar un viaje"
+    },
+    "networkError": "Lo siento, hubo un problema de conexión. Inténtalo de nuevo.",
+    "fallbackError": "Lo siento, algo salió mal.",
+    "ariaOpenChat": "Abrir chat",
+    "ariaCloseChat": "Cerrar chat",
+    "ariaSendMessage": "Enviar mensaje"
+  },
+  "bookingPage": {
+    "title": "Confirmar y solicitar",
+    "yourTrip": "Tu viaje",
+    "dates": "Fechas",
+    "guests": "Huéspedes",
+    "listingCode": "Código",
+    "priceDetails": "Detalles del precio",
+    "baseRate": "Tarifa base",
+    "subtotal": "Subtotal",
+    "viewAllNights": "Ver todas las noches",
+    "hideNightlyBreakdown": "Ocultar el desglose por noche",
+    "serviceFee": "Gastos de servicio",
+    "total": "Total"
+  },
+  "bookingConfirm": {
+    "title": "Confirma tu reserva",
+    "agreeConditions": "Acepta todas las condiciones del anfitrión antes de reservar",
+    "retry": "Reintentar",
+    "success": "¡Solicitud de reserva enviada! El anfitrión revisará tu solicitud.",
+    "viewTrips": "Ver viajes",
+    "failed": "No se pudo enviar la solicitud de reserva",
+    "sending": "Enviando solicitud...",
+    "requestToBook": "Solicitar reserva",
+    "termsNotice": "Al seleccionar el botón, aceptas las condiciones de la reserva. El anfitrión tiene 24 horas para responder a tu solicitud.",
+    "paymentOptions": "Opciones de pago",
+    "platformBalance": "Saldo de la plataforma",
+    "mobileWallet": "Monedero móvil",
+    "cashDisabled": "Efectivo (desactivado)",
+    "walletInstructions": "Selecciona tu proveedor de monedero móvil preferido.",
+    "walletInfoDesc1": "Tu saldo disponible es de",
+    "walletInfoDesc2": "El importe total de",
+    "walletInfoDesc3": "se descontará al instante de tu monedero en la plataforma y tu reserva se confirmará de inmediato.",
+    "sendToNumber": "Enviar al número",
+    "uploadReceipt": "Subir comprobante",
+    "uploadReceiptDesc": "Sube una captura de pantalla de tu transacción exitosa para confirmar tu reserva.",
+    "receiptAttached": "Comprobante adjuntado correctamente",
+    "receiptReady": "Ya puedes continuar.",
+    "uploadViaMobile": "Subir desde el móvil",
+    "scanOrSend": "Escanea o envía para pagar",
+    "scanOnly": "Escanea para pagar",
+    "sendOnly": "Envía para pagar",
+    "scanOrSendDesc": "Escanea el código QR o envía dinero al número de arriba para pagar",
+    "scanOnlyDesc": "Escanea y paga",
+    "sendOnlyDesc": "Envía dinero al número de arriba para pagar",
+    "hostRequirements": "Requisitos del anfitrión",
+    "hostRequirementsDesc": "Acepta las siguientes condiciones para continuar con tu reserva:",
+    "cancellationPolicy": "Política de cancelación",
+    "acceptCancellationPolicy": "Acepto la política de cancelación y reembolso",
+    "loadingCancellationPolicy": "Cargando la política de cancelación...",
+    "handoffTitle": "Subir desde el móvil",
+    "handoffDesc": "Escanea este código QR con tu teléfono para subir el comprobante y finalizar tu reserva.",
+    "waitingForUpload": "Esperando que se suba el comprobante...",
+    "leavePageOpen": "Deja esta página abierta. Continuará automáticamente en cuanto subas el comprobante desde tu teléfono.",
+    "payWithBalance": "Pagar con saldo",
+    "cashDisabledDesc": "Los pagos en efectivo están desactivados actualmente para este alojamiento."
+  },
+  "bookingWidget": {
+    "fields": {
+      "checkIn": "Entrada",
+      "checkOut": "Salida",
+      "addDate": "Añadir fecha",
+      "guests": "Huéspedes"
+    },
+    "actions": {
+      "logIn": "Iniciar sesión",
+      "requestToBook": "Solicitar reserva",
+      "checking": "Comprobando..."
+    },
+    "errors": {
+      "selectDates": "Selecciona tus fechas",
+      "minStay": "La estancia mínima es de {count} {unit}",
+      "selectedDatesUnavailable": "Algunas de las fechas seleccionadas no están disponibles",
+      "loginToBook": "Inicia sesión para reservar"
+    },
+    "messages": {
+      "minStayNotice": "Estancia mínima: {count} {unit}",
+      "selectedDatesUnavailable": "Algunas fechas seleccionadas no están disponibles",
+      "notChargedYet": "Todavía no se te cobrará"
+    },
+    "pricing": {
+      "serviceFee": "Tarifa de servicio",
+      "total": "Total"
+    }
+  },
+  "listingsExplorer": {
+    "empty": {
+      "title": "No se han encontrado anuncios",
+      "description": "Prueba a ajustar tu búsqueda o tus filtros."
+    },
+    "actions": {
+      "showList": "Mostrar lista",
+      "showMap": "Mostrar mapa",
+      "showMore": "Mostrar más"
+    },
+    "errors": {
+      "loadMoreFailed": "No se han podido cargar más anuncios"
+    }
+  },
+  "listingCard": {
+    "guestFavorite": "Favorito de los huéspedes",
+    "bestOffer": "Mejor oferta",
+    "night": "noche",
+    "nights": "noches",
+    "total": "total",
+    "pleaseLoginToSave": "Inicia sesión para guardar anuncios",
+    "logIn": "Iniciar sesión",
+    "guests": "{count} huéspedes",
+    "bed": "cama",
+    "beds": "camas",
+    "bath": "baño",
+    "baths": "baños",
+    "guestCount": "{count, plural, =1 {1 huésped} other {# huéspedes}}",
+    "bedCount": "{count, plural, =1 {1 cama} other {# camas}}",
+    "bathCount": "{count, plural, =1 {1 baño} other {# baños}}",
+    "nightCount": "{count, plural, =0 {ninguna noche} =1 {1 noche} other {# noches}}",
+    "viewDetails": "Ver detalles"
+  },
+  "reviews": {
+    "categories": {
+      "rating_cleanliness": {
+        "label": "Limpieza",
+        "guest_desc": "¿Estaba el alojamiento tan limpio como esperabas? Esto abarca todas las habitaciones y superficies.",
+        "stat_desc": "Lo limpio que los huéspedes encontraron este alojamiento, en todas las habitaciones y superficies."
+      },
+      "rating_accuracy": {
+        "label": "Precisión",
+        "guest_desc": "¿Con qué fidelidad reflejaban las fotos y la descripción del anuncio el alojamiento real?",
+        "stat_desc": "Con qué fidelidad sintieron los huéspedes que las fotos y la descripción reflejaban el alojamiento real."
+      },
+      "rating_communication": {
+        "label": "Comunicación",
+        "guest_desc": "¿Qué tan atento y servicial fue el anfitrión antes y durante tu estancia?",
+        "stat_desc": "Qué tan atento y servicial encontraron los huéspedes al anfitrión antes y durante su estancia."
+      },
+      "rating_location": {
+        "label": "Ubicación",
+        "guest_desc": "¿Cumplió la zona con tus expectativas y era exacta la ubicación indicada?",
+        "stat_desc": "Cómo valoraron los huéspedes la exactitud de la ubicación y si la zona cumplió sus expectativas."
+      },
+      "rating_check_in": {
+        "label": "Llegada",
+        "guest_desc": "¿Qué tan fácil fue el proceso de llegada? ¿Proporcionó el anfitrión instrucciones claras?",
+        "stat_desc": "Qué tan fácil encontraron los huéspedes el proceso de llegada y la claridad de las instrucciones proporcionadas."
+      },
+      "rating_value": {
+        "label": "Relación calidad-precio",
+        "guest_desc": "¿Mereció la estancia el precio pagado en comparación con la experiencia ofrecida?",
+        "stat_desc": "Si los huéspedes sintieron que la estancia ofrecía una buena relación calidad-precio respecto al precio y la experiencia."
+      }
+    },
+    "list": {
+      "noReviews": "Aún no hay reseñas. ¡Sé el primero en dejar una!",
+      "anonymous": "Anónimo",
+      "userAlt": "Usuario"
+    },
+    "form": {
+      "writeReview": "Escribir una reseña",
+      "editReview": "Editar tu reseña",
+      "title": "Escribir una reseña",
+      "overallExperience": "Experiencia general",
+      "categoryRatings": "Valoraciones por categoría",
+      "writtenReview": "Tu reseña escrita",
+      "placeholderComment": "Cuéntales a los demás sobre tu estancia...",
+      "privateFeedback": "Comentario privado para el anfitrión",
+      "continuePrivateFeedback": "Continuar el comentario privado para el anfitrión",
+      "visibleOnlyToHost": "Visible solo para el anfitrión",
+      "privatePlaceholder": "Comparte detalles que prefieras mantener privados...",
+      "privatePlaceholderMore": "Enviar otro mensaje privado...",
+      "previousPrivateSaved": "* Tus mensajes privados anteriores se guardan en el chat con el anfitrión.",
+      "onlyPastGuests": "Solo los huéspedes anteriores pueden dejar una reseña",
+      "submit": "Enviar reseña",
+      "cancel": "Cancelar",
+      "errors": {
+        "overallRating": "Indica una valoración general",
+        "subRating": "Valora {category}",
+        "comment": "Escribe un comentario"
+      },
+      "success": {
+        "submitted": "¡Reseña enviada correctamente!",
+        "updated": "¡Reseña actualizada!"
+      }
+    },
+    "chat": {
+      "threadTitle": "Hilo de comentarios privados",
+      "visibilityInfo": "Visible para el anfitrión y el huésped",
+      "noFeedback": "Aún no hay comentarios privados.",
+      "typeReply": "Escribe tu respuesta...",
+      "send": "Mensaje enviado"
+    }
+  },
+  "listingSubNav": {
+    "photos": "Fotos",
+    "overview": "Resumen",
+    "about": "Acerca de",
+    "amenities": "Servicios",
+    "location": "Ubicación",
+    "reviews": "Opiniones",
+    "book": "Reservar"
+  },
+  "comments": {
+    "warningLabel": "Advertencia:",
+    "phoneWarning": "Compartir números de teléfono o información de contacto en los comentarios resultará en el bloqueo inmediato de la cuenta.",
+    "tabLabel": "Comentarios y preguntas",
+    "qaWithCount": "Preguntas y respuestas ({count})",
+    "noComments": "Aún no hay comentarios. ¡Sé el primero en hacer una pregunta!",
+    "loginPrompt": "Debes iniciar sesión para hacer una pregunta o dejar un comentario.",
+    "placeholder": "Haz una pregunta o deja un comentario...",
+    "post": "Publicar comentario",
+    "reply": "Responder",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "saveChanges": "Guardar cambios",
+    "reportToAdmin": "Reportar al administrador",
+    "adminBadge": "Admin",
+    "mustBeLoggedInToVote": "Debes iniciar sesión para votar.",
+    "reportedToAdmins": "Comentario reportado a los administradores.",
+    "confirmModerate": "¿Seguro que quieres {action} este comentario?",
+    "moderateSuccess": "Comentario {action} correctamente.",
+    "confirmDelete": "¿Seguro que quieres eliminar tu comentario?",
+    "deleteSuccess": "Tu comentario fue eliminado.",
+    "hostBadge": "Anfitrión",
+    "reportedBadge": "Reportado",
+    "hiddenComment": "Comentario oculto o marcado debido a los comentarios recibidos.",
+    "showAnyway": "Mostrar de todos modos",
+    "hide": "Ocultar",
+    "makeVisible": "Hacer visible",
+    "commentUpdated": "Comentario actualizado correctamente",
+    "replyPosted": "Respuesta publicada correctamente",
+    "commentPosted": "Comentario publicado correctamente",
+    "anonymous": "Anónimo"
+  },
+  "listingDetail": {
+    "actions": {
+      "share": "Compartir",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "logIn": "Iniciar sesión",
+      "requestToBook": "Solicitar reserva",
+      "checkAvailability": "Comprobar disponibilidad"
+    },
+    "errors": {
+      "rangeIncludesUnavailable": "El rango seleccionado incluye fechas bloqueadas o reservadas",
+      "selectDates": "Selecciona las fechas de entrada y salida",
+      "invalidDateOrder": "La salida debe ser posterior a la entrada",
+      "loginToBook": "Inicia sesión para reservar este alojamiento",
+      "cannotBookOwnListing": "No puedes reservar tu propio anuncio",
+      "loginToSaveWishlist": "Inicia sesión para guardar en tu lista de deseos"
+    },
+    "rating": {
+      "new": "Nuevo"
+    },
+    "reviews": {
+      "one": "reseña",
+      "many": "reseñas",
+      "count": "{count, plural, =1 {1 reseña} other {# reseñas}}"
+    },
+    "guestFavorite": {
+      "title": "Favorito de los huéspedes",
+      "subtitle": "Uno de los alojamientos más valorados en QuickIn según las reseñas"
+    },
+    "brandName": "Quick-In",
+    "hostedBy": "Anfitrión: {host}",
+    "hostFallback": "Anfitrión",
+    "host": {
+      "viewProfile": "Ver perfil del anfitrión"
+    },
+    "propertyTypeFallback": "Alojamiento",
+    "locationFormat": "{city}, {country}",
+    "units": {
+      "bedroom": "habitación",
+      "bedrooms": "habitaciones",
+      "bed": "cama",
+      "beds": "camas",
+      "bath": "baño",
+      "baths": "baños",
+      "guestCount": "{count, plural, =1 {1 huésped} other {# huéspedes}}",
+      "bedroomCount": "{count, plural, =1 {1 habitación} other {# habitaciones}}",
+      "bedCount": "{count, plural, =1 {1 cama} other {# camas}}",
+      "bathCount": "{count, plural, =1 {1 baño} other {# baños}}"
+    },
+    "sections": {
+      "aboutPlace": "Acerca de este alojamiento",
+      "whatPlaceOffers": "Lo que ofrece este alojamiento",
+      "whereYoullBe": "Dónde te alojarás"
+    },
+    "fallbacks": {
+      "description": "Un alojamiento maravilloso para tu estancia.",
+      "noAmenities": "No hay servicios indicados"
+    },
+    "booking": {
+      "checkIn": "Entrada",
+      "checkOut": "Salida",
+      "addDate": "Añadir fecha",
+      "clearDates": "Borrar fechas",
+      "existingBookingTitle": "Ya tienes una solicitud de reserva para este anuncio",
+      "existingBookingPrefix": "Consulta tu página de",
+      "tripsLink": "Viajes",
+      "existingBookingSuffix": "para ver el estado",
+      "activeBookingTitle": "Actualmente te alojas en este alojamiento",
+      "activeBookingPrefix": "Consulta tu página de",
+      "activeBookingSuffix": "para ver los detalles",
+      "notChargedYet": "Todavía no se te cobrará nada",
+      "serviceFee": "Gastos de servicio",
+      "total": "Total"
+    },
+    "calendarLegend": {
+      "title": "Leyenda del calendario",
+      "booked": "Reservado",
+      "blocked": "Bloqueado",
+      "adjusted": "Ajustado",
+      "custom": "Personalizado",
+      "bestOffer": "Mejor oferta"
+    },
+    "priceBreakdown": {
+      "baseRate": "Tarifa base",
+      "subtotal": "Subtotal",
+      "hideNightlyBreakdown": "Ocultar el desglose por noche",
+      "viewAllNights": "Ver todas las noches"
+    }
+  },
+  "ai": {
+    "system": {
+      "assistantRole": "Eres un asistente de viajes útil para QuickIn, una plataforma de alquiler vacacional similar a Airbnb.",
+      "languageInstructionEn": "Responde en un inglés claro.",
+      "languageInstructionAr": "Responde en árabe."
+    }
+  },
+  "navUser": {
+    "personalInfo": "Información personal",
+    "settings": "Configuración",
+    "notifications": "Notificaciones",
+    "helpCenter": "Centro de ayuda",
+    "logout": "Cerrar sesión"
+  },
+  "dashboard": {
+    "yourDashboard": "Tu panel",
+    "groups": {
+      "dashboard": "Panel",
+      "account": "Cuenta",
+      "guest": "Huésped",
+      "host": "Anfitrión",
+      "admin": "Admin",
+      "staff": "Personal"
+    },
+    "items": {
+      "overview": "Resumen",
+      "personalInfo": "Información personal",
+      "trips": "Viajes",
+      "wishlists": "Listas de deseos",
+      "myListings": "Mis alojamientos",
+      "allListings": "Todos los alojamientos",
+      "createNew": "Crear nuevo",
+      "bookings": "Reservas",
+      "adminDashboard": "Panel de administración",
+      "moderatorPanel": "Panel de moderación",
+      "balance": "Ganancias y saldo"
+    }
+  },
+  "dashboardPage": {
+    "title": "Panel",
+    "welcome": "¡Bienvenido de nuevo! Aquí tienes un resumen de tu cuenta.",
+    "links": {
+      "myListings": {
+        "title": "Mis anuncios",
+        "description": "Gestiona tus alojamientos",
+        "activeCount": "{count, plural, =1 {1 anuncio activo} other {# anuncios activos}}"
+      },
+      "myTrips": {
+        "title": "Mis viajes",
+        "description": "Consulta tus reservas",
+        "upcomingCount": "{count, plural, =1 {1 viaje próximo} other {# viajes próximos}}"
+      },
+      "wishlists": {
+        "title": "Listas de deseos",
+        "description": "Alojamientos que has guardado",
+        "savedCount": "{count, plural, =1 {1 lista guardada} other {# listas guardadas}}"
+      },
+      "accountSettings": {
+        "title": "Configuración de la cuenta",
+        "description": "Perfil y verificación"
+      }
+    },
+    "hostCta": {
+      "title": "Conviértete en anfitrión",
+      "description": "Gana ingresos adicionales compartiendo tu espacio con viajeros",
+      "button": "Publica tu alojamiento"
+    }
+  },
+  "dashboardBookings": {
+    "title": "Solicitudes de reserva",
+    "description": "Gestiona las solicitudes de reserva de tus alojamientos",
+    "searchPlaceholder": "Buscar por código de reserva...",
+    "tabs": {
+      "pending": "Pendientes",
+      "confirmed": "Confirmadas",
+      "all": "Todas"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "confirmed": "Confirmada",
+      "cancelled": "Cancelada",
+      "rejected": "Rechazada",
+      "completed": "Completada"
+    },
+    "empty": {
+      "pending": "No hay solicitudes de reserva pendientes",
+      "confirmed": "No hay reservas confirmadas",
+      "all": "Aún no hay solicitudes de reserva"
+    },
+    "card": {
+      "resBadge": "Res",
+      "listBadge": "Aloj.",
+      "nights": "{count, plural, =1 {1 noche} other {# noches}}",
+      "guests": "{count, plural, =1 {1 huésped} other {# huéspedes}}",
+      "guestLabel": "Huésped:",
+      "totalLabel": "Total:",
+      "requestedAt": "Solicitada el {date}",
+      "unknownListing": "Alojamiento desconocido",
+      "guestFallback": "Huésped",
+      "chatButton": "Chatear con el anfitrión"
+    },
+    "actions": {
+      "approve": "Aprobar",
+      "decline": "Rechazar",
+      "approveSuccess": "¡Reserva confirmada!",
+      "approveError": "No se pudo aprobar la reserva",
+      "rejectSuccess": "Solicitud de reserva rechazada",
+      "rejectError": "No se pudo rechazar la reserva",
+      "retry": "Reintentar",
+      "undo": "Deshacer",
+      "dialog": {
+        "title": "¿Rechazar esta reserva?",
+        "description": "Se notificará al huésped que su solicitud de reserva no fue aprobada. Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "confirm": "Rechazar reserva"
+      }
+    },
+    "chatWithGuest": "Chatear con el huésped"
+  },
+  "dashboardListings": {
+    "title": "Tus anuncios",
+    "description": "Gestiona tus propiedades y haz seguimiento de las reservas.",
+    "addListing": "Añadir anuncio",
+    "empty": {
+      "title": "Empieza a ser anfitrión hoy",
+      "description": "Comparte tu espacio y gana ingresos adicionales. Publica tu propiedad y conecta con viajeros de todo el mundo.",
+      "button": "Crea tu primer anuncio"
+    },
+    "card": {
+      "codeBadge": "Código",
+      "published": "Publicado",
+      "draft": "Borrador",
+      "options": "Opciones",
+      "viewListing": "Ver anuncio",
+      "manage": "Gestionar",
+      "unpublish": "Retirar",
+      "publish": "Publicar",
+      "offerRequested": "Oferta solicitada ({start} - {end})",
+      "offerActive": "Oferta activa ({start} - {end})",
+      "offerRejected": "Añadir a ofertas rechazado",
+      "listedOn": "Publicado el {date}",
+      "perNight": "/ noche"
+    },
+    "actions": {
+      "unpublishSuccess": "Anuncio retirado correctamente",
+      "publishSuccess": "Anuncio publicado correctamente",
+      "unpublishError": "No se pudo retirar el anuncio",
+      "publishError": "No se pudo publicar el anuncio"
+    },
+    "unpublishDialog": {
+      "title": "¿Retirar el anuncio?",
+      "description": "Esto ocultará tu anuncio a los huéspedes. Podrás volver a publicarlo más adelante.",
+      "blockedTitle": "No se puede retirar",
+      "blockedDescription": "Este anuncio tiene reservas actuales o solicitadas y no se puede retirar hasta que se resuelvan.",
+      "adminGuidance": "Como administrador, primero debes resolver estas reservas (por ejemplo, forzar la cancelación, rechazar las solicitadas o esperar a que finalicen) antes de retirarlo.",
+      "cancel": "Cancelar",
+      "confirm": "Retirar el anuncio"
+    },
+    "sort": {
+      "placeholder": "Ordenar por",
+      "newest": "Más recientes primero",
+      "oldest": "Más antiguos primero",
+      "priceHigh": "Precio: de mayor a menor",
+      "priceLow": "Precio: de menor a mayor"
+    }
+  },
+  "dashboardProfile": {
+    "title": "Cuenta",
+    "description": "Gestiona tu perfil, tu verificación y la configuración de tu cuenta.",
+    "tabs": {
+      "personal": "Información personal",
+      "verification": "Verificación",
+      "settings": "Configuración"
+    },
+    "header": {
+      "memberSince": "Miembro desde",
+      "verified": "Verificado",
+      "email": "Correo electrónico",
+      "identity": "Identidad",
+      "notVerified": "Sin verificar",
+      "staff": "Personal",
+      "cannotBeVerified": "No se puede verificar (Admin)"
+    },
+    "status": {
+      "verified": {
+        "label": "Verificado",
+        "description": "Tu identidad ha sido verificada"
+      },
+      "pending": {
+        "label": "Pendiente de revisión",
+        "description": "Tus documentos están en revisión (1 o 2 días hábiles)"
+      },
+      "rejected": {
+        "label": "Rechazado",
+        "description": "Tu verificación no fue aprobada. Vuelve a enviarla."
+      },
+      "unverified": {
+        "label": "Sin verificar",
+        "description": "Verifica tu identidad para reservar o publicar propiedades"
+      }
+    },
+    "personal": {
+      "legalName": {
+        "title": "Nombre legal",
+        "description": "Contacta con el soporte para cambiar tu nombre",
+        "notProvided": "No proporcionado"
+      },
+      "emailAddress": {
+        "title": "Dirección de correo electrónico",
+        "description": "Contacta con el soporte para cambiar tu correo electrónico"
+      },
+      "contactInfo": {
+        "title": "Información de contacto",
+        "description": "Actualiza tu número de teléfono y tu dirección",
+        "phone": "Número de teléfono",
+        "phoneHelp": "Selecciona el código de tu país en el menú desplegable",
+        "address": "Dirección",
+        "addressPlaceholder": "Tu dirección",
+        "saving": "Guardando...",
+        "saveChanges": "Guardar cambios",
+        "success": "Perfil actualizado correctamente",
+        "error": "No se pudo actualizar el perfil",
+        "retry": "Reintentar"
+      }
+    },
+    "verification": {
+      "internalAccount": {
+        "title": "Cuenta interna",
+        "description": "Como miembro del personal, tu cuenta se verifica automáticamente para todas las acciones.",
+        "bypassed": "Verificación omitida",
+        "bypassedDesc": "Puedes publicar propiedades y hacer reservas sin verificación de identidad."
+      },
+      "identityVerification": "Verificación de identidad",
+      "rejectionReason": "Motivo del rechazo:",
+      "requirements": {
+        "title": "Requisitos de verificación",
+        "description": "Completa todos los pasos para verificarte por completo",
+        "email": "Verificación del correo electrónico",
+        "emailVerified": "Tu correo electrónico está verificado",
+        "emailNotVerified": "Verifica tu dirección de correo electrónico",
+        "identity": "Documentos de identidad",
+        "identityVerified": "Tu identidad está verificada",
+        "identityPending": "En revisión",
+        "identityNotVerified": "Sube tu documento de identidad y un selfie para la verificación"
+      },
+      "submit": {
+        "title": "Enviar documentos",
+        "description": "Sube tus documentos de identidad y una foto selfie para la verificación"
+      }
+    },
+    "settings": {
+      "loginSecurity": {
+        "title": "Inicio de sesión y seguridad",
+        "description": "Actualiza tu contraseña y protege tu cuenta"
+      },
+      "paymentsPayouts": {
+        "title": "Pagos y abonos",
+        "description": "Revisa los pagos, los abonos y los impuestos"
+      },
+      "notifications": {
+        "title": "Notificaciones",
+        "description": "Elige tus preferencias de notificación"
+      },
+      "privacySharing": {
+        "title": "Privacidad y uso compartido",
+        "description": "Gestiona tus datos personales y su uso compartido"
+      }
+    }
+  },
+  "promoBanner": {
+    "title": "Mejores ofertas de la semana",
+    "description": "— Descubre ofertas seleccionadas en alojamientos elegidos a mano"
+  },
+  "dashboardTrips": {
+    "title": "Viajes",
+    "description": "Tus solicitudes de reserva y reservas.",
+    "searchPlaceholder": "Buscar por código de reserva...",
+    "tabs": {
+      "pending": "Pendientes",
+      "upcoming": "Próximos",
+      "history": "Historial"
+    },
+    "status": {
+      "confirmed": "Confirmada",
+      "completed": "Completada",
+      "cancelled": "Cancelada",
+      "rejected": "Rechazada por el anfitrión",
+      "pending": "Pendiente",
+      "active": "Entrada en curso"
+    },
+    "empty": {
+      "pendingTitle": "No hay solicitudes pendientes",
+      "pendingDesc": "Tus solicitudes de reserva en espera de aprobación del anfitrión aparecerán aquí",
+      "upcomingTitle": "No hay viajes próximos",
+      "upcomingDesc": "Es hora de planear tu próxima aventura",
+      "historyTitle": "No hay viajes anteriores",
+      "historyDesc": "Tus viajes completados y cancelados aparecerán aquí",
+      "browse": "Explorar alojamientos",
+      "startSearching": "Empezar a buscar"
+    },
+    "card": {
+      "resBadge": "Res",
+      "nights": "{count, plural, =1 {1 noche} other {# noches}}",
+      "guests": "{count, plural, =1 {1 huésped} other {# huéspedes}}",
+      "total": "total",
+      "rate": "Tarifa",
+      "viewListing": "Ver alojamiento",
+      "chatButton": "Chatear con el anfitrión"
+    },
+    "actions": {
+      "cancelRequest": "Cancelar solicitud",
+      "cancelling": "Cancelando...",
+      "cancelSuccess": "Solicitud de reserva cancelada",
+      "cancelError": "No se pudo cancelar la solicitud de reserva",
+      "statusChanged": "El estado de la reserva ha cambiado a {status}. Actualiza la página.",
+      "retry": "Reintentar",
+      "undo": "Deshacer",
+      "dialog": {
+        "title": "¿Cancelar la solicitud de reserva?",
+        "description": "Esto retirará tu solicitud. No se te cobrará nada.",
+        "keep": "Mantener solicitud",
+        "confirm": "Cancelar solicitud"
+      },
+      "checkedIn": "Entrada registrada",
+      "processingPayment": "Procesando el pago",
+      "processingPaymentDesc": "La plataforma está reteniendo los fondos y verificando tu pago. Se requiere la intervención del administrador.",
+      "checkinConfirmed": "Entrada confirmada",
+      "confirmCheckinBtn": "Confirmar entrada",
+      "scanQrBtn": "Escanear código QR",
+      "cancelPolicy": "Política de cancelación",
+      "daysBefore": "Días antes de la entrada",
+      "refundLabel": "Reembolso",
+      "checkinSuccess": "¡Entrada confirmada! La plataforma liberará ahora los fondos al anfitrión.",
+      "checkinError": "No se pudo confirmar la entrada. Inténtalo de nuevo.",
+      "invalidQr": "Código QR no válido para esta reserva",
+      "scanQrTitle": "Escanear el código QR del anfitrión",
+      "scanQrDesc": "Apunta la cámara hacia el código QR que se muestra en el dispositivo del anfitrión para confirmar automáticamente tu entrada.",
+      "cancel": "Cancelar reserva"
+    }
+  },
+  "dashboardWishlists": {
+    "title": "Listas de deseos",
+    "listsCount": "{count, plural, =1 {1 lista disponible} other {# listas disponibles}}",
+    "empty": {
+      "title": "Crea tu primera lista de deseos",
+      "description": "A medida que buscas, haz clic en el icono del corazón para guardar tus lugares y experiencias favoritos en una lista de deseos.",
+      "button": "Empezar a explorar"
+    },
+    "detailEmptyTitle": "Esta lista de deseos está vacía",
+    "detailEmptyButton": "Descubrir alojamientos"
+  },
+  "searchBar": {
+    "tabs": {
+      "where": "Dónde",
+      "when": "Cuándo",
+      "who": "Quién",
+      "filters": "Filtros"
+    },
+    "placeholders": {
+      "where": "Buscar destinos",
+      "anywhere": "Cualquier lugar",
+      "anyDates": "Cualquier fecha",
+      "addCheckout": "Añadir salida",
+      "addGuests": "Añadir huéspedes",
+      "guests": "{count} huéspedes",
+      "priceAndAmenities": "Precio y servicios",
+      "search": "Buscar",
+      "noDestinations": "No se encontraron destinos.",
+      "searchFor": "Buscar «{location}»",
+      "destinationsHeading": "Destinos",
+      "haveCode": "¿Tienes un código?",
+      "enterCode": "Introduce un código de 4 caracteres (p. ej. #AB12)",
+      "selectDates": "Seleccionar fechas",
+      "checkIn": "Llegada",
+      "checkOut": "Salida",
+      "addDate": "Añadir fecha",
+      "quickOptions": "OPCIONES RÁPIDAS",
+      "thisWeekend": "Este fin de semana",
+      "nextWeek": "La próxima semana",
+      "nextMonth": "El próximo mes",
+      "clearDates": "Borrar fechas",
+      "numberOfGuests": "Número de huéspedes",
+      "howManyGuests": "¿Cuántos huéspedes?",
+      "guestsLabel": "Huéspedes",
+      "priceRange": "Rango de precios",
+      "pricePerNight": "Precio por noche",
+      "min": "Mín",
+      "max": "Máx",
+      "minimum": "Mínimo",
+      "maximum": "Máximo",
+      "noMin": "Sin mín",
+      "noMax": "Sin máx",
+      "to": "a",
+      "propertyType": "Tipo de alojamiento",
+      "amenities": "Servicios",
+      "noAmenities": "No hay filtros de servicios disponibles",
+      "agesLabel": "13 años o más",
+      "popularDestinations": "DESTINOS POPULARES",
+      "clearAllFilters": "Borrar todos los filtros"
+    },
+    "aria": {
+      "clearLocation": "Borrar ubicación",
+      "decreaseGuests": "Reducir huéspedes",
+      "increaseGuests": "Aumentar huéspedes"
+    }
+  },
+  "stickySearch": {
+    "bestOffers": "Mejores ofertas",
+    "bestOffersTagline": "Ofertas seleccionadas en estancias escogidas con cuidado",
+    "discoverTitle": "Descubre tu próxima estancia.",
+    "discoverDescription": "Explora destinos escogidos con cuidado entre alojamientos con encanto y escapadas inspiradoras, cada uno seleccionado con mimo por su carácter, su ambiente acogedor y su lado relajante.",
+    "loadingResults": "Buscando estancias increíbles...",
+    "unlock": "Desbloquear la barra de búsqueda (permitir expansión automática)",
+    "lock": "Bloquear en modo compacto"
+  },
+  "home": {
+    "hero": {
+      "title": "Estancias seleccionadas para viajeros sin prisa",
+      "description": "Alojamientos elegidos con cuidado, pensados para el confort, la belleza y la calma."
+    },
+    "filters": {
+      "showingResults": "Mostrando {count} de {total} alojamientos",
+      "location": "📍 {location}",
+      "dates": "📅 {checkIn} - {checkOut}",
+      "guests": "👥 {count}+ huéspedes",
+      "price": "💰 {min} - {max}",
+      "amenities": "✨ {count} servicios",
+      "propertyTypes": "🏠 {count} tipos",
+      "bestOffers": "Mejores ofertas",
+      "clearAll": "Borrar todo",
+      "sortBy": "Ordenar por",
+      "sortRecommended": "Recomendados",
+      "sortPriceAsc": "Precio: de menor a mayor",
+      "sortPriceDesc": "Precio: de mayor a menor",
+      "sortRating": "Mejor valorados",
+      "sortNewest": "Más recientes",
+      "sortDistance": "Más cerca del destino"
+    }
+  },
+  "dashboardListingCreate": {
+    "title": "Crear anuncio",
+    "steps": {
+      "type": "Tipo",
+      "vibe": "Estilo",
+      "basics": "Datos básicos",
+      "location": "Ubicación",
+      "photos": "Fotos",
+      "details": "Detalles",
+      "pricing": "Precios",
+      "review": "Revisión"
+    },
+    "errors": {
+      "propertyType": "Selecciona un tipo de propiedad",
+      "tagsMin": "Selecciona al menos 1 etiqueta",
+      "tagsMax": "Puedes seleccionar hasta 2 etiquetas",
+      "titleMin": "El título debe tener al menos 5 caracteres",
+      "titleMax": "El título debe tener menos de 100 caracteres",
+      "descMin": "La descripción debe tener al menos 20 caracteres",
+      "addressReq": "La dirección es obligatoria",
+      "countryReq": "El país es obligatorio",
+      "cityReq": "La ciudad es obligatoria",
+      "latInvalid": "Latitud no válida",
+      "lngInvalid": "Longitud no válida",
+      "photosMin": "Añade al menos 1 foto",
+      "loginReq": "Debes iniciar sesión",
+      "uploadFailed": "Error al subir la imagen",
+      "creationFailed": "Error al crear el anuncio",
+      "englishOnly": "Usa solo caracteres latinos",
+      "arabicOnly": "Usa solo caracteres árabes"
+    },
+    "actions": {
+      "back": "Atrás",
+      "next": "Siguiente",
+      "publish": "Publicar",
+      "login": "Iniciar sesión",
+      "retry": "Reintentar",
+      "viewListing": "Ver anuncio",
+      "stepXofY": "Paso {step} de {total}"
+    },
+    "stepType": {
+      "question": "Primero, ¿qué tipo de alojamiento quieres publicar?",
+      "homeTitle": "Alojamiento",
+      "homeDesc": "Un espacio como una casa, un apartamento o una habitación.",
+      "serviceTitle": "Servicio",
+      "serviceDesc": "Una experiencia, un yate o un espacio para eventos.",
+      "describeQuestion": "¿Cuál de estas opciones describe mejor tu {type}?"
+    },
+    "stepVibe": {
+      "title": "Describe el estilo",
+      "subtitle": "Selecciona hasta 2 etiquetas que mejor describan tu anuncio.",
+      "selected": "Seleccionadas {count}/2",
+      "maxReached": "Máximo de 2 etiquetas seleccionadas"
+    },
+    "stepBasics": {
+      "title": "Vamos a ponerle un nombre y una descripción a tu alojamiento",
+      "titleEn": "Título (inglés)",
+      "titleEnPlaceholder": "ej. Cabaña acogedora con vistas a la montaña",
+      "titleAr": "Título (árabe / بالعربية)",
+      "titleArPlaceholder": "مثال: كابينة مريحة مع إطلالة على الجبل",
+      "descEn": "Descripción (inglés)",
+      "descEnPlaceholder": "Describe tu alojamiento...",
+      "descAr": "Descripción (árabe / بالعربية)",
+      "descArPlaceholder": "صف مكانك...",
+      "conditionsTitle": "Condiciones del anuncio / Normas de la casa",
+      "conditionsPlaceholder": "Selecciona condiciones o escribe para crearlas...",
+      "conditionsEmpty": "No se encontraron condiciones.",
+      "conditionsHelp": "Añade normas concretas como «No fumar», «No fiestas», etc."
+    },
+    "stepLocation": {
+      "title": "¿Dónde se encuentra tu alojamiento?",
+      "pasteGoogle": "Pegar enlace de Google Maps",
+      "pastePlaceholder": "Pega el enlace para autocompletar",
+      "lat": "Lat",
+      "lng": "Long",
+      "address": "Dirección",
+      "extracted": "¡Coordenadas extraídas!"
+    },
+    "stepPhotos": {
+      "title": "Añade algunas fotos"
+    },
+    "stepDetails": {
+      "title": "Comparte algunos datos básicos sobre tu {type}",
+      "guests": "Huéspedes",
+      "bedrooms": "Dormitorios",
+      "beds": "Camas",
+      "bathrooms": "Baños",
+      "minDuration": "Duración mínima"
+    },
+    "stepPricing": {
+      "title": "Establece tu precio",
+      "currency": "Moneda",
+      "currencyPlaceholder": "Selecciona una moneda",
+      "pricePerNight": "Precio por noche",
+      "cleaningFee": "Tarifa de limpieza"
+    },
+    "stepReview": {
+      "title": "Revisar y publicar",
+      "listingTitle": "Título:",
+      "location": "Ubicación:",
+      "price": "Precio:",
+      "conditions": "Condiciones:",
+      "success": "¡Anuncio creado correctamente!"
+    }
+  },
+  "dashboardBalance": {
+    "title": "Saldo de la cartera",
+    "description": "Consulta tu saldo, solicita retiros y haz seguimiento de las transacciones.",
+    "availableBalance": "Saldo disponible",
+    "readyForWithdrawal": "Listo para retirar",
+    "onHold": "Retenido",
+    "pendingCheckIn": "Pendiente de entrada",
+    "totalInflows": "Total de entradas",
+    "lifetimeTotal": "Total recibido en total",
+    "transactionHistory": "Historial de transacciones",
+    "recentTransactionsDesc": "Créditos y débitos recientes en tu cuenta.",
+    "requestWithdrawal": "Solicitar retiro",
+    "withdrawFundsDesc": "Retira fondos a tus cuentas conectadas."
+  },
+  "dashboardPaymentMethods": {
+    "title": "Métodos de pago",
+    "description": "Gestiona tus monederos móviles, InstaPay y cuentas bancarias para recibir tus abonos.",
+    "addMethod": "Añadir método de pago",
+    "noMethods": "Aún no se han añadido métodos de pago.",
+    "default": "Predeterminado",
+    "setDefault": "Establecer como predeterminado",
+    "delete": "Eliminar",
+    "deleteConfirm": "¿Seguro que quieres eliminar este método de pago?",
+    "deleteSuccess": "Método de pago eliminado correctamente",
+    "types": {
+      "mobile_wallet": "Monedero móvil",
+      "bank_account": "Cuenta bancaria",
+      "instapay": "InstaPay"
+    },
+    "form": {
+      "type": "Tipo de método",
+      "providerName": "Nombre del proveedor",
+      "providerPlaceholder": "p. ej. Vodafone Cash, CIB, etc.",
+      "accountNumber": "Número de cuenta / teléfono",
+      "accountNumberPlaceholder": "p. ej. 010..., IBAN o dirección",
+      "accountHolderName": "Nombre del titular de la cuenta",
+      "accountHolderPlaceholder": "Nombre legal completo",
+      "bankName": "Nombre del banco",
+      "bankPlaceholder": "p. ej. Commercial International Bank",
+      "iban": "IBAN",
+      "ibanPlaceholder": "EG...",
+      "swiftCode": "Código SWIFT",
+      "swiftPlaceholder": "Opcional",
+      "isDefault": "Establecer como predeterminado para los abonos",
+      "submit": "Guardar método de pago",
+      "cancel": "Cancelar",
+      "success": "Método de pago guardado correctamente",
+      "error": "No se pudo guardar el método de pago"
+    }
+  },
+  "dashboardBalanceForm": {
+    "amountLabel": "Importe (EGP)",
+    "amountPlaceholder": "0,00",
+    "maximum": "Máximo",
+    "methodLabel": "Método de retirada",
+    "selectMethod": "Seleccionar método",
+    "methods": {
+      "vodafone_cash": "Vodafone Cash",
+      "instapay": "InstaPay",
+      "bank_transfer": "Transferencia bancaria"
+    },
+    "submit": "Solicitar pago",
+    "errors": {
+      "invalidAmount": "Introduce un importe válido",
+      "exceedsBalance": "El importe supera el saldo disponible"
+    },
+    "success": "Solicitud de retirada iniciada correctamente"
+  },
+  "dashboardBalanceTable": {
+    "columns": {
+      "date": "Fecha",
+      "type": "Tipo",
+      "amount": "Importe",
+      "description": "Descripción",
+      "balanceAfter": "Saldo posterior"
+    },
+    "typeTooltips": {
+      "external": "Pago externo: se muestra en el historial pero no se incluye en el saldo del monedero.",
+      "counts": "Incluido en el cálculo del saldo del monedero.",
+      "externalLabel": "Externo",
+      "countsLabel": "Contabilizado"
+    },
+    "searchPlaceholder": "Buscar por descripción..."
+  },
+  "wishlistModal": {
+    "title": "Guardar en lista de deseos",
+    "description": "Elige una lista de deseos para guardar «{listingTitle}»",
+    "saved": "Guardado",
+    "notSaved": "Sin guardar",
+    "emptyTitle": "Aún no tienes ninguna lista de deseos.",
+    "emptyDesc": "Crea una a continuación para guardar este alojamiento.",
+    "nameLabel": "Ponle nombre a tu lista de deseos",
+    "namePlaceholder": "p. ej. Vacaciones soñadas",
+    "cancel": "Cancelar",
+    "createAndSave": "Crear y guardar",
+    "createNew": "Crear nueva lista de deseos",
+    "toastRemoved": "Eliminado de la lista de deseos",
+    "toastSaved": "Guardado en la lista de deseos",
+    "toastCreated": "Lista de deseos creada"
+  },
+  "chatDrawer": {
+    "chatWithHost": "Chatear con el anfitrión",
+    "title": "Conversación de la reserva",
+    "description": "La plataforma supervisa los mensajes para tu seguridad.",
+    "noMessages": "Aún no hay mensajes.",
+    "startConversation": "Envía un mensaje para iniciar la conversación.",
+    "placeholder": "Escribe tu mensaje...",
+    "labels": {
+      "you": "Tú",
+      "admin": "Admin",
+      "host": "Anfitrión",
+      "guest": "Huésped"
+    }
+  },
+  "dashboardListingManage": {
+    "header": {
+      "back": "Volver a los alojamientos",
+      "viewListing": "Ver alojamiento",
+      "basePrice": "Precio base: {price} {currency}/noche",
+      "minNights": "Mín. {count} noche(s)",
+      "published": "Publicado",
+      "draft": "Borrador"
+    },
+    "tabs": {
+      "availability": "Disponibilidad",
+      "pricing": "Precios",
+      "settings": "Ajustes",
+      "conditions": "Condiciones",
+      "amenities": "Servicios",
+      "cancellation": "Cancelación"
+    },
+    "availability": {
+      "title": "Calendario de disponibilidad",
+      "description": "Gestiona qué fechas están disponibles para reservar. Haz clic y arrastra para seleccionar un rango de fechas.",
+      "hint": {
+        "desktop": "Haz clic para seleccionar • Arrastra para un rango • Mayús+clic para un rango • Ctrl+clic para varios",
+        "mobile": "Toca para seleccionar • Arrastra para un rango"
+      },
+      "booked": "Reservado",
+      "daysCount": "{count} día(s)",
+      "unsavedChanges": "{count} cambio(s) sin guardar",
+      "discard": "Descartar",
+      "save": "Guardar cambios",
+      "saving": "Guardando...",
+      "messages": {
+        "loadError": "No se pudieron cargar los datos de disponibilidad",
+        "saveSuccess": "{count} fecha(s) guardada(s)",
+        "saveError": "No se pudieron guardar los cambios",
+        "noChanges": "No hay cambios que guardar"
+      },
+      "legend": {
+        "available": "Disponible",
+        "adjustment": "Ajuste aplicado",
+        "blocked": "Bloqueado",
+        "customPrice": "Precio personalizado",
+        "offer": "Días en oferta",
+        "booked": "Reservado/Pendiente",
+        "selected": "Seleccionado"
+      },
+      "actions": {
+        "available": "Disponible",
+        "block": "Bloquear",
+        "setPrice": "Establecer precio",
+        "apply": "Aplicar",
+        "makeOffer": "Hacer una mejor oferta",
+        "submitOffer": "Enviar solicitud de oferta",
+        "priceLabel": "Precio por noche ({currency})",
+        "offerPriceLabel": "Precio de la oferta por noche",
+        "offerPriceNote": "Este precio es igual o superior a tu precio base ({price} {currency}).",
+        "offerLimitError": "La selección supera el límite de {limit} días para las ofertas. Selecciona menos días.",
+        "sunday_short": "Dom",
+        "monday_short": "Lun",
+        "tuesday_short": "Mar",
+        "wednesday_short": "Mié",
+        "thursday_short": "Jue",
+        "friday_short": "Vie",
+        "saturday_short": "Sáb"
+      },
+      "bestOffer": {
+        "noteTitle": "Nota sobre la comisión de la mejor oferta",
+        "noteDescription": "Cuando solicitas una «Mejor oferta» y se aprueba, se aplica una comisión adicional a las reservas realizadas para esas fechas concretas.",
+        "bannerTitle": "Mejor oferta",
+        "approved": "Aprobada",
+        "pending": "Pendiente de aprobación",
+        "lockedNote": "• Los días de este rango están bloqueados.",
+        "cancel": "Cancelar",
+        "cancelSuccess": "Solicitud de oferta cancelada.",
+        "cancelError": "No se pudo cancelar la oferta",
+        "requestSuccess": "¡Mejor oferta solicitada con éxito! A la espera de la aprobación del administrador.",
+        "requestError": "No se pudo solicitar la mejor oferta"
+      }
+    },
+    "pricing": {
+      "title": "Ajustes de precio",
+      "description": "Configura ajustes de precio automáticos para fines de semana, días festivos y fechas especiales.",
+      "quickSetup": "Configuración rápida:",
+      "addAdjustment": "Añadir ajuste de precio",
+      "editAdjustment": "Editar ajuste",
+      "newAdjustment": "Nuevo ajuste de precio",
+      "name": "Nombre",
+      "type": "Tipo",
+      "value": "Valor",
+      "applyToDays": "Aplicar a los días",
+      "percentage": "Porcentaje",
+      "fixed": "Importe fijo",
+      "placeholderName": "p. ej., Tarifa de festivos",
+      "cancel": "Cancelar",
+      "save": "Guardar cambios",
+      "add": "Añadir ajuste",
+      "preview": "Vista previa del precio (base: {price} {currency})",
+      "messages": {
+        "loadError": "No se pudieron cargar los datos de precios",
+        "saveSuccess": "Precios actualizados",
+        "saveError": "No se pudieron guardar los precios"
+      },
+      "presets": {
+        "weekend": "Tarifa de fin de semana",
+        "weekday": "Descuento entre semana"
+      }
+    },
+    "settings": {
+      "title": "Ajustes del alojamiento",
+      "description": "Gestiona los detalles de tu alojamiento y las reglas de reserva.",
+      "lockedTitle": "Detalles bloqueados (contacta con el administrador para cambiarlos)",
+      "labels": {
+        "title": "Título",
+        "titleAr": "Título (árabe)",
+        "propertyType": "Tipo de propiedad",
+        "bedrooms": "Dormitorios",
+        "bathrooms": "Baños",
+        "country": "País",
+        "state": "Estado/Región",
+        "city": "Ciudad",
+        "descriptionEn": "Descripción (inglés)",
+        "descriptionAr": "Descripción (árabe)",
+        "location": "Dirección / Ubicación",
+        "mapsLink": "Enlace de Google Maps",
+        "maxGuests": "Máx. de huéspedes",
+        "beds": "Camas",
+        "price": "Precio base por noche",
+        "cleaningFee": "Tarifa de limpieza",
+        "currency": "Moneda",
+        "minNights": "Noches mínimas",
+        "lifestyles": "Categorías de estilo de vida (máx. 2)",
+        "photos": "Fotos"
+      },
+      "messages": {
+        "saveSuccess": "Ajustes guardados con éxito",
+        "saveError": "No se pudieron guardar los ajustes",
+        "authError": "No autenticado",
+        "uploadError": "Error al subir: {message}"
+      },
+      "photos": {
+        "dropActive": "Suelta las imágenes aquí",
+        "dropInactive": "Arrastra y suelta tus fotos aquí",
+        "clickToSelect": "o haz clic para seleccionar archivos (JPG, PNG, WebP, HEIC)",
+        "converting": "Convirtiendo la foto del iPhone...",
+        "category": "Categoría",
+        "categories": {
+          "exterior": "Exterior",
+          "living": "Salón",
+          "bedroom": "Dormitorio",
+          "kitchen": "Cocina",
+          "bathroom": "Baño",
+          "interior": "Otro interior",
+          "other": "Otro"
+        }
+      }
+    },
+    "conditions": {
+      "title": "Condiciones de reserva",
+      "description": "Selecciona las condiciones que los huéspedes deben aceptar antes de reservar tu alojamiento.",
+      "system": "Sistema",
+      "pending": "Pendiente de aprobación",
+      "awaiting": "A la espera de aprobación",
+      "addCustom": "Añadir condición personalizada",
+      "name": "Nombre de la condición",
+      "nameAr": "Nombre de la condición (árabe)",
+      "desc": "Descripción (opcional)",
+      "descAr": "Descripción (árabe, opcional)",
+      "placeholderName": "p. ej., No usar zapatos dentro",
+      "placeholderNameAr": "p. ej., ممنوع الدخول بالأحذية",
+      "placeholderDesc": "Breve explicación...",
+      "placeholderDescAr": "وصف مختصر...",
+      "submit": "Enviar para aprobación",
+      "submitting": "Enviando...",
+      "cancel": "Cancelar",
+      "note": "Las condiciones personalizadas requieren la aprobación del administrador antes de poder utilizarse.",
+      "messages": {
+        "loadError": "Cargando condiciones...",
+        "saveSuccess": "Condiciones guardadas",
+        "saveError": "No se pudieron guardar las condiciones",
+        "nameError": "Introduce un nombre para la condición",
+        "authError": "Inicia sesión",
+        "addSuccess": "¡Condición enviada para aprobación!",
+        "addError": "No se pudo añadir la condición"
+      }
+    },
+    "amenities": {
+      "title": "Lo que ofrece este alojamiento",
+      "description": "Selecciona los servicios y características que ofrece tu alojamiento.",
+      "highlightLimitTitle": "Límite de destacados alcanzado",
+      "highlightLimitDesc": "Has alcanzado el máximo de {max} servicios fijados. Desfija uno para destacar otro.",
+      "pendingTitle": "Sugerencias pendientes",
+      "missingTitle": "¿Falta algún servicio?",
+      "suggest": "Sugerir un nuevo atributo",
+      "name": "Nombre del atributo",
+      "nameAr": "Nombre del atributo (árabe)",
+      "category": "Categoría",
+      "selectCategory": "Selecciona una categoría...",
+      "desc": "Descripción (opcional)",
+      "descAr": "Descripción (árabe, opcional)",
+      "placeholderName": "p. ej., Terraza en la azotea",
+      "placeholderNameAr": "p. ej., تراس على السطح",
+      "placeholderDesc": "Breve descripción...",
+      "placeholderDescAr": "وصف مختصر...",
+      "submit": "Enviar para aprobación",
+      "submitting": "Enviando...",
+      "cancel": "Cancelar",
+      "pin": "Fijar",
+      "pinTitle": "Fijar arriba",
+      "pinnedTitle": "Fijado arriba",
+      "tier": "Nivel {tier}",
+      "placeholderSelect": "Seleccionar...",
+      "placeholderNumber": "0 = No disponible",
+      "placeholderNotes": "Añadir notas (opcional)...",
+      "messages": {
+        "loadError": "Cargando...",
+        "saveSuccess": "¡Atributos guardados!",
+        "saveError": "No se pudo guardar",
+        "nameError": "Introduce un nombre para el atributo",
+        "categoryError": "Selecciona una categoría",
+        "authError": "Inicia sesión",
+        "typeError": "Error del sistema: tipo no encontrado",
+        "existsError": "Ya existe un atributo con este nombre",
+        "addSuccess": "¡Sugerencia enviada para la aprobación del administrador!",
+        "addError": "No se pudo enviar la sugerencia",
+        "limitError": "Solo puedes fijar hasta {max} elementos"
+      }
+    },
+    "cancellation": {
+      "title": "Política de cancelación",
+      "description": "Elige la política de cancelación que se aplica a las reservas de este alojamiento.",
+      "empty": "No hay políticas de cancelación disponibles.",
+      "messages": {
+        "loadError": "Cargando políticas de cancelación...",
+        "saveSuccess": "Política de cancelación guardada",
+        "saveError": "No se pudo guardar la política de cancelación"
+      }
+    },
+    "common": {
+      "unsavedChanges": "Tienes cambios sin guardar",
+      "discard": "Descartar",
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  }
+}

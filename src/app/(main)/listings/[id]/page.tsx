@@ -252,7 +252,7 @@ export default async function ListingPage({ params }: ListingPageProps)
     }
   }
 
-  let currentUser = null
+  let currentUser: Awaited<ReturnType<NonNullable<typeof supabase>['auth']['getUser']>>['data']['user'] = null
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser()
     currentUser = user

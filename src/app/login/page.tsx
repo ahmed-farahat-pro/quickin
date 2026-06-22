@@ -17,26 +17,6 @@ const FONT =
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
 
-// Minimal typing for the Google Identity Services global.
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string
-            callback: (resp: { credential?: string }) => void
-          }) => void
-          renderButton: (
-            parent: HTMLElement,
-            options: Record<string, unknown>
-          ) => void
-          prompt: () => void
-        }
-      }
-    }
-  }
-}
 
 function GoogleG() {
   return (
@@ -109,8 +89,8 @@ export default function LoginPage() {
   // official Google button into our placeholder div.
   const initGis = useCallback(() => {
     if (!googleEnabled) return
-    if (!window.google?.accounts?.id) return
-    window.google.accounts.id.initialize({
+    if (!(window as { google?: any }).google?.accounts?.id) return
+    (window as { google?: any }).google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: (resp) => {
         if (resp?.credential) onGoogleCredential(resp.credential)
@@ -118,7 +98,7 @@ export default function LoginPage() {
     })
     if (googleBtnRef.current) {
       googleBtnRef.current.innerHTML = ''
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
+      ;(window as { google?: any }).google.accounts.id.renderButton(googleBtnRef.current, {
         type: 'standard',
         theme: 'outline',
         size: 'large',
@@ -136,7 +116,7 @@ export default function LoginPage() {
   // On client-side navigation the gsi script may already be loaded, in which
   // case Script's onReady won't fire again — initialize directly.
   useEffect(() => {
-    if (googleEnabled && window.google?.accounts?.id) initGis()
+    if (googleEnabled && (window as { google?: any }).google?.accounts?.id) initGis()
   }, [googleEnabled, initGis])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -169,7 +149,7 @@ export default function LoginPage() {
     setNotice(null)
     // The rendered GIS button handles the flow directly; this fallback prompts
     // One Tap in case the styled button is shown instead.
-    window.google?.accounts?.id?.prompt()
+    ;(window as { google?: any }).google?.accounts?.id?.prompt()
   }
 
   function handleAppleClick() {

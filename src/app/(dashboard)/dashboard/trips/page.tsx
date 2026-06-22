@@ -255,7 +255,7 @@ function TripCard({ booking, isPast, isPending, t, locale, getLocalizedUrl }: {
 
   const showActions = isPending || (booking.status === 'confirmed' && !isPast)
 
-  let refundText = undefined
+  let refundText: string | undefined = undefined
   if (booking.status === 'confirmed' && booking.cancellation_policy_snapshot && !isPast) {
     const policySnapshot = booking.cancellation_policy_snapshot as PolicySnapshot
     const refundCalc = calculateRefund(booking.subtotal, booking.check_in, policySnapshot)

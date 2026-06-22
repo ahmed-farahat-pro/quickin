@@ -8,6 +8,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getLocale } from 'next-intl/server'
 import { localizePathname } from '@/lib/i18n/pathname'
+import type { Locale } from '@/i18n/config'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function HostProfilePage({ params }: Props) {
   const { id } = await params
-  const locale = await getLocale()
+  const locale = (await getLocale()) as Locale
   const supabase = await createClient()
 
   type ProfileRow = {

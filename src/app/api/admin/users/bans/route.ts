@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       .eq('is_active', true)
 
     // Calculate expiration date for temporary bans
-    let expiresAt = null
+    let expiresAt: string | null = null
     if (ban_type === 'temporary' && duration_days) {
       const expiry = new Date()
       // duration_days is guaranteed to be a number by Zod coercion

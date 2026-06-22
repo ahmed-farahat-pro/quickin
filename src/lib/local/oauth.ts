@@ -67,7 +67,7 @@ async function verifyIdToken(
   const keys = await fetchJwks(opts.jwksUrl)
   const jwk = keys.find((k) => k.kid === header.kid)
   if (!jwk) throw new Error('Signing key not found in JWKS')
-  const publicKey = crypto.createPublicKey({ key: jwk as crypto.JsonWebKey, format: 'jwk' })
+  const publicKey = crypto.createPublicKey({ key: jwk as unknown as crypto.JsonWebKey, format: 'jwk' })
   const ok = crypto.verify(
     'RSA-SHA256',
     Buffer.from(`${headerB64}.${payloadB64}`),

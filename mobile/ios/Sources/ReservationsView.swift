@@ -206,7 +206,7 @@ struct ReservationCard: View {
                 // Status pill (top-leading).
                 VStack {
                     HStack {
-                        StatusBadge(status: booking.bookingStatus)
+                        StatusBadge(status: booking.bookingStatus, paid: booking.isPaid)
                         Spacer()
                     }
                     Spacer()

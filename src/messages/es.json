@@ -1616,6 +1616,8 @@
     "paying": "Procesando…",
     "paid": "Pagado",
     "awaitingApproval": "Esperando la aprobación del anfitrión",
+    "waitingForApproval": "Esperando aprobación",
+    "approved": "Aprobado",
     "payError": "El pago falló. Inténtalo de nuevo.",
     "errors": {
       "cancelFailed": "No se pudo cancelar",

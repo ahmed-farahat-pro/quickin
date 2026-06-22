@@ -1616,6 +1616,8 @@
     "paying": "جارٍ المعالجة…",
     "paid": "مدفوع",
     "awaitingApproval": "في انتظار موافقة المضيف",
+    "waitingForApproval": "في انتظار الموافقة",
+    "approved": "تمت الموافقة",
     "payError": "فشل الدفع. حاول مرة أخرى.",
     "errors": {
       "cancelFailed": "تعذّر الإلغاء",

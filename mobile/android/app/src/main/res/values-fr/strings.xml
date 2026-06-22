@@ -252,6 +252,9 @@
     <string name="reservation_host_notes_hint">Ajoutez des notes pour votre voyageur — détails d\'arrivée, Wi-Fi, règlement intérieur…</string>
     <string name="reservation_save_notes">Enregistrer les notes</string>
     <string name="reservation_awaiting_approval">En attente de l\'approbation de l\'hôte</string>
+    <string name="reservation_state_waiting">En attente d\'approbation</string>
+    <string name="reservation_state_approved">Approuvé</string>
+    <string name="reservation_state_paid">Payé</string>
     <string name="reviews_title">Avis</string>
     <string name="reviews_loading">Chargement des avis…</string>
     <string name="reviews_empty">Pas encore d\'avis — soyez le premier à séjourner et à laisser un avis.</string>

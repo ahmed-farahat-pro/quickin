@@ -339,6 +339,10 @@ struct ReservationDetailView: View {
                     Spacer(minLength: 8)
                 }
                 Button {
+                    // Defense in depth: even though this card only renders for a
+                    // confirmed & unpaid booking, re-check before opening payment
+                    // so the pay sheet is unreachable for any other state.
+                    guard detail.bookingStatus == .confirmed && !detail.isPaid else { return }
                     showingPayment = true
                 } label: {
                     QKPrimaryButtonLabel(
@@ -383,7 +387,7 @@ struct ReservationDetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(Color.qkMuted)
             }
-            StatusBadge(status: detail.bookingStatus, onPhoto: false)
+            StatusBadge(status: detail.bookingStatus, onPhoto: false, paid: detail.isPaid)
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
@@ -858,13 +862,19 @@ struct StatusBadge: View {
     let status: BookingStatus
     /// Set `true` when sitting over a photo so the pill stays legible (frosted).
     var onPhoto: Bool = true
+    /// Whether the booking is paid. Pass this ONLY from the **guest** reservation
+    /// views (list + detail) to surface the three guest-facing states:
+    /// pending → "Waiting for approval", confirmed & unpaid → "Approved",
+    /// confirmed & paid → "Paid". Leave `nil` everywhere else (host dashboard,
+    /// service requests) so the badge keeps its plain `status.label` meaning.
+    var paid: Bool? = nil
 
     var body: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(dot)
                 .frame(width: 7, height: 7)
-            Text(status.label)
+            Text(displayLabel)
                 .font(.system(size: 11, weight: .bold))
         }
         .foregroundStyle(foreground)
@@ -879,6 +889,19 @@ struct StatusBadge: View {
             }
         }
         .clipShape(Capsule())
+    }
+
+    /// The text shown on the pill. When `paid` is supplied (guest reservation
+    /// views), pending/confirmed map to the three guest-facing labels; otherwise
+    /// the plain `status.label` is used (host dashboard, service requests).
+    @MainActor
+    private var displayLabel: String {
+        guard let paid else { return status.label }
+        switch status {
+        case .pending:   return L.t("reservation.waitingApproval")
+        case .confirmed: return paid ? L.t("reservation.paid") : L.t("reservation.approved")
+        default:         return status.label
+        }
     }
 
     private var dot: Color {

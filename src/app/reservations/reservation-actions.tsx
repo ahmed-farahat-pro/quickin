@@ -6,10 +6,10 @@ import { useTranslations } from 'next-intl'
 
 const C = { burgundy: '#5B0F16', tan: '#EFE6D8', ink: '#2A2220', muted: '#6B6055' }
 
-function statusChip(status: string): { bg: string; fg: string; labelKey: string } {
+function statusChip(status: string, paid: boolean): { bg: string; fg: string; labelKey: string } {
   switch (status) {
-    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00', labelKey: 'status.pending' }
-    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245', labelKey: 'status.confirmed' }
+    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00', labelKey: 'waitingForApproval' }
+    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245', labelKey: paid ? 'paid' : 'approved' }
     case 'cancelled': return { bg: '#f1efec', fg: C.muted,   labelKey: 'status.cancelled' }
     case 'rejected':  return { bg: '#fdecea', fg: '#b3261e', labelKey: 'status.rejected' }
     default:          return { bg: '#f1efec', fg: C.muted,   labelKey: '' }
@@ -43,7 +43,7 @@ export function ReservationActions(props: {
   const isPast = checkOut < today
   const isUpcoming = checkIn >= today
   const active = status !== 'cancelled' && status !== 'rejected'
-  const chip = statusChip(status)
+  const chip = statusChip(status, paid)
   const chipLabel = chip.labelKey ? t(chip.labelKey) : (status || '—')
 
   async function cancel() {
@@ -65,6 +65,7 @@ export function ReservationActions(props: {
   }
 
   async function pay() {
+    if (status !== 'confirmed' || paid) return
     setPaying(true); setPayErr(null)
     try {
       const res = await fetch(`/api/local/bookings/${bookingId}/pay`, {

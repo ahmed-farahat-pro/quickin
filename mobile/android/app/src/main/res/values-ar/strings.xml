@@ -303,6 +303,9 @@
     <string name="reservation_host_notes_hint">أضف ملاحظات لضيفك — تفاصيل الوصول، الواي فاي، قواعد المنزل…</string>
     <string name="reservation_save_notes">حفظ الملاحظات</string>
     <string name="reservation_awaiting_approval">في انتظار موافقة المضيف</string>
+    <string name="reservation_state_waiting">في انتظار الموافقة</string>
+    <string name="reservation_state_approved">تمت الموافقة</string>
+    <string name="reservation_state_paid">مدفوع</string>
 
     <!-- Reviews -->
     <string name="reviews_title">التقييمات</string>

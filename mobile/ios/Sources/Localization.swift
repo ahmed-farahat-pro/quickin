@@ -434,6 +434,12 @@ enum Strings {
         "status.cancelled": "Cancelled",
         "status.completed": "Completed",
 
+        // Guest-facing reservation states (list + detail). Payment-aware: a
+        // confirmed booking reads "Approved" until paid, then "Paid".
+        "reservation.waitingApproval": "Waiting for approval",
+        "reservation.approved": "Approved",
+        "reservation.paid": "Paid",
+
         // Profile
         "profile.title": "Profile",
         "profile.editProfile": "Edit profile",
@@ -1017,6 +1023,11 @@ enum Strings {
         "status.cancelled": "ملغى",
         "status.completed": "مكتمل",
 
+        // Guest-facing reservation states (list + detail).
+        "reservation.waitingApproval": "في انتظار الموافقة",
+        "reservation.approved": "تمت الموافقة",
+        "reservation.paid": "مدفوع",
+
         // Profile
         "profile.title": "حسابي",
         "profile.editProfile": "تعديل الملف الشخصي",
@@ -1548,6 +1559,9 @@ enum Strings {
         "status.rejected": "Refusée",
         "status.cancelled": "Annulée",
         "status.completed": "Terminée",
+        "reservation.waitingApproval": "En attente d'approbation",
+        "reservation.approved": "Approuvé",
+        "reservation.paid": "Payé",
         "profile.title": "Profil",
         "profile.editProfile": "Modifier le profil",
         "profile.editProfile.subtitle": "Mettez à jour votre photo, votre bio, votre nom et vos informations.",
@@ -2048,6 +2062,9 @@ enum Strings {
         "status.rejected": "Rechazada",
         "status.cancelled": "Cancelada",
         "status.completed": "Completada",
+        "reservation.waitingApproval": "Esperando aprobación",
+        "reservation.approved": "Aprobado",
+        "reservation.paid": "Pagado",
         "profile.title": "Perfil",
         "profile.editProfile": "Editar perfil",
         "profile.editProfile.subtitle": "Actualice su foto, biografía, nombre y datos.",

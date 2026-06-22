@@ -1616,6 +1616,8 @@
     "paying": "Traitement…",
     "paid": "Payé",
     "awaitingApproval": "En attente de l'approbation de l'hôte",
+    "waitingForApproval": "En attente d'approbation",
+    "approved": "Approuvé",
     "payError": "Échec du paiement. Veuillez réessayer.",
     "errors": {
       "cancelFailed": "Annulation impossible",

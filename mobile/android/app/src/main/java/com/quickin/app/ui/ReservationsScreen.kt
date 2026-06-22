@@ -292,7 +292,9 @@ private fun ReservationCard(
                         shadowElevation = 2.dp,
                         modifier = Modifier.padding(10.dp).align(Alignment.TopEnd)
                     ) {
-                        StatusBadge(booking.status)
+                        // Guest view: badge speaks the three reservation states
+                        // (Waiting for approval / Approved / Paid), payment-aware.
+                        StatusBadge(booking.status, guestView = true, isPaid = booking.isPaid)
                     }
                 }
             }

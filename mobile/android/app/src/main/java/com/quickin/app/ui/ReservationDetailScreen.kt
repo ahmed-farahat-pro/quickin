@@ -241,7 +241,9 @@ private fun ReservationCardContent(
                     PopIn { DrawCheckmark(size = 64.dp) }
                     Spacer(Modifier.height(12.dp))
                 }
-                StatusBadge(reservation.status)
+                // Guest view: payment-aware badge — "Waiting for approval" (pending),
+                // "Approved" (confirmed + unpaid), or "Paid" (confirmed + paid).
+                StatusBadge(reservation.status, guestView = true, isPaid = reservation.isPaid)
                 Spacer(Modifier.height(14.dp))
                 Text(
                     reservation.title,

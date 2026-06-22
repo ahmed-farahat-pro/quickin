@@ -311,6 +311,10 @@
     <string name="reservation_save_notes">Save notes</string>
     <!-- Shown in place of "Pay now" while a request is still pending the host's approval -->
     <string name="reservation_awaiting_approval">Awaiting host approval</string>
+    <!-- Guest reservation status badge — the three guest-facing states -->
+    <string name="reservation_state_waiting">Waiting for approval</string>
+    <string name="reservation_state_approved">Approved</string>
+    <string name="reservation_state_paid">Paid</string>
 
     <!-- Reviews -->
     <string name="reviews_title">Reviews</string>

@@ -1080,7 +1080,12 @@ private fun MainApp() {
             // the reservation (nightly derived from its total ÷ nights).
             onPayNow = {
                 val r = detailState.reservation
-                if (r != null) {
+                // Defense in depth: the "Pay now" button is already gated on host approval,
+                // but re-check here so the payment sheet can ONLY open for an approved
+                // (status == "confirmed") and still-unpaid reservation. Anything else is a
+                // no-op — the backend also rejects paying a non-confirmed booking.
+                val canPay = r != null && r.status.equals("confirmed", ignoreCase = true) && !r.isPaid
+                if (r != null && canPay) {
                     val nights = nightsBetween(r.checkIn, r.checkOut).coerceAtLeast(1)
                     val nightly = (r.totalPrice / nights).toInt()
                     bookingsViewModel.resetPayment()

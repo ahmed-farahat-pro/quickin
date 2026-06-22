@@ -394,58 +394,80 @@ fun ProfileSignInCta(
 }
 
 /**
- * In-app language switch: a segmented "English / العربية" control on a white boutique card.
- * Tapping a segment applies the locale app-wide via [LocaleManager] (AndroidX per-app locales),
- * which persists the choice and re-composes the whole UI translated — Arabic also flips the
- * layout to RTL automatically. The option labels stay in their own language (English / العربية)
- * so each is recognizable regardless of the active locale.
+ * In-app language switch: a dropdown of all languages on a white boutique card. Picking one
+ * applies the locale app-wide via [LocaleManager] (AndroidX per-app locales), which persists the
+ * choice and re-composes the whole UI translated — Arabic also flips the layout to RTL. Option
+ * labels stay in their own language (English / العربية / Français / Español) so each is
+ * recognizable regardless of the active locale.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguagePicker(modifier: Modifier = Modifier) {
     val current = LocaleManager.currentLanguage()
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf(
+        LocaleManager.Language.ENGLISH to "English",
+        LocaleManager.Language.ARABIC to "العربية",
+        LocaleManager.Language.FRENCH to "Français",
+        LocaleManager.Language.SPANISH to "Español",
+    )
+    val currentLabel = options.firstOrNull { it.first == current }?.second ?: "English"
+
     Surface(
         shape = RoundedCornerShape(18.dp),
         color = Color.White,
         shadowElevation = 4.dp,
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.padding(6.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .padding(horizontal = 12.dp, vertical = 14.dp)
             ) {
-                LanguageSegment(
-                    label = "English",
-                    selected = current == LocaleManager.Language.ENGLISH,
-                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.ENGLISH) },
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Burgundy.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Language, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    currentLabel,
+                    color = Ink,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
                     modifier = Modifier.weight(1f)
                 )
-                LanguageSegment(
-                    label = "العربية",
-                    selected = current == LocaleManager.Language.ARABIC,
-                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.ARABIC) },
-                    modifier = Modifier.weight(1f)
-                )
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = Muted, modifier = Modifier.size(24.dp))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
             ) {
-                LanguageSegment(
-                    label = "Français",
-                    selected = current == LocaleManager.Language.FRENCH,
-                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.FRENCH) },
-                    modifier = Modifier.weight(1f)
-                )
-                LanguageSegment(
-                    label = "Español",
-                    selected = current == LocaleManager.Language.SPANISH,
-                    onClick = { LocaleManager.setLanguage(LocaleManager.Language.SPANISH) },
-                    modifier = Modifier.weight(1f)
-                )
+                options.forEach { (lang, label) ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                label,
+                                color = if (lang == current) Burgundy else Ink,
+                                fontWeight = if (lang == current) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        onClick = {
+                            LocaleManager.setLanguage(lang)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -531,33 +553,6 @@ private fun CurrencyPicker(modifier: Modifier = Modifier) {
 private fun currencyLabel(code: String): String {
     val symbol = CurrencyManager.symbolFor(code).trim()
     return if (symbol.isBlank() || symbol == code) code else "$code ($symbol)"
-}
-
-/** One segment in the [LanguagePicker]: filled burgundy when selected, with a leading globe icon. */
-@Composable
-private fun LanguageSegment(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) Burgundy else Color.Transparent,
-        contentColor = if (selected) Color.White else Ink,
-        modifier = modifier.height(48.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Filled.Language, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-        }
-    }
 }
 
 /** A small tan capsule with a burgundy dot and a label (role / provider). */

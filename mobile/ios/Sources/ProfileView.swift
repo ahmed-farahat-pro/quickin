@@ -272,9 +272,9 @@ struct ProfileView: View {
         .buttonStyle(.qkTap)
     }
 
-    /// In-app language switch. A clean white card with a segmented English /
-    /// العربية control. Selecting flips `loc.lang`, which re-renders the whole
-    /// app and switches LTR ⇄ RTL live.
+    /// In-app language switch. A clean white card with a dropdown menu listing
+    /// all languages by native name. Selecting flips `loc.lang`, which re-renders
+    /// the whole app and switches LTR ⇄ RTL live.
     private var languageEntry: some View {
         HStack(spacing: 12) {
             Image(systemName: "globe")
@@ -290,8 +290,9 @@ struct ProfileView: View {
                     Text(lang.nativeName).tag(lang)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 168)
+            .pickerStyle(.menu)
+            .tint(Color.qkBurgundy)
+            .labelsHidden()
         }
         .padding(16)
         .qkCard(cornerRadius: 18)

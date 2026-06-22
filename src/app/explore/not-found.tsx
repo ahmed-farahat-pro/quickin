@@ -1,8 +1,8 @@
 // Friendly, brand-styled 404 for the local browse experience. Renders when a
 // listing under /explore/[id] calls notFound() (e.g. an unknown stay id).
-// Self-contained inline styles keep it independent of Tailwind.
-import { getTranslations } from 'next-intl/server'
-
+// Self-contained inline styles keep it independent of Tailwind. No next-intl here —
+// not-found renders outside the locale context and breaks the production build if it
+// calls next-intl server APIs.
 const COLORS = {
   burgundy: '#5B0F16',
   cream: '#F6F1E6',
@@ -13,8 +13,7 @@ const COLORS = {
 
 const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 
-export default async function ExploreNotFound() {
-  const t = await getTranslations('explorePage')
+export default function ExploreNotFound() {
   return (
     <main
       style={{
@@ -32,7 +31,7 @@ export default async function ExploreNotFound() {
       <div style={{ maxWidth: 460 }}>
         <img
           src="/logo.png"
-          alt={t('logoAlt')}
+          alt="QuickIn"
           style={{ height: 46, width: 'auto', margin: '0 auto 28px', display: 'block' }}
         />
         <p
@@ -57,10 +56,10 @@ export default async function ExploreNotFound() {
             color: COLORS.burgundy,
           }}
         >
-          {t('notFound.title')}
+          Stay not found
         </h1>
         <p style={{ margin: '12px 0 28px', fontSize: 15, lineHeight: 1.6, color: COLORS.muted }}>
-          {t('notFound.description')}
+          This stay doesn&apos;t exist or is no longer available.
         </p>
         <a
           href="/explore"
@@ -76,7 +75,7 @@ export default async function ExploreNotFound() {
             padding: '12px 30px',
           }}
         >
-          {t('notFound.browseStays')}
+          Browse stays
         </a>
       </div>
     </main>

@@ -273,25 +273,25 @@ export default async function ExplorePage({
           <FooterColumn
             title={t('footer.support.title')}
             links={[
-              t('footer.support.helpCenter'),
-              t('footer.support.cancellation'),
-              t('footer.support.safetyInfo'),
+              { label: t('footer.support.helpCenter'), href: '/help' },
+              { label: t('footer.support.cancellation'), href: '/cancellation' },
+              { label: t('footer.support.safetyInfo'), href: '/safety' },
             ]}
           />
           <FooterColumn
             title={t('footer.hosting.title')}
             links={[
-              t('footer.hosting.becomeHost'),
-              t('footer.hosting.hostResources'),
-              t('footer.hosting.communityForum'),
+              { label: t('footer.hosting.becomeHost'), href: '/host' },
+              { label: t('footer.hosting.hostResources'), href: '/resources' },
+              { label: t('footer.hosting.communityForum'), href: '/community' },
             ]}
           />
           <FooterColumn
             title={t('footer.about.title')}
             links={[
-              t('footer.about.ourStory'),
-              t('footer.about.careers'),
-              t('footer.about.press'),
+              { label: t('footer.about.ourStory'), href: '/about' },
+              { label: t('footer.about.careers'), href: '/careers' },
+              { label: t('footer.about.press'), href: '/newsroom' },
             ]}
           />
         </div>
@@ -313,7 +313,7 @@ export default async function ExplorePage({
   )
 }
 
-function FooterColumn({ title, links }: { title: string; links: string[] }) {
+function FooterColumn({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (
     <div>
       <h3
@@ -328,16 +328,16 @@ function FooterColumn({ title, links }: { title: string; links: string[] }) {
       </h3>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {links.map((link) => (
-          <li key={link} style={{ marginBottom: 8 }}>
+          <li key={link.href} style={{ marginBottom: 8 }}>
             <a
-              href="#"
+              href={link.href}
               style={{
                 fontSize: 14,
                 color: 'rgba(246,241,230,0.78)',
                 textDecoration: 'none',
               }}
             >
-              {link}
+              {link.label}
             </a>
           </li>
         ))}

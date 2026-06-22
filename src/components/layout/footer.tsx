@@ -29,7 +29,7 @@ export function Footer({ config }: FooterProps)
     support: [
       { label: t('supportLinks.helpCenter'), href: '/help' },
       { label: t('supportLinks.safetyInfo'), href: '/safety' },
-      { label: t('supportLinks.cancellation'), href: '/help/cancellation' },
+      { label: t('supportLinks.cancellation'), href: '/cancellation' },
       { label: t('supportLinks.reportConcern'), href: '/report' },
     ],
     hosting: [

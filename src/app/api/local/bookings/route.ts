@@ -26,7 +26,8 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Please sign in to reserve' }, { status: 401, headers: CORS })
     }
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: CORS })
     const listingId = body.listing_id || body.listingId
     const checkIn = body.check_in || body.checkIn
     const checkOut = body.check_out || body.checkOut
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('POST /api/local/bookings failed:', msg)
     // Availability / validation problems are client errors.
-    const status = /available|after check-in|Invalid|required/i.test(msg) ? 400 : 500
+    const status = /available|after check-in|Invalid|required|maximum guests/i.test(msg) ? 400 : 500
     return NextResponse.json({ error: msg }, { status, headers: CORS })
   }
 }

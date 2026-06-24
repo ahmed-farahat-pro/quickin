@@ -29,6 +29,10 @@ export interface Listing {
   lat: number | null
   lng: number | null
   listing_images: ListingImage[]
+  host_id?: string | null
+  host_name?: string | null
+  host_avatar?: string | null
+  image_url?: string | null
 }
 
 export interface SearchFilters {
@@ -100,7 +104,11 @@ export async function getListings(filters: SearchFilters = {}): Promise<Listing[
 
 export async function getListingById(id: string): Promise<Listing | null> {
   if (!isUuid(id)) return null
-  const { rows } = await pool.query(`SELECT ${LISTING_COLS} FROM listings l WHERE l.id = $1`, [id])
+  const { rows } = await pool.query(
+    `SELECT ${LISTING_COLS}, l.host_id, u.full_name AS host_name, u.avatar_url AS host_avatar
+       FROM listings l LEFT JOIN users u ON u.id = l.host_id WHERE l.id = $1`,
+    [id]
+  )
   return (rows[0] as Listing) ?? null
 }
 
@@ -150,6 +158,17 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   const pets = nn(input.pets)
   const g = Math.max(1, adults + children)
 
+  // Load the listing (for max_guests / title / host_id) and enforce capacity.
+  const { rows: lrows } = await pool.query(
+    `SELECT title, max_guests, host_id FROM listings WHERE id = $1`,
+    [listingId]
+  )
+  const listing = lrows[0] as { title: string; max_guests: number | null; host_id: string | null } | undefined
+  if (!listing) throw new Error('Could not create booking (listing not found)')
+  if (listing.max_guests != null && g > listing.max_guests) {
+    throw new Error('Exceeds the maximum guests for this listing')
+  }
+
   const clash = await pool.query(
     `SELECT 1 FROM bookings
      WHERE listing_id = $1 AND status NOT IN ('cancelled', 'rejected')
@@ -169,6 +188,13 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
     [listingId, userId, checkIn, checkOut, g, adults, children, infants, pets]
   )
   if (!rows[0]) throw new Error('Could not create booking (listing not found)')
+  // Notify the listing host of a new reservation request (if the listing has an owner).
+  if (listing.host_id && isUuid(listing.host_id)) {
+    await createNotification(
+      listing.host_id, 'booking', 'New reservation request',
+      `New request for ${listing.title} (${checkIn} -> ${checkOut})`, '/host'
+    )
+  }
   return rows[0] as Booking
 }
 
@@ -337,19 +363,54 @@ export async function getBookingById(userId: string, bookingId: string): Promise
   return (rows[0] as Booking) ?? null
 }
 
-/** Patch host_notes and/or status (confirm|reject|<status>). Returns the updated booking. */
+/** Host actions on a single reservation: set host_notes and/or decide status.
+ *  Authorization: this endpoint is HOST-ONLY — the caller must own the booking's
+ *  listing (listings.host_id === callerId). Guests manage their own reservations
+ *  via cancelBooking()/payBooking(), which scope by user_id.
+ *  Status is a strict allowlist: 'confirm'→'confirmed', 'reject'→'rejected', and
+ *  only from a 'pending' reservation. Any other value is rejected (no raw writes).
+ *  Returns the updated booking, or null if the booking does not exist. */
+const BOOKING_STATUS_ACTIONS: Record<string, 'confirmed' | 'rejected'> = {
+  confirm: 'confirmed',
+  reject: 'rejected',
+}
+
 export async function patchBooking(
+  callerId: string,
   bookingId: string,
   hostNotes: string | null | undefined,
   status: string | null | undefined
 ): Promise<Booking | null> {
+  if (!isUuid(callerId)) throw new Error('Invalid caller')
   if (!isUuid(bookingId)) throw new Error('Invalid booking')
+
+  // Always load the booking + its listing's owner and enforce authorization for
+  // EVERY call (reads included), so this endpoint can never read or mutate
+  // another user's reservation. This closes the IDOR.
+  const { rows: orows } = await pool.query(
+    `SELECT b.status AS current_status, l.host_id
+       FROM bookings b JOIN listings l ON l.id = b.listing_id WHERE b.id = $1`,
+    [bookingId]
+  )
+  const owner = orows[0] as { current_status: string; host_id: string | null } | undefined
+  if (!owner) return null
+  if (!owner.host_id || owner.host_id !== callerId) {
+    throw new Error('Forbidden: only the listing host can update this reservation')
+  }
+
   const sets: string[] = []
   const params: unknown[] = [bookingId]
+  // host_notes is only touched when explicitly supplied (undefined = leave as-is),
+  // so a status-only decision never clobbers existing notes.
   if (hostNotes !== undefined) { params.push(hostNotes); sets.push(`host_notes = $${params.length}`) }
-  let newStatus: string | null = null
-  if (status) {
-    newStatus = status === 'confirm' ? 'confirmed' : status === 'reject' ? 'rejected' : status
+  let newStatus: 'confirmed' | 'rejected' | null = null
+  if (status !== undefined && status !== null && status !== '') {
+    const mapped = BOOKING_STATUS_ACTIONS[status]
+    if (!mapped) throw new Error('Invalid status (allowed actions: confirm, reject)')
+    if (owner.current_status !== 'pending') {
+      throw new Error('Invalid status transition: only a pending reservation can be confirmed or rejected')
+    }
+    newStatus = mapped
     params.push(newStatus); sets.push(`status = $${params.length}`)
   }
   const select = `SELECT ${BOOKING_COLS} FROM bookings b JOIN listings l ON l.id = b.listing_id WHERE b.id = $1`
@@ -657,4 +718,236 @@ export async function submitGuestReview(args: {
                    host_id = EXCLUDED.host_id, created_at = now()`,
     [bookingId, rows[0].user_id, hostId, r, comment]
   )
+}
+
+// ---- Wishlists --------------------------------------------------------------
+
+/** The user's saved listings (same row shape as getListings, incl. a primary image_url). */
+export async function getWishlistListings(userId: string): Promise<Listing[]> {
+  if (!isUuid(userId)) return []
+  const { rows } = await pool.query(
+    `SELECT ${LISTING_COLS},
+            (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS image_url
+       FROM saved_listings w JOIN listings l ON l.id = w.listing_id
+      WHERE w.user_id = $1
+      ORDER BY w.created_at DESC`,
+    [userId]
+  )
+  return rows as Listing[]
+}
+
+/** Listing ids the user has saved. */
+export async function getWishlistIds(userId: string): Promise<string[]> {
+  if (!isUuid(userId)) return []
+  const { rows } = await pool.query(
+    `SELECT listing_id FROM saved_listings WHERE user_id = $1`,
+    [userId]
+  )
+  return rows.map((r) => r.listing_id as string)
+}
+
+/** Toggle a listing in the user's wishlist. Insert → {saved:true}; existing → delete → {saved:false}. */
+export async function toggleWishlist(userId: string, listingId: string): Promise<{ saved: boolean }> {
+  if (!isUuid(userId) || !isUuid(listingId)) throw new Error('Invalid id')
+  const del = await pool.query(
+    `DELETE FROM saved_listings WHERE user_id = $1 AND listing_id = $2`,
+    [userId, listingId]
+  )
+  if (del.rowCount && del.rowCount > 0) return { saved: false }
+  await pool.query(
+    `INSERT INTO saved_listings (user_id, listing_id) VALUES ($1, $2)
+     ON CONFLICT (user_id, listing_id) DO NOTHING`,
+    [userId, listingId]
+  )
+  return { saved: true }
+}
+
+// ---- User profile -----------------------------------------------------------
+
+/** Update mutable profile fields (full_name / avatar_url). No-op if nothing provided. */
+export async function updateUserProfile(
+  userId: string,
+  fields: { full_name?: string; avatar_url?: string }
+): Promise<void> {
+  if (!isUuid(userId)) throw new Error('Invalid id')
+  const sets: string[] = []
+  const params: unknown[] = [userId]
+  if (fields.full_name !== undefined) { params.push(fields.full_name); sets.push(`full_name = $${params.length}`) }
+  if (fields.avatar_url !== undefined) { params.push(fields.avatar_url); sets.push(`avatar_url = $${params.length}`) }
+  if (!sets.length) return
+  await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $1`, params)
+}
+
+// ---- Host: listings & incoming reservations ---------------------------------
+
+/** Listings owned by a host. */
+export async function getHostListings(hostId: string): Promise<Listing[]> {
+  if (!isUuid(hostId)) return []
+  const { rows } = await pool.query(
+    `SELECT ${LISTING_COLS},
+            (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS image_url
+       FROM listings l
+      WHERE l.host_id = $1
+      ORDER BY l.created_at DESC`,
+    [hostId]
+  )
+  return rows as Listing[]
+}
+
+/** Reservations on a host's listings, newest first, with the guest name + listing title. */
+export async function getHostBookings(
+  hostId: string
+): Promise<Array<Booking & { guest_name: string | null; listing_title: string | null }>> {
+  if (!isUuid(hostId)) return []
+  const { rows } = await pool.query(
+    `SELECT ${BOOKING_COLS}, gu.full_name AS guest_name, l.title AS listing_title
+       FROM bookings b
+       JOIN listings l ON l.id = b.listing_id
+       LEFT JOIN users gu ON gu.id = b.user_id
+      WHERE l.host_id = $1
+      ORDER BY b.created_at DESC`,
+    [hostId]
+  )
+  return rows as Array<Booking & { guest_name: string | null; listing_title: string | null }>
+}
+
+// ---- Host: public profile page (/hosts/[id]) --------------------------------
+
+export interface HostListingCard {
+  id: string
+  title: string
+  location: string | null
+  price_per_night: number
+  image_url: string | null
+  rating: number | null          // average of this listing's review ratings
+  rating_count: number
+}
+
+export interface HostReviewCard {
+  id: string
+  rating: number
+  comment: string | null
+  created_at: string
+  listing_title: string | null
+  reviewer_name: string | null
+  reviewer_avatar: string | null
+}
+
+export interface HostProfile {
+  profile: PublicUser & { bio: string | null; verification_status: string }
+  listings: HostListingCard[]
+  reviews: HostReviewCard[]
+  avgRating: number | null
+  totalReviews: number
+}
+
+/** Everything the public /hosts/[id] page needs, read straight from the local
+ *  stack (no Supabase). Returns null when the user doesn't exist so the page
+ *  can render notFound(). */
+export async function getHostProfile(hostId: string): Promise<HostProfile | null> {
+  if (!isUuid(hostId)) return null
+  const user = await getUserById(hostId)
+  if (!user) return null
+  const verification = await getVerification(hostId)
+
+  const [{ rows: lrows }, { rows: rvrows }] = await Promise.all([
+    pool.query(
+      `SELECT l.id, l.title, l.location, l.price_per_night::float8 AS price_per_night,
+              (SELECT url FROM listing_images li WHERE li.listing_id = l.id
+                ORDER BY li."order" LIMIT 1) AS image_url,
+              agg.avg_rating::float8 AS rating,
+              COALESCE(agg.cnt, 0)::int AS rating_count
+         FROM listings l
+         LEFT JOIN (
+           SELECT listing_id, AVG(rating) AS avg_rating, COUNT(*) AS cnt
+             FROM reviews GROUP BY listing_id
+         ) agg ON agg.listing_id = l.id
+        WHERE l.host_id = $1
+        ORDER BY l.created_at DESC
+        LIMIT 12`,
+      [hostId]
+    ),
+    pool.query(
+      `SELECT rv.id, rv.rating, rv.comment,
+              to_char(rv.created_at, 'YYYY-MM-DD') AS created_at,
+              l.title AS listing_title,
+              u.full_name AS reviewer_name, u.avatar_url AS reviewer_avatar
+         FROM reviews rv
+         JOIN listings l ON l.id = rv.listing_id
+         LEFT JOIN users u ON u.id = rv.reviewer_id
+        WHERE l.host_id = $1
+        ORDER BY rv.created_at DESC
+        LIMIT 8`,
+      [hostId]
+    ),
+  ])
+
+  const listings = lrows as HostListingCard[]
+  const rated = listings.filter((l) => l.rating != null && l.rating_count > 0)
+  const avgRating = rated.length
+    ? rated.reduce((s, l) => s + (l.rating ?? 0), 0) / rated.length
+    : null
+  const totalReviews = listings.reduce((s, l) => s + (l.rating_count ?? 0), 0)
+
+  return {
+    profile: { ...user, bio: null, verification_status: verification.status },
+    listings,
+    reviews: rvrows as HostReviewCard[],
+    avgRating,
+    totalReviews,
+  }
+}
+
+// ---- Host: create a listing -------------------------------------------------
+
+export interface CreateListingInput {
+  title: string
+  description?: string
+  location?: string
+  country?: string
+  price_per_night: number
+  currency?: string
+  bedrooms?: number
+  beds?: number
+  bathrooms?: number
+  max_guests?: number
+  property_type?: string
+  images?: string[]
+}
+
+/** Create a listing owned by [hostId], plus any provided images. */
+export async function createListing(hostId: string, data: CreateListingInput): Promise<Listing> {
+  if (!isUuid(hostId)) throw new Error('Invalid host')
+  const title = String(data.title || '').trim()
+  if (!title) throw new Error('Title is required')
+  const price = Number(data.price_per_night)
+  if (!Number.isFinite(price) || price <= 0) throw new Error('A valid price per night is required')
+  const nn = (v: unknown, d: number) => {
+    const n = Math.floor(Number(v))
+    return Number.isFinite(n) && n >= 0 ? n : d
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO listings
+       (host_id, title, description, location, country, price_per_night, currency,
+        bedrooms, beds, bathrooms, max_guests, property_type, is_published)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+     RETURNING id`,
+    [
+      hostId, title, data.description ?? null, data.location ?? null, data.country ?? null,
+      price, data.currency || 'USD',
+      nn(data.bedrooms, 1), nn(data.beds, 1), nn(data.bathrooms, 1), nn(data.max_guests, 2),
+      data.property_type ?? null,
+    ]
+  )
+  const newId = rows[0].id as string
+  const images = Array.isArray(data.images) ? data.images.filter((u) => typeof u === 'string' && u.trim()) : []
+  for (let i = 0; i < images.length; i++) {
+    await pool.query(
+      `INSERT INTO listing_images (listing_id, url, "order") VALUES ($1, $2, $3)`,
+      [newId, images[i].trim(), i]
+    )
+  }
+  const listing = await getListingById(newId)
+  if (!listing) throw new Error('Could not create listing')
+  return listing
 }

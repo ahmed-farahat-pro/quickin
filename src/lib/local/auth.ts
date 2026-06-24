@@ -88,8 +88,13 @@ export function verifyPassword(password: string, stored: string | null): boolean
 }
 
 // ---- Stateless HMAC token ----------------------------------------------------
+const TOKEN_TTL_MS = 30 * 24 * 3600 * 1000 // 30 days
+
 export function signToken(payload: { sub: string; email: string }): string {
-  const body = Buffer.from(JSON.stringify({ ...payload, iat: 0 })).toString('base64url')
+  const now = Date.now()
+  const body = Buffer.from(
+    JSON.stringify({ ...payload, iat: now, exp: now + TOKEN_TTL_MS })
+  ).toString('base64url')
   const sig = createHmac('sha256', SECRET).update(body).digest('base64url')
   return `${body}.${sig}`
 }
@@ -101,7 +106,9 @@ export function verifyToken(token: string): { sub: string; email: string } | nul
   const expected = createHmac('sha256', SECRET).update(body).digest('base64url')
   if (sig !== expected) return null
   try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString())
+    const claims = JSON.parse(Buffer.from(body, 'base64url').toString())
+    if (typeof claims.exp === 'number' && Date.now() > claims.exp) return null
+    return claims
   } catch {
     return null
   }
@@ -160,15 +167,36 @@ export async function upsertSocialUser(args: {
   provider: 'google' | 'apple'
   avatarUrl?: string
 }): Promise<User> {
+  // Manual upsert by case-insensitive email — robust whether or not a unique
+  // index on lower(email) exists (avoids ON CONFLICT constraint-matching errors).
+  const existing = await pool.query(
+    `SELECT ${USER_COLS} FROM users WHERE lower(email) = lower($1) LIMIT 1`,
+    [args.email]
+  )
+  if (existing.rows[0]) {
+    const cur = existing.rows[0] as User
+    const { rows } = await pool.query(
+      `UPDATE users
+         SET full_name = COALESCE(full_name, $2),
+             avatar_url = COALESCE($3, avatar_url)
+       WHERE id = $1
+       RETURNING ${USER_COLS}`,
+      [cur.id, args.fullName, args.avatarUrl || null]
+    )
+    return (rows[0] || cur) as User
+  }
   const { rows } = await pool.query(
     `INSERT INTO users (email, full_name, provider, avatar_url)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (email) DO UPDATE
-       SET full_name = COALESCE(users.full_name, EXCLUDED.full_name),
-           avatar_url = COALESCE(EXCLUDED.avatar_url, users.avatar_url)
      RETURNING ${USER_COLS}`,
     [args.email, args.fullName, args.provider, args.avatarUrl || null]
   )
   if (!rows[0]) throw new Error('Failed to upsert social user')
   return rows[0] as User
+}
+
+/** Replace a user's password with a fresh scrypt hash. */
+export async function updatePassword(userId: string, newPassword: string): Promise<void> {
+  const hash = hashPassword(newPassword)
+  await pool.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [userId, hash])
 }

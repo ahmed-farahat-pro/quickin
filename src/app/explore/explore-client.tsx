@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import type { Listing } from '@/lib/local/db'
+import { formatPrice } from '@/lib/utils'
+import WishlistButton from './wishlist-button'
 
 // Leaflet must never run on the server (it reads `window` at import time), so
 // the map is a client-only dynamic import with SSR disabled.
@@ -85,6 +87,8 @@ interface Filters {
 interface Props {
   initialListings: Listing[]
   initialFilters: Filters
+  // Listing ids the signed-in user has already saved (seeds the heart state).
+  savedIds?: string[]
 }
 
 function buildQuery(f: Filters): string {
@@ -98,8 +102,9 @@ function buildQuery(f: Filters): string {
 
 const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '' }
 
-export default function ExploreClient({ initialListings, initialFilters }: Props) {
+export default function ExploreClient({ initialListings, initialFilters, savedIds }: Props) {
   const t = useTranslations('explorePage')
+  const savedSet = useMemo(() => new Set(savedIds ?? []), [savedIds])
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [listings, setListings] = useState<Listing[]>(initialListings)
   const [searching, setSearching] = useState(false)
@@ -527,6 +532,11 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                         {t('card.guestFavorite')}
                       </span>
                     )}
+                    {/* Heart toggle — self-managing; seeded with the saved state
+                        when the server passed the user's saved ids. */}
+                    <span style={{ position: 'absolute', top: 12, right: 12 }}>
+                      <WishlistButton listingId={listing.id} initialSaved={savedSet.has(listing.id)} />
+                    </span>
                   </div>
 
                   {/* Body */}
@@ -549,7 +559,7 @@ export default function ExploreClient({ initialListings, initialFilters }: Props
                     )}
                     <p style={{ margin: '14px 0 0', fontSize: 15, color: COLORS.ink }}>
                       <span style={{ fontWeight: 700, color: COLORS.burgundy }}>
-                        ${listing.price_per_night}
+                        {formatPrice(listing.price_per_night, listing.currency)}
                       </span>{' '}
                       <span style={{ color: COLORS.muted }}>{t('card.perNight')}</span>
                     </p>

@@ -1,9 +1,10 @@
 // My reservations (no Supabase) — the signed-in user's bookings.
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { getUserBookings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { localeToBcp47, type Locale } from '@/i18n/config'
 import { ReservationActions } from './reservation-actions'
 
 export const dynamic = 'force-dynamic'
@@ -54,11 +55,11 @@ async function getCurrentUser(): Promise<{ id: string; firstName: string } | nul
   }
 }
 
-function fmtDate(d: string): string {
-  // d is YYYY-MM-DD
+function fmtDate(d: string, bcp47: string): string {
+  // d is YYYY-MM-DD — formatted in the active locale's BCP47 tag.
   const date = new Date(d + 'T00:00:00')
   if (Number.isNaN(date.getTime())) return d
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(bcp47, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -207,6 +208,7 @@ async function ReservationsList({
 }) {
   const bookings = await getUserBookings(userId)
   const t = await getTranslations('reservationsLocal')
+  const bcp47 = localeToBcp47((await getLocale()) as Locale)
 
   return (
     <>
@@ -325,7 +327,7 @@ async function ReservationsList({
                     color: COLORS.ink,
                   }}
                 >
-                  {fmtDate(b.check_in)} → {fmtDate(b.check_out)}
+                  {fmtDate(b.check_in, bcp47)} → {fmtDate(b.check_out, bcp47)}
                 </p>
                 <p
                   style={{

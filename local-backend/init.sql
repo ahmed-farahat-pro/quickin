@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS listings (
   listing_code      text,
   lat               double precision,
   lng               double precision,
+  host_id           uuid,                              -- listing owner (FK added after users table)
   created_at        timestamptz DEFAULT now()
 );
 
@@ -47,6 +48,31 @@ CREATE TABLE IF NOT EXISTS users (
   push_platform text,
   created_at    timestamptz DEFAULT now()
 );
+
+-- Case-insensitive uniqueness on email (matches upsertSocialUser ON CONFLICT (lower(email))).
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique ON users (lower(email));
+
+-- Now that users exists, wire the listing owner FK.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'listings_host_id_fkey' AND table_name = 'listings'
+  ) THEN
+    ALTER TABLE listings
+      ADD CONSTRAINT listings_host_id_fkey FOREIGN KEY (host_id) REFERENCES users(id);
+  END IF;
+END $$;
+
+-- Saved listings ("wishlist"). One row per (user, listing).
+CREATE TABLE IF NOT EXISTS saved_listings (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_id  uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  created_at  timestamptz DEFAULT now(),
+  UNIQUE (user_id, listing_id)
+);
+CREATE INDEX IF NOT EXISTS idx_saved_listings_user ON saved_listings(user_id);
 
 CREATE TABLE IF NOT EXISTS bookings (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

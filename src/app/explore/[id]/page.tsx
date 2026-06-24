@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getListingById, getListingReviews } from '@/lib/local/db'
 import ReservePanel from './reserve-panel'
+import WishlistButton from '../wishlist-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,7 +94,8 @@ export default async function ListingDetailPage({
   const listing = await getListingById(id)
   if (!listing) notFound()
 
-  const reviews = await getListingReviews(listing.id)
+  // A reviews failure must never crash the stay page — fall back to none.
+  const reviews = await getListingReviews(listing.id).catch(() => [])
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : null
@@ -216,24 +218,95 @@ export default async function ListingDetailPage({
               ★ {t('guestFavorite')}
             </span>
           )}
-          <h1
+          <div
             style={{
-              margin: 0,
-              fontFamily:
-                '"Playfair Display", Georgia, "Times New Roman", serif',
-              fontSize: 'clamp(28px, 4.5vw, 42px)',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              lineHeight: 1.15,
-              color: COLORS.burgundy,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 16,
             }}
           >
-            {listing.title}
-          </h1>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily:
+                  '"Playfair Display", Georgia, "Times New Roman", serif',
+                fontSize: 'clamp(28px, 4.5vw, 42px)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.15,
+                color: COLORS.burgundy,
+              }}
+            >
+              {listing.title}
+            </h1>
+            <span style={{ flex: '0 0 auto', marginTop: 6 }}>
+              <WishlistButton listingId={listing.id} />
+            </span>
+          </div>
           <p style={{ margin: '10px 0 0', fontSize: 16, color: COLORS.muted }}>
             {[listing.location, listing.country].filter(Boolean).join(', ')}
             {listing.property_type ? ` · ${listing.property_type}` : ''}
           </p>
+
+          {/* Host card — shown when the listing resolves an owner. */}
+          {listing.host_name && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                marginTop: 18,
+                padding: '12px 16px',
+                background: '#fff',
+                border: '1px solid rgba(42,34,32,0.06)',
+                borderRadius: 16,
+                boxShadow: '0 4px 16px rgba(42,34,32,0.06)',
+                width: 'fit-content',
+              }}
+            >
+              {listing.host_avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={listing.host_avatar}
+                  alt={listing.host_name}
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 999,
+                    objectFit: 'cover',
+                    background: COLORS.tan,
+                  }}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 999,
+                    background: COLORS.tan,
+                    color: COLORS.burgundy,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: 18,
+                  }}
+                >
+                  {listing.host_name.trim().charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div>
+                <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600 }}>
+                  Hosted by
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink }}>
+                  {listing.host_name}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Two-column: details + price card */}

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const user = { id: row.id, email: row.email, full_name: row.full_name, provider: row.provider, avatar_url: row.avatar_url }
     const token = signToken({ sub: user.id, email: user.email })
     const res = NextResponse.json({ token, user }, { headers: CORS })
-    res.cookies.set('qk_token', token, { httpOnly: true, sameSite: 'lax', path: '/' })
+    res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })
     return res
   } catch (err) {
     console.error('login failed:', err)

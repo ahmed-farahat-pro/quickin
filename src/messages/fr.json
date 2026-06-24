@@ -1448,8 +1448,8 @@
     "meta": {
       "notFoundTitle": "Logement introuvable",
       "notFoundDescription": "Ce logement de charme est introuvable. Découvrez d'autres maisons sélectionnées sur QuickIn.",
-      "descriptionWithPlace": "Un logement de charme à {place} à partir de {price} $ / nuit sur QuickIn.",
-      "description": "Un logement de charme à partir de {price} $ / nuit sur QuickIn."
+      "descriptionWithPlace": "Un logement de charme à {place} à partir de {price} / nuit sur QuickIn.",
+      "description": "Un logement de charme à partir de {price} / nuit sur QuickIn."
     },
     "backToExplore": "Retour à l'exploration",
     "photoAlt": "{title} photo {index}",
@@ -1491,7 +1491,7 @@
     "logIn": "Se connecter",
     "success": {
       "title": "Demande envoyée !",
-      "summary": "{nights, plural, one {# nuit} other {# nuits}} · {total} $ au total.",
+      "summary": "{nights, plural, one {# nuit} other {# nuits}} · {total} au total.",
       "awaitingApproval": "En attente de l'approbation de l'hôte — vous serez notifié dès la confirmation.",
       "viewReservations": "Voir mes réservations"
     },

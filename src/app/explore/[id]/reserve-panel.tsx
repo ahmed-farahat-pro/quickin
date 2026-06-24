@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { formatPrice } from '@/lib/utils'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -130,7 +131,7 @@ export default function ReservePanel({
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <span style={{ fontSize: 30, fontWeight: 800, color: COLORS.burgundy }}>
-          ${pricePerNight}
+          {formatPrice(pricePerNight, currency)}
         </span>
         <span style={{ fontSize: 15, color: COLORS.muted }}>{t('perNight')}</span>
       </div>
@@ -211,9 +212,9 @@ export default function ReservePanel({
           }}
         >
           <span>
-            ${pricePerNight} × {t('nightsCount', { nights })}
+            {formatPrice(pricePerNight, currency)} × {t('nightsCount', { nights })}
           </span>
-          <span style={{ fontWeight: 700 }}>${total}</span>
+          <span style={{ fontWeight: 700 }}>{formatPrice(total, currency)}</span>
         </div>
         <div
           style={{
@@ -228,7 +229,7 @@ export default function ReservePanel({
           }}
         >
           <span>{t('total')}</span>
-          <span>${total}</span>
+          <span>{formatPrice(total, currency)}</span>
         </div>
       </div>
 

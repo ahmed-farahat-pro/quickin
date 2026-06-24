@@ -28,7 +28,8 @@ export async function POST(req: Request) {
   try {
     const user = await getUserFromRequest(req)
     if (!user) return NextResponse.json({ error: 'Please sign in to leave a review' }, { status: 401, headers: CORS })
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: CORS })
     const bookingId = body.booking_id || body.bookingId
     const rating = Number(body.rating)
     if (!bookingId || !Number.isFinite(rating)) {
@@ -39,8 +40,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true }, { status: 201, headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('POST /api/local/reviews failed:', msg)
-    const status = /eligible|Invalid|required/i.test(msg) ? 400 : 500
-    return NextResponse.json({ error: msg }, { status, headers: CORS })
+    console.error('POST /api/local/reviews failed:', err)
+    if (/eligible|Invalid|required/i.test(msg)) {
+      return NextResponse.json({ error: msg }, { status: 400, headers: CORS })
+    }
+    return NextResponse.json({ error: 'Internal error' }, { status: 500, headers: CORS })
   }
 }

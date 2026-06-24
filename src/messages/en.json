@@ -1448,8 +1448,8 @@
     "meta": {
       "notFoundTitle": "Stay not found",
       "notFoundDescription": "This boutique stay could not be found. Browse other curated homes on QuickIn.",
-      "descriptionWithPlace": "A boutique stay in {place} from ${price} / night on QuickIn.",
-      "description": "A boutique stay from ${price} / night on QuickIn."
+      "descriptionWithPlace": "A boutique stay in {place} from {price} / night on QuickIn.",
+      "description": "A boutique stay from {price} / night on QuickIn."
     },
     "backToExplore": "Back to Explore",
     "photoAlt": "{title} photo {index}",
@@ -1491,7 +1491,7 @@
     "logIn": "Log in",
     "success": {
       "title": "Request sent!",
-      "summary": "{nights, plural, one {# night} other {# nights}} · ${total} total.",
+      "summary": "{nights, plural, one {# night} other {# nights}} · {total} total.",
       "awaitingApproval": "Awaiting host approval — you'll be notified once it's confirmed.",
       "viewReservations": "View my reservations"
     },

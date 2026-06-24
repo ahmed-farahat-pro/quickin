@@ -1448,8 +1448,8 @@
     "meta": {
       "notFoundTitle": "Alojamiento no encontrado",
       "notFoundDescription": "No se encontró este alojamiento con encanto. Explora otras casas seleccionadas en QuickIn.",
-      "descriptionWithPlace": "Un alojamiento con encanto en {place} desde ${price} / noche en QuickIn.",
-      "description": "Un alojamiento con encanto desde ${price} / noche en QuickIn."
+      "descriptionWithPlace": "Un alojamiento con encanto en {place} desde {price} / noche en QuickIn.",
+      "description": "Un alojamiento con encanto desde {price} / noche en QuickIn."
     },
     "backToExplore": "Volver a Explorar",
     "photoAlt": "{title} foto {index}",
@@ -1491,7 +1491,7 @@
     "logIn": "Iniciar sesión",
     "success": {
       "title": "¡Solicitud enviada!",
-      "summary": "{nights, plural, one {# noche} other {# noches}} · ${total} en total.",
+      "summary": "{nights, plural, one {# noche} other {# noches}} · {total} en total.",
       "awaitingApproval": "A la espera de la aprobación del anfitrión — te avisaremos cuando se confirme.",
       "viewReservations": "Ver mis reservas"
     },

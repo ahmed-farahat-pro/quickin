@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
     const token = signToken({ sub: user.id, email: user.email })
     const res = NextResponse.json({ token, user }, { headers: CORS })
-    res.cookies.set('qk_token', token, { httpOnly: true, sameSite: 'lax', path: '/' })
+    res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })
     return res
   } catch (err) {
     console.error('verify-otp failed:', err)

@@ -30,12 +30,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json().catch(() => ({}))
     const hostNotes = 'host_notes' in body ? String(body.host_notes ?? '') : undefined
     const status = body.status ? String(body.status) : undefined
-    const booking = await patchBooking(id, hostNotes, status)
+    // Pass through undefined for omitted fields so patchBooking only updates what
+    // was actually supplied (e.g. a status decision must not wipe host_notes).
+    const booking = await patchBooking(user.id, id, hostNotes, status)
     if (!booking) return NextResponse.json({ error: 'Reservation not found' }, { status: 404, headers: CORS })
     return NextResponse.json(booking, { headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    const status = /Invalid/i.test(msg) ? 400 : 500
+    const status = /Forbidden/i.test(msg) ? 403 : /Invalid/i.test(msg) ? 400 : 500
     return NextResponse.json({ error: msg }, { status, headers: CORS })
   }
 }

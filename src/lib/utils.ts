@@ -6,6 +6,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Formats a price amount with its currency.
+ * USD (or missing currency) renders as a leading "$"; any other currency
+ * renders as "<amount> <CODE>" (e.g. "1200 EGP").
+ */
+export function formatPrice(amount: number, currency?: string | null): string {
+  return currency && currency !== 'USD' ? `${amount} ${currency}` : `$${amount}`
+}
+
+/**
  * Returns the base URL for the application.
  * Priority: 
  * 1. NEXT_PUBLIC_SITE_URL environment variable

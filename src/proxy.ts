@@ -49,6 +49,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // Legacy /listings alias (with or without a locale prefix) → /<locale>/explore.
+  // The local-stack browse page lives at /explore; keep old links working.
+  if (strippedPath === '/listings' || strippedPath.startsWith('/listings/')) {
+    const locale = localeFromPath || preferredLocale
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = `/${locale}/explore`
+    redirectUrl.search = search
+    return NextResponse.redirect(redirectUrl, 308)
+  }
+
   if (localeFromPath) {
     const rewriteUrl = request.nextUrl.clone()
     rewriteUrl.pathname = strippedPath

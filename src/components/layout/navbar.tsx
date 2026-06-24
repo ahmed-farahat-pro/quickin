@@ -165,7 +165,7 @@ export function Navbar({ attributes, destinations, config }: NavbarProps) {
                   {t('anywhere')}
                 </Link>
                 <Link
-                  href={localizedHref('/listings')}
+                  href={localizedHref('/explore')}
                   className='text-muted-foreground hover:text-foreground transition-colors'
                 >
                   {t('listings')}
@@ -178,7 +178,7 @@ export function Navbar({ attributes, destinations, config }: NavbarProps) {
                 </Link>
                 {isAuthenticated ? (
                   <Link
-                    href='/dashboard/listings'
+                    href={localizedHref('/host')}
                     className='text-muted-foreground hover:text-foreground transition-colors'
                   >
                     {t('becomeHost')}
@@ -205,7 +205,7 @@ export function Navbar({ attributes, destinations, config }: NavbarProps) {
               className='hidden lg:flex rounded-[1.25rem] font-medium border-[#5B0F16] text-[#5B0F16] hover:bg-[#5B0F16] hover:text-[#F6F1E6]'
               asChild
             >
-              <Link href='/dashboard/listings'>
+              <Link href={localizedHref('/host')}>
                 {t('rent')}
               </Link>
             </Button>
@@ -248,26 +248,26 @@ export function Navbar({ attributes, destinations, config }: NavbarProps) {
                     <DropdownMenuSeparator />
                     {/* Guest */}
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard'>{t('dashboard')}</Link>
+                      <Link href={localizedHref('/account')}>{t('dashboard')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard/trips'>{t('trips')}</Link>
+                      <Link href={localizedHref('/reservations')}>{t('trips')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard/wishlists'>{t('wishlists')}</Link>
+                      <Link href={localizedHref('/saved')}>{t('wishlists')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {/* Host */}
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard/listings'>{t('manageListings')}</Link>
+                      <Link href={localizedHref('/host')}>{t('manageListings')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard/bookings'>{t('bookings')}</Link>
+                      <Link href={localizedHref('/host')}>{t('bookings')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {/* Account */}
                     <DropdownMenuItem asChild>
-                      <Link href='/dashboard/profile'>{t('account')}</Link>
+                      <Link href={localizedHref('/account')}>{t('account')}</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href={localizedHref('/help')}>{t('helpCenter')}</Link>

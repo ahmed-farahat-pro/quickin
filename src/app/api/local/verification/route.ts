@@ -39,7 +39,8 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Please sign in to verify your identity' }, { status: 401, headers: CORS })
     }
-    const body = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: CORS })
     const doc: string = body.doc || body.image || ''
     if (!doc || doc.length < 100) {
       return NextResponse.json({ error: 'doc (ID image) is required' }, { status: 400, headers: CORS })
@@ -59,8 +60,7 @@ export async function POST(req: Request) {
     })
     return NextResponse.json({ status: v.status, verified_at: v.reviewed_at }, { status: 201, headers: CORS })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('POST /api/local/verification failed:', msg)
-    return NextResponse.json({ error: msg }, { status: 500, headers: CORS })
+    console.error('POST /api/local/verification failed:', err)
+    return NextResponse.json({ error: 'Internal error' }, { status: 500, headers: CORS })
   }
 }

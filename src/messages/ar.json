@@ -1448,8 +1448,8 @@
     "meta": {
       "notFoundTitle": "لم يتم العثور على الإقامة",
       "notFoundDescription": "تعذّر العثور على هذه الإقامة المميّزة. تصفّح بيوتًا منتقاة أخرى على QuickIn.",
-      "descriptionWithPlace": "إقامة مميّزة في {place} بدءًا من ${price} / الليلة على QuickIn.",
-      "description": "إقامة مميّزة بدءًا من ${price} / الليلة على QuickIn."
+      "descriptionWithPlace": "إقامة مميّزة في {place} بدءًا من {price} / الليلة على QuickIn.",
+      "description": "إقامة مميّزة بدءًا من {price} / الليلة على QuickIn."
     },
     "backToExplore": "العودة إلى الاستكشاف",
     "photoAlt": "صورة {title} رقم {index}",
@@ -1491,7 +1491,7 @@
     "logIn": "تسجيل الدخول",
     "success": {
       "title": "تم إرسال الطلب!",
-      "summary": "{nights, plural, one {# ليلة} other {# ليالٍ}} · ${total} الإجمالي.",
+      "summary": "{nights, plural, one {# ليلة} other {# ليالٍ}} · {total} الإجمالي.",
       "awaitingApproval": "بانتظار موافقة المضيف — سنخطرك بمجرد تأكيده.",
       "viewReservations": "عرض حجوزاتي"
     },

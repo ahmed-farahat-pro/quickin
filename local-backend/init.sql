@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
   fcm_token     text,
   push_platform text,
   is_host       boolean NOT NULL DEFAULT false,  -- one account; becomes a host in-app
+  email_verified boolean NOT NULL DEFAULT false, -- email OTP gate (social accounts -> true)
   created_at    timestamptz DEFAULT now()
 );
 

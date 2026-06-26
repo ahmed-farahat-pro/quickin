@@ -49,6 +49,7 @@ type AdminUser = {
   full_name: string | null
   is_host: boolean
   verification_status: string
+  email_verified: boolean
   created_at: string
   listing_count: number
   booking_count: number
@@ -355,6 +356,20 @@ export default function OpsPage() {
       return res.ok
     } catch {
       return false
+    }
+  }
+
+  // ---- users actions ----
+  const activateUser = async (u: AdminUser) => {
+    setBusyId(u.id)
+    const ok = await post('users', { id: u.id, action: 'activate' })
+    setBusyId(null)
+    if (ok) {
+      setUsers((prev) =>
+        prev.map((x) => (x.id === u.id ? { ...x, email_verified: true } : x)),
+      )
+    } else {
+      setSectionError('users', 'Could not activate the user. Please retry.')
     }
   }
 
@@ -706,6 +721,7 @@ export default function OpsPage() {
                     <th style={thStyle}>Name</th>
                     <th style={thStyle}>Email</th>
                     <th style={thStyle}>Role</th>
+                    <th style={thStyle}>Email status</th>
                     <th style={thStyle}>Verification</th>
                     <th style={thStyle}>Listings</th>
                     <th style={thStyle}>Bookings</th>
@@ -721,6 +737,29 @@ export default function OpsPage() {
                         {u.is_host
                           ? badge('Host', BURGUNDY, '#fff')
                           : badge('Guest', TAN, MUTED)}
+                      </td>
+                      <td style={tdStyle}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: 10,
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          {u.email_verified
+                            ? badge('Verified', '#E2F0E9', GREEN)
+                            : badge('Unverified', '#FBF1DD', '#8A6D1F')}
+                          {!u.email_verified ? (
+                            <button
+                              style={approveBtn}
+                              disabled={busyId === u.id}
+                              onClick={() => activateUser(u)}
+                            >
+                              {busyId === u.id ? 'Working…' : 'Activate'}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                       <td style={tdStyle}>{verificationBadge(u.verification_status)}</td>
                       <td style={tdStyle}>{u.listing_count}</td>

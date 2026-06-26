@@ -104,6 +104,7 @@ export interface User {
   provider: string
   avatar_url: string | null
   is_host: boolean
+  email_verified: boolean
 }
 
 // ---- Password hashing (scrypt) ----------------------------------------------
@@ -173,19 +174,21 @@ const USER_COLS = `id, email, full_name, provider, avatar_url`
 
 export async function getUserRowByEmail(
   email: string
-): Promise<{ id: string; email: string; password_hash: string | null; full_name: string | null; provider: string; avatar_url: string | null; is_host: boolean } | null> {
+): Promise<{ id: string; email: string; password_hash: string | null; full_name: string | null; provider: string; avatar_url: string | null; is_host: boolean; email_verified: boolean } | null> {
   try {
     const { rows } = await pool.query(
-      `SELECT id, email, password_hash, full_name, provider, avatar_url, COALESCE(is_host, false) AS is_host
+      `SELECT id, email, password_hash, full_name, provider, avatar_url,
+              COALESCE(is_host, false) AS is_host, COALESCE(email_verified, false) AS email_verified
        FROM users WHERE lower(email) = lower($1)`,
       [email]
     )
     return rows[0] ?? null
   } catch {
-    // is_host may not exist yet (pre-migration window) — degrade gracefully so
-    // auth keeps working; the account is simply treated as a guest until migrated.
+    // is_host / email_verified may not exist yet (pre-migration window) — degrade
+    // gracefully so auth keeps working. Treat as a verified guest until migrated
+    // (defaulting email_verified to true here avoids locking anyone out mid-deploy).
     const { rows } = await pool.query(
-      `SELECT id, email, password_hash, full_name, provider, avatar_url, false AS is_host
+      `SELECT id, email, password_hash, full_name, provider, avatar_url, false AS is_host, true AS email_verified
        FROM users WHERE lower(email) = lower($1)`,
       [email]
     )
@@ -196,12 +199,13 @@ export async function getUserRowByEmail(
 /** Client-facing user shape (web + mobile). One unified account: `is_host` is a
  *  capability flag, and `role` is derived from it for backward-compatible clients. */
 export function publicUser(row: {
-  id: string; email: string; full_name: string | null; provider: string; avatar_url: string | null; is_host?: boolean | null
+  id: string; email: string; full_name: string | null; provider: string; avatar_url: string | null; is_host?: boolean | null; email_verified?: boolean | null
 }): User & { role: 'host' | 'guest' } {
   const is_host = !!row.is_host
   return {
     id: row.id, email: row.email, full_name: row.full_name,
     provider: row.provider, avatar_url: row.avatar_url, is_host,
+    email_verified: !!row.email_verified,
     role: is_host ? 'host' : 'guest',
   }
 }
@@ -230,7 +234,8 @@ export async function createUser(args: {
     [args.email, args.passwordHash, args.fullName]
   )
   if (!rows[0]) throw new Error('Failed to create user')
-  return { ...rows[0], is_host: false } as User
+  // New email accounts start unverified — they must confirm the OTP.
+  return { ...rows[0], is_host: false, email_verified: false } as User
 }
 
 /** Upsert a social (google/apple) user. */
@@ -251,24 +256,25 @@ export async function upsertSocialUser(args: {
     await pool.query(
       `UPDATE users
          SET full_name = COALESCE(full_name, $2),
-             avatar_url = COALESCE($3, avatar_url)
+             avatar_url = COALESCE($3, avatar_url),
+             email_verified = true
        WHERE id = $1`,
       [cur.id, args.fullName, args.avatarUrl || null]
     )
     // Re-resolve through the tolerant lookup so a returning social host keeps is_host.
     const fresh = await getUserRowByEmail(args.email)
     return (fresh
-      ? { id: fresh.id, email: fresh.email, full_name: fresh.full_name, provider: fresh.provider, avatar_url: fresh.avatar_url, is_host: fresh.is_host }
-      : { ...cur, is_host: false }) as User
+      ? { id: fresh.id, email: fresh.email, full_name: fresh.full_name, provider: fresh.provider, avatar_url: fresh.avatar_url, is_host: fresh.is_host, email_verified: true }
+      : { ...cur, is_host: false, email_verified: true }) as User
   }
   const { rows } = await pool.query(
-    `INSERT INTO users (email, full_name, provider, avatar_url)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, full_name, provider, avatar_url, email_verified)
+     VALUES ($1, $2, $3, $4, true)
      RETURNING ${USER_COLS}`,
     [args.email, args.fullName, args.provider, args.avatarUrl || null]
   )
   if (!rows[0]) throw new Error('Failed to upsert social user')
-  return { ...rows[0], is_host: false } as User
+  return { ...rows[0], is_host: false, email_verified: true } as User
 }
 
 /** Replace a user's password with a fresh scrypt hash. */

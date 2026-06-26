@@ -515,6 +515,11 @@ export async function createOtpCode(email: string, code: string, ttlMinutes = 10
   )
 }
 
+/** Flip an account to verified after a successful OTP check (the email gate). */
+export async function markEmailVerified(email: string): Promise<void> {
+  await pool.query(`UPDATE users SET email_verified = true WHERE lower(email) = lower($1)`, [email])
+}
+
 /** True if [code] matches the unexpired stored code (≤5 tries). Consumes it on success. */
 export async function verifyOtpCode(email: string, code: string): Promise<boolean> {
   const { rows } = await pool.query(
@@ -1149,6 +1154,7 @@ export interface AdminUserRow {
   email: string
   full_name: string | null
   is_host: boolean
+  email_verified: boolean
   verification_status: string
   created_at: string
   listing_count: number
@@ -1160,6 +1166,7 @@ export interface AdminUserRow {
 export async function adminListUsers(): Promise<AdminUserRow[]> {
   const { rows } = await pool.query(
     `SELECT u.id, u.email, u.full_name, COALESCE(u.is_host, false) AS is_host,
+            COALESCE(u.email_verified, false) AS email_verified,
             COALESCE(
               (SELECT v.status FROM id_verifications v
                 WHERE v.user_id = u.id ORDER BY v.submitted_at DESC LIMIT 1),
@@ -1217,6 +1224,13 @@ export async function adminSetListingPublished(id: string, published: boolean): 
 export async function adminDeleteListing(id: string): Promise<void> {
   if (!isUuid(id)) throw new Error('Invalid listing')
   await pool.query(`DELETE FROM listings WHERE id = $1`, [id])
+}
+
+/** Admin: manually mark a user's email as verified (when OTP email can't reach them). */
+export async function adminActivateUser(id: string): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid user')
+  await pool.query(`UPDATE users SET email_verified = true WHERE id = $1`, [id])
+  await createNotification(id, 'account', 'Account activated', 'Your email was verified by our team — you can use your account normally now.', '/account')
 }
 
 export interface AdminBookingRow {

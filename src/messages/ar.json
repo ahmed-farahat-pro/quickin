@@ -1519,9 +1519,22 @@
     "googleDisabledHint": "أضف NEXT_PUBLIC_GOOGLE_CLIENT_ID لتفعيل تسجيل الدخول عبر Google",
     "newHere": "جديد هنا؟",
     "createAccount": "إنشاء حساب",
+    "verifyEmailNotice": "تحقّق من بريدك الإلكتروني — أرسلنا إليك رمزًا.",
+    "otp": {
+      "label": "رمز التحقق",
+      "placeholder": "رمز من 6 أرقام",
+      "verifying": "جارٍ التحقق…",
+      "verifyContinue": "تحقّق وتابع",
+      "didntGet": "لم يصلك الرمز؟",
+      "resendIn": "إعادة الإرسال خلال {seconds} ث",
+      "resendCode": "إعادة إرسال الرمز",
+      "newCodeSent": "رمز جديد في طريقه إليك.",
+      "codeSentTo": "أرسلنا رمزًا من 6 أرقام إلى {email}."
+    },
     "errors": {
       "googleFailed": "فشل تسجيل الدخول عبر Google. من فضلك حاول مرة أخرى.",
       "unableToSignIn": "تعذّر تسجيل الدخول. من فضلك حاول مرة أخرى.",
+      "invalidCode": "هذا الرمز غير صحيح. من فضلك حاول مرة أخرى.",
       "network": "خطأ في الشبكة. من فضلك حاول مرة أخرى."
     },
     "notices": {

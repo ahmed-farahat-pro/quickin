@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getUserRowByEmail, signToken, rateLimit, clientIp, publicUser } from '@/lib/local/auth'
-import { verifyOtpCode } from '@/lib/local/db'
+import { verifyOtpCode, markEmailVerified } from '@/lib/local/db'
 
 // Verify the emailed 6-digit code and issue the session.
 //   POST /api/auth/verify-otp { email, code } → { token, user } | 400
@@ -25,6 +25,8 @@ export async function POST(req: Request) {
     if (!ok) {
       return NextResponse.json({ error: 'That code is invalid or has expired.' }, { status: 400, headers: CORS })
     }
+    // Code matched — mark the account verified so future logins aren't gated.
+    await markEmailVerified(String(email).trim())
     const row = await getUserRowByEmail(String(email).trim())
     if (!row) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404, headers: CORS })

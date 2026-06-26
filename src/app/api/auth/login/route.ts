@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp, publicUser } from '@/lib/local/auth'
+import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp, publicUser, generateOtp } from '@/lib/local/auth'
+import { createOtpCode } from '@/lib/local/db'
+import { sendOtpEmail } from '@/lib/local/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +24,17 @@ export async function POST(req: Request) {
     const row = await getUserRowByEmail(String(email).trim())
     if (!row || !verifyPassword(String(password), row.password_hash)) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401, headers: CORS })
+    }
+    // Correct password, but the email was never OTP-verified → force verification.
+    // Re-issue a fresh code; clients (web/iOS/Android) route to the OTP screen on this.
+    if (!row.email_verified) {
+      const code = generateOtp()
+      await createOtpCode(row.email, code)
+      await sendOtpEmail(row.email, code)
+      return NextResponse.json(
+        { needsVerification: true, email: row.email, error: 'Please verify your email to continue — we sent you a new code.' },
+        { status: 403, headers: CORS }
+      )
     }
     const user = publicUser(row)
     const token = signToken({ sub: user.id, email: user.email })

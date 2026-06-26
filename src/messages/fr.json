@@ -1519,9 +1519,22 @@
     "googleDisabledHint": "Ajoutez NEXT_PUBLIC_GOOGLE_CLIENT_ID pour activer la connexion Google",
     "newHere": "Nouveau ici ?",
     "createAccount": "Créer un compte",
+    "verifyEmailNotice": "Vérifiez votre e-mail — nous vous avons envoyé un code.",
+    "otp": {
+      "label": "Code de vérification",
+      "placeholder": "Code à 6 chiffres",
+      "verifying": "Vérification…",
+      "verifyContinue": "Vérifier et continuer",
+      "didntGet": "Vous ne l'avez pas reçu ?",
+      "resendIn": "Renvoyer dans {seconds} s",
+      "resendCode": "Renvoyer le code",
+      "newCodeSent": "Un nouveau code est en route.",
+      "codeSentTo": "Nous avons envoyé un code à 6 chiffres à {email}."
+    },
     "errors": {
       "googleFailed": "Échec de la connexion Google. Veuillez réessayer.",
       "unableToSignIn": "Impossible de se connecter. Veuillez réessayer.",
+      "invalidCode": "Ce code n'a pas fonctionné. Veuillez réessayer.",
       "network": "Erreur réseau. Veuillez réessayer."
     },
     "notices": {

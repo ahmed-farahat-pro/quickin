@@ -1519,9 +1519,22 @@
     "googleDisabledHint": "Añade NEXT_PUBLIC_GOOGLE_CLIENT_ID para habilitar el inicio de sesión con Google",
     "newHere": "¿Nuevo por aquí?",
     "createAccount": "Crear una cuenta",
+    "verifyEmailNotice": "Verifica tu correo — te enviamos un código.",
+    "otp": {
+      "label": "Código de verificación",
+      "placeholder": "Código de 6 dígitos",
+      "verifying": "Verificando…",
+      "verifyContinue": "Verificar y continuar",
+      "didntGet": "¿No lo recibiste?",
+      "resendIn": "Reenviar en {seconds} s",
+      "resendCode": "Reenviar código",
+      "newCodeSent": "Un nuevo código está en camino.",
+      "codeSentTo": "Enviamos un código de 6 dígitos a {email}."
+    },
     "errors": {
       "googleFailed": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
       "unableToSignIn": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+      "invalidCode": "Ese código no funcionó. Inténtalo de nuevo.",
       "network": "Error de red. Inténtalo de nuevo."
     },
     "notices": {

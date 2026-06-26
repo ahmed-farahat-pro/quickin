@@ -38,7 +38,23 @@ export async function POST(req: Request) {
     }
     const existing = await getUserRowByEmail(email)
     if (existing) {
-      return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409, headers: CORS })
+      // Account exists but email was never OTP-verified → don't dead-end. Re-issue a
+      // code and tell the client to jump to the OTP step (web + iOS + Android handle this).
+      if (!existing.email_verified) {
+        const code = generateOtp()
+        await createOtpCode(existing.email, code)
+        await sendOtpEmail(existing.email, code)
+        return NextResponse.json(
+          {
+            pending: true,
+            needsVerification: true,
+            email: existing.email,
+            message: 'This email is already registered but not verified yet — we sent you a new code.',
+          },
+          { headers: CORS }
+        )
+      }
+      return NextResponse.json({ error: 'An account with this email already exists. Please log in.' }, { status: 409, headers: CORS })
     }
     const user = await createUser({
       email: String(email).trim(),

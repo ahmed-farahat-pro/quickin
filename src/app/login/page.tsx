@@ -59,6 +59,60 @@ export default function LoginPage() {
   const [gisReady, setGisReady] = useState(false)
   const googleBtnRef = useRef<HTMLDivElement | null>(null)
 
+  // OTP email-verification step (shown when login returns needsVerification).
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
+
+  async function verifyOtp(e: React.FormEvent) {
+    e.preventDefault()
+    if (!pendingEmail) return
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, code: otpCode }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data?.error || t('errors.invalidCode'))
+        setLoading(false)
+        return
+      }
+      window.location.href = '/explore'
+    } catch {
+      setError(t('errors.network'))
+      setLoading(false)
+    }
+  }
+
+  async function resendOtp() {
+    if (!pendingEmail || resendCooldown > 0) return
+    setError(null)
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setResendCooldown(Number(data?.cooldown) || 30)
+      if (!res.ok) setError(data?.error || null)
+      else setNotice(t('otp.newCodeSent'))
+    } catch {
+      setError(t('errors.network'))
+    }
+  }
+
   const googleEnabled = Boolean(GOOGLE_CLIENT_ID)
 
   // Send a verified Google ID token to the real backend.
@@ -132,6 +186,15 @@ export default function LoginPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (res.status === 403 && data?.needsVerification) {
+          // Email not verified — the server has re-sent a fresh code. Switch to
+          // the OTP step instead of showing an error.
+          setPendingEmail(data.email || email)
+          setNotice(t('verifyEmailNotice'))
+          setResendCooldown(30)
+          setLoading(false)
+          return
+        }
         setError(data?.error || t('errors.unableToSignIn'))
         setLoading(false)
         return
@@ -231,6 +294,48 @@ export default function LoginPage() {
           </div>
         )}
 
+        {pendingEmail ? (
+          <form onSubmit={verifyOtp}>
+            <label style={{ display: 'block', marginBottom: 16 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: COLORS.ink, marginBottom: 6 }}>
+                {t('otp.label')}
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder={t('otp.placeholder')}
+                style={{ ...inputStyle, letterSpacing: 6, textAlign: 'center', fontSize: 20 }}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={loading || otpCode.length < 6}
+              style={primaryButtonStyle(loading || otpCode.length < 6)}
+            >
+              {loading ? t('otp.verifying') : t('otp.verifyContinue')}
+            </button>
+            <p style={{ margin: '18px 0 0', textAlign: 'center', fontSize: 14, color: COLORS.muted }}>
+              {t('otp.didntGet')}{' '}
+              {resendCooldown > 0 ? (
+                <span>{t('otp.resendIn', { seconds: resendCooldown })}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={resendOtp}
+                  style={{ background: 'none', border: 'none', color: COLORS.burgundy, fontWeight: 600, cursor: 'pointer', fontSize: 14, padding: 0 }}
+                >
+                  {t('otp.resendCode')}
+                </button>
+              )}
+            </p>
+          </form>
+        ) : (
+          <>
         <form onSubmit={handleSubmit}>
           <label style={{ display: 'block', marginBottom: 16 }}>
             <span
@@ -351,6 +456,8 @@ export default function LoginPage() {
             >
               {t('googleDisabledHint')}
             </p>
+          </>
+        )}
           </>
         )}
 

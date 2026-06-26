@@ -1802,6 +1802,11 @@
       "tooShort": "New password must be at least 8 characters.",
       "mismatch": "New passwords do not match.",
       "error": "Could not change your password."
+    },
+    "hostApplication": {
+      "badge": "Under review",
+      "title": "Host application under review",
+      "subtitle": "Our team is reviewing your application. We’ll let you know as soon as it’s approved."
     }
   },
   "savedPage": {
@@ -1837,7 +1842,10 @@
       "cta": "Log in to start hosting",
       "ctaPromote": "Become a host",
       "working": "Setting up…",
-      "error": "Could not enable hosting. Please try again."
+      "error": "Could not enable hosting. Please try again.",
+      "ctaApply": "Apply to host",
+      "pendingBadge": "Under review",
+      "pendingBody": "Our team is reviewing your application. We’ll let you know as soon as it’s approved."
     },
     "dashboard": {
       "greeting": "Hosting, {name}",
@@ -1919,6 +1927,54 @@
         "invalidImageUrl": "This photo link doesn’t look like a valid URL: {url}",
         "createFailed": "Could not create the listing"
       }
+    }
+  },
+  "hostApply": {
+    "meta": {
+      "title": "Apply to host — QuickIn",
+      "description": "Apply to become a host on QuickIn. Our team reviews every application."
+    },
+    "backToAccount": "Back to account",
+    "title": "Apply to host",
+    "subtitle": "Tell us a little about you. Our team reviews every application before you can start hosting.",
+    "fields": {
+      "fullName": "Full name",
+      "nationalId": "National ID",
+      "phone": "Phone",
+      "address": "Address",
+      "company": "Company / brokerage",
+      "companyOptional": "Company / brokerage (optional)",
+      "notes": "Notes",
+      "notesOptional": "Notes (optional)"
+    },
+    "placeholders": {
+      "fullName": "Your name",
+      "nationalId": "National ID number",
+      "phone": "+20 1xx xxx xxxx",
+      "address": "Street, city, country",
+      "company": "If you list on behalf of a company",
+      "notes": "Anything you’d like our team to know"
+    },
+    "submit": "Submit application",
+    "submitting": "Submitting…",
+    "cancel": "Cancel",
+    "errors": {
+      "nationalIdRequired": "Please enter your national ID.",
+      "phoneRequired": "Please enter your phone number.",
+      "addressRequired": "Please enter your address.",
+      "submitFailed": "Could not submit your application. Please try again."
+    },
+    "pending": {
+      "subtitle": "Your application is being reviewed by our team.",
+      "badge": "Under review",
+      "title": "Application under review",
+      "body": "Thanks for applying. Our team is reviewing the details below and will let you know as soon as you’re approved.",
+      "submittedAt": "Submitted"
+    },
+    "success": {
+      "title": "Application submitted",
+      "body": "Thanks for applying. Our team will review your application and notify you once you’re approved.",
+      "backToAccount": "Back to account"
     }
   }
 }

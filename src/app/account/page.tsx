@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { getVerification } from '@/lib/local/db'
+import { getVerification, getHostApplication } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { AccountForms, BecomeHostButton } from './account-forms'
 
@@ -123,6 +123,8 @@ export default async function AccountPage() {
 
   const t = await getTranslations('accountPage')
   const verification = await getVerification(user.id)
+  const application = user.is_host ? null : await getHostApplication(user.id)
+  const applicationPending = application?.status === 'pending'
   const chipColors = VERIFY_CHIP_COLORS[verification.status] ?? VERIFY_CHIP_COLORS.unverified
   const chipKey = VERIFY_CHIP_COLORS[verification.status]
     ? verification.status
@@ -249,8 +251,9 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        {/* Unified account: one person, one login. A guest can become a host in
-            place; a host keeps every guest ability. Show the right card. */}
+        {/* Unified account: one person, one login. Becoming a host is an
+            admin-reviewed application. Three states: hosting, application under
+            review, or the "Become a host" CTA (links to /host/apply). */}
         {user.is_host ? (
           <a
             href="/host"
@@ -287,6 +290,37 @@ export default async function AccountPage() {
               {t('hosting.label')} →
             </span>
           </a>
+        ) : applicationPending ? (
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 22,
+              border: `1px solid rgba(42,34,32,0.06)`,
+              boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+              padding: '24px',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#fff7e6',
+                color: '#9a6b00',
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '4px 12px',
+                borderRadius: 999,
+                marginBottom: 12,
+              }}
+            >
+              {t('hostApplication.badge')}
+            </span>
+            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
+              {t('hostApplication.title')}
+            </h2>
+            <p style={{ margin: 0, fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55 }}>
+              {t('hostApplication.subtitle')}
+            </p>
+          </div>
         ) : (
           <div
             style={{
@@ -303,11 +337,7 @@ export default async function AccountPage() {
             <p style={{ margin: '0 0 18px', fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55 }}>
               {t('becomeHost.subtitle')}
             </p>
-            <BecomeHostButton
-              label={t('becomeHost.button')}
-              workingLabel={t('becomeHost.working')}
-              errorLabel={t('becomeHost.error')}
-            />
+            <BecomeHostButton label={t('becomeHost.button')} />
           </div>
         )}
 

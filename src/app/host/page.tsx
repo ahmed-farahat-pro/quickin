@@ -5,7 +5,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
-import { getHostListings, type Listing } from '@/lib/local/db'
+import { getHostListings, getHostApplication, type Listing } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
@@ -129,9 +129,9 @@ export default async function HostPage() {
         }}
       >
         {!user ? (
-          <BecomeAHost t={t} signedIn={false} />
+          <BecomeAHost t={t} signedIn={false} pending={false} />
         ) : !user.is_host ? (
-          <BecomeAHost t={t} signedIn />
+          <BecomeAHostSection userId={user.id} t={t} />
         ) : (
           <HostDashboard userId={user.id} firstName={user.firstName} t={t} />
         )}
@@ -141,11 +141,22 @@ export default async function HostPage() {
 }
 
 /**
+ * Signed-in non-host wrapper: resolves whether they already have a pending host
+ * application, then renders the intro with the right CTA / "under review" state.
+ */
+async function BecomeAHostSection({ userId, t }: { userId: string; t: T }) {
+  const application = await getHostApplication(userId)
+  const pending = application?.status === 'pending'
+  return <BecomeAHost t={t} signedIn pending={pending} />
+}
+
+/**
  * Become-a-host intro: short pitch + CTA.
  * - signedIn=false → "Log in to start hosting" link (one account; they sign in first).
- * - signedIn=true  → promote button that flips is_host on the same account, then reloads.
+ * - signedIn=true, pending → "Application under review" (no CTA).
+ * - signedIn=true, otherwise → "Apply to host" link to /host/apply (admin-reviewed).
  */
-function BecomeAHost({ t, signedIn }: { t: T; signedIn: boolean }) {
+function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pending: boolean }) {
   return (
     <div
       style={{
@@ -228,13 +239,34 @@ function BecomeAHost({ t, signedIn }: { t: T; signedIn: boolean }) {
       </div>
 
       <div style={{ marginTop: 32 }}>
-        {signedIn ? (
-          <BecomeHostButton
-            label={t('become.ctaPromote')}
-            workingLabel={t('become.working')}
-            errorLabel={t('become.error')}
-            variant="large"
-          />
+        {signedIn && pending ? (
+          <div
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#fff7e6',
+                color: '#9a6b00',
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '5px 14px',
+                borderRadius: 999,
+              }}
+            >
+              {t('become.pendingBadge')}
+            </span>
+            <p style={{ margin: 0, fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55, maxWidth: 380 }}>
+              {t('become.pendingBody')}
+            </p>
+          </div>
+        ) : signedIn ? (
+          <BecomeHostButton label={t('become.ctaApply')} variant="large" />
         ) : (
           <a
             href="/login"

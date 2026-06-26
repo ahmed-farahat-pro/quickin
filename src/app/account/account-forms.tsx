@@ -61,44 +61,16 @@ function buttonStyle(disabled: boolean): React.CSSProperties {
   }
 }
 
-// Promote the signed-in account to a host: POST /api/local/host/become flips
-// users.is_host = true (idempotent), then router.refresh() so the page re-renders
-// with host links/dashboard. Used on both /account and /host (signed-in intro).
+// Become-a-host is now an admin-reviewed APPLICATION, not an instant flip. This
+// is a link-styled button that simply navigates to /host/apply; it no longer
+// calls /api/local/host/become. Used on both /account and /host (signed-in intro).
 export function BecomeHostButton({
   label,
-  workingLabel,
-  errorLabel,
   variant = 'primary',
 }: {
   label: string
-  workingLabel: string
-  errorLabel: string
   variant?: 'primary' | 'large'
 }) {
-  const router = useRouter()
-  const [working, setWorking] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function become() {
-    setWorking(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/local/host/become', {
-        method: 'POST',
-        credentials: 'same-origin',
-      })
-      if (res.status === 401) {
-        router.push('/login')
-        return
-      }
-      if (!res.ok) throw new Error(errorLabel)
-      router.refresh()
-    } catch {
-      setError(errorLabel)
-      setWorking(false)
-    }
-  }
-
   const style: React.CSSProperties =
     variant === 'large'
       ? {
@@ -111,18 +83,15 @@ export function BecomeHostButton({
           padding: '13px 30px',
           borderRadius: 999,
           fontSize: 15,
-          cursor: working ? 'default' : 'pointer',
-          opacity: working ? 0.6 : 1,
+          textDecoration: 'none',
+          cursor: 'pointer',
         }
-      : buttonStyle(working)
+      : { ...buttonStyle(false), textDecoration: 'none' }
 
   return (
-    <>
-      <button type="button" onClick={become} disabled={working} style={style}>
-        {working ? workingLabel : label}
-      </button>
-      {error && <Notice kind="error" text={error} />}
-    </>
+    <a href="/host/apply" style={style}>
+      {label}
+    </a>
   )
 }
 

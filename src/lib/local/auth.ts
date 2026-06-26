@@ -211,6 +211,13 @@ export async function becomeHost(userId: string): Promise<void> {
   await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [userId])
 }
 
+/** Shared-secret check for the local-stack admin (host-application + ID review).
+ *  Configure ADMIN_OPS_KEY in the environment; falls back to a dev default. */
+export function isAdminKey(key: string | null | undefined): boolean {
+  const expected = process.env.ADMIN_OPS_KEY || 'QuickInAdmin2026'
+  return typeof key === 'string' && key.length > 0 && key === expected
+}
+
 export async function createUser(args: {
   email: string
   passwordHash: string

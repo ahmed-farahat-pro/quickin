@@ -1802,6 +1802,11 @@
       "tooShort": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
       "mismatch": "Les nouveaux mots de passe ne correspondent pas.",
       "error": "Impossible de changer votre mot de passe."
+    },
+    "hostApplication": {
+      "badge": "En cours d’examen",
+      "title": "Candidature d’hôte en cours d’examen",
+      "subtitle": "Notre équipe examine votre candidature. Nous vous préviendrons dès qu’elle sera approuvée."
     }
   },
   "savedPage": {
@@ -1837,7 +1842,10 @@
       "cta": "Connectez-vous pour commencer à héberger",
       "ctaPromote": "Devenir hôte",
       "working": "Configuration…",
-      "error": "Impossible d’activer l’hébergement. Veuillez réessayer."
+      "error": "Impossible d’activer l’hébergement. Veuillez réessayer.",
+      "ctaApply": "Postuler comme hôte",
+      "pendingBadge": "En cours d’examen",
+      "pendingBody": "Notre équipe examine votre candidature. Nous vous préviendrons dès qu’elle sera approuvée."
     },
     "dashboard": {
       "greeting": "Hébergement, {name}",
@@ -1919,6 +1927,54 @@
         "invalidImageUrl": "Ce lien de photo ne ressemble pas à une URL valide : {url}",
         "createFailed": "Impossible de créer l’annonce"
       }
+    }
+  },
+  "hostApply": {
+    "meta": {
+      "title": "Postuler comme hôte — QuickIn",
+      "description": "Postulez pour devenir hôte sur QuickIn. Notre équipe examine chaque candidature."
+    },
+    "backToAccount": "Retour au compte",
+    "title": "Postuler comme hôte",
+    "subtitle": "Parlez-nous un peu de vous. Notre équipe examine chaque candidature avant que vous puissiez commencer à héberger.",
+    "fields": {
+      "fullName": "Nom complet",
+      "nationalId": "Numéro d’identité",
+      "phone": "Téléphone",
+      "address": "Adresse",
+      "company": "Société / agence",
+      "companyOptional": "Société / agence (facultatif)",
+      "notes": "Notes",
+      "notesOptional": "Notes (facultatif)"
+    },
+    "placeholders": {
+      "fullName": "Votre nom",
+      "nationalId": "Numéro de carte d’identité",
+      "phone": "+20 1xx xxx xxxx",
+      "address": "Rue, ville, pays",
+      "company": "Si vous publiez au nom d’une société",
+      "notes": "Tout ce que notre équipe devrait savoir"
+    },
+    "submit": "Envoyer la candidature",
+    "submitting": "Envoi…",
+    "cancel": "Annuler",
+    "errors": {
+      "nationalIdRequired": "Veuillez saisir votre numéro d’identité.",
+      "phoneRequired": "Veuillez saisir votre numéro de téléphone.",
+      "addressRequired": "Veuillez saisir votre adresse.",
+      "submitFailed": "Impossible d’envoyer votre candidature. Veuillez réessayer."
+    },
+    "pending": {
+      "subtitle": "Votre candidature est en cours d’examen par notre équipe.",
+      "badge": "En cours d’examen",
+      "title": "Candidature en cours d’examen",
+      "body": "Merci pour votre candidature. Notre équipe examine les détails ci-dessous et vous préviendra dès votre approbation.",
+      "submittedAt": "Envoyée le"
+    },
+    "success": {
+      "title": "Candidature envoyée",
+      "body": "Merci pour votre candidature. Notre équipe l’examinera et vous préviendra dès votre approbation.",
+      "backToAccount": "Retour au compte"
     }
   }
 }

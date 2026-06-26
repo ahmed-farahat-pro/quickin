@@ -1802,6 +1802,11 @@
       "tooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
       "mismatch": "Las nuevas contraseñas no coinciden.",
       "error": "No se pudo cambiar tu contraseña."
+    },
+    "hostApplication": {
+      "badge": "En revisión",
+      "title": "Solicitud de anfitrión en revisión",
+      "subtitle": "Nuestro equipo está revisando tu solicitud. Te avisaremos en cuanto sea aprobada."
     }
   },
   "savedPage": {
@@ -1837,7 +1842,10 @@
       "cta": "Inicia sesión para empezar a hospedar",
       "ctaPromote": "Conviértete en anfitrión",
       "working": "Configurando…",
-      "error": "No se pudo activar el alojamiento. Inténtalo de nuevo."
+      "error": "No se pudo activar el alojamiento. Inténtalo de nuevo.",
+      "ctaApply": "Solicitar ser anfitrión",
+      "pendingBadge": "En revisión",
+      "pendingBody": "Nuestro equipo está revisando tu solicitud. Te avisaremos en cuanto sea aprobada."
     },
     "dashboard": {
       "greeting": "Hospedaje, {name}",
@@ -1919,6 +1927,54 @@
         "invalidImageUrl": "Este enlace de foto no parece una URL válida: {url}",
         "createFailed": "No se pudo crear el anuncio"
       }
+    }
+  },
+  "hostApply": {
+    "meta": {
+      "title": "Solicitar ser anfitrión — QuickIn",
+      "description": "Solicita ser anfitrión en QuickIn. Nuestro equipo revisa cada solicitud."
+    },
+    "backToAccount": "Volver a la cuenta",
+    "title": "Solicitar ser anfitrión",
+    "subtitle": "Cuéntanos un poco sobre ti. Nuestro equipo revisa cada solicitud antes de que puedas empezar a hospedar.",
+    "fields": {
+      "fullName": "Nombre completo",
+      "nationalId": "Documento de identidad",
+      "phone": "Teléfono",
+      "address": "Dirección",
+      "company": "Empresa / agencia",
+      "companyOptional": "Empresa / agencia (opcional)",
+      "notes": "Notas",
+      "notesOptional": "Notas (opcional)"
+    },
+    "placeholders": {
+      "fullName": "Tu nombre",
+      "nationalId": "Número de documento de identidad",
+      "phone": "+20 1xx xxx xxxx",
+      "address": "Calle, ciudad, país",
+      "company": "Si publicas en nombre de una empresa",
+      "notes": "Cualquier cosa que nuestro equipo deba saber"
+    },
+    "submit": "Enviar solicitud",
+    "submitting": "Enviando…",
+    "cancel": "Cancelar",
+    "errors": {
+      "nationalIdRequired": "Introduce tu documento de identidad.",
+      "phoneRequired": "Introduce tu número de teléfono.",
+      "addressRequired": "Introduce tu dirección.",
+      "submitFailed": "No se pudo enviar tu solicitud. Inténtalo de nuevo."
+    },
+    "pending": {
+      "subtitle": "Nuestro equipo está revisando tu solicitud.",
+      "badge": "En revisión",
+      "title": "Solicitud en revisión",
+      "body": "Gracias por tu solicitud. Nuestro equipo está revisando los datos a continuación y te avisará en cuanto seas aprobado.",
+      "submittedAt": "Enviada el"
+    },
+    "success": {
+      "title": "Solicitud enviada",
+      "body": "Gracias por tu solicitud. Nuestro equipo la revisará y te avisará en cuanto seas aprobado.",
+      "backToAccount": "Volver a la cuenta"
     }
   }
 }

@@ -758,6 +758,122 @@ export async function submitGuestReview(args: {
   )
 }
 
+// ---- Host applications (Become a host → admin review → approve) -------------
+
+export interface HostApplication {
+  id: string
+  user_id: string
+  full_name: string | null
+  national_id: string | null
+  phone: string | null
+  address: string | null
+  company: string | null
+  notes: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  submitted_at: string
+  reviewed_at: string | null
+  review_note: string | null
+  email?: string
+}
+
+/** Submit (or re-submit) a host application. Does NOT grant host — sets it pending for admin review. */
+export async function submitHostApplication(
+  userId: string,
+  f: { full_name?: string; national_id?: string; phone?: string; address?: string; company?: string; notes?: string }
+): Promise<{ status: string }> {
+  if (!isUuid(userId)) throw new Error('Invalid user')
+  if (!f.national_id || !f.phone || !f.address) {
+    throw new Error('national_id, phone and address are required')
+  }
+  const vals = [userId, f.full_name || null, f.national_id, f.phone, f.address, f.company || null, f.notes || null]
+  const upd = await pool.query(
+    `UPDATE host_applications
+        SET full_name=$2, national_id=$3, phone=$4, address=$5, company=$6, notes=$7,
+            status='pending', submitted_at=now(), reviewed_at=NULL, review_note=NULL
+      WHERE user_id=$1 RETURNING id`,
+    vals
+  )
+  if (!upd.rows[0]) {
+    await pool.query(
+      `INSERT INTO host_applications (user_id, full_name, national_id, phone, address, company, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      vals
+    )
+  }
+  return { status: 'pending' }
+}
+
+export async function getHostApplication(userId: string): Promise<HostApplication | null> {
+  if (!isUuid(userId)) return null
+  const { rows } = await pool.query(
+    `SELECT id, user_id, full_name, national_id, phone, address, company, notes, status,
+            to_char(submitted_at,'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS submitted_at,
+            to_char(reviewed_at,'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS reviewed_at, review_note
+       FROM host_applications WHERE user_id=$1`,
+    [userId]
+  )
+  return (rows[0] as HostApplication) ?? null
+}
+
+export async function getPendingHostApplications(): Promise<HostApplication[]> {
+  const { rows } = await pool.query(
+    `SELECT a.id, a.user_id, a.full_name, a.national_id, a.phone, a.address, a.company, a.notes, a.status,
+            to_char(a.submitted_at,'YYYY-MM-DD HH24:MI') AS submitted_at, u.email
+       FROM host_applications a JOIN users u ON u.id = a.user_id
+      WHERE a.status = 'pending' ORDER BY a.submitted_at ASC`
+  )
+  return rows as HostApplication[]
+}
+
+/** Admin decision on a host application. Approve → set users.is_host + notify; reject → notify. */
+export async function reviewHostApplication(appId: string, action: 'approve' | 'reject', note: string | null): Promise<void> {
+  if (!isUuid(appId)) throw new Error('Invalid application')
+  const status = action === 'approve' ? 'approved' : 'rejected'
+  const { rows } = await pool.query(
+    `UPDATE host_applications SET status=$2, reviewed_at=now(), reviewed_by='admin', review_note=$3
+      WHERE id=$1 RETURNING user_id`,
+    [appId, status, note]
+  )
+  const uid = rows[0]?.user_id
+  if (!uid) throw new Error('Application not found')
+  if (action === 'approve') {
+    await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [uid])
+    await createNotification(uid, 'host', 'You are now a host!', 'Your host application was approved — you can now list your space and accept guests.', '/host')
+  } else {
+    await createNotification(uid, 'host', 'Host application update', note ? `Your application needs attention: ${note}` : 'Your host application was not approved this time.', '/account')
+  }
+}
+
+// ---- Admin: ID verification review -----------------------------------------
+
+export async function getPendingVerifications(): Promise<Array<{ id: string; user_id: string; email: string; full_name: string | null; id_number: string | null; status: string; image_data: string; submitted_at: string }>> {
+  const { rows } = await pool.query(
+    `SELECT v.id, v.user_id, u.email, v.full_name, v.id_number, v.status, v.image_data,
+            to_char(v.submitted_at,'YYYY-MM-DD HH24:MI') AS submitted_at
+       FROM id_verifications v JOIN users u ON u.id = v.user_id
+      WHERE v.status = 'pending' ORDER BY v.submitted_at ASC`
+  )
+  return rows
+}
+
+export async function reviewVerification(verifId: string, action: 'verify' | 'reject', note: string | null): Promise<void> {
+  if (!isUuid(verifId)) throw new Error('Invalid verification')
+  const status = action === 'verify' ? 'verified' : 'rejected'
+  const { rows } = await pool.query(
+    `UPDATE id_verifications SET status=$2, reviewed_at=now(), reviewed_by='admin', notes=$3
+      WHERE id=$1 RETURNING user_id`,
+    [verifId, status, note]
+  )
+  const uid = rows[0]?.user_id
+  if (!uid) throw new Error('Verification not found')
+  await createNotification(
+    uid, 'verification',
+    action === 'verify' ? 'Identity verified' : 'Identity check update',
+    action === 'verify' ? 'Your ID was verified — your account is now verified.' : (note ? `We could not verify your ID: ${note}` : 'We could not verify your ID. Please re-submit a clear photo.'),
+    '/account'
+  )
+}
+
 // ---- Wishlists --------------------------------------------------------------
 
 /** The user's saved listings (same row shape as getListings, incl. a primary image_url). */

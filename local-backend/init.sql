@@ -166,6 +166,26 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   created_at timestamptz DEFAULT now()
 );
 
+-- Host applications: "Become a host" submits these; an admin reviews + approves,
+-- which flips users.is_host and notifies the applicant.
+CREATE TABLE IF NOT EXISTS host_applications (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  full_name    text,
+  national_id  text,
+  phone        text,
+  address      text,
+  company      text,
+  notes        text,
+  status       text NOT NULL DEFAULT 'pending',  -- pending | approved | rejected
+  submitted_at timestamptz DEFAULT now(),
+  reviewed_at  timestamptz,
+  reviewed_by  text,
+  review_note  text,
+  UNIQUE (user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_host_apps_status ON host_applications(status);
+
 -- ---- Seed listings (only if the table is empty) -----------------------------
 DO $$
 DECLARE

@@ -140,7 +140,7 @@ const BOOKING_COLS = `
   b.refund_percent, b.host_notes,
   'QK-' || upper(substr(b.id::text, 1, 8)) AS reservation_code,
   to_char(b.created_at, 'YYYY-MM-DD') AS created_at,
-  l.title, l.location,
+  l.title, l.location, COALESCE(l.currency, 'USD') AS currency,
   (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS image
 `
 

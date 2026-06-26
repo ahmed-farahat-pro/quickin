@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   reviewer_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   rating      int  NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment     text,
-  photos      jsonb NOT NULL DEFAULT '[]'::jsonb,
+  photos      text[] NOT NULL DEFAULT '{}'::text[],   -- matches the live DB (text[], not jsonb)
   created_at  timestamptz DEFAULT now(),
   UNIQUE (booking_id, reviewer_id)
 );

@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { getUserBookings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { localeToBcp47, type Locale } from '@/i18n/config'
+import { formatPrice } from '@/lib/utils'
 import { ReservationActions } from './reservation-actions'
 
 export const dynamic = 'force-dynamic'
@@ -362,7 +363,7 @@ async function ReservationsList({
                     color: COLORS.burgundy,
                   }}
                 >
-                  ${b.total_price}
+                  {formatPrice(b.total_price, b.currency)}
                 </div>
                 <div style={{ fontSize: 13, color: COLORS.muted }}>{t('total')}</div>
               </div>

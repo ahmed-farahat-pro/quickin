@@ -49,11 +49,42 @@ function AppleGlyph() {
   )
 }
 
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={COLORS.muted}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {off ? (
+        <>
+          <path d="M9.88 4.24A9.12 9.12 0 0 1 12 4c5.52 0 9.27 4.86 10 7 0 0-.5 1.46-1.74 2.92" />
+          <path d="M6.07 6.06C3.4 7.6 2 10.86 2 11c.73 2.14 4.48 7 10 7a9.7 9.7 0 0 0 4-0.83" />
+          <line x1="3" y1="3" x2="21" y2="21" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </>
+      ) : (
+        <>
+          <path d="M2 11s3.75-7 10-7 10 7 10 7-3.75 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="11" r="3" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 export default function SignupPage() {
   const t = useTranslations('signupLocal')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -395,16 +426,26 @@ export default function SignupPage() {
             >
               {t('fields.password')}
             </span>
-            <input
-              type="password"
-              required
-              minLength={6}
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t('fields.passwordPlaceholder')}
-              style={inputStyle}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('fields.passwordPlaceholder')}
+                style={{ ...inputStyle, paddingInlineEnd: 46 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={eyeButtonStyle}
+              >
+                <EyeIcon off={showPassword} />
+              </button>
+            </div>
           </label>
 
           <button type="submit" disabled={loading} style={primaryButtonStyle(loading)}>
@@ -507,6 +548,23 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 18,
   padding: '12px 16px',
   outline: 'none',
+}
+
+const eyeButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  insetInlineEnd: 8,
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 32,
+  height: 32,
+  padding: 0,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: COLORS.muted,
 }
 
 function primaryButtonStyle(loading: boolean): React.CSSProperties {

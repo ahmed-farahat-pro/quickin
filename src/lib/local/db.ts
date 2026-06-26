@@ -1233,6 +1233,25 @@ export async function adminActivateUser(id: string): Promise<void> {
   await createNotification(id, 'account', 'Account activated', 'Your email was verified by our team — you can use your account normally now.', '/account')
 }
 
+/** Admin: permanently delete a user and everything they own. Most child rows cascade,
+ *  but listings.host_id has no ON DELETE CASCADE, so their listings are removed first
+ *  (which cascades to those listings' images / bookings / reviews). Transactional. */
+export async function adminDeleteUser(id: string): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid user')
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(`DELETE FROM listings WHERE host_id = $1`, [id])
+    await client.query(`DELETE FROM users WHERE id = $1`, [id])
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
 export interface AdminBookingRow {
   id: string
   reservation_code: string

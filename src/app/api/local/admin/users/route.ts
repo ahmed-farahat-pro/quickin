@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { isAdminKey } from '@/lib/local/auth'
-import { adminListUsers, adminActivateUser } from '@/lib/local/db'
+import { adminListUsers, adminActivateUser, adminDeleteUser } from '@/lib/local/db'
 
 // Admin (key-gated): GET ?key=  → newest-first users with verification + counts.
-//                    POST ?key= { id, action:'activate' } → mark email verified.
+//                    POST ?key= { id, action:'activate'|'delete' } → verify / delete user.
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 const keyOf = (req: Request) => new URL(req.url).searchParams.get('key') || req.headers.get('x-admin-key')
@@ -23,13 +23,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null)
     const id = body?.id
-    if (!id || body?.action !== 'activate') {
-      return NextResponse.json({ error: 'id and action:activate required' }, { status: 400, headers: CORS })
+    const action = body?.action
+    if (!id || (action !== 'activate' && action !== 'delete')) {
+      return NextResponse.json({ error: "id and action:'activate'|'delete' required" }, { status: 400, headers: CORS })
     }
-    await adminActivateUser(id)
+    if (action === 'delete') await adminDeleteUser(id)
+    else await adminActivateUser(id)
     return NextResponse.json({ ok: true }, { headers: CORS })
   } catch (err) {
     console.error('admin users POST:', err)
-    return NextResponse.json({ error: 'Could not activate' }, { status: 500, headers: CORS })
+    return NextResponse.json({ error: 'Could not update user' }, { status: 500, headers: CORS })
   }
 }

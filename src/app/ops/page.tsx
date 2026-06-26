@@ -373,6 +373,18 @@ export default function OpsPage() {
     }
   }
 
+  const deleteUser = async (u: AdminUser) => {
+    if (!window.confirm(`Permanently delete ${u.email}? This removes their account, listings and bookings and cannot be undone.`)) return
+    setBusyId(u.id)
+    const ok = await post('users', { id: u.id, action: 'delete' })
+    setBusyId(null)
+    if (ok) {
+      setUsers((prev) => prev.filter((x) => x.id !== u.id))
+    } else {
+      setSectionError('users', 'Could not delete the user. Please retry.')
+    }
+  }
+
   // ---- listings actions ----
   const togglePublish = async (l: AdminListing) => {
     setBusyId(l.id)
@@ -759,6 +771,13 @@ export default function OpsPage() {
                               {busyId === u.id ? 'Working…' : 'Activate'}
                             </button>
                           ) : null}
+                          <button
+                            style={dangerBtn}
+                            disabled={busyId === u.id}
+                            onClick={() => deleteUser(u)}
+                          >
+                            {busyId === u.id ? 'Working…' : 'Delete'}
+                          </button>
                         </div>
                       </td>
                       <td style={tdStyle}>{verificationBadge(u.verification_status)}</td>

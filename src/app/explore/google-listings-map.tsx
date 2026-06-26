@@ -55,6 +55,8 @@ interface GMapsApi {
   marker?: {
     AdvancedMarkerElement: new (opts: Record<string, unknown>) => GMarkerLike
   }
+  // Modern async bootstrap: the real classes only exist after importLibrary().
+  importLibrary?: (name: string) => Promise<Record<string, unknown>>
 }
 
 declare global {
@@ -70,7 +72,8 @@ function loadGoogleMaps(apiKey: string): Promise<GMapsApi> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Google Maps can only load in the browser'))
   }
-  if (window.google?.maps) return Promise.resolve(window.google.maps)
+  // Fully loaded already (Map constructor present) — reuse.
+  if (window.google?.maps?.Map) return Promise.resolve(window.google.maps)
   if (window.__quickinGmapsPromise) return window.__quickinGmapsPromise
 
   window.__quickinGmapsPromise = new Promise<GMapsApi>((resolve, reject) => {
@@ -86,9 +89,22 @@ function loadGoogleMaps(apiKey: string): Promise<GMapsApi> {
     script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`
     script.async = true
     script.defer = true
-    script.onload = () => {
-      if (window.google?.maps) resolve(window.google.maps)
-      else reject(new Error('Google Maps loaded but window.google.maps is missing'))
+    script.onload = async () => {
+      try {
+        const maps = window.google?.maps
+        // With `loading=async`, onload only guarantees the bootstrap loader is
+        // present — `maps.Map` & friends are undefined until their libraries are
+        // imported. Importing them populates the classes on `google.maps`.
+        // (This is the fix for "t.Map is not a constructor".)
+        if (maps?.importLibrary) {
+          await maps.importLibrary('maps')
+          await maps.importLibrary('marker')
+        }
+        if (window.google?.maps?.Map) resolve(window.google.maps)
+        else reject(new Error('Google Maps loaded but the Map class is unavailable'))
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error(String(e)))
+      }
     }
     script.onerror = () => reject(new Error('Failed to load Google Maps JS API'))
     document.head.appendChild(script)
@@ -136,9 +152,11 @@ function infoHtml(listing: GeoListing, perNightLabel: string): string {
 export default function GoogleListingsMap({
   listings,
   apiKey,
+  onError,
 }: {
   listings: Listing[]
   apiKey: string
+  onError?: () => void
 }) {
   const t = useTranslations('explorePage')
   const perNightLabel = t('card.perNight')
@@ -257,6 +275,8 @@ export default function GoogleListingsMap({
       })
       .catch((err) => {
         console.error('Google Maps init failed:', err)
+        // Surface to the wrapper so it can fall back to the Leaflet map.
+        if (!cancelled) onError?.()
       })
     return () => {
       cancelled = true

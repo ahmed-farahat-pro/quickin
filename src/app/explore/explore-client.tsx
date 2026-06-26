@@ -111,6 +111,17 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   const [searchError, setSearchError] = useState(false)
   const [view, setView] = useState<View>('list')
 
+  // Airbnb-style: on desktop, collapse the hero copy + shrink the search bar into
+  // a compact sticky bar once the user scrolls past the hero. (Mobile keeps the
+  // full inline search — the CSS for this is gated to >=821px, see <style> below.)
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 56)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Tracks the query string that produced `listings`, so we can skip the very
   // first fetch (the server already rendered that exact result set).
   const lastQueryRef = useRef<string>(buildQuery(initialFilters))
@@ -215,26 +226,63 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
             grid-template-columns: 1fr !important;
           }
         }
+
+        /* Airbnb-style scroll-minimise of the hero search. The collapsing
+           transitions are always defined; the sticky + collapsed state only
+           applies on desktop (>=821px) so the mobile layout is untouched. */
+        .qk-hero { transition: padding 0.3s ease, box-shadow 0.3s ease; }
+        .qk-hero-headline {
+          overflow: hidden;
+          max-height: 260px;
+          opacity: 1;
+          transition: max-height 0.4s ease, opacity 0.25s ease, margin 0.35s ease;
+        }
+        .qk-search-grid { transition: padding 0.3s ease, border-radius 0.3s ease, box-shadow 0.3s ease; }
+        @media (min-width: 821px) {
+          .qk-hero { position: sticky; top: 0; z-index: 40; }
+          .qk-hero[data-scrolled="true"] {
+            padding-top: 12px !important;
+            padding-bottom: 12px !important;
+            box-shadow: 0 6px 20px rgba(42, 34, 32, 0.10);
+            border-bottom: 1px solid rgba(42, 34, 32, 0.06);
+          }
+          .qk-hero[data-scrolled="true"] .qk-hero-headline {
+            max-height: 0;
+            opacity: 0;
+            margin: 0 !important;
+          }
+          .qk-hero[data-scrolled="true"] .qk-search-grid {
+            padding: 10px !important;
+            border-radius: 16px !important;
+            box-shadow: 0 4px 14px rgba(42, 34, 32, 0.12) !important;
+          }
+        }
       `}</style>
 
       {/* Hero + Search bar */}
-      <section style={{ background: COLORS.cream, padding: '36px 24px 8px' }}>
+      <section
+        className="qk-hero"
+        data-scrolled={scrolled ? 'true' : 'false'}
+        style={{ background: COLORS.cream, padding: '36px 24px 8px' }}
+      >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: '"Playfair Display", Georgia, serif',
-              fontSize: 'clamp(26px, 4vw, 38px)',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              color: COLORS.burgundy,
-            }}
-          >
-            {t('hero.title')}
-          </h1>
-          <p style={{ margin: '10px 0 24px', fontSize: 15, color: COLORS.muted, maxWidth: 560 }}>
-            {t('hero.subtitle')}
-          </p>
+          <div className="qk-hero-headline">
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: '"Playfair Display", Georgia, serif',
+                fontSize: 'clamp(26px, 4vw, 38px)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                color: COLORS.burgundy,
+              }}
+            >
+              {t('hero.title')}
+            </h1>
+            <p style={{ margin: '10px 0 24px', fontSize: 15, color: COLORS.muted, maxWidth: 560 }}>
+              {t('hero.subtitle')}
+            </p>
+          </div>
 
           {/* Live search (no submit needed — filters as you type) */}
           <div

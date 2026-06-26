@@ -66,6 +66,7 @@ export interface Booking {
   created_at: string
   title: string
   location: string | null
+  currency: string
   image: string | null
 }
 

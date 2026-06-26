@@ -1105,3 +1105,154 @@ export async function createListing(hostId: string, data: CreateListingInput): P
   if (!listing) throw new Error('Could not create listing')
   return listing
 }
+
+// ---- Admin: full ops dashboard (key-gated) ----------------------------------
+
+export interface AdminStats {
+  users: number
+  hosts: number
+  verified: number
+  listings: number
+  published: number
+  bookings: number
+  pending_bookings: number
+  confirmed_bookings: number
+  paid_bookings: number
+  pending_applications: number
+  pending_verifications: number
+  gross_paid: number
+}
+
+/** Top-line counts for the admin dashboard. gross_paid = SUM(total_price) of paid
+ *  bookings; verified = users with at least one verified id_verification. */
+export async function adminStats(): Promise<AdminStats> {
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM users)::int AS users,
+       (SELECT COUNT(*) FROM users WHERE is_host = true)::int AS hosts,
+       (SELECT COUNT(DISTINCT user_id) FROM id_verifications WHERE status = 'verified')::int AS verified,
+       (SELECT COUNT(*) FROM listings)::int AS listings,
+       (SELECT COUNT(*) FROM listings WHERE is_published = true)::int AS published,
+       (SELECT COUNT(*) FROM bookings)::int AS bookings,
+       (SELECT COUNT(*) FROM bookings WHERE status = 'pending')::int AS pending_bookings,
+       (SELECT COUNT(*) FROM bookings WHERE status = 'confirmed')::int AS confirmed_bookings,
+       (SELECT COUNT(*) FROM bookings WHERE paid_at IS NOT NULL)::int AS paid_bookings,
+       (SELECT COUNT(*) FROM host_applications WHERE status = 'pending')::int AS pending_applications,
+       (SELECT COUNT(*) FROM id_verifications WHERE status = 'pending')::int AS pending_verifications,
+       COALESCE((SELECT SUM(total_price) FROM bookings WHERE paid_at IS NOT NULL), 0)::float8 AS gross_paid`
+  )
+  return rows[0] as AdminStats
+}
+
+export interface AdminUserRow {
+  id: string
+  email: string
+  full_name: string | null
+  is_host: boolean
+  verification_status: string
+  created_at: string
+  listing_count: number
+  booking_count: number
+}
+
+/** Newest-first users (LIMIT 300) with their latest verification status, the count
+ *  of listings they host and bookings they've made. */
+export async function adminListUsers(): Promise<AdminUserRow[]> {
+  const { rows } = await pool.query(
+    `SELECT u.id, u.email, u.full_name, COALESCE(u.is_host, false) AS is_host,
+            COALESCE(
+              (SELECT v.status FROM id_verifications v
+                WHERE v.user_id = u.id ORDER BY v.submitted_at DESC LIMIT 1),
+              'none'
+            ) AS verification_status,
+            to_char(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+            (SELECT COUNT(*) FROM listings l WHERE l.host_id = u.id)::int AS listing_count,
+            (SELECT COUNT(*) FROM bookings b WHERE b.user_id = u.id)::int AS booking_count
+       FROM users u
+      ORDER BY u.created_at DESC
+      LIMIT 300`
+  )
+  return rows as AdminUserRow[]
+}
+
+export interface AdminListingRow {
+  id: string
+  title: string
+  location: string | null
+  currency: string
+  price_per_night: number
+  is_published: boolean
+  host_id: string | null
+  host_name: string | null
+  created_at: string
+  booking_count: number
+  image: string | null
+}
+
+/** Newest-first listings (LIMIT 300) with host name, booking count and a primary image. */
+export async function adminListListings(): Promise<AdminListingRow[]> {
+  const { rows } = await pool.query(
+    `SELECT l.id, l.title, l.location, COALESCE(l.currency, 'USD') AS currency,
+            l.price_per_night::float8 AS price_per_night, l.is_published,
+            l.host_id, u.full_name AS host_name,
+            to_char(l.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
+            (SELECT COUNT(*) FROM bookings b WHERE b.listing_id = l.id)::int AS booking_count,
+            (SELECT li.url FROM listing_images li WHERE li.listing_id = l.id
+              ORDER BY li."order" LIMIT 1) AS image
+       FROM listings l
+       LEFT JOIN users u ON u.id = l.host_id
+      ORDER BY l.created_at DESC
+      LIMIT 300`
+  )
+  return rows as AdminListingRow[]
+}
+
+/** Publish / unpublish a listing. */
+export async function adminSetListingPublished(id: string, published: boolean): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid listing')
+  await pool.query(`UPDATE listings SET is_published = $2 WHERE id = $1`, [id, published])
+}
+
+/** Delete a listing (FK cascades remove its images / bookings / reviews). */
+export async function adminDeleteListing(id: string): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid listing')
+  await pool.query(`DELETE FROM listings WHERE id = $1`, [id])
+}
+
+export interface AdminBookingRow {
+  id: string
+  reservation_code: string
+  status: string
+  payment_status: string
+  total_price: number
+  currency: string
+  check_in: string
+  check_out: string
+  guest_name: string | null
+  guest_email: string | null
+  listing_title: string | null
+  created_at: string
+}
+
+/** Newest-first bookings (LIMIT 300) with guest + listing details. */
+export async function adminListBookings(): Promise<AdminBookingRow[]> {
+  const { rows } = await pool.query(
+    `SELECT b.id,
+            'QK-' || upper(substr(b.id::text, 1, 8)) AS reservation_code,
+            b.status,
+            CASE WHEN b.paid_at IS NULL THEN 'unpaid' ELSE 'paid' END AS payment_status,
+            b.total_price::float8 AS total_price,
+            COALESCE(l.currency, 'USD') AS currency,
+            to_char(b.check_in, 'YYYY-MM-DD') AS check_in,
+            to_char(b.check_out, 'YYYY-MM-DD') AS check_out,
+            gu.full_name AS guest_name, gu.email AS guest_email,
+            l.title AS listing_title,
+            to_char(b.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+       FROM bookings b
+       LEFT JOIN listings l ON l.id = b.listing_id
+       LEFT JOIN users gu ON gu.id = b.user_id
+      ORDER BY b.created_at DESC
+      LIMIT 300`
+  )
+  return rows as AdminBookingRow[]
+}

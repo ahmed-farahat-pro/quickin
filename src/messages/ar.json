@@ -1377,7 +1377,10 @@
       "notifications": "الإشعارات",
       "menu": "القائمة",
       "markAllRead": "تعليم الكل كمقروء",
-      "noNotifications": "لا توجد إشعارات بعد"
+      "noNotifications": "لا توجد إشعارات بعد",
+      "trips": "الرحلات",
+      "saved": "المحفوظات",
+      "account": "الحساب"
     },
     "hero": {
       "title": "اعثر على إقامة البوتيك التالية",
@@ -1500,7 +1503,8 @@
       "network": "خطأ في الشبكة. يُرجى المحاولة مرة أخرى."
     },
     "decrease": "إنقاص {label}",
-    "increase": "زيادة {label}"
+    "increase": "زيادة {label}",
+    "hostedBy": "يستضيفك"
   },
   "loginLocal": {
     "subtitle": "أهلاً بعودتك — سجّل الدخول للمتابعة",
@@ -1741,6 +1745,165 @@
     },
     "footer": {
       "source": "المصدر الموثوق: <code>LAUNCH-PLAN.md</code> · خطوات النشر: <code>DEPLOY-VERCEL.md</code> · المفاتيح: <code>SETUP.md</code>."
+    }
+  },
+  "accountPage": {
+    "meta": {
+      "title": "حسابك · QuickIn",
+      "description": "أدِر ملفك الشخصي والتحقق من الهوية وكلمة المرور على QuickIn."
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "title": "الحساب",
+    "subtitle": "أدِر ملفك الشخصي وهويتك وكلمة المرور.",
+    "verifyStatus": {
+      "verified": "موثّق",
+      "pending": "قيد المراجعة",
+      "rejected": "غير معتمد",
+      "unverified": "غير موثّق"
+    },
+    "verifyIdCta": "وثّق هويتك",
+    "links": {
+      "reservations": "حجوزاتك",
+      "saved": "الإقامات المحفوظة",
+      "verification": "التحقق من الهوية",
+      "hosting": "الاستضافة"
+    },
+    "logout": "تسجيل الخروج",
+    "profile": {
+      "title": "الملف الشخصي",
+      "fullName": "الاسم الكامل",
+      "fullNamePlaceholder": "اسمك",
+      "avatarUrl": "رابط الصورة الشخصية",
+      "save": "حفظ الملف",
+      "saving": "جارٍ الحفظ…",
+      "saved": "تم حفظ الملف.",
+      "error": "تعذّر حفظ ملفك الشخصي."
+    },
+    "password": {
+      "title": "تغيير كلمة المرور",
+      "current": "كلمة المرور الحالية",
+      "new": "كلمة المرور الجديدة",
+      "confirm": "تأكيد كلمة المرور الجديدة",
+      "update": "تحديث كلمة المرور",
+      "updating": "جارٍ التحديث…",
+      "updated": "تم تحديث كلمة المرور.",
+      "tooShort": "يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف.",
+      "mismatch": "كلمتا المرور غير متطابقتين.",
+      "error": "تعذّر تغيير كلمة المرور."
+    }
+  },
+  "savedPage": {
+    "meta": {
+      "title": "المحفوظات · QuickIn",
+      "description": "إقاماتك البوتيكية المحفوظة على QuickIn."
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "title": "الإقامات المحفوظة",
+    "noneYet": "لم تحفظ أي إقامة بعد.",
+    "countSaved": "{count, plural, zero {لا إقامات محفوظة.} one {إقامة محفوظة واحدة.} two {إقامتان محفوظتان.} few {# إقامات محفوظة.} many {# إقامة محفوظة.} other {# إقامة محفوظة.}}",
+    "emptyHint": "اضغط على القلب في أي إقامة لحفظها لوقت لاحق.",
+    "browseStays": "تصفّح الإقامات",
+    "perNight": "/ الليلة"
+  },
+  "hostPage": {
+    "meta": {
+      "title": "لوحة المضيف — QuickIn",
+      "description": "أدِر قوائمك على QuickIn وردّ على طلبات الحجز."
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "perNight": "/ الليلة",
+    "become": {
+      "eyebrow": "كن مضيفًا",
+      "title": "شارك مساحتك واستضِف على QuickIn",
+      "subtitle": "أدرج منزلك في دقائق، وحدّد سعر الليلة بنفسك، ووافق على كل ضيف بنفسك. تبقى متحكمًا في من يقيم ومتى وبأي سعر.",
+      "feature1Title": "أنت تحدّد السعر",
+      "feature1Desc": "لكل ليلة، بعملتك.",
+      "feature2Title": "أنت توافق على الضيوف",
+      "feature2Desc": "كل طلب يحتاج موافقتك.",
+      "feature3Title": "بدون تكلفة مقدّمة",
+      "feature3Desc": "أدرج مجانًا، اليوم.",
+      "cta": "سجّل الدخول لبدء الاستضافة"
+    },
+    "dashboard": {
+      "greeting": "الاستضافة، {name}",
+      "noListings": "ليس لديك أي قوائم بعد.",
+      "countPublished": "{count, plural, zero {لا قوائم منشورة.} one {قائمة واحدة منشورة.} two {قائمتان منشورتان.} few {# قوائم منشورة.} many {# قائمة منشورة.} other {# قائمة منشورة.}}",
+      "createListing": "إنشاء قائمة",
+      "emptyHint": "أدرج مساحتك الأولى لتبدأ في استقبال الضيوف."
+    },
+    "reservations": {
+      "heading": "الحجوزات الواردة",
+      "loading": "جارٍ تحميل الحجوزات…",
+      "loadError": "تعذّر تحميل الحجوزات",
+      "updateError": "تعذّر تحديث هذا الحجز",
+      "tryAgain": "حاول مجددًا",
+      "emptyTitle": "لا توجد طلبات حجز بعد.",
+      "emptySubtitle": "ستظهر طلبات قوائمك هنا.",
+      "listingFallback": "قائمة",
+      "guestFallback": "ضيف",
+      "guestsCount": "{count, plural, zero {لا ضيوف} one {ضيف واحد} two {ضيفان} few {# ضيوف} many {# ضيفًا} other {# ضيف}}",
+      "total": "الإجمالي",
+      "status": {
+        "pending": "بانتظار ردّك",
+        "approved": "تمت الموافقة",
+        "approvedPaid": "تمت الموافقة والدفع",
+        "cancelled": "ملغى",
+        "rejected": "مرفوض"
+      },
+      "approve": "موافقة",
+      "working": "جارٍ التنفيذ…",
+      "decline": "رفض"
+    },
+    "create": {
+      "meta": {
+        "title": "إنشاء قائمة — QuickIn",
+        "description": "أدرج مساحتك على QuickIn."
+      },
+      "backToHosting": "العودة إلى الاستضافة",
+      "title": "إنشاء قائمة",
+      "subtitle": "أخبر الضيوف عن مساحتك. يمكنك تعديل التفاصيل في أي وقت.",
+      "fields": {
+        "title": "العنوان",
+        "description": "الوصف",
+        "location": "الموقع",
+        "country": "الدولة",
+        "price": "السعر لكل ليلة",
+        "currency": "العملة",
+        "bedrooms": "غرف النوم",
+        "beds": "الأسرّة",
+        "bathrooms": "الحمّامات",
+        "maxGuests": "الحد الأقصى للضيوف",
+        "propertyType": "نوع العقار",
+        "photos": "روابط الصور"
+      },
+      "placeholders": {
+        "title": "شقة مشمسة على ضفاف النيل",
+        "description": "ما الذي يميّز مكانك؟",
+        "location": "الزمالك، القاهرة",
+        "country": "مصر",
+        "photos": "رابط واحد في كل سطر، أو مفصولة بفواصل\nhttps://images.unsplash.com/photo-..."
+      },
+      "propertyTypes": {
+        "apartment": "شقة",
+        "house": "منزل",
+        "villa": "فيلا",
+        "cabin": "كوخ",
+        "studio": "استوديو",
+        "loft": "لوفت",
+        "chalet": "شاليه",
+        "cottage": "بيت ريفي",
+        "guestSuite": "جناح ضيوف"
+      },
+      "photosHint": "الصِق روابط الصور مفصولة بفواصل أو أسطر جديدة. تصبح الأولى صورة الغلاف.",
+      "publish": "نشر القائمة",
+      "publishing": "جارٍ النشر…",
+      "cancel": "إلغاء",
+      "errors": {
+        "titleRequired": "يرجى إعطاء قائمتك عنوانًا.",
+        "priceInvalid": "يرجى إدخال سعر صحيح لكل ليلة.",
+        "invalidImageUrl": "لا يبدو رابط الصورة هذا رابطًا صالحًا: {url}",
+        "createFailed": "تعذّر إنشاء القائمة"
+      }
     }
   }
 }

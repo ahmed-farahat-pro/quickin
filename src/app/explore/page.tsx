@@ -176,13 +176,13 @@ export default async function ExplorePage({
                   href="/reservations"
                   style={{ color: COLORS.ink, textDecoration: 'none', fontWeight: 600 }}
                 >
-                  Trips
+                  {t('nav.trips')}
                 </a>
                 <a
                   href="/saved"
                   style={{ color: COLORS.ink, textDecoration: 'none', fontWeight: 600 }}
                 >
-                  Saved
+                  {t('nav.saved')}
                 </a>
                 <a
                   href="/account"

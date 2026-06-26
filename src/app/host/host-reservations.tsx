@@ -4,6 +4,7 @@
 // renders each request with Approve / Decline buttons that PATCH
 // /api/local/bookings/[id] { status: 'confirm' | 'reject' } and refresh the list.
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 
 const C = {
   burgundy: '#5B0F16',
@@ -27,20 +28,32 @@ interface HostBooking {
   title?: string
 }
 
-function statusChip(status: string, paid: boolean): { bg: string; fg: string; label: string } {
+// BCP47 mapping mirrors the app's i18n config so dates render in the active locale.
+const DATE_LOCALE: Record<string, string> = {
+  ar: 'ar-EG',
+  fr: 'fr-FR',
+  es: 'es-ES',
+  en: 'en-US',
+}
+
+function statusChipColors(status: string): { bg: string; fg: string } {
   switch (status) {
-    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00', label: 'Awaiting your reply' }
-    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245', label: paid ? 'Approved & paid' : 'Approved' }
-    case 'cancelled': return { bg: '#f1efec', fg: C.muted,   label: 'Cancelled' }
-    case 'rejected':  return { bg: '#fdecea', fg: '#b3261e', label: 'Declined' }
-    default:          return { bg: '#f1efec', fg: C.muted,   label: status || '—' }
+    case 'pending':   return { bg: '#fff7e6', fg: '#9a6b00' }
+    case 'confirmed': return { bg: '#e7f5ec', fg: '#177245' }
+    case 'cancelled': return { bg: '#f1efec', fg: C.muted }
+    case 'rejected':  return { bg: '#fdecea', fg: '#b3261e' }
+    default:          return { bg: '#f1efec', fg: C.muted }
   }
 }
 
-function fmtDate(d: string): string {
+function fmtDate(d: string, locale: string): string {
   const date = new Date(d + 'T00:00:00')
   if (Number.isNaN(date.getTime())) return d
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return date.toLocaleDateString(DATE_LOCALE[locale] || 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 const card: React.CSSProperties = {
@@ -52,6 +65,8 @@ const card: React.CSSProperties = {
 }
 
 export function HostReservations() {
+  const t = useTranslations('hostPage.reservations')
+  const locale = useLocale()
   const [bookings, setBookings] = useState<HostBooking[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -67,15 +82,15 @@ export function HostReservations() {
       }
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
-        throw new Error(e.error || 'Failed to load reservations')
+        throw new Error(e.error || t('loadError'))
       }
       const data = await res.json()
       setBookings(Array.isArray(data.bookings) ? data.bookings : [])
     } catch (e) {
       setBookings([])
-      setError(e instanceof Error ? e.message : 'Failed to load reservations')
+      setError(e instanceof Error ? e.message : t('loadError'))
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load()
@@ -97,25 +112,25 @@ export function HostReservations() {
       }
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
-        throw new Error(e.error || 'Could not update this reservation')
+        throw new Error(e.error || t('updateError'))
       }
       await load()
     } catch (e) {
-      setRowError({ id, msg: e instanceof Error ? e.message : 'Could not update this reservation' })
+      setRowError({ id, msg: e instanceof Error ? e.message : t('updateError') })
     } finally {
       setBusyId(null)
     }
   }
 
   if (bookings === null) {
-    return <p style={{ fontSize: 14, color: C.muted }}>Loading reservations…</p>
+    return <p style={{ fontSize: 14, color: C.muted }}>{t('loading')}</p>
   }
 
   if (error && bookings.length === 0) {
     return (
       <div style={{ ...card, textAlign: 'center', color: C.muted }}>
         <p style={{ margin: '0 0 12px', fontSize: 14, color: '#b3261e' }}>{error}</p>
-        <button onClick={load} style={ghostBtn}>Try again</button>
+        <button onClick={load} style={ghostBtn}>{t('tryAgain')}</button>
       </div>
     )
   }
@@ -123,9 +138,9 @@ export function HostReservations() {
   if (bookings.length === 0) {
     return (
       <div style={{ ...card, textAlign: 'center', color: C.muted, padding: '40px 24px' }}>
-        <p style={{ margin: 0, fontSize: 15 }}>No reservation requests yet.</p>
+        <p style={{ margin: 0, fontSize: 15 }}>{t('emptyTitle')}</p>
         <p style={{ margin: '6px 0 0', fontSize: 13.5 }}>
-          Requests for your listings will show up here.
+          {t('emptySubtitle')}
         </p>
       </div>
     )
@@ -134,7 +149,20 @@ export function HostReservations() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {bookings.map((b) => {
-        const chip = statusChip(b.status, b.payment_status === 'paid')
+        const chipColors = statusChipColors(b.status)
+        const paid = b.payment_status === 'paid'
+        const chipLabel =
+          b.status === 'confirmed'
+            ? paid
+              ? t('status.approvedPaid')
+              : t('status.approved')
+            : b.status === 'pending'
+              ? t('status.pending')
+              : b.status === 'cancelled'
+                ? t('status.cancelled')
+                : b.status === 'rejected'
+                  ? t('status.rejected')
+                  : b.status || '—'
         return (
           <article key={b.id} style={card}>
             <div
@@ -148,33 +176,33 @@ export function HostReservations() {
             >
               <div style={{ minWidth: 0 }}>
                 <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 700, color: C.ink }}>
-                  {b.listing_title || b.title || 'Listing'}
+                  {b.listing_title || b.title || t('listingFallback')}
                 </h3>
                 <p style={{ margin: '4px 0 0', fontSize: 14, color: C.muted }}>
-                  {b.guest_name || 'A guest'} · {b.guests} {b.guests === 1 ? 'guest' : 'guests'}
+                  {b.guest_name || t('guestFallback')} · {t('guestsCount', { count: b.guests })}
                 </p>
                 <p style={{ margin: '8px 0 0', fontSize: 14, color: C.ink }}>
-                  {fmtDate(b.check_in)} → {fmtDate(b.check_out)}
+                  {fmtDate(b.check_in, locale)} → {fmtDate(b.check_out, locale)}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span
                   style={{
                     display: 'inline-block',
-                    background: chip.bg,
-                    color: chip.fg,
+                    background: chipColors.bg,
+                    color: chipColors.fg,
                     fontSize: 12,
                     fontWeight: 700,
                     padding: '3px 10px',
                     borderRadius: 999,
                   }}
                 >
-                  {chip.label}
+                  {chipLabel}
                 </span>
                 <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: C.burgundy }}>
                   {b.total_price}
                 </div>
-                <div style={{ fontSize: 12.5, color: C.muted }}>total</div>
+                <div style={{ fontSize: 12.5, color: C.muted }}>{t('total')}</div>
               </div>
             </div>
 
@@ -196,7 +224,7 @@ export function HostReservations() {
                     fontFamily: 'inherit',
                   }}
                 >
-                  {busyId === b.id ? 'Working…' : 'Approve'}
+                  {busyId === b.id ? t('working') : t('approve')}
                 </button>
                 <button
                   onClick={() => decide(b.id, 'reject')}
@@ -214,7 +242,7 @@ export function HostReservations() {
                     fontFamily: 'inherit',
                   }}
                 >
-                  Decline
+                  {t('decline')}
                 </button>
               </div>
             )}

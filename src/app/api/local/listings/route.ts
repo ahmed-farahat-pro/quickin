@@ -9,6 +9,17 @@ import { getUserFromRequest } from '@/lib/local/auth'
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 
+/** True only for well-formed http(s) URLs — keeps garbage/non-image entries out. */
+function isHttpUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  try {
+    const u = new URL(value.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
@@ -27,7 +38,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error('GET /api/local/listings failed:', err)
     return NextResponse.json(
-      { error: 'Failed to load listings', detail: String(err) },
+      { error: 'Failed to load listings' },
       { status: 500 }
     )
   }
@@ -52,13 +63,17 @@ export async function POST(req: Request) {
       bathrooms: num(body.bathrooms),
       max_guests: num(body.max_guests),
       property_type: body.property_type ?? undefined,
-      images: Array.isArray(body.images) ? body.images.map(String) : undefined,
+      images: Array.isArray(body.images)
+        ? body.images.filter(isHttpUrl).map((u: string) => u.trim())
+        : undefined,
     })
     return NextResponse.json({ listing }, { status: 201, headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('POST /api/local/listings failed:', msg)
-    const status = /Invalid|required/i.test(msg) ? 400 : 500
-    return NextResponse.json({ error: msg }, { status, headers: CORS })
+    console.error('POST /api/local/listings failed:', err)
+    if (/Invalid|required/i.test(msg)) {
+      return NextResponse.json({ error: msg }, { status: 400, headers: CORS })
+    }
+    return NextResponse.json({ error: 'Failed to create listing' }, { status: 500, headers: CORS })
   }
 }

@@ -4,16 +4,20 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { NewListingForm } from './new-listing-form'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Create a listing — QuickIn',
-  description: 'List your space on QuickIn.',
-  alternates: { canonical: '/host/new' },
-  robots: { index: false, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('hostPage.create')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/host/new' },
+    robots: { index: false, follow: true },
+  }
 }
 
 const COLORS = {
@@ -41,6 +45,8 @@ async function isSignedIn(): Promise<boolean> {
 
 export default async function NewListingPage() {
   if (!(await isSignedIn())) redirect('/login')
+
+  const t = await getTranslations('hostPage.create')
 
   return (
     <main
@@ -86,7 +92,7 @@ export default async function NewListingPage() {
               fontSize: 14,
             }}
           >
-            ← Back to hosting
+            ← {t('backToHosting')}
           </a>
         </div>
       </header>
@@ -102,10 +108,10 @@ export default async function NewListingPage() {
             color: COLORS.burgundy,
           }}
         >
-          Create a listing
+          {t('title')}
         </h1>
         <p style={{ margin: '0 0 28px', fontSize: 15, color: COLORS.muted }}>
-          Tell guests about your space. You can edit the details any time.
+          {t('subtitle')}
         </p>
 
         <NewListingForm />

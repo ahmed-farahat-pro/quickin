@@ -1,0 +1,190 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuickIn — Live Site Audit</title>
+<style>
+:root{--burg:#5B0F16;--cream:#F6F1E6;--tan:#EFE6D8;--ink:#2A2220;--muted:#6B6055}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:"DM Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding:40px 22px 80px}
+h1{font-family:"Playfair Display",Georgia,serif;color:var(--burg);font-size:34px;margin:0 0 6px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 26px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 30px}
+.stat{background:#fff;border:1px solid rgba(42,34,32,.08);border-radius:16px;padding:14px 20px;box-shadow:0 6px 20px rgba(42,34,32,.06)}
+.stat b{display:block;font-size:26px;color:var(--burg);font-family:"Playfair Display",serif}
+.stat span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.card{background:#fff;border:1px solid rgba(42,34,32,.08);border-radius:18px;padding:20px 22px;margin:0 0 16px;box-shadow:0 4px 16px rgba(42,34,32,.05)}
+.cardhead{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.sev{color:#fff;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:999px}
+.cat{background:var(--tan);color:var(--ink);font-size:12px;padding:3px 10px;border-radius:999px;font-weight:600}
+.area{color:var(--muted);font-size:12px}
+.card h3{margin:2px 0 10px;font-size:17px;color:var(--ink)}
+.prob,.fix{margin:0 0 8px;font-size:14px}.fix{color:#256a3e}.prob b,.fix b{color:var(--burg)}
+.files{margin-top:8px}.files code{display:inline-block;background:var(--cream);border:1px solid rgba(42,34,32,.08);border-radius:8px;padding:2px 8px;margin:0 6px 6px 0;font-size:11.5px;color:var(--muted)}
+.note{background:#fff;border-left:4px solid var(--burg);border-radius:8px;padding:14px 18px;margin:0 0 26px;font-size:14px}
+footer{margin-top:30px;color:var(--muted);font-size:12px;text-align:center}
+</style></head><body><div class="wrap">
+<h1>QuickIn — Live Site Audit</h1>
+<p class="sub">Automated multi-agent scan of quickin-frontend.vercel.app · 138 agents · 18 scan targets × every quality dimension · every finding adversarially re-reproduced on the live site.</p>
+<div class="stats">
+  <div class="stat"><b>114</b><span>confirmed findings</span></div>
+  <div class="stat"><b>14</b><span>deduped issues</span></div>
+  <div class="stat"><b>1</b><span>high</span></div>
+  <div class="stat"><b>8</b><span>medium</span></div>
+  <div class="stat"><b>5</b><span>low</span></div>
+</div>
+<div class="note"><b>Note.</b> The 114 raw findings dedupe to these 14 distinct, verified issues. The high/medium error-handling bugs, the i18n gaps on the new pages, and the missing loading skeletons are being fixed in this pass; the payment flow remains an intentional mock.</div>
+
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#b3261e">high</span>
+      <span class="cat">error-handling</span>
+      <span class="area">listing-detail / booking</span>
+    </div>
+    <h3>1. Booking with a past check-in returns HTTP 500 instead of 400</h3>
+    <p class="prob"><b>Problem.</b> createBooking throws 'Check-in cannot be in the past', but the POST catch-block's status classifier regex /available|after check-in|Invalid|required|maximum guests/i does not match that phrase, so a pure user-input error is returned as a 500. Confirmed live: a past-date booking POST returns 500 {"error":"Check-in cannot be in the past"} while the inverted-date case happens to return 400 only because its message contains 'after check-in'.</p>
+    <p class="fix"><b>Fix.</b> Broaden the regex (or invert the logic) so all createBooking validation messages map to 400. Add 'in the past' and 'after check-in' and 'maximum guests'/'Exceeds the maximum' alternatives, e.g. /not available|in the past|after check-in|Invalid|required|maximum guests|Exceeds/i. Better: have createBooking throw a typed ValidationError and classify on the type rather than string-matching.</p>
+    <div class="files"><code>src/app/api/local/bookings/route.ts:47</code><code>src/lib/local/db.ts:151-152</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">security</span>
+      <span class="area">explore-search / api</span>
+    </div>
+    <h3>2. Public listings API leaks raw Postgres error text via detail: String(err) on 500</h3>
+    <p class="prob"><b>Problem.</b> The unauthenticated GET /api/local/listings echoes the stringified driver error to the client on 500. Confirmed live: ?guests=999999999999999999999999 returns {"error":"Failed to load listings","detail":"error: invalid input syntax for type integer: \"1e+24\""}, disclosing the DB column type and driver message. Same detail:String(err) / error:String(err) pattern repeats on listings/[id], bookings, and bookings/[id].</p>
+    <p class="fix"><b>Fix.</b> Stop returning detail/raw error to clients; keep console.error server-side only and return a generic body (e.g. {error:'Failed to load listings'}), optionally gating detail behind NODE_ENV!=='production'. Defense-in-depth: clamp/reject the guests param (Number.isSafeInteger + sane max) in getListings before it reaches Postgres so the overflow never throws.</p>
+    <div class="files"><code>src/app/api/local/listings/route.ts:30</code><code>src/app/api/local/listings/[id]/route.ts:26</code><code>src/app/api/local/bookings/[id]/route.ts:21</code><code>src/app/api/local/bookings/route.ts:19</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">error-handling</span>
+      <span class="area">explore-search / listing-detail</span>
+    </div>
+    <h3>3. Listing images have no onError fallback and non-image URLs can be persisted</h3>
+    <p class="prob"><b>Problem.</b> Card/map/detail &lt;img&gt; tags use the raw stored URL with only a `|| FALLBACK_IMG` guard that fires on a falsy value, never on a present-but-broken/non-image URL; no onError handler exists anywhere in explore. Root cause: the create-listing form accepts arbitrary text as 'Photo URLs' with no image-URL validation, and neither the POST route nor createListing validates them, so a non-image URL (e.g. a google.com/search link) gets stored and rendered as a broken-image icon.</p>
+    <p class="fix"><b>Fix.</b> Add onError={(e)=&gt;{e.currentTarget.onerror=null; e.currentTarget.src=FALLBACK_IMG}} to every card/popup/hero/gallery img. Separately, validate image URLs at create time (require http(s) and a plausible image extension or content-type) in new-listing-form.tsx, the POST /api/local/listings handler, and createListing; backfill/clean any existing listing whose listing_images[0].url is a non-image URL.</p>
+    <div class="files"><code>src/app/explore/explore-client.tsx:553-563</code><code>src/app/explore/leaflet-listings-map.tsx:138-149</code><code>src/app/explore/[id]/page.tsx:161-170</code><code>src/app/explore/[id]/page.tsx:184-198</code><code>src/app/host/new/new-listing-form.tsx:85-113</code><code>src/lib/local/db.ts:943</code><code>src/app/api/local/listings/route.ts:55</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">missing-step</span>
+      <span class="area">explore-search</span>
+    </div>
+    <h3>4. Map view shows a blank world map on zero results and silently drops coordinate-less listings</h3>
+    <p class="prob"><b>Problem.</b> explore-client checks view==='map' before the listings.length===0 empty-state, so a zero-result search in map view renders a blank world map (center [20,0], zoom 2) instead of the empty state with its clear-filters CTA. Independently, the map filters out listings lacking finite lat/lng, so when some results have no coordinates the 'N stays found' count exceeds the visible pins with no explanation.</p>
+    <p class="fix"><b>Fix.</b> Move the listings.length===0 check above the view branch so the empty state renders in both views. When listings.length&gt;0 but some have no coordinates, surface a small translated note near the map ('N stays not shown on map'). Add the new string to all four locale files.</p>
+    <div class="files"><code>src/app/explore/explore-client.tsx:487-489</code><code>src/app/explore/leaflet-listings-map.tsx:73-95</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">i18n</span>
+      <span class="area">account</span>
+    </div>
+    <h3>5. Entire /account page and its profile/password forms are hardcoded English</h3>
+    <p class="prob"><b>Problem.</b> Neither account/page.tsx nor account-forms.tsx uses next-intl at all. Confirmed live on /ar/account (HTTP 200, lang=ar dir=rtl): the literals Account, 'Manage your profile, identity and password.', the verification chips (Verified/Pending review/Not verified), 'Verify your ID', 'Your reservations', 'Saved stays', 'Identity verification', 'Hosting', 'Log out', 'Back to explore', plus the whole forms component (Full name, Avatar URL, Change password, Current/New/Confirm password, Save profile, all success/error notices) all leak English onto Arabic/French/Spanish.</p>
+    <p class="fix"><b>Fix.</b> Add an accountPage namespace to src/messages/{en,ar,fr,es}.json and thread getTranslations/useTranslations through page.tsx and account-forms.tsx (including the VERIFY_CHIP labels and all inline notice strings). Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/account/page.tsx</code><code>src/app/account/account-forms.tsx</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">i18n</span>
+      <span class="area">saved</span>
+    </div>
+    <h3>6. /saved page is hardcoded English</h3>
+    <p class="prob"><b>Problem.</b> saved/page.tsx has no next-intl usage. Confirmed live on /ar/saved (200): 'Saved stays', 'Back to Explore', 'You haven’t saved any stays yet.', 'Tap the heart on any stay to save it for later.', and the '{n} saved stay(s)' count are all hardcoded English on the Arabic/French/Spanish pages.</p>
+    <p class="fix"><b>Fix.</b> Add a savedPage namespace to all four locale files and convert the page to getTranslations, including the pluralized count line. Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/saved/page.tsx</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">i18n</span>
+      <span class="area">host</span>
+    </div>
+    <h3>7. /host dashboard and host-reservations list are hardcoded English</h3>
+    <p class="prob"><b>Problem.</b> host/page.tsx and host-reservations.tsx use no next-intl. Confirmed live on /ar/host (200): 'Host dashboard', 'You set the price'/'You approve guests'/'No upfront cost', 'You have no listings yet.', and the reservation status labels/buttons ('Awaiting your reply', 'Approved &amp; paid', 'Approve', 'Decline', 'Working…', 'Failed to load reservations') all leak English on non-English locales.</p>
+    <p class="fix"><b>Fix.</b> Add a hostPage namespace to all four locale files and localize both the server page and the host-reservations client component (status-label map, action buttons, error strings). Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/host/page.tsx</code><code>src/app/host/host-reservations.tsx</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">i18n</span>
+      <span class="area">host</span>
+    </div>
+    <h3>8. /host/new create-listing form is hardcoded English</h3>
+    <p class="prob"><b>Problem.</b> The create-listing form uses no next-intl: field labels, the PROPERTY_TYPES dropdown options, 'Photo URLs', placeholder/help text, and validation errors ('Please enter a valid price per night.') are all hardcoded English, leaking on ar/fr/es.</p>
+    <p class="fix"><b>Fix.</b> Add the form's strings to a hostPage (or new dedicated) namespace in all four locale files and convert the form to useTranslations. Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/host/new/new-listing-form.tsx</code><code>src/app/host/new/page.tsx</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#9a6b00">medium</span>
+      <span class="cat">loading-state</span>
+      <span class="area">explore-search / listing-detail / account / saved / host</span>
+    </div>
+    <h3>9. No loading skeleton for explore, explore/[id], account, saved, host, host/new, verify-id, reservations — all inherit the root dark full-screen overlay</h3>
+    <p class="prob"><b>Problem.</b> Every top-level route lives OUTSIDE the (main) group and has no loading.tsx, so the nearest Suspense fallback is the root src/app/loading.tsx — a full-screen dark dimming overlay (bg-black/40 backdrop-blur-sm) with a spinning logo. Meanwhile (main)/loading.tsx already implements a proper content skeleton, so the homepage gets a skeleton while /explore et al. get the jarring overlay on client navigation. All these pages are force-dynamic; /explore measured ~1.2s server-side, long enough for the overlay to be clearly visible.</p>
+    <p class="fix"><b>Fix.</b> Add per-route loading.tsx files (or relocate these routes under (main)) that render layout-matching skeletons reusing the Skeleton-based pattern from (main)/loading.tsx: a grid of placeholder cards for explore/saved/host, a detail-layout skeleton (hero + specs + reserve-panel outline) for explore/[id], and form/card skeletons for account.</p>
+    <div class="files"><code>src/app/loading.tsx:14</code><code>src/app/(main)/loading.tsx</code><code>src/app/explore/ (no loading.tsx)</code><code>src/app/explore/[id]/ (no loading.tsx)</code><code>src/app/account/ (no loading.tsx)</code><code>src/app/saved/ (no loading.tsx)</code><code>src/app/host/ (no loading.tsx)</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#5b6b55">low</span>
+      <span class="cat">i18n</span>
+      <span class="area">explore-search</span>
+    </div>
+    <h3>10. Logged-in nav links Trips / Saved / Account are hardcoded English</h3>
+    <p class="prob"><b>Problem.</b> In the signed-in nav, desktop 'Trips' (page.tsx:179) and 'Saved' (page.tsx:186) and the mobile 'Trips'/'Saved'/'Account' (mobile-menu.tsx:46/48/52) are literal strings while the adjacent becomeHost/greeting/logout links are translated. Confirmed live on /fr/explore: literal &gt;Trips&lt; and &gt;Saved&lt;. The desktop 'Account' link already uses t('nav.greeting') and is fine.</p>
+    <p class="fix"><b>Fix.</b> Add trips/saved/account keys under explorePage.nav in all four locale files and replace the literals with t('nav.trips')/t('nav.saved')/t('nav.account'). Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/explore/page.tsx:179</code><code>src/app/explore/page.tsx:186</code><code>src/app/explore/mobile-menu.tsx:46</code><code>src/app/explore/mobile-menu.tsx:48</code><code>src/app/explore/mobile-menu.tsx:52</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#5b6b55">low</span>
+      <span class="cat">i18n</span>
+      <span class="area">listing-detail</span>
+    </div>
+    <h3>11. Host-card 'Hosted by' label is hardcoded English on the listing detail page</h3>
+    <p class="prob"><b>Problem.</b> The host card renders a literal &lt;div&gt;Hosted by&lt;/div&gt;. Confirmed live: /ar /fr /es /explore/&lt;id&gt; all contain 'Hosted by' even though the translator t=getTranslations('listingPage') is already in scope. listingPage.hostedBy does not exist in any locale file.</p>
+    <p class="fix"><b>Fix.</b> Add a hostedBy key to listingPage in all four locale files and replace the literal with {t('hostedBy')}. Run npm run check:i18n.</p>
+    <div class="files"><code>src/app/explore/[id]/page.tsx:302</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#5b6b55">low</span>
+      <span class="cat">design</span>
+      <span class="area">explore-search</span>
+    </div>
+    <h3>12. Price formatting inconsistent between grid and map; no thousands separator; invalid currency codes echoed verbatim</h3>
+    <p class="prob"><b>Problem.</b> formatPrice does plain interpolation (no Intl grouping). The grid uses formatPrice, but the Leaflet pin/popup builds its own string that emits ONLY the bare number for any non-USD currency (no currency suffix), so the same EGP listing shows '3000 EGP' in the grid and '3000' on the map. No thousands separator anywhere, and garbage stored currency codes are rendered verbatim (live data contains currency 'UDDD' and 'NOTACUR', shown as '3200 UDDD' / '100 NOTACUR').</p>
+    <p class="fix"><b>Fix.</b> Replace the two hand-built map price strings with formatPrice(price, currency); upgrade formatPrice to use Intl.NumberFormat for grouping; validate currency against ISO-4217 at listing creation (and/or fall back to a default at render). Clean the garbage 'UDDD'/'NOTACUR' seed rows from the DB.</p>
+    <div class="files"><code>src/lib/utils.ts:13-15</code><code>src/app/explore/leaflet-listings-map.tsx:41</code><code>src/app/explore/leaflet-listings-map.tsx:121</code><code>src/app/explore/explore-client.tsx:610</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#5b6b55">low</span>
+      <span class="cat">enhancement</span>
+      <span class="area">explore-search</span>
+    </div>
+    <h3>13. Explore search date inputs lack min and check-out&gt;check-in validation</h3>
+    <p class="prob"><b>Problem.</b> The /explore search filter checkIn/checkOut &lt;input type=date&gt; have no min attribute and no relative validation; inverted or past ranges are passed to getListings, which only applies the availability filter when both dates pass a YYYY-MM-DD format check (no order/past check), so an inverted/past range silently behaves like an empty search. Note this is the search-refinement bar only — the actual booking ReservePanel (reserve-panel.tsx:152,168) DOES set min correctly, so the real booking flow is guarded.</p>
+    <p class="fix"><b>Fix.</b> On the explore checkIn input set min=today; on checkOut set min={filters.checkIn||today}; when checkOut&lt;=checkIn, normalize or show an inline hint instead of silently no-opping. Optionally guard order/past in getListings too.</p>
+    <div class="files"><code>src/app/explore/explore-client.tsx:323-343</code><code>src/lib/local/db.ts:84-94</code></div>
+  </article>
+  <article class="card">
+    <div class="cardhead">
+      <span class="sev" style="background:#5b6b55">low</span>
+      <span class="cat">enhancement</span>
+      <span class="area">explore-search</span>
+    </div>
+    <h3>14. No pagination or result cap — getListings returns every published listing in one query/render</h3>
+    <p class="prob"><b>Problem.</b> getListings issues SELECT ... ORDER BY ... with no LIMIT/OFFSET; the API forwards only location/guests/checkIn/checkOut; explore-client maps the entire array in one grid. Confirmed live: ?limit=5&amp;offset=0 is ignored and all 18 listings come back. Harmless today but degrades payload/render as the catalog grows; the page.tsx comment claiming 'first page of listings' is inaccurate.</p>
+    <p class="fix"><b>Fix.</b> Add a limit (default ~24) + cursor/offset to getListings and the API route; implement load-more or infinite scroll in explore-client with a skeleton row for the next page; fix the page.tsx comment.</p>
+    <div class="files"><code>src/lib/local/db.ts:96-101</code><code>src/app/api/local/listings/route.ts:12-34</code><code>src/app/explore/explore-client.tsx:525</code><code>src/app/explore/page.tsx:5</code></div>
+  </article>
+<footer>Generated from the QuickIn deep-site-audit workflow. Payment is an intentional mock (reserve → host approve → pay).</footer>
+</div></body></html>

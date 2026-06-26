@@ -5,6 +5,7 @@
 // /host. Images are entered as comma/newline-separated URLs.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 const C = {
   burgundy: '#5B0F16',
@@ -14,16 +15,18 @@ const C = {
   muted: '#6B6055',
 }
 
-const PROPERTY_TYPES = [
-  'Apartment',
-  'House',
-  'Villa',
-  'Cabin',
-  'Studio',
-  'Loft',
-  'Chalet',
-  'Cottage',
-  'Guest suite',
+// Canonical (stored) value + its translation key. The value sent to the API
+// stays English so existing data/filters keep working; only the label is i18n'd.
+const PROPERTY_TYPES: { value: string; key: string }[] = [
+  { value: 'Apartment', key: 'apartment' },
+  { value: 'House', key: 'house' },
+  { value: 'Villa', key: 'villa' },
+  { value: 'Cabin', key: 'cabin' },
+  { value: 'Studio', key: 'studio' },
+  { value: 'Loft', key: 'loft' },
+  { value: 'Chalet', key: 'chalet' },
+  { value: 'Cottage', key: 'cottage' },
+  { value: 'Guest suite', key: 'guestSuite' },
 ]
 
 const label: React.CSSProperties = {
@@ -50,6 +53,7 @@ const fieldWrap: React.CSSProperties = { marginBottom: 18 }
 
 export function NewListingForm() {
   const router = useRouter()
+  const t = useTranslations('hostPage.create')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -71,14 +75,14 @@ export function NewListingForm() {
     e.preventDefault()
     setError(null)
 
-    const t = title.trim()
-    if (!t) {
-      setError('Please give your listing a title.')
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      setError(t('errors.titleRequired'))
       return
     }
     const priceNum = Number(price)
     if (!Number.isFinite(priceNum) || priceNum <= 0) {
-      setError('Please enter a valid price per night.')
+      setError(t('errors.priceInvalid'))
       return
     }
 
@@ -86,6 +90,24 @@ export function NewListingForm() {
       .split(/[\n,]+/)
       .map((s) => s.trim())
       .filter(Boolean)
+
+    // Validate each photo URL: must be an http(s) URL, ideally ending in a
+    // plausible image extension (a bare http(s) URL is also accepted).
+    const isImageUrl = (raw: string): boolean => {
+      let u: URL
+      try {
+        u = new URL(raw)
+      } catch {
+        return false
+      }
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+      return true
+    }
+    const badUrl = images.find((u) => !isImageUrl(u))
+    if (badUrl) {
+      setError(t('errors.invalidImageUrl', { url: badUrl }))
+      return
+    }
 
     const num = (v: string, d: number) => {
       const n = Math.floor(Number(v))
@@ -99,7 +121,7 @@ export function NewListingForm() {
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: t,
+          title: trimmedTitle,
           description: description.trim() || undefined,
           location: location.trim() || undefined,
           country: country.trim() || undefined,
@@ -119,13 +141,13 @@ export function NewListingForm() {
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Could not create the listing')
+        throw new Error(err.error || t('errors.createFailed'))
       }
       router.push('/host')
       router.refresh()
     } catch (err) {
       setBusy(false)
-      setError(err instanceof Error ? err.message : 'Could not create the listing')
+      setError(err instanceof Error ? err.message : t('errors.createFailed'))
     }
   }
 
@@ -147,54 +169,54 @@ export function NewListingForm() {
       `}</style>
 
       <div style={fieldWrap}>
-        <label style={label} htmlFor="title">Title</label>
+        <label style={label} htmlFor="title">{t('fields.title')}</label>
         <input
           id="title"
           style={input}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Sunlit loft by the Nile"
+          placeholder={t('placeholders.title')}
           required
         />
       </div>
 
       <div style={fieldWrap}>
-        <label style={label} htmlFor="description">Description</label>
+        <label style={label} htmlFor="description">{t('fields.description')}</label>
         <textarea
           id="description"
           style={{ ...input, minHeight: 96, resize: 'vertical' }}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What makes your place special?"
+          placeholder={t('placeholders.description')}
         />
       </div>
 
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, ...fieldWrap }}>
         <div>
-          <label style={label} htmlFor="location">Location</label>
+          <label style={label} htmlFor="location">{t('fields.location')}</label>
           <input
             id="location"
             style={input}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Zamalek, Cairo"
+            placeholder={t('placeholders.location')}
           />
         </div>
         <div>
-          <label style={label} htmlFor="country">Country</label>
+          <label style={label} htmlFor="country">{t('fields.country')}</label>
           <input
             id="country"
             style={input}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            placeholder="Egypt"
+            placeholder={t('placeholders.country')}
           />
         </div>
       </div>
 
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, ...fieldWrap }}>
         <div>
-          <label style={label} htmlFor="price">Price per night</label>
+          <label style={label} htmlFor="price">{t('fields.price')}</label>
           <input
             id="price"
             style={input}
@@ -208,7 +230,7 @@ export function NewListingForm() {
           />
         </div>
         <div>
-          <label style={label} htmlFor="currency">Currency</label>
+          <label style={label} htmlFor="currency">{t('fields.currency')}</label>
           <input
             id="currency"
             style={input}
@@ -222,25 +244,25 @@ export function NewListingForm() {
 
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, ...fieldWrap }}>
         <div>
-          <label style={label} htmlFor="bedrooms">Bedrooms</label>
+          <label style={label} htmlFor="bedrooms">{t('fields.bedrooms')}</label>
           <input id="bedrooms" style={input} type="number" min="0" step="1" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} />
         </div>
         <div>
-          <label style={label} htmlFor="beds">Beds</label>
+          <label style={label} htmlFor="beds">{t('fields.beds')}</label>
           <input id="beds" style={input} type="number" min="0" step="1" value={beds} onChange={(e) => setBeds(e.target.value)} />
         </div>
         <div>
-          <label style={label} htmlFor="bathrooms">Bathrooms</label>
+          <label style={label} htmlFor="bathrooms">{t('fields.bathrooms')}</label>
           <input id="bathrooms" style={input} type="number" min="0" step="1" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} />
         </div>
         <div>
-          <label style={label} htmlFor="maxGuests">Max guests</label>
+          <label style={label} htmlFor="maxGuests">{t('fields.maxGuests')}</label>
           <input id="maxGuests" style={input} type="number" min="1" step="1" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
         </div>
       </div>
 
       <div style={fieldWrap}>
-        <label style={label} htmlFor="propertyType">Property type</label>
+        <label style={label} htmlFor="propertyType">{t('fields.propertyType')}</label>
         <select
           id="propertyType"
           style={{ ...input, appearance: 'auto' }}
@@ -248,22 +270,22 @@ export function NewListingForm() {
           onChange={(e) => setPropertyType(e.target.value)}
         >
           {PROPERTY_TYPES.map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p.value} value={p.value}>{t(`propertyTypes.${p.key}`)}</option>
           ))}
         </select>
       </div>
 
       <div style={fieldWrap}>
-        <label style={label} htmlFor="images">Photo URLs</label>
+        <label style={label} htmlFor="images">{t('fields.photos')}</label>
         <textarea
           id="images"
           style={{ ...input, minHeight: 84, resize: 'vertical' }}
           value={imagesText}
           onChange={(e) => setImagesText(e.target.value)}
-          placeholder="One URL per line, or comma-separated&#10;https://images.unsplash.com/photo-..."
+          placeholder={t('placeholders.photos')}
         />
         <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>
-          Paste image links, separated by commas or new lines. The first one becomes the cover photo.
+          {t('photosHint')}
         </p>
       </div>
 
@@ -288,7 +310,7 @@ export function NewListingForm() {
             fontFamily: 'inherit',
           }}
         >
-          {busy ? 'Publishing…' : 'Publish listing'}
+          {busy ? t('publishing') : t('publish')}
         </button>
         <a
           href="/host"
@@ -299,7 +321,7 @@ export function NewListingForm() {
             fontSize: 14.5,
           }}
         >
-          Cancel
+          {t('cancel')}
         </a>
       </div>
     </form>

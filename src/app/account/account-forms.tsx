@@ -6,6 +6,7 @@
 // Inline success/error states; no global toast dependency.
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 const C = {
   burgundy: '#5B0F16',
@@ -95,6 +96,7 @@ export function AccountForms({
   initialAvatar: string
 }) {
   const router = useRouter()
+  const t = useTranslations('accountPage')
 
   // ---- Profile form -----------------------------------------------------
   const [fullName, setFullName] = useState(initialName)
@@ -122,14 +124,14 @@ export function AccountForms({
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Could not save your profile.')
+        throw new Error(data.error || t('profile.error'))
       }
-      setProfileMsg({ kind: 'ok', text: 'Profile saved.' })
+      setProfileMsg({ kind: 'ok', text: t('profile.saved') })
       router.refresh()
     } catch (err) {
       setProfileMsg({
         kind: 'error',
-        text: err instanceof Error ? err.message : 'Could not save your profile.',
+        text: err instanceof Error ? err.message : t('profile.error'),
       })
     } finally {
       setSavingProfile(false)
@@ -148,11 +150,11 @@ export function AccountForms({
     setPasswordMsg(null)
 
     if (newPassword.length < 8) {
-      setPasswordMsg({ kind: 'error', text: 'New password must be at least 8 characters.' })
+      setPasswordMsg({ kind: 'error', text: t('password.tooShort') })
       return
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMsg({ kind: 'error', text: 'New passwords do not match.' })
+      setPasswordMsg({ kind: 'error', text: t('password.mismatch') })
       return
     }
 
@@ -170,16 +172,16 @@ export function AccountForms({
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Could not change your password.')
+        throw new Error(data.error || t('password.error'))
       }
-      setPasswordMsg({ kind: 'ok', text: 'Password updated.' })
+      setPasswordMsg({ kind: 'ok', text: t('password.updated') })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
       setPasswordMsg({
         kind: 'error',
-        text: err instanceof Error ? err.message : 'Could not change your password.',
+        text: err instanceof Error ? err.message : t('password.error'),
       })
     } finally {
       setSavingPassword(false)
@@ -190,18 +192,18 @@ export function AccountForms({
     <>
       {/* Profile */}
       <form style={cardStyle} onSubmit={saveProfile}>
-        {sectionTitle('Profile')}
+        {sectionTitle(t('profile.title'))}
 
         <div style={{ marginBottom: 16 }}>
           <label htmlFor="acct-name" style={labelStyle}>
-            Full name
+            {t('profile.fullName')}
           </label>
           <input
             id="acct-name"
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Your name"
+            placeholder={t('profile.fullNamePlaceholder')}
             autoComplete="name"
             style={inputStyle}
           />
@@ -209,7 +211,7 @@ export function AccountForms({
 
         <div style={{ marginBottom: 4 }}>
           <label htmlFor="acct-avatar" style={labelStyle}>
-            Avatar URL
+            {t('profile.avatarUrl')}
           </label>
           <input
             id="acct-avatar"
@@ -224,7 +226,7 @@ export function AccountForms({
 
         <div style={{ marginTop: 18 }}>
           <button type="submit" disabled={savingProfile} style={buttonStyle(savingProfile)}>
-            {savingProfile ? 'Saving…' : 'Save profile'}
+            {savingProfile ? t('profile.saving') : t('profile.save')}
           </button>
         </div>
 
@@ -233,11 +235,11 @@ export function AccountForms({
 
       {/* Password */}
       <form style={cardStyle} onSubmit={changePassword}>
-        {sectionTitle('Change password')}
+        {sectionTitle(t('password.title'))}
 
         <div style={{ marginBottom: 16 }}>
           <label htmlFor="acct-current" style={labelStyle}>
-            Current password
+            {t('password.current')}
           </label>
           <input
             id="acct-current"
@@ -252,7 +254,7 @@ export function AccountForms({
 
         <div style={{ marginBottom: 16 }}>
           <label htmlFor="acct-new" style={labelStyle}>
-            New password
+            {t('password.new')}
           </label>
           <input
             id="acct-new"
@@ -267,7 +269,7 @@ export function AccountForms({
 
         <div style={{ marginBottom: 4 }}>
           <label htmlFor="acct-confirm" style={labelStyle}>
-            Confirm new password
+            {t('password.confirm')}
           </label>
           <input
             id="acct-confirm"
@@ -282,7 +284,7 @@ export function AccountForms({
 
         <div style={{ marginTop: 18 }}>
           <button type="submit" disabled={savingPassword} style={buttonStyle(savingPassword)}>
-            {savingPassword ? 'Updating…' : 'Update password'}
+            {savingPassword ? t('password.updating') : t('password.update')}
           </button>
         </div>
 

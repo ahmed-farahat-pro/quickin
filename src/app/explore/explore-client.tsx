@@ -42,6 +42,24 @@ const ListingsMap = dynamic(() => import('./listings-map'), {
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1200&q=80'
 
+// Listing <img> that swaps to a boutique fallback when the source 404s/errors.
+// Exported so the (server-rendered) detail page can reuse it as a client island.
+export function FallbackImg({
+  fallback = FALLBACK_IMG,
+  ...props
+}: React.ImgHTMLAttributes<HTMLImageElement> & { fallback?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    <img
+      {...props}
+      onError={(e) => {
+        e.currentTarget.onerror = null
+        e.currentTarget.src = fallback
+      }}
+    />
+  )
+}
+
 const COLORS = {
   burgundy: '#5B0F16',
   cream: '#F6F1E6',
@@ -101,6 +119,13 @@ function buildQuery(f: Filters): string {
 }
 
 const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '' }
+
+// Today as YYYY-MM-DD (local) for date-input min attributes.
+function todayISO(): string {
+  const d = new Date()
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10)
+}
 
 export default function ExploreClient({ initialListings, initialFilters, savedIds }: Props) {
   const t = useTranslations('explorePage')
@@ -202,6 +227,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
 
   const count = listings.length
   const countLabel = t('results.countFound', { count })
+  const today = todayISO()
 
   return (
     <>
@@ -324,8 +350,17 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 id="checkIn"
                 type="date"
                 name="checkIn"
+                min={today}
                 value={filters.checkIn}
-                onChange={(e) => updateFilter({ checkIn: e.target.value })}
+                onChange={(e) => {
+                  const checkIn = e.target.value
+                  // If the chosen check-out now predates check-in, clear it.
+                  const patch: Partial<Filters> =
+                    filters.checkOut && checkIn && filters.checkOut < checkIn
+                      ? { checkIn, checkOut: '' }
+                      : { checkIn }
+                  updateFilter(patch)
+                }}
                 style={inputStyle}
               />
             </div>
@@ -337,6 +372,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 id="checkOut"
                 type="date"
                 name="checkOut"
+                min={filters.checkIn || today}
                 value={filters.checkOut}
                 onChange={(e) => updateFilter({ checkOut: e.target.value })}
                 style={inputStyle}
@@ -484,9 +520,10 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
           flex: 1,
         }}
       >
-        {view === 'map' ? (
-          <ListingsMap listings={listings} />
-        ) : listings.length === 0 ? (
+        {listings.length === 0 ? (
+          // Empty state takes precedence over the view toggle so a zero-result
+          // search never renders a blank world map — it shows the clear-filters
+          // CTA in both list and map views.
           <div style={{ textAlign: 'center', padding: '64px 24px', color: COLORS.muted }}>
             <p style={{ margin: 0, fontSize: 20, fontWeight: 600, color: COLORS.ink }}>
               {t('empty.title')}
@@ -513,6 +550,8 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               {t('empty.clearFilters')}
             </button>
           </div>
+        ) : view === 'map' ? (
+          <ListingsMap listings={listings} />
         ) : (
           <div
             className="qk-results-grid"
@@ -554,6 +593,10 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                       src={cover}
                       alt={listing.title}
                       loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = FALLBACK_IMG
+                      }}
                       style={{
                         width: '100%',
                         height: '100%',

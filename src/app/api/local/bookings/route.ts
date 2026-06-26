@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     return NextResponse.json(bookings, { headers: CORS })
   } catch (err) {
     console.error('GET /api/local/bookings failed:', err)
-    return NextResponse.json({ error: 'Failed to load reservations', detail: String(err) }, { status: 500, headers: CORS })
+    return NextResponse.json({ error: 'Failed to load reservations' }, { status: 500, headers: CORS })
   }
 }
 
@@ -42,9 +42,12 @@ export async function POST(req: Request) {
     return NextResponse.json(booking, { status: 201, headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('POST /api/local/bookings failed:', msg)
-    // Availability / validation problems are client errors.
-    const status = /available|after check-in|Invalid|required|maximum guests/i.test(msg) ? 400 : 500
-    return NextResponse.json({ error: msg }, { status, headers: CORS })
+    console.error('POST /api/local/bookings failed:', err)
+    // All createBooking validation messages are safe, intentional client errors.
+    const isClientError = /not available|in the past|after check-in|Invalid|required|maximum guests|Exceeds|listing not found/i.test(msg)
+    if (isClientError) {
+      return NextResponse.json({ error: msg }, { status: 400, headers: CORS })
+    }
+    return NextResponse.json({ error: 'Failed to create reservation' }, { status: 500, headers: CORS })
   }
 }

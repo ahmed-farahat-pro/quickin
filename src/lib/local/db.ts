@@ -6,6 +6,17 @@ import { pool } from './pool'
 const isUuid = (s: string) => /^[0-9a-fA-F-]{36}$/.test(s)
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
 
+/** Accept only well-formed http(s) URLs (keeps garbage/non-image entries out of the DB). */
+const isHttpUrl = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false
+  try {
+    const u = new URL(value.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export interface ListingImage {
   url: string
   order: number
@@ -77,8 +88,11 @@ export async function getListings(filters: SearchFilters = {}): Promise<Listing[
     params.push('%' + filters.location.trim() + '%')
     where.push(`l.location ILIKE $${params.length}`)
   }
-  if (filters.guests && Number.isFinite(filters.guests) && filters.guests > 0) {
-    params.push(Math.floor(filters.guests))
+  // Clamp guests to a sane range so a non-finite / absurd value (e.g. an
+  // integer-overflow string) can't reach Postgres and blow up the int comparison.
+  if (filters.guests != null && Number.isFinite(filters.guests) && filters.guests > 0) {
+    const guests = Math.min(100, Math.max(1, Math.floor(filters.guests)))
+    params.push(guests)
     where.push(`COALESCE(l.max_guests, 0) >= $${params.length}`)
   }
   if (filters.checkIn && filters.checkOut && isDate(filters.checkIn) && isDate(filters.checkOut)) {
@@ -940,7 +954,7 @@ export async function createListing(hostId: string, data: CreateListingInput): P
     ]
   )
   const newId = rows[0].id as string
-  const images = Array.isArray(data.images) ? data.images.filter((u) => typeof u === 'string' && u.trim()) : []
+  const images = Array.isArray(data.images) ? data.images.filter(isHttpUrl) : []
   for (let i = 0; i < images.length; i++) {
     await pool.query(
       `INSERT INTO listing_images (listing_id, url, "order") VALUES ($1, $2, $3)`,

@@ -8,10 +8,20 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Formats a price amount with its currency.
  * USD (or missing currency) renders as a leading "$"; any other currency
- * renders as "<amount> <CODE>" (e.g. "1200 EGP").
+ * renders as "<amount> <CODE>" (e.g. "1,200 EGP"). The amount always carries
+ * thousands separators. An invalid/empty currency falls back to a bare number
+ * rather than echoing a bogus code.
  */
 export function formatPrice(amount: number, currency?: string | null): string {
-  return currency && currency !== 'USD' ? `${amount} ${currency}` : `$${amount}`
+  const value = Number.isFinite(amount) ? amount : 0
+  const num = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value)
+
+  const code = typeof currency === 'string' ? currency.trim() : ''
+  if (!code || code === 'USD') return `$${num}`
+  // Guard against junk currency codes (e.g. empty/whitespace/non-letters):
+  // a valid ISO-style code is 2–6 letters. Otherwise show a bare number.
+  if (!/^[A-Za-z]{2,6}$/.test(code)) return num
+  return `${num} ${code.toUpperCase()}`
 }
 
 /**

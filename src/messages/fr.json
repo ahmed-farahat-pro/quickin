@@ -1377,7 +1377,10 @@
       "notifications": "Notifications",
       "menu": "Menu",
       "markAllRead": "Tout marquer comme lu",
-      "noNotifications": "Aucune notification"
+      "noNotifications": "Aucune notification",
+      "trips": "Voyages",
+      "saved": "Favoris",
+      "account": "Compte"
     },
     "hero": {
       "title": "Trouvez votre prochain séjour de charme",
@@ -1500,7 +1503,8 @@
       "network": "Erreur réseau. Veuillez réessayer."
     },
     "decrease": "Diminuer {label}",
-    "increase": "Augmenter {label}"
+    "increase": "Augmenter {label}",
+    "hostedBy": "Hébergé par"
   },
   "loginLocal": {
     "subtitle": "Bon retour — connectez-vous pour continuer",
@@ -1741,6 +1745,165 @@
     },
     "footer": {
       "source": "Source de vérité : <code>LAUNCH-PLAN.md</code> · étapes de déploiement : <code>DEPLOY-VERCEL.md</code> · clés : <code>SETUP.md</code>."
+    }
+  },
+  "accountPage": {
+    "meta": {
+      "title": "Votre compte · QuickIn",
+      "description": "Gérez votre profil QuickIn, la vérification d’identité et votre mot de passe."
+    },
+    "backToExplore": "Retour à l’exploration",
+    "title": "Compte",
+    "subtitle": "Gérez votre profil, votre identité et votre mot de passe.",
+    "verifyStatus": {
+      "verified": "Vérifié",
+      "pending": "En cours de vérification",
+      "rejected": "Non approuvé",
+      "unverified": "Non vérifié"
+    },
+    "verifyIdCta": "Vérifier votre identité",
+    "links": {
+      "reservations": "Vos réservations",
+      "saved": "Séjours enregistrés",
+      "verification": "Vérification d’identité",
+      "hosting": "Hébergement"
+    },
+    "logout": "Se déconnecter",
+    "profile": {
+      "title": "Profil",
+      "fullName": "Nom complet",
+      "fullNamePlaceholder": "Votre nom",
+      "avatarUrl": "URL de l’avatar",
+      "save": "Enregistrer le profil",
+      "saving": "Enregistrement…",
+      "saved": "Profil enregistré.",
+      "error": "Impossible d’enregistrer votre profil."
+    },
+    "password": {
+      "title": "Changer le mot de passe",
+      "current": "Mot de passe actuel",
+      "new": "Nouveau mot de passe",
+      "confirm": "Confirmer le nouveau mot de passe",
+      "update": "Mettre à jour le mot de passe",
+      "updating": "Mise à jour…",
+      "updated": "Mot de passe mis à jour.",
+      "tooShort": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
+      "mismatch": "Les nouveaux mots de passe ne correspondent pas.",
+      "error": "Impossible de changer votre mot de passe."
+    }
+  },
+  "savedPage": {
+    "meta": {
+      "title": "Favoris · QuickIn",
+      "description": "Vos séjours boutique enregistrés sur QuickIn."
+    },
+    "backToExplore": "Retour à l’exploration",
+    "title": "Séjours enregistrés",
+    "noneYet": "Vous n’avez encore enregistré aucun séjour.",
+    "countSaved": "{count, plural, one {# séjour enregistré.} other {# séjours enregistrés.}}",
+    "emptyHint": "Touchez le cœur sur un séjour pour l’enregistrer pour plus tard.",
+    "browseStays": "Parcourir les séjours",
+    "perNight": "/ nuit"
+  },
+  "hostPage": {
+    "meta": {
+      "title": "Tableau de bord hôte — QuickIn",
+      "description": "Gérez vos annonces QuickIn et répondez aux demandes de réservation."
+    },
+    "backToExplore": "Retour à l’exploration",
+    "perNight": "/ nuit",
+    "become": {
+      "eyebrow": "Devenir hôte",
+      "title": "Partagez votre espace, devenez hôte sur QuickIn",
+      "subtitle": "Publiez votre logement en quelques minutes, fixez votre tarif par nuit et approuvez chaque voyageur vous-même. Vous gardez le contrôle de qui séjourne, quand et à quel prix.",
+      "feature1Title": "Vous fixez le prix",
+      "feature1Desc": "Par nuit, dans votre devise.",
+      "feature2Title": "Vous approuvez les voyageurs",
+      "feature2Desc": "Chaque demande nécessite votre accord.",
+      "feature3Title": "Aucun frais initial",
+      "feature3Desc": "Publiez gratuitement, dès aujourd’hui.",
+      "cta": "Connectez-vous pour commencer à héberger"
+    },
+    "dashboard": {
+      "greeting": "Hébergement, {name}",
+      "noListings": "Vous n’avez encore aucune annonce.",
+      "countPublished": "{count, plural, one {# annonce publiée.} other {# annonces publiées.}}",
+      "createListing": "Créer une annonce",
+      "emptyHint": "Publiez votre premier espace pour commencer à accueillir des voyageurs."
+    },
+    "reservations": {
+      "heading": "Réservations entrantes",
+      "loading": "Chargement des réservations…",
+      "loadError": "Échec du chargement des réservations",
+      "updateError": "Impossible de mettre à jour cette réservation",
+      "tryAgain": "Réessayer",
+      "emptyTitle": "Aucune demande de réservation pour le moment.",
+      "emptySubtitle": "Les demandes pour vos annonces apparaîtront ici.",
+      "listingFallback": "Annonce",
+      "guestFallback": "Un voyageur",
+      "guestsCount": "{count, plural, one {# voyageur} other {# voyageurs}}",
+      "total": "total",
+      "status": {
+        "pending": "En attente de votre réponse",
+        "approved": "Approuvé",
+        "approvedPaid": "Approuvé et payé",
+        "cancelled": "Annulé",
+        "rejected": "Refusé"
+      },
+      "approve": "Approuver",
+      "working": "En cours…",
+      "decline": "Refuser"
+    },
+    "create": {
+      "meta": {
+        "title": "Créer une annonce — QuickIn",
+        "description": "Publiez votre espace sur QuickIn."
+      },
+      "backToHosting": "Retour à l’hébergement",
+      "title": "Créer une annonce",
+      "subtitle": "Présentez votre espace aux voyageurs. Vous pouvez modifier les détails à tout moment.",
+      "fields": {
+        "title": "Titre",
+        "description": "Description",
+        "location": "Emplacement",
+        "country": "Pays",
+        "price": "Prix par nuit",
+        "currency": "Devise",
+        "bedrooms": "Chambres",
+        "beds": "Lits",
+        "bathrooms": "Salles de bain",
+        "maxGuests": "Voyageurs max.",
+        "propertyType": "Type de logement",
+        "photos": "URL des photos"
+      },
+      "placeholders": {
+        "title": "Loft ensoleillé au bord du Nil",
+        "description": "Qu’est-ce qui rend votre logement spécial ?",
+        "location": "Zamalek, Le Caire",
+        "country": "Égypte",
+        "photos": "Une URL par ligne, ou séparées par des virgules\nhttps://images.unsplash.com/photo-..."
+      },
+      "propertyTypes": {
+        "apartment": "Appartement",
+        "house": "Maison",
+        "villa": "Villa",
+        "cabin": "Cabane",
+        "studio": "Studio",
+        "loft": "Loft",
+        "chalet": "Chalet",
+        "cottage": "Cottage",
+        "guestSuite": "Suite d’invités"
+      },
+      "photosHint": "Collez les liens des images, séparés par des virgules ou des sauts de ligne. La première devient la photo de couverture.",
+      "publish": "Publier l’annonce",
+      "publishing": "Publication…",
+      "cancel": "Annuler",
+      "errors": {
+        "titleRequired": "Veuillez donner un titre à votre annonce.",
+        "priceInvalid": "Veuillez saisir un prix par nuit valide.",
+        "invalidImageUrl": "Ce lien de photo ne ressemble pas à une URL valide : {url}",
+        "createFailed": "Impossible de créer l’annonce"
+      }
     }
   }
 }

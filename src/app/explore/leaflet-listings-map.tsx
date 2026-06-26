@@ -138,6 +138,10 @@ export default function LeafletListingsMap({ listings }: { listings: Listing[] }
                   <img
                     src={thumb}
                     alt={listing.title}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = FALLBACK_IMG
+                    }}
                     style={{
                       width: '100%',
                       height: 110,

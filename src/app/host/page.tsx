@@ -4,18 +4,25 @@
 // the 'use client' component below.
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
+import { getTranslations } from 'next-intl/server'
 import { getHostListings, type Listing } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Host dashboard — QuickIn',
-  description: 'Manage your QuickIn listings and respond to reservation requests.',
-  alternates: { canonical: '/host' },
-  robots: { index: false, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('hostPage')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/host' },
+    robots: { index: false, follow: true },
+  }
 }
+
+type T = Awaited<ReturnType<typeof getTranslations<'hostPage'>>>
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -45,7 +52,7 @@ async function getCurrentUser(): Promise<{ id: string; firstName: string } | nul
   }
 }
 
-function Header() {
+function Header({ backLabel }: { backLabel: string }) {
   return (
     <header
       style={{
@@ -81,7 +88,7 @@ function Header() {
             fontSize: 14,
           }}
         >
-          ← Back to explore
+          ← {backLabel}
         </a>
       </div>
     </header>
@@ -90,6 +97,7 @@ function Header() {
 
 export default async function HostPage() {
   const user = await getCurrentUser()
+  const t = await getTranslations('hostPage')
 
   return (
     <main
@@ -110,7 +118,7 @@ export default async function HostPage() {
         }
       `}</style>
 
-      <Header />
+      <Header backLabel={t('backToExplore')} />
 
       <section
         style={{
@@ -120,9 +128,9 @@ export default async function HostPage() {
         }}
       >
         {!user ? (
-          <BecomeAHost />
+          <BecomeAHost t={t} />
         ) : (
-          <HostDashboard userId={user.id} firstName={user.firstName} />
+          <HostDashboard userId={user.id} firstName={user.firstName} t={t} />
         )}
       </section>
     </main>
@@ -130,7 +138,7 @@ export default async function HostPage() {
 }
 
 /** Signed-out intro: short pitch + login CTA. */
-function BecomeAHost() {
+function BecomeAHost({ t }: { t: T }) {
   return (
     <div
       style={{
@@ -154,7 +162,7 @@ function BecomeAHost() {
           color: COLORS.muted,
         }}
       >
-        Become a host
+        {t('become.eyebrow')}
       </p>
       <h1
         style={{
@@ -167,7 +175,7 @@ function BecomeAHost() {
           lineHeight: 1.1,
         }}
       >
-        Share your space, host on QuickIn
+        {t('become.title')}
       </h1>
       <p
         style={{
@@ -178,8 +186,7 @@ function BecomeAHost() {
           maxWidth: 480,
         }}
       >
-        List your home in minutes, set your own nightly rate, and approve every
-        guest yourself. You stay in control of who stays, when, and at what price.
+        {t('become.subtitle')}
       </p>
 
       <div
@@ -192,9 +199,9 @@ function BecomeAHost() {
         }}
       >
         {[
-          { t: 'You set the price', d: 'Per night, in your currency.' },
-          { t: 'You approve guests', d: 'Every request needs your yes.' },
-          { t: 'No upfront cost', d: 'List for free, today.' },
+          { t: t('become.feature1Title'), d: t('become.feature1Desc') },
+          { t: t('become.feature2Title'), d: t('become.feature2Desc') },
+          { t: t('become.feature3Title'), d: t('become.feature3Desc') },
         ].map((f) => (
           <div
             key={f.t}
@@ -227,14 +234,14 @@ function BecomeAHost() {
           fontSize: 15,
         }}
       >
-        Log in to start hosting
+        {t('become.cta')}
       </a>
     </div>
   )
 }
 
 /** Signed-in dashboard: listings grid + a "Create a listing" CTA + incoming reservations. */
-async function HostDashboard({ userId, firstName }: { userId: string; firstName: string }) {
+async function HostDashboard({ userId, firstName, t }: { userId: string; firstName: string; t: T }) {
   const listings = await getHostListings(userId)
 
   return (
@@ -260,12 +267,12 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
               color: COLORS.burgundy,
             }}
           >
-            Hosting, {firstName}
+            {t('dashboard.greeting', { name: firstName })}
           </h1>
           <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
             {listings.length === 0
-              ? 'You have no listings yet.'
-              : `${listings.length} ${listings.length === 1 ? 'listing' : 'listings'} published.`}
+              ? t('dashboard.noListings')
+              : t('dashboard.countPublished', { count: listings.length })}
           </p>
         </div>
         <a
@@ -281,7 +288,7 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
             whiteSpace: 'nowrap',
           }}
         >
-          + Create a listing
+          + {t('dashboard.createListing')}
         </a>
       </div>
 
@@ -300,7 +307,7 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
           }}
         >
           <p style={{ margin: '0 0 18px', fontSize: 15 }}>
-            List your first space to start welcoming guests.
+            {t('dashboard.emptyHint')}
           </p>
           <a
             href="/host/new"
@@ -314,7 +321,7 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
               borderRadius: 999,
             }}
           >
-            Create a listing
+            {t('dashboard.createListing')}
           </a>
         </div>
       ) : (
@@ -328,7 +335,7 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
           }}
         >
           {listings.map((l) => (
-            <ListingCard key={l.id} listing={l} />
+            <ListingCard key={l.id} listing={l} perNight={t('perNight')} />
           ))}
         </div>
       )}
@@ -343,21 +350,19 @@ async function HostDashboard({ userId, firstName }: { userId: string; firstName:
           color: COLORS.burgundy,
         }}
       >
-        Incoming reservations
+        {t('reservations.heading')}
       </h2>
       <HostReservations />
     </>
   )
 }
 
-function ListingCard({ listing }: { listing: Listing }) {
+function ListingCard({ listing, perNight }: { listing: Listing; perNight: string }) {
   const img =
     listing.image_url ||
     listing.listing_images?.[0]?.url ||
     FALLBACK_IMG
-  const price = listing.price_per_night
-  const cur = listing.currency || 'USD'
-  const priceLabel = cur && cur !== 'USD' ? `${price} ${cur}` : `$${price}`
+  const priceLabel = formatPrice(listing.price_per_night, listing.currency)
 
   return (
     <article
@@ -390,7 +395,7 @@ function ListingCard({ listing }: { listing: Listing }) {
         )}
         <p style={{ margin: '10px 0 0', fontSize: 14.5, color: COLORS.burgundy, fontWeight: 700 }}>
           {priceLabel}
-          <span style={{ color: COLORS.muted, fontWeight: 500 }}> / night</span>
+          <span style={{ color: COLORS.muted, fontWeight: 500 }}> {perNight}</span>
         </p>
       </div>
     </article>

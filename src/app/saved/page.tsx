@@ -5,6 +5,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getWishlistListings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
@@ -12,11 +13,14 @@ import WishlistButton from '@/app/explore/wishlist-button'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Saved · QuickIn',
-  description: 'Your saved boutique stays on QuickIn.',
-  alternates: { canonical: '/saved' },
-  robots: { index: false, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('savedPage')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/saved' },
+    robots: { index: false, follow: true },
+  }
 }
 
 const FALLBACK_IMG =
@@ -58,6 +62,7 @@ export default async function SavedPage() {
   const userId = await getCurrentUserId()
   if (!userId) redirect('/login')
 
+  const t = await getTranslations('savedPage')
   const listings = await getWishlistListings(userId)
 
   return (
@@ -120,7 +125,7 @@ export default async function SavedPage() {
               fontSize: 14,
             }}
           >
-            ← Back to Explore
+            ← {t('backToExplore')}
           </a>
         </div>
       </header>
@@ -142,12 +147,12 @@ export default async function SavedPage() {
             color: COLORS.burgundy,
           }}
         >
-          Saved stays
+          {t('title')}
         </h1>
         <p style={{ margin: '0 0 28px', fontSize: 15, color: COLORS.muted }}>
           {listings.length === 0
-            ? 'You haven’t saved any stays yet.'
-            : `${listings.length} saved ${listings.length === 1 ? 'stay' : 'stays'}.`}
+            ? t('noneYet')
+            : t('countSaved', { count: listings.length })}
         </p>
 
         {listings.length === 0 ? (
@@ -163,7 +168,7 @@ export default async function SavedPage() {
             }}
           >
             <p style={{ margin: '0 0 18px', fontSize: 15 }}>
-              Tap the heart on any stay to save it for later.
+              {t('emptyHint')}
             </p>
             <a
               href="/explore"
@@ -177,7 +182,7 @@ export default async function SavedPage() {
                 borderRadius: 999,
               }}
             >
-              Browse stays
+              {t('browseStays')}
             </a>
           </div>
         ) : (
@@ -268,7 +273,7 @@ export default async function SavedPage() {
                         fontSize: 14,
                       }}
                     >
-                      {' '}/ night
+                      {' '}{t('perNight')}
                     </span>
                   </p>
                 </div>

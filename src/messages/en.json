@@ -1377,7 +1377,10 @@
       "notifications": "Notifications",
       "menu": "Menu",
       "markAllRead": "Mark all read",
-      "noNotifications": "No notifications yet"
+      "noNotifications": "No notifications yet",
+      "trips": "Trips",
+      "saved": "Saved",
+      "account": "Account"
     },
     "hero": {
       "title": "Find your next boutique stay",
@@ -1500,7 +1503,8 @@
       "network": "Network error. Please try again."
     },
     "decrease": "Decrease {label}",
-    "increase": "Increase {label}"
+    "increase": "Increase {label}",
+    "hostedBy": "Hosted by"
   },
   "loginLocal": {
     "subtitle": "Welcome back — sign in to continue",
@@ -1742,5 +1746,164 @@
     },
     "heading": "Verify your identity",
     "subtitle": "Boutique stays need a verified guest — it only takes a minute."
+  },
+  "accountPage": {
+    "meta": {
+      "title": "Your account · QuickIn",
+      "description": "Manage your QuickIn profile, identity verification and password."
+    },
+    "backToExplore": "Back to explore",
+    "title": "Account",
+    "subtitle": "Manage your profile, identity and password.",
+    "verifyStatus": {
+      "verified": "Verified",
+      "pending": "Pending review",
+      "rejected": "Not approved",
+      "unverified": "Not verified"
+    },
+    "verifyIdCta": "Verify your ID",
+    "links": {
+      "reservations": "Your reservations",
+      "saved": "Saved stays",
+      "verification": "Identity verification",
+      "hosting": "Hosting"
+    },
+    "logout": "Log out",
+    "profile": {
+      "title": "Profile",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "Your name",
+      "avatarUrl": "Avatar URL",
+      "save": "Save profile",
+      "saving": "Saving…",
+      "saved": "Profile saved.",
+      "error": "Could not save your profile."
+    },
+    "password": {
+      "title": "Change password",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "update": "Update password",
+      "updating": "Updating…",
+      "updated": "Password updated.",
+      "tooShort": "New password must be at least 8 characters.",
+      "mismatch": "New passwords do not match.",
+      "error": "Could not change your password."
+    }
+  },
+  "savedPage": {
+    "meta": {
+      "title": "Saved · QuickIn",
+      "description": "Your saved boutique stays on QuickIn."
+    },
+    "backToExplore": "Back to Explore",
+    "title": "Saved stays",
+    "noneYet": "You haven’t saved any stays yet.",
+    "countSaved": "{count, plural, one {# saved stay.} other {# saved stays.}}",
+    "emptyHint": "Tap the heart on any stay to save it for later.",
+    "browseStays": "Browse stays",
+    "perNight": "/ night"
+  },
+  "hostPage": {
+    "meta": {
+      "title": "Host dashboard — QuickIn",
+      "description": "Manage your QuickIn listings and respond to reservation requests."
+    },
+    "backToExplore": "Back to explore",
+    "perNight": "/ night",
+    "become": {
+      "eyebrow": "Become a host",
+      "title": "Share your space, host on QuickIn",
+      "subtitle": "List your home in minutes, set your own nightly rate, and approve every guest yourself. You stay in control of who stays, when, and at what price.",
+      "feature1Title": "You set the price",
+      "feature1Desc": "Per night, in your currency.",
+      "feature2Title": "You approve guests",
+      "feature2Desc": "Every request needs your yes.",
+      "feature3Title": "No upfront cost",
+      "feature3Desc": "List for free, today.",
+      "cta": "Log in to start hosting"
+    },
+    "dashboard": {
+      "greeting": "Hosting, {name}",
+      "noListings": "You have no listings yet.",
+      "countPublished": "{count, plural, one {# listing published.} other {# listings published.}}",
+      "createListing": "Create a listing",
+      "emptyHint": "List your first space to start welcoming guests."
+    },
+    "reservations": {
+      "heading": "Incoming reservations",
+      "loading": "Loading reservations…",
+      "loadError": "Failed to load reservations",
+      "updateError": "Could not update this reservation",
+      "tryAgain": "Try again",
+      "emptyTitle": "No reservation requests yet.",
+      "emptySubtitle": "Requests for your listings will show up here.",
+      "listingFallback": "Listing",
+      "guestFallback": "A guest",
+      "guestsCount": "{count, plural, one {# guest} other {# guests}}",
+      "total": "total",
+      "status": {
+        "pending": "Awaiting your reply",
+        "approved": "Approved",
+        "approvedPaid": "Approved & paid",
+        "cancelled": "Cancelled",
+        "rejected": "Declined"
+      },
+      "approve": "Approve",
+      "working": "Working…",
+      "decline": "Decline"
+    },
+    "create": {
+      "meta": {
+        "title": "Create a listing — QuickIn",
+        "description": "List your space on QuickIn."
+      },
+      "backToHosting": "Back to hosting",
+      "title": "Create a listing",
+      "subtitle": "Tell guests about your space. You can edit the details any time.",
+      "fields": {
+        "title": "Title",
+        "description": "Description",
+        "location": "Location",
+        "country": "Country",
+        "price": "Price per night",
+        "currency": "Currency",
+        "bedrooms": "Bedrooms",
+        "beds": "Beds",
+        "bathrooms": "Bathrooms",
+        "maxGuests": "Max guests",
+        "propertyType": "Property type",
+        "photos": "Photo URLs"
+      },
+      "placeholders": {
+        "title": "Sunlit loft by the Nile",
+        "description": "What makes your place special?",
+        "location": "Zamalek, Cairo",
+        "country": "Egypt",
+        "photos": "One URL per line, or comma-separated\nhttps://images.unsplash.com/photo-..."
+      },
+      "propertyTypes": {
+        "apartment": "Apartment",
+        "house": "House",
+        "villa": "Villa",
+        "cabin": "Cabin",
+        "studio": "Studio",
+        "loft": "Loft",
+        "chalet": "Chalet",
+        "cottage": "Cottage",
+        "guestSuite": "Guest suite"
+      },
+      "photosHint": "Paste image links, separated by commas or new lines. The first one becomes the cover photo.",
+      "publish": "Publish listing",
+      "publishing": "Publishing…",
+      "cancel": "Cancel",
+      "errors": {
+        "titleRequired": "Please give your listing a title.",
+        "priceInvalid": "Please enter a valid price per night.",
+        "invalidImageUrl": "This photo link doesn’t look like a valid URL: {url}",
+        "createFailed": "Could not create the listing"
+      }
+    }
   }
 }

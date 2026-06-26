@@ -15,16 +15,42 @@ const SECRET = process.env.AUTH_SECRET || 'quickin-local-dev-secret-change-me'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** Common disposable / temp-mail domains we refuse at signup. */
+/** Common disposable / temp-mail domains we refuse at signup, login and email change. */
 const DISPOSABLE_DOMAINS = new Set([
-  'mailinator.com', 'guerrillamail.com', 'guerrillamail.info', 'guerrillamail.biz',
-  '10minutemail.com', '10minutemail.net', 'tempmail.com', 'temp-mail.org', 'temp-mail.io',
-  'tempmail.dev', 'throwawaymail.com', 'throwaway.email', 'getnada.com', 'nada.email',
-  'dispostable.com', 'yopmail.com', 'yopmail.fr', 'sharklasers.com', 'grr.la', 'spam4.me',
-  'trashmail.com', 'maildrop.cc', 'mailnesia.com', 'fakeinbox.com', 'tempinbox.com',
-  'mintemail.com', 'mohmal.com', 'emailondeck.com', 'mailcatch.com', 'tempr.email',
-  'discard.email', 'moakt.com', 'inboxbear.com', '1secmail.com', 'fakemail.net',
-  'mailpoof.com', 'burnermail.io', 'tmpmail.org', 'tmail.ws', 'einrot.com', 'mvrht.com',
+  // Mailinator + family
+  'mailinator.com', 'mailinator.net', 'mailinator2.com', 'reallymymail.com',
+  // Guerrilla Mail + aliases
+  'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.info',
+  'guerrillamail.biz', 'guerrillamail.de', 'guerrillamailblock.com', 'sharklasers.com',
+  'grr.la', 'spam4.me', 'pokemail.net',
+  // 10 minute mail
+  '10minutemail.com', '10minutemail.net', '10minutemail.org', '10minemail.com',
+  // Temp-mail / tempmail family
+  'tempmail.com', 'temp-mail.org', 'temp-mail.io', 'temp-mail.com', 'tempmail.dev',
+  'tempmail.net', 'tempmailo.com', 'tempmail.plus', 'tmpmail.org', 'tmpmail.net',
+  'tmail.ws', 'tempinbox.com', 'tempr.email', 'temp-inbox.com', 'tempmailaddress.com',
+  // Yopmail
+  'yopmail.com', 'yopmail.net', 'yopmail.fr',
+  // Throwaway
+  'throwawaymail.com', 'throwaway.email', 'throwawayemailaddresses.com',
+  // Nada / GetNada
+  'getnada.com', 'nada.email',
+  // Dispostable / Dispomail
+  'dispostable.com', 'dispomail.eu',
+  // Trashmail
+  'trashmail.com', 'trashmail.de', 'trashmail.net', 'trashmail.org', 'trash-mail.com',
+  // Maildrop / Mailnesia / Mailcatch / Maildim
+  'maildrop.cc', 'mailnesia.com', 'mailcatch.com', 'mailpoof.com', 'mailnull.com',
+  // Misc throwaways
+  'fakeinbox.com', 'fakemail.net', 'mintemail.com', 'mohmal.com', 'emailondeck.com',
+  'discard.email', 'moakt.com', 'inboxbear.com', 'harakirimail.com', 'byom.de',
+  'anonbox.net', 'burnermail.io', 'einrot.com', 'mvrht.com', 'luxusmail.org',
+  // 1secmail family
+  '1secmail.com', '1secmail.net', '1secmail.org',
+  // Other commonly-abused providers
+  'getairmail.com', 'maileater.com', 'spambox.us', 'spamgourmet.com', 'mytemp.email',
+  'tempemail.co', 'tempemails.io', 'mailtemp.net', 'inboxkitten.com', 'emailfake.com',
+  'mailsac.com', 'mail.tm', 'mail7.io', 'wegwerfmail.de', 'wegwerfemail.de',
 ])
 
 export function isValidEmail(email: string): boolean {
@@ -33,7 +59,14 @@ export function isValidEmail(email: string): boolean {
 
 export function isDisposableEmail(email: string): boolean {
   const domain = String(email).trim().toLowerCase().split('@')[1]
-  return domain ? DISPOSABLE_DOMAINS.has(domain) : false
+  if (!domain) return false
+  // Reject if the domain itself OR any parent domain is blocklisted, so a
+  // subdomain (e.g. sub.mailinator.com) can't slip past the exact-match check.
+  const labels = domain.split('.')
+  for (let i = 0; i < labels.length - 1; i++) {
+    if (DISPOSABLE_DOMAINS.has(labels.slice(i).join('.'))) return true
+  }
+  return false
 }
 
 // ---- In-memory rate limiter (per-process; good enough for this stack) --------

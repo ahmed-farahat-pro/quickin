@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json(booking, { headers: CORS })
   } catch (err) {
     console.error('GET /api/local/bookings/[id] failed:', err)
-    return NextResponse.json({ error: String(err) }, { status: 500, headers: CORS })
+    return NextResponse.json({ error: 'Failed to load reservation' }, { status: 500, headers: CORS })
   }
 }
 
@@ -37,7 +37,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json(booking, { headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    const status = /Forbidden/i.test(msg) ? 403 : /Invalid/i.test(msg) ? 400 : 500
-    return NextResponse.json({ error: msg }, { status, headers: CORS })
+    console.error('PATCH /api/local/bookings/[id] failed:', err)
+    if (/Forbidden/i.test(msg)) return NextResponse.json({ error: msg }, { status: 403, headers: CORS })
+    if (/Invalid|status transition|allowed actions/i.test(msg)) return NextResponse.json({ error: msg }, { status: 400, headers: CORS })
+    return NextResponse.json({ error: 'Failed to update reservation' }, { status: 500, headers: CORS })
   }
 }

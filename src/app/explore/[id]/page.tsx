@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server'
 import { getListingById, getListingReviews } from '@/lib/local/db'
 import ReservePanel from './reserve-panel'
 import WishlistButton from '../wishlist-button'
+import { FallbackImg } from '../explore-client'
 
 export const dynamic = 'force-dynamic'
 
@@ -158,9 +159,10 @@ export default async function ListingDetailPage({
             boxShadow: '0 10px 36px rgba(42,34,32,0.12)',
           }}
         >
-          <img
+          <FallbackImg
             src={hero}
             alt={listing.title}
+            fallback={FALLBACK_IMG}
             style={{
               width: '100%',
               height: '100%',
@@ -181,11 +183,12 @@ export default async function ListingDetailPage({
             }}
           >
             {thumbs.map((img, i) => (
-              <img
+              <FallbackImg
                 key={`${img.url}-${i}`}
                 src={img.url}
                 alt={t('photoAlt', { title: listing.title, index: i + 2 })}
                 loading="lazy"
+                fallback={FALLBACK_IMG}
                 style={{
                   width: 132,
                   height: 96,
@@ -299,7 +302,7 @@ export default async function ListingDetailPage({
               )}
               <div>
                 <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600 }}>
-                  Hosted by
+                  {t('hostedBy')}
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink }}>
                   {listing.host_name}

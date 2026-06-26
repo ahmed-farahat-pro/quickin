@@ -4,17 +4,21 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getVerification } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { AccountForms } from './account-forms'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Your account · QuickIn',
-  description: 'Manage your QuickIn profile, identity verification and password.',
-  alternates: { canonical: '/account' },
-  robots: { index: false, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('accountPage')
+  return {
+    title: t('meta.title'),
+    description: t('meta.description'),
+    alternates: { canonical: '/account' },
+    robots: { index: false, follow: true },
+  }
 }
 
 const COLORS = {
@@ -54,11 +58,11 @@ async function getCurrentUser(): Promise<AccountUser | null> {
   }
 }
 
-const VERIFY_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
-  verified: { bg: '#e7f5ec', fg: '#177245', label: 'Verified' },
-  pending: { bg: '#fff7e6', fg: '#9a6b00', label: 'Pending review' },
-  rejected: { bg: '#fdecea', fg: '#b3261e', label: 'Not approved' },
-  unverified: { bg: '#f1efec', fg: COLORS.muted, label: 'Not verified' },
+const VERIFY_CHIP_COLORS: Record<string, { bg: string; fg: string }> = {
+  verified: { bg: '#e7f5ec', fg: '#177245' },
+  pending: { bg: '#fff7e6', fg: '#9a6b00' },
+  rejected: { bg: '#fdecea', fg: '#b3261e' },
+  unverified: { bg: '#f1efec', fg: COLORS.muted },
 }
 
 function initials(name: string | null, email: string): string {
@@ -68,7 +72,7 @@ function initials(name: string | null, email: string): string {
   return letters.toUpperCase()
 }
 
-function Header() {
+function Header({ backLabel }: { backLabel: string }) {
   return (
     <header
       style={{
@@ -104,7 +108,7 @@ function Header() {
             fontSize: 14,
           }}
         >
-          ← Back to explore
+          ← {backLabel}
         </a>
       </div>
     </header>
@@ -115,8 +119,13 @@ export default async function AccountPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
+  const t = await getTranslations('accountPage')
   const verification = await getVerification(user.id)
-  const chip = VERIFY_CHIP[verification.status] ?? VERIFY_CHIP.unverified
+  const chipColors = VERIFY_CHIP_COLORS[verification.status] ?? VERIFY_CHIP_COLORS.unverified
+  const chipKey = VERIFY_CHIP_COLORS[verification.status]
+    ? verification.status
+    : 'unverified'
+  const chipLabel = t(`verifyStatus.${chipKey}`)
   const displayName = user.full_name?.trim() || user.email.split('@')[0]
 
   return (
@@ -128,7 +137,7 @@ export default async function AccountPage() {
         fontFamily: FONT,
       }}
     >
-      <Header />
+      <Header backLabel={t('backToExplore')} />
 
       <section
         style={{
@@ -151,10 +160,10 @@ export default async function AccountPage() {
               color: COLORS.burgundy,
             }}
           >
-            Account
+            {t('title')}
           </h1>
           <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
-            Manage your profile, identity and password.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -211,15 +220,15 @@ export default async function AccountPage() {
               <span
                 style={{
                   display: 'inline-block',
-                  background: chip.bg,
-                  color: chip.fg,
+                  background: chipColors.bg,
+                  color: chipColors.fg,
                   fontSize: 12.5,
                   fontWeight: 700,
                   padding: '4px 12px',
                   borderRadius: 999,
                 }}
               >
-                {chip.label}
+                {chipLabel}
               </span>
               {verification.status !== 'verified' && (
                 <a
@@ -231,7 +240,7 @@ export default async function AccountPage() {
                     textDecoration: 'none',
                   }}
                 >
-                  Verify your ID →
+                  {t('verifyIdCta')} →
                 </a>
               )}
             </div>
@@ -255,10 +264,10 @@ export default async function AccountPage() {
             padding: '12px 8px',
           }}
         >
-          <AccountLink href="/reservations" label="Your reservations" />
-          <AccountLink href="/saved" label="Saved stays" />
-          <AccountLink href="/verify-id" label="Identity verification" />
-          <AccountLink href="/host" label="Hosting" />
+          <AccountLink href="/reservations" label={t('links.reservations')} />
+          <AccountLink href="/saved" label={t('links.saved')} />
+          <AccountLink href="/verify-id" label={t('links.verification')} />
+          <AccountLink href="/host" label={t('links.hosting')} />
         </div>
 
         {/* Logout */}
@@ -277,7 +286,7 @@ export default async function AccountPage() {
               borderRadius: 999,
             }}
           >
-            Log out
+            {t('logout')}
           </a>
         </div>
       </section>

@@ -23,7 +23,7 @@ export async function GET(
   } catch (err) {
     console.error('GET /api/local/listings/[id] failed:', err)
     return NextResponse.json(
-      { error: 'Failed to load listing', detail: String(err) },
+      { error: 'Failed to load listing' },
       { status: 500 }
     )
   }

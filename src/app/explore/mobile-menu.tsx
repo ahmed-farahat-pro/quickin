@@ -43,13 +43,13 @@ export function MobileMenu({ firstName }: { firstName: string | null }) {
             <>
               <span className="px-3 py-2 text-sm text-[#6B6055]">{t('nav.greeting', { name: firstName })}</span>
               <a href="/reservations" onClick={close} className="rounded-xl px-3 py-3 font-semibold text-[#2A2220] hover:bg-black/5">
-                Trips
+                {t('nav.trips')}
               </a>
               <a href="/saved" onClick={close} className="rounded-xl px-3 py-3 font-semibold text-[#2A2220] hover:bg-black/5">
-                Saved
+                {t('nav.saved')}
               </a>
               <a href="/account" onClick={close} className="rounded-xl px-3 py-3 font-semibold text-[#2A2220] hover:bg-black/5">
-                Account
+                {t('nav.account')}
               </a>
               <a href="/api/auth/logout" onClick={close} className="rounded-xl px-3 py-3 font-semibold text-[#2A2220] hover:bg-black/5">
                 {t('nav.logout')}

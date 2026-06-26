@@ -1377,7 +1377,10 @@
       "notifications": "Notificaciones",
       "menu": "Menú",
       "markAllRead": "Marcar todo como leído",
-      "noNotifications": "Sin notificaciones"
+      "noNotifications": "Sin notificaciones",
+      "trips": "Viajes",
+      "saved": "Guardados",
+      "account": "Cuenta"
     },
     "hero": {
       "title": "Encuentra tu próximo alojamiento boutique",
@@ -1500,7 +1503,8 @@
       "network": "Error de red. Inténtalo de nuevo."
     },
     "decrease": "Disminuir {label}",
-    "increase": "Aumentar {label}"
+    "increase": "Aumentar {label}",
+    "hostedBy": "Anfitrión"
   },
   "loginLocal": {
     "subtitle": "Bienvenido de nuevo: inicia sesión para continuar",
@@ -1741,6 +1745,165 @@
     },
     "footer": {
       "source": "Fuente de verdad: <code>LAUNCH-PLAN.md</code> · pasos de despliegue: <code>DEPLOY-VERCEL.md</code> · claves: <code>SETUP.md</code>."
+    }
+  },
+  "accountPage": {
+    "meta": {
+      "title": "Tu cuenta · QuickIn",
+      "description": "Gestiona tu perfil de QuickIn, la verificación de identidad y la contraseña."
+    },
+    "backToExplore": "Volver a explorar",
+    "title": "Cuenta",
+    "subtitle": "Gestiona tu perfil, tu identidad y tu contraseña.",
+    "verifyStatus": {
+      "verified": "Verificado",
+      "pending": "En revisión",
+      "rejected": "No aprobado",
+      "unverified": "Sin verificar"
+    },
+    "verifyIdCta": "Verifica tu identidad",
+    "links": {
+      "reservations": "Tus reservas",
+      "saved": "Estancias guardadas",
+      "verification": "Verificación de identidad",
+      "hosting": "Alojamiento"
+    },
+    "logout": "Cerrar sesión",
+    "profile": {
+      "title": "Perfil",
+      "fullName": "Nombre completo",
+      "fullNamePlaceholder": "Tu nombre",
+      "avatarUrl": "URL del avatar",
+      "save": "Guardar perfil",
+      "saving": "Guardando…",
+      "saved": "Perfil guardado.",
+      "error": "No se pudo guardar tu perfil."
+    },
+    "password": {
+      "title": "Cambiar contraseña",
+      "current": "Contraseña actual",
+      "new": "Nueva contraseña",
+      "confirm": "Confirmar nueva contraseña",
+      "update": "Actualizar contraseña",
+      "updating": "Actualizando…",
+      "updated": "Contraseña actualizada.",
+      "tooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
+      "mismatch": "Las nuevas contraseñas no coinciden.",
+      "error": "No se pudo cambiar tu contraseña."
+    }
+  },
+  "savedPage": {
+    "meta": {
+      "title": "Guardados · QuickIn",
+      "description": "Tus estancias boutique guardadas en QuickIn."
+    },
+    "backToExplore": "Volver a explorar",
+    "title": "Estancias guardadas",
+    "noneYet": "Aún no has guardado ninguna estancia.",
+    "countSaved": "{count, plural, one {# estancia guardada.} other {# estancias guardadas.}}",
+    "emptyHint": "Toca el corazón en cualquier estancia para guardarla para más tarde.",
+    "browseStays": "Explorar estancias",
+    "perNight": "/ noche"
+  },
+  "hostPage": {
+    "meta": {
+      "title": "Panel de anfitrión — QuickIn",
+      "description": "Gestiona tus anuncios de QuickIn y responde a las solicitudes de reserva."
+    },
+    "backToExplore": "Volver a explorar",
+    "perNight": "/ noche",
+    "become": {
+      "eyebrow": "Conviértete en anfitrión",
+      "title": "Comparte tu espacio, hospeda en QuickIn",
+      "subtitle": "Publica tu casa en minutos, fija tu propia tarifa por noche y aprueba a cada huésped tú mismo. Mantienes el control de quién se hospeda, cuándo y a qué precio.",
+      "feature1Title": "Tú fijas el precio",
+      "feature1Desc": "Por noche, en tu moneda.",
+      "feature2Title": "Tú apruebas a los huéspedes",
+      "feature2Desc": "Cada solicitud necesita tu sí.",
+      "feature3Title": "Sin coste inicial",
+      "feature3Desc": "Publica gratis, hoy.",
+      "cta": "Inicia sesión para empezar a hospedar"
+    },
+    "dashboard": {
+      "greeting": "Hospedaje, {name}",
+      "noListings": "Aún no tienes anuncios.",
+      "countPublished": "{count, plural, one {# anuncio publicado.} other {# anuncios publicados.}}",
+      "createListing": "Crear un anuncio",
+      "emptyHint": "Publica tu primer espacio para empezar a recibir huéspedes."
+    },
+    "reservations": {
+      "heading": "Reservas entrantes",
+      "loading": "Cargando reservas…",
+      "loadError": "No se pudieron cargar las reservas",
+      "updateError": "No se pudo actualizar esta reserva",
+      "tryAgain": "Intentar de nuevo",
+      "emptyTitle": "Aún no hay solicitudes de reserva.",
+      "emptySubtitle": "Las solicitudes para tus anuncios aparecerán aquí.",
+      "listingFallback": "Anuncio",
+      "guestFallback": "Un huésped",
+      "guestsCount": "{count, plural, one {# huésped} other {# huéspedes}}",
+      "total": "total",
+      "status": {
+        "pending": "Esperando tu respuesta",
+        "approved": "Aprobado",
+        "approvedPaid": "Aprobado y pagado",
+        "cancelled": "Cancelado",
+        "rejected": "Rechazado"
+      },
+      "approve": "Aprobar",
+      "working": "Procesando…",
+      "decline": "Rechazar"
+    },
+    "create": {
+      "meta": {
+        "title": "Crear un anuncio — QuickIn",
+        "description": "Publica tu espacio en QuickIn."
+      },
+      "backToHosting": "Volver al hospedaje",
+      "title": "Crear un anuncio",
+      "subtitle": "Cuéntales a los huéspedes sobre tu espacio. Puedes editar los detalles cuando quieras.",
+      "fields": {
+        "title": "Título",
+        "description": "Descripción",
+        "location": "Ubicación",
+        "country": "País",
+        "price": "Precio por noche",
+        "currency": "Moneda",
+        "bedrooms": "Dormitorios",
+        "beds": "Camas",
+        "bathrooms": "Baños",
+        "maxGuests": "Huéspedes máx.",
+        "propertyType": "Tipo de propiedad",
+        "photos": "URL de fotos"
+      },
+      "placeholders": {
+        "title": "Loft soleado junto al Nilo",
+        "description": "¿Qué hace especial tu lugar?",
+        "location": "Zamalek, El Cairo",
+        "country": "Egipto",
+        "photos": "Una URL por línea, o separadas por comas\nhttps://images.unsplash.com/photo-..."
+      },
+      "propertyTypes": {
+        "apartment": "Apartamento",
+        "house": "Casa",
+        "villa": "Villa",
+        "cabin": "Cabaña",
+        "studio": "Estudio",
+        "loft": "Loft",
+        "chalet": "Chalet",
+        "cottage": "Casa de campo",
+        "guestSuite": "Suite de invitados"
+      },
+      "photosHint": "Pega los enlaces de las imágenes, separados por comas o saltos de línea. La primera se convierte en la foto de portada.",
+      "publish": "Publicar anuncio",
+      "publishing": "Publicando…",
+      "cancel": "Cancelar",
+      "errors": {
+        "titleRequired": "Dale un título a tu anuncio.",
+        "priceInvalid": "Introduce un precio por noche válido.",
+        "invalidImageUrl": "Este enlace de foto no parece una URL válida: {url}",
+        "createFailed": "No se pudo crear el anuncio"
+      }
     }
   }
 }

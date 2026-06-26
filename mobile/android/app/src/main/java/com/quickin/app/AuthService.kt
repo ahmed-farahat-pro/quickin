@@ -6,14 +6,22 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Result of a successful auth call: the bearer token plus the user's profile. */
+/**
+ * Result of a successful auth call: the bearer token plus the user's profile.
+ *
+ * One account per person — there is no "sign in as host" / "sign in as guest". [isHost] is the
+ * single source of truth for whether the account has host abilities (a host keeps every guest
+ * ability too); [role] is the backend-derived "host"|"guest" string kept only for the display pill.
+ */
 data class AuthResult(
     val token: String,
     val userId: String,
     val userName: String,
     val email: String,
     val provider: String,
-    val role: String
+    val role: String,
+    /** True once the account has become a host (parsed from the user JSON's `is_host`). */
+    val isHost: Boolean
 )
 
 /**
@@ -42,17 +50,16 @@ sealed interface AuthOutcome {
 object AuthService {
 
     /**
-     * Logs in with email + password. The optional [role] ("user" or "host") is forwarded to
-     * the backend: "host" makes the account a host (granting the role) and signs in as host;
-     * "user" signs in as a guest. Returns [AuthOutcome.NeedsVerification] when the backend
-     * answers 403 with `needsVerification:true` (unverified email); the caller should then
-     * send a fresh code via [resendOtp] and show the OTP screen.
+     * Logs in with email + password. One account per person — there is no role selection: the user
+     * simply signs in and the backend returns their `is_host` flag (a host keeps all guest
+     * abilities). Returns [AuthOutcome.NeedsVerification] when the backend answers 403 with
+     * `needsVerification:true` (unverified email); the caller should then send a fresh code via
+     * [resendOtp] and show the OTP screen.
      */
-    suspend fun login(email: String, password: String, role: String): AuthOutcome = withContext(Dispatchers.IO) {
+    suspend fun login(email: String, password: String): AuthOutcome = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("email", email)
             put("password", password)
-            put("role", role)
         }
         val (code, text) = request("/api/auth/login", body)
         when {
@@ -67,7 +74,8 @@ object AuthService {
     }
 
     /**
-     * Registers a new account with the chosen [role] ("user" or "host"). An optional [country]
+     * Registers a new account. One account per person — there is NO host registration; a new user
+     * always signs up as a normal account and can later become a host in-app. An optional [country]
      * (the user's English country display name; see [com.quickin.app.ui.Countries]) is included in
      * the body when present and ignored when blank.
      * On success the backend emails an OTP and returns `{pending:true}` with NO token,
@@ -77,14 +85,12 @@ object AuthService {
         name: String,
         email: String,
         password: String,
-        role: String,
         country: String? = null
     ): AuthOutcome = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("email", email)
             put("password", password)
             put("full_name", name)
-            put("role", role)
             if (!country.isNullOrBlank()) put("country", country.trim())
         }
         val (code, text) = request("/api/auth/signup", body)
@@ -93,7 +99,7 @@ object AuthService {
         }
         AuthOutcome.NeedsVerification(
             email = optEmail(text) ?: email,
-            role = JSONObject(text).optString("role").takeUnless { it.isBlank() } ?: role
+            role = null
         )
     }
 
@@ -230,14 +236,78 @@ object AuthService {
             ?: email.takeUnless { it.isBlank() }
             ?: "Guest"
         val provider = user?.optString("provider").takeUnless { it.isNullOrBlank() } ?: "email"
-        val role = user?.optString("role").takeUnless { it.isNullOrBlank() } ?: "user"
+        // [isHost] is the source of truth; [role] is "host"|"guest" (derived from is_host server-side)
+        // and falls back to that derivation when the field is absent.
+        val isHost = user?.optBoolean("is_host", false) ?: false
+        val role = user?.optString("role").takeUnless { it.isNullOrBlank() }
+            ?: if (isHost) "host" else "guest"
         return AuthResult(
             token = token,
             userId = id,
             userName = name,
             email = email,
             provider = provider,
-            role = role
+            role = role,
+            isHost = isHost
         )
+    }
+
+    /**
+     * Promotes the signed-in account to a host (unified-account contract): `POST
+     * /api/local/host/become` with the bearer [token]. Idempotent — flips `is_host` to true and
+     * returns the updated user, which we parse so the caller can refresh [isHost] without re-login.
+     * The response carries no fresh token, so the caller keeps the current [token]. A 401 (not
+     * signed in) surfaces as a [RuntimeException].
+     */
+    suspend fun becomeHost(token: String): AuthResult = withContext(Dispatchers.IO) {
+        val (status, text) = authedPost("/api/local/host/become", token)
+        if (status !in 200..299) {
+            throw RuntimeException(extractError(text, status))
+        }
+        // The endpoint returns { ok, user } (no token) — re-use the existing bearer token.
+        val user = JSONObject(text).optJSONObject("user")
+        val id = user?.optString("id").takeUnless { it.isNullOrBlank() }.orEmpty()
+        val email = user?.optString("email").takeUnless { it.isNullOrBlank() }.orEmpty()
+        val name = user?.optString("full_name").takeUnless { it.isNullOrBlank() }
+            ?: email.takeUnless { it.isBlank() }
+            ?: "Guest"
+        val provider = user?.optString("provider").takeUnless { it.isNullOrBlank() } ?: "email"
+        val isHost = user?.optBoolean("is_host", true) ?: true
+        val role = user?.optString("role").takeUnless { it.isNullOrBlank() }
+            ?: if (isHost) "host" else "guest"
+        AuthResult(
+            token = token,
+            userId = id,
+            userName = name,
+            email = email,
+            provider = provider,
+            role = role,
+            isHost = isHost
+        )
+    }
+
+    /**
+     * POSTs to [path] with an empty body and a Bearer [token], returning the raw
+     * (statusCode, responseText) without throwing on 4xx/5xx.
+     */
+    private fun authedPost(path: String, token: String): Pair<Int, String> {
+        val conn = (URL(Config.API_BASE_URL + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 15_000
+            readTimeout = 15_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Authorization", "Bearer $token")
+        }
+        return try {
+            conn.outputStream.use { out -> out.write("{}".toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            code to text
+        } finally {
+            conn.disconnect()
+        }
     }
 }

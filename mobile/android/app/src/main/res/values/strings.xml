@@ -106,6 +106,8 @@
     <string name="profile_host">Host</string>
     <string name="profile_account">Account</string>
     <string name="profile_hosting">Hosting</string>
+    <string name="become_host">Become a host</string>
+    <string name="become_host_sub">Share your place and start earning</string>
     <string name="profile_edit_profile">Edit profile</string>
     <string name="profile_edit_profile_sub">Name, age, ID &amp; phone</string>
     <string name="profile_my_subscriptions">My subscriptions</string>

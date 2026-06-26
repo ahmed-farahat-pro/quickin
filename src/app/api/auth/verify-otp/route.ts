@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getUserRowByEmail, signToken, rateLimit, clientIp } from '@/lib/local/auth'
+import { getUserRowByEmail, signToken, rateLimit, clientIp, publicUser } from '@/lib/local/auth'
 import { verifyOtpCode } from '@/lib/local/db'
 
 // Verify the emailed 6-digit code and issue the session.
@@ -29,10 +29,7 @@ export async function POST(req: Request) {
     if (!row) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404, headers: CORS })
     }
-    const user = {
-      id: row.id, email: row.email, full_name: row.full_name,
-      provider: row.provider, avatar_url: row.avatar_url,
-    }
+    const user = publicUser(row)
     const token = signToken({ sub: user.id, email: user.email })
     const res = NextResponse.json({ token, user }, { headers: CORS })
     res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyAppleIdToken, oauthConfigured } from '@/lib/local/oauth'
-import { upsertSocialUser, signToken } from '@/lib/local/auth'
+import { upsertSocialUser, signToken, publicUser } from '@/lib/local/auth'
 
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       provider: 'apple',
     })
     const token = signToken({ sub: user.id, email: user.email })
-    const res = NextResponse.json({ token, user }, { headers: CORS })
+    const res = NextResponse.json({ token, user: publicUser(user) }, { headers: CORS })
     res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })
     return res
   } catch (err) {

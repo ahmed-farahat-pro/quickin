@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { verifyToken, getUserRowByEmail, publicUser } from '@/lib/local/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,10 +21,7 @@ export async function GET(req: Request) {
     const row = await getUserRowByEmail(claims.email)
     if (!row) return NextResponse.json({ user: null }, { headers: CORS })
 
-    return NextResponse.json(
-      { user: { id: row.id, email: row.email, full_name: row.full_name, provider: row.provider, avatar_url: row.avatar_url } },
-      { headers: CORS }
-    )
+    return NextResponse.json({ user: publicUser(row) }, { headers: CORS })
   } catch (err) {
     return NextResponse.json({ user: null, error: String(err) }, { status: 200, headers: CORS })
   }

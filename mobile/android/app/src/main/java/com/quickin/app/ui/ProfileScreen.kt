@@ -96,6 +96,10 @@ fun ProfileScreen(
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
     /** Submits a picked ID photo (Uri) for verification. */
     onSubmitVerification: (android.net.Uri) -> Unit = {},
+    /** True while a "Become a host" promotion is in flight (drives the button spinner). */
+    becomingHost: Boolean = false,
+    /** Promotes this account to a host in-app (POST /api/local/host/become). */
+    onBecomeHost: () -> Unit = {},
     onOpenHost: () -> Unit = {},
     onOpenMySubscriptions: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
@@ -115,8 +119,10 @@ fun ProfileScreen(
     val name = state.userName?.takeUnless { it.isBlank() } ?: stringResource(R.string.profile_guest)
     val email = state.email?.takeUnless { it.isBlank() }
     val provider = state.provider?.takeUnless { it.isBlank() } ?: "email"
-    val isHost = state.role?.equals("host", ignoreCase = true) == true
-    // "host" -> "Host", anything else (incl. "user") -> "Guest".
+    // Unified account: is_host is the single source of truth for host abilities (a host keeps
+    // every guest ability too). Drives both the role pill and the hosting section below.
+    val isHost = state.isHost
+    // Host -> "Host", otherwise "Guest".
     val roleLabel = stringResource(if (isHost) R.string.profile_host else R.string.profile_guest)
 
     Column(
@@ -258,10 +264,14 @@ fun ProfileScreen(
         SectionHeader(stringResource(R.string.money_currency), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
         CurrencyPicker()
 
-        // Hosting section — listings + experiences. Only for host accounts.
+        // Hosting section. Unified account: a non-host sees a "Become a host" card that flips the
+        // account to a host in-app (no separate login); a host sees the management entries.
+        Spacer(modifier = Modifier.height(24.dp))
+        SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+        if (!isHost) {
+            BecomeHostCard(loading = becomingHost, onBecomeHost = onBecomeHost)
+        }
         if (isHost) {
-            Spacer(modifier = Modifier.height(24.dp))
-            SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
             SettingsRow(
                 icon = Icons.Filled.AddHome,
                 title = stringResource(R.string.profile_host_dashboard),
@@ -388,6 +398,64 @@ fun ProfileSignInCta(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp
                 )
+            }
+        }
+    }
+}
+
+/**
+ * "Become a host" card on the Profile tab (unified account). Shown only to accounts that aren't
+ * hosts yet: one button that promotes the SAME account to a host in-app (POST
+ * /api/local/host/become) — no separate login or account. On success the caller flips
+ * [AuthUiState.isHost] and the host-management entries replace this card without a re-login.
+ * Shows a spinner while [loading].
+ */
+@Composable
+private fun BecomeHostCard(loading: Boolean, onBecomeHost: () -> Unit) {
+    BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
+        Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Burgundy.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.AddHome, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.become_host),
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        stringResource(R.string.become_host_sub),
+                        color = Muted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 1.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            GradientButton(
+                onClick = onBecomeHost,
+                enabled = !loading,
+                radius = 16.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                } else {
+                    Text(
+                        stringResource(R.string.become_host),
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                }
             }
         }
     }

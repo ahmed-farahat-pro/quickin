@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url    text,
   fcm_token     text,
   push_platform text,
+  is_host       boolean NOT NULL DEFAULT false,  -- one account; becomes a host in-app
   created_at    timestamptz DEFAULT now()
 );
 

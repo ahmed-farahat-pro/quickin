@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuickIn — Build Status & Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --burgundy:#5B0F16; --cream:#F6F1E6; --tan:#EFE6D8; --ink:#2A2220; --muted:#6B6055;
+    --gold:#B8860B; --green:#177245; --line:rgba(42,34,32,.12); --white:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:"DM Sans",system-ui,-apple-system,sans-serif;line-height:1.6}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+  h1,h2,h3{font-weight:600;margin:0}
+  .serif{font-family:"Playfair Display",serif}
+  a{color:var(--burgundy)}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--tan);padding:2px 6px;border-radius:6px;font-size:.86em;color:var(--burgundy)}
+  pre{background:var(--ink);color:#F3ECE0;border-radius:14px;padding:16px 18px;overflow:auto;font-size:13px;line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace}
+  pre .c{color:#9c9488}
+  .head{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .logo{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:var(--burgundy);color:var(--cream);font-weight:700;font-size:13px;letter-spacing:.5px;text-align:center;line-height:1.05}
+  .sub{color:var(--muted);font-size:15px;margin-top:2px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 30px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 11px;border-radius:999px;white-space:nowrap}
+  .p-done{background:rgba(23,114,69,.12);color:var(--green);border:1px solid rgba(23,114,69,.28)}
+  .p-next{background:rgba(91,15,22,.10);color:var(--burgundy);border:1px solid rgba(91,15,22,.25)}
+  .p-key{background:rgba(184,134,11,.14);color:var(--gold);border:1px solid rgba(184,134,11,.30)}
+  h2.sec{font-size:21px;margin:38px 0 4px;display:flex;align-items:center;gap:10px}
+  h2.sec .n{width:26px;height:26px;border-radius:8px;background:var(--burgundy);color:var(--cream);font-size:14px;display:flex;align-items:center;justify-content:center}
+  .lead{color:var(--muted);font-size:14.5px;margin:2px 0 18px}
+  .grid{display:grid;gap:16px}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:20px;padding:20px 22px}
+  .card h3{font-size:17px;color:var(--burgundy);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+  .meter{height:8px;border-radius:999px;background:var(--tan);overflow:hidden;margin:10px 0 4px}
+  .meter > i{display:block;height:100%;background:var(--green);border-radius:999px}
+  .pct{font-size:12px;color:var(--muted)}
+  ul.list{list-style:none;margin:10px 0 0;padding:0}
+  ul.list li{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+  ul.list li:first-child{border-top:0}
+  .dot{margin-top:7px;flex:0 0 auto;width:7px;height:7px;border-radius:50%}
+  .d-done{background:var(--green)} .d-next{background:var(--burgundy)} .d-key{background:var(--gold)}
+  .flow{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;margin:6px 0 4px}
+  .step{flex:1;min-width:150px;background:var(--white);border:1px solid var(--line);border-radius:16px;padding:14px 16px;position:relative}
+  .step .si{width:30px;height:30px;border-radius:9px;background:var(--tan);color:var(--burgundy);display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:8px}
+  .step h4{margin:0 0 2px;font-size:14.5px;font-weight:600}
+  .step p{margin:0;font-size:12.5px;color:var(--muted)}
+  .arrow{align-self:center;color:var(--muted);font-size:20px}
+  table.req{width:100%;border-collapse:collapse;font-size:14px}
+  table.req td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+  table.req tr:first-child td{border-top:0}
+  table.req td:first-child{font-weight:600;white-space:nowrap;color:var(--burgundy)}
+  .foot{margin-top:40px;color:var(--muted);font-size:13px;text-align:center}
+  .tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .tag{font-size:11px;background:var(--tan);color:var(--burgundy);padding:2px 9px;border-radius:999px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="logo">QUICK<br>IN</div>
+    <div>
+      <h1 class="serif" style="font-size:30px;color:var(--burgundy)">QuickIn — Build status &amp; roadmap</h1>
+      <div class="sub">A boutique stays booking app · Web · iOS · Android · one backend</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="pill p-done"><span>✓</span> Done &amp; live</span>
+    <span class="pill p-next"><span>→</span> Next (no key needed)</span>
+    <span class="pill p-key"><span>🔑</span> Needs a key/account from you</span>
+    <span class="pill" style="background:var(--tan);color:var(--muted)">No Supabase · Next.js + Neon Postgres · deployed on Vercel</span>
+  </div>
+
+  <h2 class="sec"><span class="n">1</span> Where each platform stands</h2>
+  <p class="lead">Everything talks to one backend (<code>quickin-backend.vercel.app</code>). Auth, search, booking, host flow and QR cards work on all three.</p>
+  <div class="grid g4">
+    <div class="card">
+      <h3>Backend + DB</h3>
+      <div class="meter"><i style="width:92%"></i></div><div class="pct">92% · live &amp; tested</div>
+      <div class="tagrow"><span class="tag">Neon Postgres</span><span class="tag">OTP email</span><span class="tag">roles</span><span class="tag">bookings</span></div>
+    </div>
+    <div class="card">
+      <h3>Web</h3>
+      <div class="meter"><i style="width:88%"></i></div><div class="pct">88% · deployed</div>
+      <div class="tagrow"><span class="tag">explore + map</span><span class="tag">host dash</span><span class="tag">QR</span></div>
+    </div>
+    <div class="card">
+      <h3>iOS</h3>
+      <div class="meter"><i style="width:82%"></i></div><div class="pct">82% · TestFlight‑ready</div>
+      <div class="tagrow"><span class="tag">SwiftUI</span><span class="tag">Apple+Google</span><span class="tag">QR</span></div>
+    </div>
+    <div class="card">
+      <h3>Android</h3>
+      <div class="meter"><i style="width:80%"></i></div><div class="pct">80% · builds</div>
+      <div class="tagrow"><span class="tag">Compose</span><span class="tag">host dash</span><span class="tag">QR card</span></div>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">2</span> The booking flow (works end‑to‑end)</h2>
+  <p class="lead">Tested live: a host posts a place, a guest requests it, the host approves, the guest gets a scannable pass. No payment — confirmation only, exactly as scoped.</p>
+  <div class="flow">
+    <div class="step"><div class="si">1</div><h4>Host adds listing</h4><p>Title, price, photos, capacity</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="si">2</div><h4>Guest books</h4><p>Status: pending</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="si">3</div><h4>Host confirms</h4><p>Approve or reject</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="si">4</div><h4>Guest gets pass</h4><p>QR card + reservation code</p></div>
+  </div>
+
+  <h2 class="sec"><span class="n">3</span> What's done — in detail</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Backend &amp; database</h3>
+      <ul class="list">
+        <li><span class="dot d-done"></span>Next.js API + node‑postgres on Neon — no Supabase, deployed to Vercel.</li>
+        <li><span class="dot d-done"></span>Email + password auth with <b>6‑digit OTP</b> email verification (your Private Email SMTP).</li>
+        <li><span class="dot d-done"></span>Three roles — <b>guest · host · admin</b>; hardcoded admin login.</li>
+        <li><span class="dot d-done"></span>Google sign‑in verification (web + iOS audiences) · Apple token verification.</li>
+        <li><span class="dot d-done"></span>Reservation lifecycle — host listings, booking <b>pending → confirm/reject</b>, reservation codes; authorization enforced.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Web (quickin‑frontend)</h3>
+      <ul class="list">
+        <li><span class="dot d-done"></span>Browse, live search (location/dates/guests + availability), Leaflet map with price pins.</li>
+        <li><span class="dot d-done"></span>Login/Sign‑up with <b>Guest/Host choice</b> + OTP screen; admin dashboard.</li>
+        <li><span class="dot d-done"></span><b>/host</b> — add a listing, your listings, reservation requests with confirm/reject.</li>
+        <li><span class="dot d-done"></span><b>/reservation/[id]</b> — details + on‑page <b>QR</b>; "Add to Apple Wallet" button present.</li>
+        <li><span class="dot d-done"></span>Google button live (with key); Apple button wired, hidden until configured.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>iOS (SwiftUI)</h3>
+      <ul class="list">
+        <li><span class="dot d-done"></span>Zoom splash, browse‑before‑login, search, MapKit price‑pin map, branded date picker.</li>
+        <li><span class="dot d-done"></span>Auth + OTP + roles; native <b>Sign in with Apple</b> &amp; <b>Google</b> code.</li>
+        <li><span class="dot d-done"></span>Host dashboard + reservation detail with a CoreImage <b>QR</b>.</li>
+        <li><span class="dot d-done"></span>Bundle <code>com.quickin.ahmed</code>, v1.0.0 — archive verified, TestFlight‑ready.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Android (Jetpack Compose)</h3>
+      <ul class="list">
+        <li><span class="dot d-done"></span>Browse, search, osmdroid price‑pin map, custom date picker.</li>
+        <li><span class="dot d-done"></span>Auth + OTP + roles; Google sign‑in scaffolding.</li>
+        <li><span class="dot d-done"></span>Host dashboard + reservation <b>in‑app card with QR</b> (ZXing) — not Apple Wallet, by design.</li>
+        <li><span class="dot d-done"></span>Signed release build config; both debug &amp; release compile.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">4</span> What's next — to make it a perfect booking app</h2>
+  <p class="lead">Grouped by platform. 🔑 items need an account/key from you; → items are pure build work.</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Shared (all platforms)</h3>
+      <ul class="list">
+        <li><span class="dot d-next"></span><b>Reviews &amp; ratings</b> after a stay.</li>
+        <li><span class="dot d-next"></span><b>Host ↔ guest messaging</b>.</li>
+        <li><span class="dot d-next"></span><b>Notifications</b> — email + push on booking/confirm.</li>
+        <li><span class="dot d-next"></span><b>Photo upload</b> for listings (today it takes image URLs).</li>
+        <li><span class="dot d-next"></span><b>Calendar / availability</b> management per listing.</li>
+        <li><span class="dot d-key"></span><b>Payments</b> later (Stripe) — currently confirm‑only, by design.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Web</h3>
+      <ul class="list">
+        <li><span class="dot d-key"></span>Turn on <b>Apple sign‑in</b> (Services ID + domain verify).</li>
+        <li><span class="dot d-key"></span><b>Add to Apple Wallet</b> — needs the Pass certificate.</li>
+        <li><span class="dot d-key"></span>Set the 5 <code>SMTP_*</code> vars so codes email (vs show on screen).</li>
+        <li><span class="dot d-next"></span>Custom domain + final polish &amp; accessibility pass.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>iOS</h3>
+      <ul class="list">
+        <li><span class="dot d-key"></span><b>Apple Wallet pass</b> (.pkpass) — needs the Pass cert.</li>
+        <li><span class="dot d-key"></span>Enable <b>Sign in with Apple</b> capability + submit to <b>TestFlight</b> → App Store.</li>
+        <li><span class="dot d-next"></span>Push notifications; real‑device test pass.</li>
+        <li><span class="dot d-key"></span>(Optional) Google Maps iOS SDK for native Google map.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Android</h3>
+      <ul class="list">
+        <li><span class="dot d-next"></span>Finish the <b>"Continue with Google"</b> button (Credential Manager).</li>
+        <li><span class="dot d-next"></span>Polish the in‑app pass card (or add real Google Wallet — 🔑 issuer account).</li>
+        <li><span class="dot d-key"></span><b>Play Console</b> internal testing → release.</li>
+        <li><span class="dot d-key"></span>(Optional) Google Maps key to switch from osmdroid.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">5</span> How to run everything</h2>
+  <p class="lead">The web + backend are already live on Vercel. To run locally or the mobile apps:</p>
+  <div class="grid g2">
+    <div class="card">
+      <h3>Web &amp; backend (live)</h3>
+      <pre><span class="c"># already deployed — just open:</span>
+Web      https://quickin-frontend.vercel.app
+Backend  https://quickin-backend.vercel.app
+Admin    log in as  admin / (admin password)</pre>
+    </div>
+    <div class="card">
+      <h3>Backend — local</h3>
+      <pre>cd ~/Downloads/quickin-backend
+npm install
+cp .env.example .env   <span class="c"># fill DATABASE_URL, AUTH_SECRET, SMTP_*</span>
+npm run dev            <span class="c"># http://localhost:4000</span></pre>
+    </div>
+    <div class="card">
+      <h3>Web — local</h3>
+      <pre>cd ~/Downloads/quickin-frontend
+npm install
+<span class="c"># .env.local: NEXT_PUBLIC_API_URL=https://quickin-backend.vercel.app</span>
+npm run dev            <span class="c"># http://localhost:3000</span></pre>
+    </div>
+    <div class="card">
+      <h3>iOS — simulator</h3>
+      <pre>cd ~/Downloads/quickin-master/mobile/ios
+xcodegen generate
+open QuickIn.xcodeproj <span class="c"># then press Run ▶</span></pre>
+    </div>
+    <div class="card">
+      <h3>Android — emulator</h3>
+      <pre>open ~/Downloads/quickin-master/mobile/android
+<span class="c"># in Android Studio, press Run ▶  — or:</span>
+./gradlew :app:installDebug</pre>
+    </div>
+    <div class="card">
+      <h3>Try the live flow (no device)</h3>
+      <ul class="list">
+        <li><span class="dot d-done"></span>Sign up as <b>Host</b> → add a listing.</li>
+        <li><span class="dot d-done"></span>Private window → sign up as <b>Guest</b> → book it.</li>
+        <li><span class="dot d-done"></span>Back as host → <b>confirm</b> → guest sees the <b>QR</b>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sec"><span class="n">6</span> What I still need from you (keys &amp; accounts)</h2>
+  <table class="req">
+    <tr><td>Apple Wallet</td><td>Register Pass Type ID <code>pass.com.quickin.ahmed</code> → export the <b>.p12</b> cert (+ password) → drop it in <code>~/Downloads</code>. Turns on "Add to Apple Wallet".</td></tr>
+    <tr><td>Apple web sign‑in</td><td>The <b>Services ID</b> <code>com.quickin.web</code> + its domain‑verification file (download it and send it to me).</td></tr>
+    <tr><td>Vercel env</td><td>Backend: <code>SMTP_*</code> (real OTP emails), <code>GOOGLE_CLIENT_ID</code> (web,iOS), <code>APPLE_CLIENT_ID</code>. Frontend: <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>.</td></tr>
+    <tr><td>Stores</td><td>iOS → TestFlight/App Store submit. Android → Play Console internal testing. (Apple membership ✓, Team <code>97DNR5Y3Y5</code>.)</td></tr>
+  </table>
+
+  <p class="foot">QuickIn · generated build status. Repos: <code>quickin-backend</code> · <code>quickin-frontend</code> · <code>quickin-master/mobile</code> — all on GitHub <code>ahmed-farahat-pro</code>.</p>
+
+</div>
+</body>
+</html>

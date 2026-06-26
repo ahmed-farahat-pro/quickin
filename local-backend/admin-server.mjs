@@ -38,6 +38,7 @@ const getStats = () =>
     'listings',(SELECT count(*) FROM listings),
     'published',(SELECT count(*) FROM listings WHERE is_published),
     'users',(SELECT count(*) FROM users),
+    'hosts',(SELECT count(*) FROM users WHERE COALESCE(is_host,false)),
     'images',(SELECT count(*) FROM listing_images),
     'pending_ids',(SELECT count(*) FROM id_verifications WHERE status='pending'),
     'pending_bookings',(SELECT count(*) FROM bookings WHERE status='pending'))`)
@@ -73,6 +74,7 @@ const getListings = () =>
 const getUsers = () =>
   psqlJson(`SELECT COALESCE(json_agg(json_build_object(
     'email',email,'full_name',full_name,'provider',provider,
+    'is_host',COALESCE(is_host,false),
     'created',to_char(created_at,'YYYY-MM-DD')) ORDER BY created_at),'[]') FROM users`)
 
 // ---- request body ----------------------------------------------------------
@@ -164,9 +166,12 @@ function bookingRow(b) {
 
 function userRow(u) {
   const badge = { google: '#4285F4', apple: '#111', email: C.burgundy }[u.provider] || C.muted
+  const role = u.is_host ? C.burgundy : C.muted
+  const roleLabel = u.is_host ? 'Host' : 'User'
   return `<tr style="border-top:1px solid ${C.tan}">
     <td style="padding:9px 8px;font-weight:600;color:${C.ink}">${esc(u.full_name || '—')}</td>
     <td style="padding:9px 8px;color:${C.muted}">${esc(u.email)}</td>
+    <td style="padding:9px 8px"><span style="background:${role}1a;color:${role};font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px">${roleLabel}</span></td>
     <td style="padding:9px 8px"><span style="background:${badge}1a;color:${badge};font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px">${esc(u.provider)}</span></td>
     <td style="padding:9px 8px;color:${C.muted}">${esc(u.created || '')}</td></tr>`
 }
@@ -236,11 +241,11 @@ function page(stats, listings, users, verifications, pendingBookings) {
         : `<div style="padding:22px;color:${C.muted}">No ID submissions yet.</div>`}
     </div>
 
-    <h2 style="font-size:18px;margin:0 0 12px">Users (${users.length})</h2>
+    <h2 style="font-size:18px;margin:0 0 12px">Users (${users.length}) — <span style="color:${C.burgundy}">${stats.hosts ?? 0} hosts</span></h2>
     <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 16px rgba(42,34,32,.06)">
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <thead><tr style="background:${C.tan};text-align:left">
-          <th style="padding:11px 8px">Name</th><th style="padding:11px 8px">Email</th><th style="padding:11px 8px">Provider</th><th style="padding:11px 8px">Joined</th>
+          <th style="padding:11px 8px">Name</th><th style="padding:11px 8px">Email</th><th style="padding:11px 8px">Type</th><th style="padding:11px 8px">Provider</th><th style="padding:11px 8px">Joined</th>
         </tr></thead><tbody>${users.map(userRow).join('')}</tbody></table>
     </div>
   </div></body></html>`

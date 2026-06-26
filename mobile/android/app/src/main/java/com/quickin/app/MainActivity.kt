@@ -42,7 +42,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -81,8 +80,6 @@ import com.quickin.app.ui.AiTravelChatScreen
 import com.quickin.app.ui.ChatScreen
 import com.quickin.app.ui.ForgotPasswordScreen
 import com.quickin.app.ui.HostAnalyticsScreen
-import com.quickin.app.ui.HostListingsScreen
-import com.quickin.app.ui.HostReservationsScreen
 import com.quickin.app.ui.HostEarningsScreen
 import com.quickin.app.ui.HostProfileScreen
 import com.quickin.app.ui.avatarInitials
@@ -176,7 +173,9 @@ class MainActivity : AppCompatActivity() {
  */
 private data class TabItem(val key: String, @StringRes val labelRes: Int, val icon: ImageVector)
 
-// GUEST (role "user") tab set — Explore · Services · Wishlist · Trips · Profile.
+// The single, unified tab set for EVERY account — Explore · Services · Wishlist · Trips · Profile.
+// One account per person: a host keeps all of these guest abilities and reaches host features
+// (manage listings + incoming reservations) from the Profile tab, not a separate tab set.
 private val GUEST_TABS = listOf(
     TabItem("Explore", R.string.tab_explore, Icons.Filled.Explore),
     TabItem("Services", R.string.tab_services, Icons.Filled.Star),
@@ -185,22 +184,9 @@ private val GUEST_TABS = listOf(
     TabItem("Profile", R.string.tab_profile, Icons.Filled.Person)
 )
 
-// HOST (role "host"/"admin") tab set — Listings · Reservations · Services · Profile (NO Explore).
-private val HOST_TABS = listOf(
-    TabItem("Listings", R.string.tab_listings, Icons.Filled.Home),
-    TabItem("Reservations", R.string.tab_reservations, Icons.Filled.CalendarToday),
-    TabItem("Services", R.string.tab_services, Icons.Filled.Star),
-    TabItem("Profile", R.string.tab_profile, Icons.Filled.Person)
-)
-
-/** True for accounts that should see the host tab set ("host" or "admin"). */
-private fun isHostRole(role: String?): Boolean =
-    role.equals("host", ignoreCase = true) || role.equals("admin", ignoreCase = true)
-
 /**
  * Glossy bottom tab bar: a soft translucent cream bar where the SELECTED tab sits
  * in a raised white rounded "pill" (icon + label) with a shadow — the glossy look.
- * The [tabs] are role-aware (guest vs host), supplied by the caller.
  */
 @Composable
 private fun GlossyTabBar(tabs: List<TabItem>, selected: Int, onSelect: (Int) -> Unit) {
@@ -318,6 +304,8 @@ private fun MainApp() {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.state.collectAsState()
     val forgotState by authViewModel.forgot.collectAsState()
+    // Whether a "become a host" promotion is in flight (drives the Profile button spinner).
+    val becomingHost by authViewModel.becomingHost.collectAsState()
 
     val listingsViewModel: ListingsViewModel = viewModel()
     val listingsState by listingsViewModel.state.collectAsState()
@@ -336,10 +324,6 @@ private fun MainApp() {
     val hostViewModel: HostViewModel = viewModel()
     val hostBookingsState by hostViewModel.bookings.collectAsState()
     val createListingState by hostViewModel.create.collectAsState()
-    val hostListingsState by hostViewModel.listings.collectAsState()
-    val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
-    val stayDiscountState by hostViewModel.stayDiscount.collectAsState()
-    val seasonalPricingState by hostViewModel.seasonalPricing.collectAsState()
     // Section 10: AI listing-description writer + host analytics dashboard.
     val aiWriterState by hostViewModel.aiWriter.collectAsState()
     val hostAnalyticsState by hostViewModel.analytics.collectAsState()
@@ -393,10 +377,11 @@ private fun MainApp() {
     val availabilityGuestState by availabilityViewModel.guest.collectAsState()
     val availabilityHostState by availabilityViewModel.host.collectAsState()
 
-    // Role-aware bottom-nav tab set. Hosts/admins get Listings · Reservations · Services ·
-    // Profile (no Explore); everyone else gets the guest set. Switches reactively on role change.
-    val isHost = isHostRole(authState.role)
-    val tabs = if (isHost) HOST_TABS else GUEST_TABS
+    // Unified account: EVERYONE gets the guest tab set (Explore · Services · Wishlist · Trips ·
+    // Profile). A host keeps every guest ability and reaches host features (manage listings +
+    // incoming reservations) from the Profile tab — the whole tab set no longer switches on role.
+    val isHost = authState.isHost
+    val tabs = GUEST_TABS
 
     var selectedTab by remember { mutableIntStateOf(0) }
     // Stable key of the currently-selected tab — used for role-agnostic "which tab is this" checks
@@ -545,26 +530,25 @@ private fun MainApp() {
             is DeepLink.Listing -> listingsViewModel.openListingById(link.id)
             is DeepLink.Service -> servicesViewModel.openServiceById(link.id)
             is DeepLink.Reservation -> {
-                // Route into the guest experience, then open the reservation's QR-card detail.
-                // The detail screen fetches it and shows a sign-in prompt when signed out.
-                if (!isHost) selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
+                // Open the reservation's QR-card detail under the guest Trips tab. The detail
+                // screen fetches it and shows a sign-in prompt when signed out.
+                selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
                 selectedService = null
                 selectedListing = null
                 selectedReservationId = link.id
             }
             is DeepLink.Tab -> {
-                // App shortcut / Assistant: jump to a tab (mapping differs guest vs host).
+                // App shortcut / Assistant: jump to a guest tab (everyone shares the guest set).
                 selectedService = null
                 selectedListing = null
                 selectedReservationId = null
-                val activeTabs = if (isHost) HOST_TABS else GUEST_TABS
                 val targetKey = when (link.key) {
-                    "reservations", "trips" -> if (isHost) "Reservations" else "Trips"
+                    "reservations", "trips" -> "Trips"
                     "profile" -> "Profile"
                     "services" -> "Services"
-                    else -> activeTabs.first().key // explore → Explore (guest) / Listings (host)
+                    else -> GUEST_TABS.first().key // explore → Explore
                 }
-                selectedTab = activeTabs.indexOfFirst { it.key == targetKey }.coerceAtLeast(0)
+                selectedTab = GUEST_TABS.indexOfFirst { it.key == targetKey }.coerceAtLeast(0)
             }
             null -> {}
         }
@@ -575,7 +559,7 @@ private fun MainApp() {
     val deepLinkListing by listingsViewModel.deepLinkListing.collectAsState()
     LaunchedEffect(deepLinkListing) {
         deepLinkListing?.let { listing ->
-            if (!isHost) selectedTab = 0 // Explore
+            selectedTab = 0 // Explore
             bookingsViewModel.resetReserve()
             reviewsViewModel.clearListingReviews()
             selectedService = null
@@ -589,7 +573,7 @@ private fun MainApp() {
     val deepLinkService by servicesViewModel.deepLinkService.collectAsState()
     LaunchedEffect(deepLinkService) {
         deepLinkService?.let { svc ->
-            if (!isHost) selectedTab = GUEST_TABS.indexOfFirst { it.key == "Services" }.coerceAtLeast(0)
+            selectedTab = GUEST_TABS.indexOfFirst { it.key == "Services" }.coerceAtLeast(0)
             servicesViewModel.resetSubscribe()
             selectedListing = null
             selectedReservationId = null
@@ -624,11 +608,10 @@ private fun MainApp() {
         }
     }
 
-    // When the role (hence the tab set) changes — e.g. logging in as a host, or logging out —
-    // snap back to the first tab so the selection can't point past the new set's bounds.
+    // Everyone shares the guest tab set, so the tab set never changes on role. We still close the
+    // host "Add a listing" route when an account stops being a host (e.g. on logout / account switch).
     LaunchedEffect(isHost) {
-        selectedTab = 0
-        showAddListing = false
+        if (!isHost) showAddListing = false
     }
 
     // Keep the Reservations tab in sync with auth: load on sign-in, clear on sign-out.
@@ -686,7 +669,8 @@ private fun MainApp() {
         }
     }
 
-    // Refresh data when the active tab changes, keyed by the tab's role-agnostic key.
+    // Refresh data when the active tab changes, keyed by the tab's key. Everyone shares the guest
+    // tab set now — host features live behind the Profile tab, not their own tabs.
     LaunchedEffect(currentTabKey, authState.isAuthenticated) {
         when (currentTabKey) {
             // Explore (guest) — refresh listings feed + unread badge on every tab revisit.
@@ -698,11 +682,8 @@ private fun MainApp() {
             "wishlist" -> if (authState.isAuthenticated) wishlistViewModel.load()
             // Guest "Trips" = the user's own bookings.
             "Trips" -> if (authState.isAuthenticated) bookingsViewModel.loadReservations()
-            // Host "Reservations" = incoming requests across the host's listings.
-            "Reservations" -> if (authState.isAuthenticated) hostViewModel.loadHostBookings()
-            // Services: public feed for guests, the host's own services for hosts.
-            "Services" -> if (isHost) servicesViewModel.loadHost() else servicesViewModel.loadServices()
-            "Listings" -> if (authState.isAuthenticated) hostViewModel.loadHostListings()
+            // Services: the public bookable-experiences feed (hosts manage their own from Profile).
+            "Services" -> servicesViewModel.loadServices()
             // Profile tab renders the avatar + bio from the editable profile — always reload
             // to pick up any saves made in the settings screen, and reload verification status.
             "Profile" -> if (authState.isAuthenticated) {
@@ -774,7 +755,7 @@ private fun MainApp() {
                 selectedListing = null
                 selectedService = null
                 // Land on the guest Trips tab (when applicable) under the reservation detail.
-                if (!isHost) selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
+                selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
                 selectedReservationId = bookingId
             },
             onDismiss = {
@@ -1220,8 +1201,13 @@ private fun MainApp() {
     if (showAuth && !authState.isAuthenticated) {
         AuthScreen(
             state = authState,
-            onLogin = authViewModel::login,
-            onSignup = authViewModel::signup,
+            // Unified account: one account per person, no "sign in/register as host". Any role the
+            // auth form still passes is ignored — the backend returns the account's is_host flag,
+            // and a user becomes a host in-app from their profile.
+            onLogin = { email, password, _ -> authViewModel.login(email, password) },
+            onSignup = { name, email, password, _, referralCode, country ->
+                authViewModel.signup(name, email, password, referralCode, country)
+            },
             onGoogleLaunch = { _, _ ->
                 val ctx = activity ?: return@AuthScreen
                 val intent = GoogleSignIn.signInIntent(ctx)
@@ -1263,10 +1249,8 @@ private fun MainApp() {
             },
             label = "tab"
         ) { tabIndex ->
-            // Switch on the role-agnostic tab key so the same content map serves both the
-            // guest set (Explore · Services · Trips · Profile) and the host set (Listings ·
-            // Reservations · Services · Profile). getOrNull guards against a transient index
-            // that's briefly out of range while the tab set swaps on a role change.
+            // Everyone shares the guest tab set (Explore · Services · Wishlist · Trips · Profile);
+            // host features are reached from the Profile tab. getOrNull guards a transient index.
             when (tabs.getOrNull(tabIndex)?.key) {
                 "Explore" -> ListingsScreen(
                     state = listingsState,
@@ -1309,60 +1293,12 @@ private fun MainApp() {
                     onClearAiSearch = listingsViewModel::clearAiSearch,
                     contentPadding = padding
                 )
-                // Host-only: the host's own listings + an "Add a listing" entry.
-                "Listings" -> HostListingsScreen(
-                    state = hostListingsState,
-                    onLoad = hostViewModel::loadHostListings,
-                    onAddListing = {
-                        hostViewModel.resetCreate()
-                        showAddListing = true
-                    },
-                    onOpenListing = { listing -> selectedListing = listing },
-                    ownershipState = ownershipDocState,
-                    onReuploadDoc = { listingId, doc -> hostViewModel.reuploadOwnershipDoc(listingId, doc) },
-                    stayDiscountState = stayDiscountState,
-                    onSaveStayDiscounts = { listingId, weekly, monthly ->
-                        hostViewModel.setStayDiscounts(listingId, weekly, monthly)
-                    },
-                    seasonalPricingState = seasonalPricingState,
-                    onSaveSeasonalPricing = { listingId, weekendPrice, monthlyPrices ->
-                        hostViewModel.setSeasonalPricing(listingId, weekendPrice, monthlyPrices)
-                    },
-                    contentPadding = padding
-                )
-                "Services" -> if (isHost) {
-                    // Host services management (Requests / My services / Add service).
-                    HostServicesScreen(
-                        state = hostServicesState,
-                        createState = createServiceState,
-                        onBack = null, // embedded as a bottom-nav tab — no back arrow
-                        onLoad = servicesViewModel::loadHost,
-                        onConfirm = { id -> servicesViewModel.act(id, "confirm") },
-                        onReject = { id -> servicesViewModel.act(id, "reject") },
-                        onCreateService = { title, category, description, location, price, imageUrl ->
-                            servicesViewModel.createService(title, category, description, location, price, imageUrl)
-                        },
-                        onResetCreate = servicesViewModel::resetCreate,
-                        contentPadding = padding
-                    )
-                } else {
-                    ServicesScreen(
-                        state = servicesState,
-                        onRetry = servicesViewModel::loadServices,
-                        onSelect = { selectedService = it },
-                        contentPadding = padding
-                    )
-                }
-                // Host-only: incoming reservation requests with Confirm / Reject.
-                "Reservations" -> HostReservationsScreen(
-                    state = hostBookingsState,
-                    onLoad = hostViewModel::loadHostBookings,
-                    onConfirm = { id -> hostViewModel.act(id, "confirm") },
-                    onReject = { id -> hostViewModel.act(id, "reject") },
-                    onMessage = { id ->
-                        val title = hostBookingsState.bookings.firstOrNull { it.id == id }?.title
-                        chatBooking = id to title
-                    },
+                // Services: the public bookable-experiences feed. Hosts manage their own services
+                // from the Profile tab (Host services), not from a separate tab.
+                "Services" -> ServicesScreen(
+                    state = servicesState,
+                    onRetry = servicesViewModel::loadServices,
+                    onSelect = { selectedService = it },
                     contentPadding = padding
                 )
                 // Guest "Wishlist" = the user's saved stays + experiences. A top-level tab;
@@ -1418,6 +1354,10 @@ private fun MainApp() {
                         receivedReviews = receivedReviewsState,
                         verificationState = verificationState,
                         onSubmitVerification = trustViewModel::submitVerification,
+                        // Unified account: a non-host taps "Become a host" → POST /host/become →
+                        // isHost flips true in place and the host entries appear (no re-login).
+                        becomingHost = becomingHost,
+                        onBecomeHost = authViewModel::becomeHost,
                         onOpenHost = { showHost = true },
                         onOpenMySubscriptions = {
                             servicesViewModel.loadMySubscriptions()

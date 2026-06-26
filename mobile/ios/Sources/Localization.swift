@@ -44,7 +44,7 @@ enum AppLang: String, CaseIterable, Identifiable {
 ///
 /// A shared singleton is also held in `L.shared` so non-`View` types — the
 /// model enums whose `label` is shown in the UI (`ListingSort`,
-/// `ListingsViewMode`, `BookingStatus`, `AccountRole`) — can localize without an
+/// `ListingsViewMode`, `BookingStatus`) — can localize without an
 /// environment. SwiftUI still re-renders those because the views that read the
 /// labels observe the same published `lang`.
 @MainActor
@@ -446,6 +446,8 @@ enum Strings {
         "profile.editProfile.subtitle": "Update your photo, bio, name & details.",
         "profile.hostDashboard": "Host dashboard",
         "profile.hostDashboard.subtitle": "Add listings & manage reservation requests.",
+        "profile.becomeHost": "Become a host",
+        "profile.becomeHost.subtitle": "List your place & start hosting — on the same account.",
         "profile.logout": "Log out",
         "profile.language": "Language",
 
@@ -1034,6 +1036,8 @@ enum Strings {
         "profile.editProfile.subtitle": "حدّث صورتك ونبذتك واسمك وبياناتك.",
         "profile.hostDashboard": "لوحة المضيف",
         "profile.hostDashboard.subtitle": "أضف الإعلانات وأدر طلبات الحجز.",
+        "profile.becomeHost": "كن مضيفًا",
+        "profile.becomeHost.subtitle": "أضف مكانك وابدأ الاستضافة — على نفس الحساب.",
         "profile.logout": "تسجيل الخروج",
         "profile.language": "اللغة",
 
@@ -1567,6 +1571,8 @@ enum Strings {
         "profile.editProfile.subtitle": "Mettez à jour votre photo, votre bio, votre nom et vos informations.",
         "profile.hostDashboard": "Tableau de bord hôte",
         "profile.hostDashboard.subtitle": "Ajoutez des annonces et gérez les demandes de réservation.",
+        "profile.becomeHost": "Devenir hôte",
+        "profile.becomeHost.subtitle": "Publiez votre logement et commencez à héberger — sur le même compte.",
         "profile.logout": "Se déconnecter",
         "profile.language": "Langue",
         "settings.fullName": "Nom complet",
@@ -2070,6 +2076,8 @@ enum Strings {
         "profile.editProfile.subtitle": "Actualice su foto, biografía, nombre y datos.",
         "profile.hostDashboard": "Panel de anfitrión",
         "profile.hostDashboard.subtitle": "Añada anuncios y gestione las solicitudes de reserva.",
+        "profile.becomeHost": "Conviértete en anfitrión",
+        "profile.becomeHost.subtitle": "Publica tu alojamiento y empieza a hospedar — en la misma cuenta.",
         "profile.logout": "Cerrar sesión",
         "profile.language": "Idioma",
         "settings.fullName": "Nombre completo",

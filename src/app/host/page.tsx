@@ -9,6 +9,7 @@ import { getHostListings, type Listing } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
+import { BecomeHostButton } from '../account/account-forms'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,7 @@ const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80'
 
-async function getCurrentUser(): Promise<{ id: string; firstName: string } | null> {
+async function getCurrentUser(): Promise<{ id: string; firstName: string; is_host: boolean } | null> {
   const token = (await cookies()).get('qk_token')?.value
   if (!token) return null
   const claims = verifyToken(token)
@@ -46,7 +47,7 @@ async function getCurrentUser(): Promise<{ id: string; firstName: string } | nul
     const row = await getUserRowByEmail(claims.email)
     if (!row) return null
     const name = row.full_name?.trim() || row.email.split('@')[0]
-    return { id: row.id, firstName: name.split(' ')[0] }
+    return { id: row.id, firstName: name.split(' ')[0], is_host: !!row.is_host }
   } catch {
     return null
   }
@@ -128,7 +129,9 @@ export default async function HostPage() {
         }}
       >
         {!user ? (
-          <BecomeAHost t={t} />
+          <BecomeAHost t={t} signedIn={false} />
+        ) : !user.is_host ? (
+          <BecomeAHost t={t} signedIn />
         ) : (
           <HostDashboard userId={user.id} firstName={user.firstName} t={t} />
         )}
@@ -137,8 +140,12 @@ export default async function HostPage() {
   )
 }
 
-/** Signed-out intro: short pitch + login CTA. */
-function BecomeAHost({ t }: { t: T }) {
+/**
+ * Become-a-host intro: short pitch + CTA.
+ * - signedIn=false → "Log in to start hosting" link (one account; they sign in first).
+ * - signedIn=true  → promote button that flips is_host on the same account, then reloads.
+ */
+function BecomeAHost({ t, signedIn }: { t: T; signedIn: boolean }) {
   return (
     <div
       style={{
@@ -220,22 +227,32 @@ function BecomeAHost({ t }: { t: T }) {
         ))}
       </div>
 
-      <a
-        href="/login"
-        style={{
-          display: 'inline-block',
-          marginTop: 32,
-          color: '#fff',
-          background: COLORS.burgundy,
-          textDecoration: 'none',
-          fontWeight: 700,
-          padding: '13px 30px',
-          borderRadius: 999,
-          fontSize: 15,
-        }}
-      >
-        {t('become.cta')}
-      </a>
+      <div style={{ marginTop: 32 }}>
+        {signedIn ? (
+          <BecomeHostButton
+            label={t('become.ctaPromote')}
+            workingLabel={t('become.working')}
+            errorLabel={t('become.error')}
+            variant="large"
+          />
+        ) : (
+          <a
+            href="/login"
+            style={{
+              display: 'inline-block',
+              color: '#fff',
+              background: COLORS.burgundy,
+              textDecoration: 'none',
+              fontWeight: 700,
+              padding: '13px 30px',
+              borderRadius: 999,
+              fontSize: 15,
+            }}
+          >
+            {t('become.cta')}
+          </a>
+        )}
+      </div>
     </div>
   )
 }

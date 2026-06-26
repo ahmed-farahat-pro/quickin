@@ -1755,6 +1755,18 @@
     "backToExplore": "Retour à l’exploration",
     "title": "Compte",
     "subtitle": "Gérez votre profil, votre identité et votre mot de passe.",
+    "becomeHost": {
+      "title": "Devenir hôte",
+      "subtitle": "Publiez votre espace, fixez votre prix et approuvez chaque voyageur. Vous conservez tout ce que vous pouvez faire en tant que voyageur.",
+      "button": "Devenir hôte",
+      "working": "Configuration…",
+      "error": "Impossible d’activer l’hébergement. Veuillez réessayer."
+    },
+    "hosting": {
+      "title": "Hébergement",
+      "subtitle": "Gérez vos annonces et les réservations entrantes.",
+      "label": "Ouvrir le tableau de bord hôte"
+    },
     "verifyStatus": {
       "verified": "Vérifié",
       "pending": "En cours de vérification",
@@ -1822,7 +1834,10 @@
       "feature2Desc": "Chaque demande nécessite votre accord.",
       "feature3Title": "Aucun frais initial",
       "feature3Desc": "Publiez gratuitement, dès aujourd’hui.",
-      "cta": "Connectez-vous pour commencer à héberger"
+      "cta": "Connectez-vous pour commencer à héberger",
+      "ctaPromote": "Devenir hôte",
+      "working": "Configuration…",
+      "error": "Impossible d’activer l’hébergement. Veuillez réessayer."
     },
     "dashboard": {
       "greeting": "Hébergement, {name}",

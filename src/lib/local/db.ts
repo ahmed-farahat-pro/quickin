@@ -669,14 +669,25 @@ export async function submitReview(args: {
     [bookingId, userId]
   )
   if (!rows[0]) throw new Error('This stay is not eligible for a review yet')
-  await pool.query(
-    `INSERT INTO reviews (booking_id, listing_id, reviewer_id, rating, comment, photos)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-     ON CONFLICT (booking_id, reviewer_id)
-     DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment,
-                   photos = EXCLUDED.photos, created_at = now()`,
-    [bookingId, rows[0].listing_id, userId, r, comment, JSON.stringify((photos || []).slice(0, 6))]
+  const listingId = rows[0].listing_id
+  // reviews.photos is a Postgres text[] (not jsonb) on the live DB — pass the JS
+  // array directly so node-postgres maps it to a text[] (no ::jsonb cast).
+  const photosArr = (photos || []).slice(0, 6)
+  // Manual upsert (no ON CONFLICT) so a missing/late UNIQUE(booking_id,reviewer_id)
+  // constraint on the live DB can't 500 the write — the eligibility guard above
+  // already restricts this to one booking per reviewer.
+  const upd = await pool.query(
+    `UPDATE reviews SET rating = $3, comment = $4, photos = $5, created_at = now()
+      WHERE booking_id = $1 AND reviewer_id = $2 RETURNING id`,
+    [bookingId, userId, r, comment, photosArr]
   )
+  if (!upd.rows[0]) {
+    await pool.query(
+      `INSERT INTO reviews (booking_id, listing_id, reviewer_id, rating, comment, photos)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [bookingId, listingId, userId, r, comment, photosArr]
+    )
+  }
 }
 
 // ---- Guest reviews (host → guest). Listings carry no owner, so "reviewable
@@ -720,17 +731,29 @@ export async function submitGuestReview(args: {
   if (!isUuid(bookingId)) throw new Error('Invalid booking')
   const r = Math.max(1, Math.min(5, Math.round(rating)))
   const { rows } = await pool.query(
-    `SELECT user_id FROM bookings WHERE id = $1 AND status = 'confirmed' AND check_out < CURRENT_DATE`,
+    `SELECT b.user_id AS guest_id, b.listing_id, l.host_id
+       FROM bookings b JOIN listings l ON l.id = b.listing_id
+      WHERE b.id = $1 AND b.status = 'confirmed' AND b.check_out < CURRENT_DATE`,
     [bookingId]
   )
   if (!rows[0]) throw new Error('This guest is not eligible for a review yet')
+  const { guest_id, listing_id, host_id } = rows[0]
+  // Only the listing's host may review the guest (when ownership is known).
+  if (host_id && host_id !== hostId) {
+    throw new Error('Forbidden: only the listing host can review this guest')
+  }
+  // guest_reviews.listing_id is NOT NULL; provide it. Manual upsert (no ON CONFLICT)
+  // so a missing UNIQUE(booking_id) constraint on the live DB can't 500 the write.
+  const upd = await pool.query(
+    `UPDATE guest_reviews SET rating = $2, comment = $3, host_id = $4, created_at = now()
+      WHERE booking_id = $1 RETURNING id`,
+    [bookingId, r, comment, hostId]
+  )
+  if (upd.rows[0]) return
   await pool.query(
-    `INSERT INTO guest_reviews (booking_id, guest_id, host_id, rating, comment)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (booking_id)
-     DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment,
-                   host_id = EXCLUDED.host_id, created_at = now()`,
-    [bookingId, rows[0].user_id, hostId, r, comment]
+    `INSERT INTO guest_reviews (booking_id, listing_id, guest_id, host_id, rating, comment)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [bookingId, listing_id, guest_id, hostId, r, comment]
   )
 }
 

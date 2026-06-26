@@ -1755,6 +1755,18 @@
     "backToExplore": "Volver a explorar",
     "title": "Cuenta",
     "subtitle": "Gestiona tu perfil, tu identidad y tu contraseña.",
+    "becomeHost": {
+      "title": "Conviértete en anfitrión",
+      "subtitle": "Publica tu espacio, fija tu propio precio y aprueba a cada huésped. Conservas todo lo que puedes hacer como huésped.",
+      "button": "Conviértete en anfitrión",
+      "working": "Configurando…",
+      "error": "No se pudo activar el alojamiento. Inténtalo de nuevo."
+    },
+    "hosting": {
+      "title": "Alojamiento",
+      "subtitle": "Gestiona tus anuncios y las reservas entrantes.",
+      "label": "Abrir el panel de anfitrión"
+    },
     "verifyStatus": {
       "verified": "Verificado",
       "pending": "En revisión",
@@ -1822,7 +1834,10 @@
       "feature2Desc": "Cada solicitud necesita tu sí.",
       "feature3Title": "Sin coste inicial",
       "feature3Desc": "Publica gratis, hoy.",
-      "cta": "Inicia sesión para empezar a hospedar"
+      "cta": "Inicia sesión para empezar a hospedar",
+      "ctaPromote": "Conviértete en anfitrión",
+      "working": "Configurando…",
+      "error": "No se pudo activar el alojamiento. Inténtalo de nuevo."
     },
     "dashboard": {
       "greeting": "Hospedaje, {name}",

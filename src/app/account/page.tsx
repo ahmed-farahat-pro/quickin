@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getVerification } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
-import { AccountForms } from './account-forms'
+import { AccountForms, BecomeHostButton } from './account-forms'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +36,7 @@ interface AccountUser {
   email: string
   full_name: string | null
   avatar_url: string | null
+  is_host: boolean
 }
 
 // Resolve the signed-in user (full row), or null when the cookie is missing/invalid.
@@ -52,6 +53,7 @@ async function getCurrentUser(): Promise<AccountUser | null> {
       email: row.email,
       full_name: row.full_name,
       avatar_url: row.avatar_url,
+      is_host: !!row.is_host,
     }
   } catch {
     return null
@@ -247,6 +249,68 @@ export default async function AccountPage() {
           </div>
         </div>
 
+        {/* Unified account: one person, one login. A guest can become a host in
+            place; a host keeps every guest ability. Show the right card. */}
+        {user.is_host ? (
+          <a
+            href="/host"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              background: '#fff',
+              borderRadius: 22,
+              border: `1px solid rgba(42,34,32,0.06)`,
+              boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+              padding: '22px 24px',
+              textDecoration: 'none',
+              color: COLORS.ink,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.ink }}>
+                {t('hosting.title')}
+              </div>
+              <div style={{ fontSize: 14, color: COLORS.muted, marginTop: 4 }}>
+                {t('hosting.subtitle')}
+              </div>
+            </div>
+            <span
+              style={{
+                color: COLORS.burgundy,
+                fontWeight: 700,
+                fontSize: 14,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {t('hosting.label')} →
+            </span>
+          </a>
+        ) : (
+          <div
+            style={{
+              background: `linear-gradient(180deg, ${COLORS.tan} 0%, #fff 100%)`,
+              borderRadius: 22,
+              border: `1px solid rgba(91,15,22,0.12)`,
+              boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+              padding: '24px',
+            }}
+          >
+            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 700, color: COLORS.burgundy }}>
+              {t('becomeHost.title')}
+            </h2>
+            <p style={{ margin: '0 0 18px', fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55 }}>
+              {t('becomeHost.subtitle')}
+            </p>
+            <BecomeHostButton
+              label={t('becomeHost.button')}
+              workingLabel={t('becomeHost.working')}
+              errorLabel={t('becomeHost.error')}
+            />
+          </div>
+        )}
+
         {/* Profile + password forms (client) */}
         <AccountForms
           userId={user.id}
@@ -267,7 +331,7 @@ export default async function AccountPage() {
           <AccountLink href="/reservations" label={t('links.reservations')} />
           <AccountLink href="/saved" label={t('links.saved')} />
           <AccountLink href="/verify-id" label={t('links.verification')} />
-          <AccountLink href="/host" label={t('links.hosting')} />
+          {user.is_host && <AccountLink href="/host" label={t('links.hosting')} />}
         </div>
 
         {/* Logout */}

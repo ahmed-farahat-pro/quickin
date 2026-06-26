@@ -80,6 +80,8 @@
     <string name="profile_host">Hôte</string>
     <string name="profile_account">Compte</string>
     <string name="profile_hosting">Hébergement</string>
+    <string name="become_host">Devenir hôte</string>
+    <string name="become_host_sub">Partagez votre logement et commencez à gagner</string>
     <string name="profile_edit_profile">Modifier le profil</string>
     <string name="profile_edit_profile_sub">Nom, âge, pièce d\'identité &amp;amp; téléphone</string>
     <string name="profile_my_subscriptions">Mes abonnements</string>

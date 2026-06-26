@@ -1755,6 +1755,18 @@
     "backToExplore": "Back to explore",
     "title": "Account",
     "subtitle": "Manage your profile, identity and password.",
+    "becomeHost": {
+      "title": "Become a host",
+      "subtitle": "List your space, set your own price and approve every guest. You keep everything you can do as a guest.",
+      "button": "Become a host",
+      "working": "Setting up…",
+      "error": "Could not enable hosting. Please try again."
+    },
+    "hosting": {
+      "title": "Hosting",
+      "subtitle": "Manage your listings and incoming reservations.",
+      "label": "Open host dashboard"
+    },
     "verifyStatus": {
       "verified": "Verified",
       "pending": "Pending review",
@@ -1822,7 +1834,10 @@
       "feature2Desc": "Every request needs your yes.",
       "feature3Title": "No upfront cost",
       "feature3Desc": "List for free, today.",
-      "cta": "Log in to start hosting"
+      "cta": "Log in to start hosting",
+      "ctaPromote": "Become a host",
+      "working": "Setting up…",
+      "error": "Could not enable hosting. Please try again."
     },
     "dashboard": {
       "greeting": "Hosting, {name}",

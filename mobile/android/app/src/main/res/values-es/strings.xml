@@ -80,6 +80,8 @@
     <string name="profile_host">Anfitrión</string>
     <string name="profile_account">Cuenta</string>
     <string name="profile_hosting">Alojamiento</string>
+    <string name="become_host">Conviértete en anfitrión</string>
+    <string name="become_host_sub">Comparte tu espacio y empieza a ganar</string>
     <string name="profile_edit_profile">Editar perfil</string>
     <string name="profile_edit_profile_sub">Nombre, edad, identificación &amp;amp; teléfono</string>
     <string name="profile_my_subscriptions">Mis suscripciones</string>

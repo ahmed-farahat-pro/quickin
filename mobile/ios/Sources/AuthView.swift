@@ -17,7 +17,6 @@ struct AuthView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
-    @State private var role: AccountRole = .guest
     /// Optional referral code entered at signup, forwarded to OTP verification.
     @State private var referralCode = ""
     /// Country the new user is from (English display name), sent with the
@@ -79,7 +78,6 @@ struct AuthView: View {
                 VStack(spacing: 24) {
                     header
                     modePicker
-                    roleSelector
                     formCard
                     if let error = auth.errorMessage {
                         Text(error)
@@ -107,7 +105,6 @@ struct AuthView: View {
         }
         .tint(.qkBurgundy)
         .animation(.easeInOut(duration: 0.2), value: mode)
-        .animation(.easeInOut(duration: 0.2), value: role)
         .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
         // OTP verification step. Presented after a `pending` signup or when a
         // login reports the email still needs verification.
@@ -195,61 +192,6 @@ struct AuthView: View {
             }
         }
         .pickerStyle(.segmented)
-    }
-
-    // MARK: - Role selector (sign up + sign in)
-
-    /// Two clearly-labelled buttons letting the visitor pick Guest (role `user`)
-    /// or Host (role `host`). On sign-up the chosen role is sent in `/signup`;
-    /// on sign-in it's sent in `/login` (Host gains/keeps the host role).
-    private var roleSelector: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(loc.t(isSignUp ? "auth.joinAs" : "auth.signInAs"))
-                .font(.caption).fontWeight(.semibold)
-                .foregroundStyle(Color.qkMuted)
-            HStack(spacing: 12) {
-                roleButton(.guest, subtitle: loc.t("auth.role.guest.subtitle"), systemImage: "suitcase.rolling")
-                roleButton(.host, subtitle: loc.t("auth.role.host.subtitle"), systemImage: "house")
-            }
-        }
-    }
-
-    private func roleButton(_ value: AccountRole, subtitle: String, systemImage: String) -> some View {
-        let selected = role == value
-        let actionLabel = isSignUp
-            ? String(format: loc.t("auth.registerAs"), value.label)
-            : value.label
-        return Button {
-            role = value
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .semibold))
-                Text(actionLabel)
-                    .font(.subheadline.weight(.semibold))
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.qkMuted)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                Group {
-                    if selected { LinearGradient.qkBurgundyCTA } else { Color.qkSurface }
-                }
-            )
-            .foregroundStyle(selected ? Color.qkCream : Color.qkInk)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(selected ? Color.clear : Color.qkInk.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: (selected ? Color.qkBurgundy : Color.qkInk).opacity(selected ? 0.22 : 0.05),
-                    radius: selected ? 12 : 8, x: 0, y: selected ? 8 : 4)
-        }
-        .buttonStyle(.qkTap)
-        .accessibilityLabel(actionLabel)
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     // MARK: - Form
@@ -513,7 +455,7 @@ struct AuthView: View {
 
     private func submit() async {
         if isSignUp {
-            let outcome = await auth.signup(name: name, email: email, password: password, role: role, country: country)
+            let outcome = await auth.signup(name: name, email: email, password: password, country: country)
             await handle(outcome, session: nil)
             return
         }
@@ -523,10 +465,10 @@ struct AuthView: View {
         // prompt before the presenting sheet auto-dismisses. Otherwise use the
         // normal path (which signs in immediately).
         if biometricKind != .none && !hasStoredBiometric {
-            let (outcome, session) = await auth.loginDeferred(email: email, password: password, role: role)
+            let (outcome, session) = await auth.loginDeferred(email: email, password: password)
             await handle(outcome, session: session)
         } else {
-            let outcome = await auth.login(email: email, password: password, role: role)
+            let outcome = await auth.login(email: email, password: password)
             await handle(outcome, session: nil)
         }
     }

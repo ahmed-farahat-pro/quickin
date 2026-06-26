@@ -7,6 +7,8 @@ struct ProfileView: View {
     @EnvironmentObject private var currency: CurrencyManager
     @StateObject private var notifications = NotificationsBadgeModel()
     @StateObject private var header = ProfileHeaderModel()
+    /// True while the "Become a host" request is in flight.
+    @State private var isBecomingHost = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +44,8 @@ struct ProfileView: View {
                             currencyEntry
                             if isHost {
                                 hostEntry
+                            } else {
+                                becomeHostButton
                             }
                             Spacer(minLength: 8)
                             logoutButton
@@ -115,8 +119,8 @@ struct ProfileView: View {
     private var badges: some View {
         HStack(spacing: 10) {
             providerPill
-            if let raw = auth.user?.role?.lowercased(), let role = roleLabel {
-                pill(role, systemImage: raw == "host" ? "house.fill" : "suitcase.rolling.fill")
+            if let role = roleLabel {
+                pill(role, systemImage: isHost ? "house.fill" : "suitcase.rolling.fill")
             }
         }
     }
@@ -326,6 +330,48 @@ struct ProfileView: View {
         .buttonStyle(.qkTap)
     }
 
+    /// "Become a host" CTA, shown only when the account isn't a host yet. Calls
+    /// `POST /api/local/host/become`; on success the account's `is_host` flips
+    /// to true and `hostEntry` replaces this button (no re-login). A burgundy
+    /// card matching `hostEntry`'s look so the upgrade reads as the same surface.
+    private var becomeHostButton: some View {
+        Button {
+            Task {
+                isBecomingHost = true
+                _ = await auth.becomeHost()
+                isBecomingHost = false
+            }
+        } label: {
+            HStack(spacing: 13) {
+                if isBecomingHost {
+                    ProgressView()
+                        .tint(.qkCream)
+                        .frame(width: 22)
+                } else {
+                    Image(systemName: "house.lodge.fill")
+                        .font(.title3)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(loc.t("profile.becomeHost"))
+                        .font(.system(size: 15, weight: .bold))
+                    Text(loc.t("profile.becomeHost.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkCream.opacity(0.82))
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundStyle(Color.qkCream)
+            .padding(16)
+            .background(LinearGradient.qkBurgundyPanel)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: Color.qkBurgundy.opacity(0.26), radius: 14, x: 0, y: 10)
+            .opacity(isBecomingHost ? 0.85 : 1)
+        }
+        .buttonStyle(.qkTap)
+        .disabled(isBecomingHost)
+    }
+
     private var logoutButton: some View {
         Button(role: .destructive) {
             auth.logout()
@@ -369,18 +415,16 @@ struct ProfileView: View {
         return result.isEmpty ? "?" : result
     }
 
-    /// Whether the signed-in user is a host (gates the host dashboard entry).
+    /// Whether the signed-in account is a host (gates the host dashboard entry
+    /// vs. the "Become a host" CTA). Uses the unified-account `is_host` flag.
     private var isHost: Bool {
-        auth.user?.role?.lowercased() == "host"
+        auth.user?.isHost ?? false
     }
 
-    /// Friendly label for the persisted account role, or `nil` if absent.
+    /// Friendly label for the account-type pill, derived from `is_host`.
     private var roleLabel: String? {
-        switch auth.user?.role?.lowercased() {
-        case "host": return loc.t("common.host")
-        case "user": return loc.t("common.guest")
-        default: return nil
-        }
+        guard auth.user != nil else { return nil }
+        return isHost ? loc.t("common.host") : loc.t("common.guest")
     }
 
     private func providerIcon(_ provider: String) -> String {

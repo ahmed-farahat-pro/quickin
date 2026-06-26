@@ -119,17 +119,6 @@ struct RootView: View {
     // Lets Siri App Intents (see QuickInShortcuts) jump to a tab.
     @ObservedObject private var nav = AppNavigation.shared
 
-    /// Whether the signed-in account manages a place (host or admin). Drives the
-    /// host tab set. Guests (role "user") and signed-out visitors see the guest
-    /// tabs. Recomputed from the published `auth.user`, so it flips reactively
-    /// after login / registration / logout.
-    private var isHost: Bool {
-        switch auth.user?.role?.lowercased() {
-        case "host", "admin": return true
-        default: return false
-        }
-    }
-
     var body: some View {
         ZStack {
             if showSplash {
@@ -140,43 +129,34 @@ struct RootView: View {
                 }
                 .transition(.opacity)
             } else {
-                QKScreenSwap(key: isHost) {
-                    if isHost {
-                        hostTabs
-                    } else {
-                        guestTabs
-                    }
-                }
-                // Switch the tab set reactively when the role changes (e.g. after
-                // a host signs in / out). Reset to the first tab so the selection
-                // can never point at a tab that the new set doesn't show.
-                .onChange(of: isHost) { _, _ in
-                    selectedTab = 0
-                }
+                // Unified account: EVERYONE — guest or host — gets the single
+                // guest tab set. A host keeps all guest abilities and reaches
+                // host features (manage listings + reservations) from Profile.
+                guestTabs
             }
         }
         // App-level "Added/Removed from wishlist" toast — floats above the tab
         // bar so every heart toggle (cards, detail hero, Saved) confirms visibly.
         .wishlistToast()
         // Siri / Shortcuts navigation: apply a pending section to the right tab
-        // (mapping differs for guest vs host) when it arrives or on cold launch.
+        // when it arrives or on cold launch.
         .onChange(of: nav.pendingSection) { _, section in applyPending(section) }
         .onAppear { applyPending(nav.pendingSection) }
     }
 
-    /// Map a Siri-requested section to the correct tab index for the current tab
-    /// set, then clear the request so it doesn't re-fire.
+    /// Map a Siri-requested section to the correct tab index in the unified
+    /// (guest) tab set, then clear the request so it doesn't re-fire.
     private func applyPending(_ section: AppNavigation.Section?) {
         guard let section else { return }
         switch section {
         case .explore:      selectedTab = 0
-        case .reservations: selectedTab = isHost ? 1 : 3
-        case .profile:      selectedTab = isHost ? 3 : 4
+        case .reservations: selectedTab = 3
+        case .profile:      selectedTab = 4
         }
         AppNavigation.shared.pendingSection = nil
     }
 
-    // MARK: - Guest tabs (role "user" / signed-out)
+    // MARK: - Tabs (unified account — every user)
 
     /// Explore · Services · Wishlist · Trips · Profile — the open browse
     /// experience. Wishlist surfaces the saved stays & experiences as a
@@ -202,31 +182,6 @@ struct RootView: View {
             ProfileTab()
                 .tabItem { Label(loc.t("tab.profile"), systemImage: "person.crop.circle") }
                 .tag(4)
-        }
-        .tint(.qkBurgundy)
-    }
-
-    // MARK: - Host tabs (role "host" / "admin")
-
-    /// Listings · Reservations · Services · Profile — managing a place. No
-    /// Explore tab; Listings/Reservations/Services reuse the host screens.
-    private var hostTabs: some View {
-        TabView(selection: $selectedTab) {
-            HostListingsTab()
-                .tabItem { Label(loc.t("tab.listings"), systemImage: "house") }
-                .tag(0)
-
-            HostReservationsTab()
-                .tabItem { Label(loc.t("tab.reservations"), systemImage: "calendar") }
-                .tag(1)
-
-            HostServicesTab()
-                .tabItem { Label(loc.t("tab.services"), systemImage: "sparkles") }
-                .tag(2)
-
-            ProfileTab()
-                .tabItem { Label(loc.t("tab.profile"), systemImage: "person.crop.circle") }
-                .tag(3)
         }
         .tint(.qkBurgundy)
     }

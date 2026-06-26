@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp } from '@/lib/local/auth'
+import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp, publicUser } from '@/lib/local/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     if (!row || !verifyPassword(String(password), row.password_hash)) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401, headers: CORS })
     }
-    const user = { id: row.id, email: row.email, full_name: row.full_name, provider: row.provider, avatar_url: row.avatar_url }
+    const user = publicUser(row)
     const token = signToken({ sub: user.id, email: user.email })
     const res = NextResponse.json({ token, user }, { headers: CORS })
     res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })

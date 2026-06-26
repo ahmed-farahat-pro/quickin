@@ -99,6 +99,8 @@
     <string name="profile_host">مضيف</string>
     <string name="profile_account">الحساب</string>
     <string name="profile_hosting">الاستضافة</string>
+    <string name="become_host">كن مضيفًا</string>
+    <string name="become_host_sub">شارك مكانك وابدأ في الكسب</string>
     <string name="profile_edit_profile">تعديل الملف الشخصي</string>
     <string name="profile_edit_profile_sub">الاسم والعمر والهوية والهاتف</string>
     <string name="profile_my_subscriptions">اشتراكاتي</string>

@@ -1,24 +1,13 @@
 import Foundation
 import SwiftUI
 
-/// The two account types a visitor can register as. `user` is a Guest
-/// (books stays); `host` lists and manages properties. The raw value is the
-/// exact string the backend expects in the `role` field.
-enum AccountRole: String, Codable, CaseIterable, Equatable {
-    case guest = "user"
-    case host  = "host"
-
-    /// Human label for the segmented control / role picker.
-    @MainActor
-    var label: String {
-        switch self {
-        case .guest: return L.t("common.guest")
-        case .host:  return L.t("common.host")
-        }
-    }
-}
-
 /// The authenticated user returned by the local Next.js auth API.
+///
+/// Under the **unified account contract** there's one account per person: a
+/// normal user signs in and can *become a host* in-app, which just flips
+/// `isHost` on the same account. `role` is a derived convenience the backend
+/// still sends (`"host"` when `isHost`, else `"guest"`) — `isHost` is the
+/// source of truth the UI branches on.
 struct AuthUser: Codable, Equatable {
     let id: String
     let email: String
@@ -26,11 +15,62 @@ struct AuthUser: Codable, Equatable {
     let provider: String?
     let avatarURL: String?
     let role: String?
+    /// Whether this account is a host. Defaults to `false` when the backend
+    /// omits it; also inferred from `role == "host"` for older responses.
+    let isHost: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, email, provider, role
         case fullName = "full_name"
         case avatarURL = "avatar_url"
+        case isHost = "is_host"
+    }
+
+    init(
+        id: String,
+        email: String,
+        fullName: String?,
+        provider: String?,
+        avatarURL: String?,
+        role: String?,
+        isHost: Bool = false
+    ) {
+        self.id = id
+        self.email = email
+        self.fullName = fullName
+        self.provider = provider
+        self.avatarURL = avatarURL
+        self.role = role
+        self.isHost = isHost
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        email = try c.decode(String.self, forKey: .email)
+        fullName = try c.decodeIfPresent(String.self, forKey: .fullName)
+        provider = try c.decodeIfPresent(String.self, forKey: .provider)
+        avatarURL = try c.decodeIfPresent(String.self, forKey: .avatarURL)
+        let decodedRole = try c.decodeIfPresent(String.self, forKey: .role)
+        role = decodedRole
+        // Prefer the explicit boolean; fall back to the derived role string so a
+        // backend that only sends `role: "host"` still reads as a host.
+        let flag = try c.decodeIfPresent(Bool.self, forKey: .isHost)
+        isHost = flag ?? (decodedRole?.lowercased() == "host")
+    }
+
+    /// A copy of this account with `isHost` flipped on (and `role` aligned),
+    /// used after a successful `POST /api/local/host/become`.
+    func promotedToHost() -> AuthUser {
+        AuthUser(
+            id: id,
+            email: email,
+            fullName: fullName,
+            provider: provider,
+            avatarURL: avatarURL,
+            role: "host",
+            isHost: true
+        )
     }
 }
 
@@ -49,12 +89,19 @@ private struct AuthErrorBody: Decodable {
     let email: String?
 }
 
-/// Shape of a `{ pending: true, email, role }` response from `/signup` and
+/// Shape of a `{ pending: true, email }` response from `/signup` and
 /// `/resend-otp`. No token is issued until the email is verified.
 private struct PendingBody: Decodable {
     let pending: Bool
     let email: String?
-    let role: String?
+}
+
+/// Shape of `POST /api/local/host/become` → `{ ok: true, user }`. The user now
+/// carries `is_host: true`; we adopt it to flip host surfaces on without a
+/// re-login.
+private struct BecomeHostResponse: Decodable {
+    let ok: Bool?
+    let user: AuthUser?
 }
 
 /// The outcome of a signup or login attempt, so the view can decide whether to
@@ -137,7 +184,7 @@ final class AuthStore: ObservableObject {
     /// surfaced exactly as in the normal path (and in those cases nothing is
     /// staged). On `.authenticated` the caller MUST eventually call
     /// `commitDeferredSession` to finish signing in.
-    func loginDeferred(email: String, password: String, role: AccountRole = .guest) async -> (AuthOutcome, AuthSuccess?) {
+    func loginDeferred(email: String, password: String) async -> (AuthOutcome, AuthSuccess?) {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -145,7 +192,6 @@ final class AuthStore: ObservableObject {
         let result = await send(path: "/api/auth/login", body: [
             "email": email,
             "password": password,
-            "role": role.rawValue,
         ])
 
         switch result {
@@ -178,8 +224,9 @@ final class AuthStore: ObservableObject {
 
     // MARK: - Public actions
 
-    /// Sign in with email + password. `role` lets the visitor choose to sign in
-    /// as a Guest (default) or Host — Host makes/keeps the account a host.
+    /// Sign in with email + password. There's a single unified account — no
+    /// guest/host choice at sign-in; the account's `is_host` flag (returned in
+    /// the user payload) decides what host surfaces appear in-app.
     ///
     /// - Returns `.authenticated` on success (session stored).
     /// - Returns `.needsVerification(email:)` when the backend replies 403 with
@@ -188,17 +235,14 @@ final class AuthStore: ObservableObject {
     ///   before showing it.
     /// - Returns `.failed` on any other error (message set on `errorMessage`).
     @discardableResult
-    func login(email: String, password: String, role: AccountRole = .guest) async -> AuthOutcome {
+    func login(email: String, password: String) async -> AuthOutcome {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
-        // `role` is optional on the backend: Host upgrades/gains the host role
-        // and signs in as host; Guest signs in as a regular user.
         let result = await send(path: "/api/auth/login", body: [
             "email": email,
             "password": password,
-            "role": role.rawValue,
         ])
 
         switch result {
@@ -218,16 +262,17 @@ final class AuthStore: ObservableObject {
         }
     }
 
-    /// Register a new account as a Guest (`role == .guest`) or Host
-    /// (`role == .host`). On success the backend emails a one-time code and
-    /// returns `{ pending: true }` with **no** token, so this returns
-    /// `.needsVerification(email:)` to drive the OTP screen.
+    /// Register a new account. Everyone signs up as one unified account (no
+    /// host registration — an account becomes a host in-app later). On success
+    /// the backend emails a one-time code and returns `{ pending: true }` with
+    /// **no** token, so this returns `.needsVerification(email:)` to drive the
+    /// OTP screen.
     ///
     /// `country` (optional) is the English display name of the country the user
     /// is from, forwarded as `country` in the signup body to match the web
     /// (which stores English country names). Blank/whitespace is omitted.
     @discardableResult
-    func signup(name: String, email: String, password: String, role: AccountRole, country: String? = nil) async -> AuthOutcome {
+    func signup(name: String, email: String, password: String, country: String? = nil) async -> AuthOutcome {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -236,7 +281,6 @@ final class AuthStore: ObservableObject {
             "email": email,
             "password": password,
             "full_name": name,
-            "role": role.rawValue,
         ]
         if let country = country?.trimmingCharacters(in: .whitespacesAndNewlines), !country.isEmpty {
             body["country"] = country
@@ -363,6 +407,72 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Become a host on the **same** account (unified-account contract). POSTs
+    /// `/api/local/host/become` with the stored Bearer token; on 200 it decodes
+    /// the returned `{ user }` (now `is_host: true`) and updates the cached
+    /// session in place, so the host entry appears without a re-login. Idempotent
+    /// server-side. Returns `true` on success; on failure the message is set on
+    /// `errorMessage`.
+    @discardableResult
+    func becomeHost() async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        guard let token = currentToken else {
+            errorMessage = "Sign in to become a host."
+            return false
+        }
+        guard let url = URL(string: Config.apiBaseURL + "/api/local/host/become") else {
+            errorMessage = "Invalid server URL."
+            return false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "Invalid response from the server."
+                return false
+            }
+            guard (200...299).contains(http.statusCode) else {
+                setErrorFromResponse(data, status: http.statusCode)
+                return false
+            }
+            // Prefer the server's returned `{ user }`; fall back to flipping the
+            // cached account's flag locally so the UI updates either way.
+            if let decoded = try? JSONDecoder().decode(BecomeHostResponse.self, from: data),
+               let serverUser = decoded.user {
+                applyHostUser(serverUser)
+            } else if let current = user {
+                applyHostUser(current.promotedToHost())
+            }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Update the cached account (UserDefaults + published `user`) to the
+    /// host-flagged version returned by `becomeHost`, keeping the existing token.
+    private func applyHostUser(_ updated: AuthUser) {
+        user = updated
+        if let data = try? JSONEncoder().encode(updated) {
+            defaults.set(data, forKey: Self.userKey)
+        }
+        // Keep any biometric copy in sync so a later Face ID sign-in restores the
+        // host flag (no-op when no biometric session is stored).
+        if let token = defaults.string(forKey: Self.tokenKey), !token.isEmpty {
+            BiometricAuth.shared.updateStoredUserIfPresent(updated, token: token)
+        }
+    }
+
     /// Persist a `{token, user}` obtained outside the email flow (e.g. the
     /// native Apple / Google sign-in flows in `AuthView`). Mirrors the email
     /// path so the session restores on next launch.
@@ -392,7 +502,8 @@ final class AuthStore: ObservableObject {
             fullName: fullName ?? current.fullName,
             provider: current.provider,
             avatarURL: avatarURL ?? current.avatarURL,
-            role: role ?? current.role
+            role: role ?? current.role,
+            isHost: current.isHost
         )
         // No change → don't churn published state / UserDefaults.
         guard merged != current else { return }

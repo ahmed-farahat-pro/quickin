@@ -24,6 +24,12 @@ data class AuthUiState(
     val provider: String? = null,
     val role: String? = null,
     /**
+     * Whether the signed-in account has become a host. One account per person: a host keeps every
+     * guest ability and reaches host features (manage listings + reservations) from their profile.
+     * Flipped without re-login by [AuthViewModel.becomeHost].
+     */
+    val isHost: Boolean = false,
+    /**
      * Set to the email awaiting OTP verification after a sign-up (or an unverified
      * login). Non-null drives the OTP screen; cleared once verified or cancelled.
      */
@@ -66,7 +72,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             userName = prefs.getString(KEY_NAME, null),
             email = prefs.getString(KEY_EMAIL, null),
             provider = prefs.getString(KEY_PROVIDER, null),
-            role = prefs.getString(KEY_ROLE, null)
+            role = prefs.getString(KEY_ROLE, null),
+            isHost = prefs.getBoolean(KEY_IS_HOST, false)
         )
     )
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -92,30 +99,64 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val biometricEnrollOffer: StateFlow<AuthResult?> = _biometricEnrollOffer.asStateFlow()
 
     /**
-     * Email/password login. The chosen [role] ("user" = Guest, "host" = Host; defaults to
-     * Guest) is forwarded to the backend so picking Host grants the host role and signs in
-     * as a host. Routes to the OTP screen if the account isn't verified yet.
+     * Email/password login. One account per person — there is no role selection; the backend
+     * returns the account's `is_host` flag. Routes to the OTP screen if the account isn't verified
+     * yet.
      */
-    fun login(email: String, password: String, role: String = "user") =
-        runOutcome { AuthService.login(email.trim(), password, role) }
+    fun login(email: String, password: String) =
+        runOutcome { AuthService.login(email.trim(), password) }
 
     /**
-     * Registers as [role] ("user" or "host") and moves to OTP verification. An optional
-     * [referralCode] is remembered (not sent yet) and forwarded to `verify-otp` once the user
-     * confirms the emailed code, so a valid referrer gets credited. An optional [country] (the
-     * user's English country display name) is sent with the sign-up request itself.
+     * Registers a normal account and moves to OTP verification — there is no host registration; a
+     * user can become a host in-app later. An optional [referralCode] is remembered (not sent yet)
+     * and forwarded to `verify-otp` once the user confirms the emailed code, so a valid referrer
+     * gets credited. An optional [country] (the user's English country display name) is sent with
+     * the sign-up request itself.
      */
     fun signup(
         name: String,
         email: String,
         password: String,
-        role: String,
         referralCode: String? = null,
         country: String? = null
     ) {
         pendingReferralCode = referralCode?.trim()?.takeUnless { it.isBlank() }
         val signupCountry = country?.trim()?.takeUnless { it.isBlank() }
-        runOutcome { AuthService.signup(name.trim(), email.trim(), password, role, signupCountry) }
+        runOutcome { AuthService.signup(name.trim(), email.trim(), password, signupCountry) }
+    }
+
+    // ---- Become a host (unified account) --------------------------------------
+
+    /**
+     * Whether a "become a host" promotion is in flight (drives the button spinner in the profile).
+     * Separate from the main auth spinner so it doesn't fight other loads.
+     */
+    private val _becomingHost = MutableStateFlow(false)
+    val becomingHost: StateFlow<Boolean> = _becomingHost.asStateFlow()
+
+    /**
+     * Promotes the signed-in account to a host via `POST /api/local/host/become` (Bearer token).
+     * On success flips [AuthUiState.isHost] to true in place — and persists it — so the host
+     * entry appears immediately without a re-login. Idempotent; surfaces a message on failure.
+     */
+    fun becomeHost() {
+        if (_becomingHost.value || !_state.value.isAuthenticated) return
+        val token = currentToken() ?: return
+        _becomingHost.value = true
+        viewModelScope.launch {
+            try {
+                val result = AuthService.becomeHost(token)
+                prefs.edit()
+                    .putBoolean(KEY_IS_HOST, result.isHost)
+                    .putString(KEY_ROLE, result.role)
+                    .apply()
+                _state.value = _state.value.copy(isHost = result.isHost, role = result.role)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Couldn't become a host.")
+            } finally {
+                _becomingHost.value = false
+            }
+        }
     }
 
     /** Verifies the 6-digit [code] for the pending email and completes login on success. */
@@ -266,6 +307,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .remove(KEY_EMAIL)
             .remove(KEY_PROVIDER)
             .remove(KEY_ROLE)
+            .remove(KEY_IS_HOST)
             .apply()
         // Keep the biometric session so the fingerprint button appears on the next login.
         // Drop any pending "enable biometric" offer too.
@@ -349,6 +391,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .putString(KEY_EMAIL, result.email)
             .putString(KEY_PROVIDER, result.provider)
             .putString(KEY_ROLE, result.role)
+            .putBoolean(KEY_IS_HOST, result.isHost)
             .apply()
         _state.value = AuthUiState(
             isAuthenticated = true,
@@ -358,6 +401,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             email = result.email,
             provider = result.provider,
             role = result.role,
+            isHost = result.isHost,
             pendingEmail = null
         )
         // Offer biometric enrollment only for password-derived logins, and only when the device can
@@ -416,5 +460,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         const val KEY_EMAIL = "email"
         const val KEY_PROVIDER = "provider"
         const val KEY_ROLE = "role"
+        const val KEY_IS_HOST = "is_host"
     }
 }

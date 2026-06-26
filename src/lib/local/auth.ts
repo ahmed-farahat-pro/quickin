@@ -103,6 +103,7 @@ export interface User {
   full_name: string | null
   provider: string
   avatar_url: string | null
+  is_host: boolean
 }
 
 // ---- Password hashing (scrypt) ----------------------------------------------
@@ -165,17 +166,49 @@ export async function getUserFromRequest(
 }
 
 // ---- User operations (parameterized pg) -------------------------------------
+// NB: deliberately excludes is_host so INSERT…RETURNING keeps working even before
+// the is_host migration has run. getUserRowByEmail resolves is_host separately
+// (tolerantly), and the create/upsert helpers default new accounts to is_host:false.
 const USER_COLS = `id, email, full_name, provider, avatar_url`
 
 export async function getUserRowByEmail(
   email: string
-): Promise<{ id: string; email: string; password_hash: string | null; full_name: string | null; provider: string; avatar_url: string | null } | null> {
-  const { rows } = await pool.query(
-    `SELECT id, email, password_hash, full_name, provider, avatar_url
-     FROM users WHERE lower(email) = lower($1)`,
-    [email]
-  )
-  return rows[0] ?? null
+): Promise<{ id: string; email: string; password_hash: string | null; full_name: string | null; provider: string; avatar_url: string | null; is_host: boolean } | null> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, password_hash, full_name, provider, avatar_url, COALESCE(is_host, false) AS is_host
+       FROM users WHERE lower(email) = lower($1)`,
+      [email]
+    )
+    return rows[0] ?? null
+  } catch {
+    // is_host may not exist yet (pre-migration window) — degrade gracefully so
+    // auth keeps working; the account is simply treated as a guest until migrated.
+    const { rows } = await pool.query(
+      `SELECT id, email, password_hash, full_name, provider, avatar_url, false AS is_host
+       FROM users WHERE lower(email) = lower($1)`,
+      [email]
+    )
+    return rows[0] ?? null
+  }
+}
+
+/** Client-facing user shape (web + mobile). One unified account: `is_host` is a
+ *  capability flag, and `role` is derived from it for backward-compatible clients. */
+export function publicUser(row: {
+  id: string; email: string; full_name: string | null; provider: string; avatar_url: string | null; is_host?: boolean | null
+}): User & { role: 'host' | 'guest' } {
+  const is_host = !!row.is_host
+  return {
+    id: row.id, email: row.email, full_name: row.full_name,
+    provider: row.provider, avatar_url: row.avatar_url, is_host,
+    role: is_host ? 'host' : 'guest',
+  }
+}
+
+/** Promote the current account to a host (idempotent). One account, no re-register. */
+export async function becomeHost(userId: string): Promise<void> {
+  await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [userId])
 }
 
 export async function createUser(args: {
@@ -190,7 +223,7 @@ export async function createUser(args: {
     [args.email, args.passwordHash, args.fullName]
   )
   if (!rows[0]) throw new Error('Failed to create user')
-  return rows[0] as User
+  return { ...rows[0], is_host: false } as User
 }
 
 /** Upsert a social (google/apple) user. */
@@ -207,16 +240,19 @@ export async function upsertSocialUser(args: {
     [args.email]
   )
   if (existing.rows[0]) {
-    const cur = existing.rows[0] as User
-    const { rows } = await pool.query(
+    const cur = existing.rows[0]
+    await pool.query(
       `UPDATE users
          SET full_name = COALESCE(full_name, $2),
              avatar_url = COALESCE($3, avatar_url)
-       WHERE id = $1
-       RETURNING ${USER_COLS}`,
+       WHERE id = $1`,
       [cur.id, args.fullName, args.avatarUrl || null]
     )
-    return (rows[0] || cur) as User
+    // Re-resolve through the tolerant lookup so a returning social host keeps is_host.
+    const fresh = await getUserRowByEmail(args.email)
+    return (fresh
+      ? { id: fresh.id, email: fresh.email, full_name: fresh.full_name, provider: fresh.provider, avatar_url: fresh.avatar_url, is_host: fresh.is_host }
+      : { ...cur, is_host: false }) as User
   }
   const { rows } = await pool.query(
     `INSERT INTO users (email, full_name, provider, avatar_url)
@@ -225,7 +261,7 @@ export async function upsertSocialUser(args: {
     [args.email, args.fullName, args.provider, args.avatarUrl || null]
   )
   if (!rows[0]) throw new Error('Failed to upsert social user')
-  return rows[0] as User
+  return { ...rows[0], is_host: false } as User
 }
 
 /** Replace a user's password with a fresh scrypt hash. */

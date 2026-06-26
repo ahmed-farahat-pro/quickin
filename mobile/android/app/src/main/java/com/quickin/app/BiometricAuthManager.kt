@@ -71,6 +71,7 @@ object BiometricAuthManager {
             put("email", result.email)
             put("provider", result.provider)
             put("role", result.role)
+            put("is_host", result.isHost)
         }
         runCatching {
             securePrefs(context).edit()
@@ -99,7 +100,8 @@ object BiometricAuthManager {
             userName = name,
             email = email,
             provider = user.optString("provider").takeUnless { it.isBlank() } ?: "email",
-            role = user.optString("role").takeUnless { it.isBlank() } ?: "user"
+            role = user.optString("role").takeUnless { it.isBlank() } ?: "guest",
+            isHost = user.optBoolean("is_host", false)
         )
     }.getOrNull()
 

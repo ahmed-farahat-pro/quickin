@@ -118,6 +118,108 @@ struct BookingService {
         throw BookingError.message(Self.decodeError(data) ?? "Payment failed (\(http.statusCode)).")
     }
 
+    // MARK: - Paymob (hosted checkout)
+
+    /// Kick off a Paymob hosted-checkout session for a booking via
+    /// `POST /api/local/bookings/:id/pay-init` (Bearer guest). On success the
+    /// backend returns the Paymob `checkout_url` to load in an in-app WebView and
+    /// the `return_url_prefix` that signals the flow finished once the WebView
+    /// navigates to a URL starting with it. Card details are entered ON PAYMOB'S
+    /// hosted page — never collected in our UI.
+    ///
+    /// Throws `BookingError.notSignedIn` (no token / 401), `BookingError.message`
+    /// for 403 (not owner) / 404 (not found) / the `{ already_paid: true }` case,
+    /// and `BookingError.paymentUnavailable` for a 503 (Paymob keys not set on the
+    /// server yet) so the caller can show the "Online payment isn't available
+    /// right now." copy.
+    func payInit(bookingId: String) async throws -> PaymobInit {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(encoded)/pay-init")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+
+        if (200...299).contains(http.statusCode) {
+            // A 200 may still carry `{ already_paid: true }` instead of a session.
+            if let already = try? JSONDecoder().decode(AlreadyPaidBody.self, from: data), already.already_paid == true {
+                throw BookingError.alreadyPaid
+            }
+            return try JSONDecoder().decode(PaymobInit.self, from: data)
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        if http.statusCode == 503 { throw BookingError.paymentUnavailable }
+        // 403 (not owner) / 404 (not found) / other: surface the server's { error }.
+        throw BookingError.message(Self.decodeError(data) ?? "Couldn't start the payment (\(http.statusCode)).")
+    }
+
+    /// Fetch the current paid state of a booking via
+    /// `GET /api/local/bookings/:id` (Bearer guest), returning `true` once the
+    /// booking is paid (`paid_at` set / `payment_status == "paid"`). Used to poll
+    /// after the Paymob WebView closes, since the booking is marked paid by a
+    /// server webhook. Throws `BookingError.notSignedIn` (no token / 401).
+    func isBookingPaid(bookingId: String) async throws -> Bool {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(encoded)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            throw BookingError.message(Self.decodeError(data) ?? "Couldn't refresh the booking (\(http.statusCode)).")
+        }
+        // Tolerate either a bare booking or a `ReservationDetail`-shaped body —
+        // both expose `payment_status` / `paid_at`, which is all we read here.
+        struct PaidState: Decodable {
+            let paymentStatus: String?
+            let paidAt: String?
+            let status: String?
+            enum CodingKeys: String, CodingKey {
+                case paymentStatus = "payment_status"
+                case paidAt = "paid_at"
+                case status
+            }
+        }
+        let state = try JSONDecoder().decode(PaidState.self, from: data)
+        let paid = (state.paymentStatus ?? "").lowercased() == "paid"
+        let hasPaidAt = (state.paidAt?.isEmpty == false)
+        return paid || hasPaidAt
+    }
+
+    /// Poll the booking's paid state every `interval` seconds for up to `timeout`
+    /// seconds, returning `true` as soon as it reads paid. Used after the Paymob
+    /// WebView closes (the webhook may land a moment later). Returns `false` if it
+    /// never flips within the window. Transient fetch errors are swallowed so a
+    /// single hiccup doesn't abort the poll; the final attempt's outcome wins.
+    func pollUntilPaid(bookingId: String, timeout: TimeInterval = 20, interval: TimeInterval = 2) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let paid = try? await isBookingPaid(bookingId: bookingId), paid {
+                return true
+            }
+            if Task.isCancelled { return false }
+            try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        }
+        // One last check right at the deadline.
+        return (try? await isBookingPaid(bookingId: bookingId)) ?? false
+    }
+
     // MARK: - Promo codes
 
     /// Preview a promo code against a subtotal via
@@ -515,13 +617,55 @@ struct BookingService {
 enum BookingError: LocalizedError {
     case notSignedIn
     case message(String)
+    /// `pay-init` returned 503 — Paymob keys aren't configured on the server yet.
+    /// The caller shows the "Online payment isn't available right now." copy.
+    case paymentUnavailable
+    /// `pay-init` reported the booking is already paid (`{ already_paid: true }`).
+    case alreadyPaid
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn: return "Sign in to reserve"
         case let .message(text): return text
+        // The PaymentSheet handles these two cases explicitly with localized
+        // copy (`pay.unavailable` / `pay.alreadyPaid`); these English strings are
+        // only a fallback for any generic `error.localizedDescription` path.
+        case .paymentUnavailable: return "Online payment isn't available right now."
+        case .alreadyPaid: return "This booking is already paid."
         }
     }
+}
+
+/// The Paymob hosted-checkout session returned by
+/// `POST /api/local/bookings/:id/pay-init` →
+/// `{ ok, checkout_url, return_url_prefix, amount_cents, currency, reference }`.
+/// The guest enters their card on `checkout_url` (Paymob's hosted page); the
+/// WebView closes once it navigates to a URL starting with `return_url_prefix`.
+struct PaymobInit: Decodable, Hashable {
+    /// The Paymob hosted-checkout URL to load in the in-app WebView.
+    let checkoutURL: String
+    /// Our `/api/paymob/return` page prefix — when the WebView navigates to any
+    /// URL starting with this, payment is finished and we close the sheet.
+    let returnURLPrefix: String
+    /// The charge amount in minor units (piastres). Optional — informational.
+    let amountCents: Int?
+    /// ISO currency code (e.g. "EGP"). Optional — informational.
+    let currency: String?
+    /// The Paymob order/merchant reference. Optional — informational.
+    let reference: String?
+
+    enum CodingKeys: String, CodingKey {
+        case checkoutURL = "checkout_url"
+        case returnURLPrefix = "return_url_prefix"
+        case amountCents = "amount_cents"
+        case currency, reference
+    }
+}
+
+/// Minimal body to detect the `{ already_paid: true }` 200 response from
+/// `pay-init` (the booking was already settled).
+private struct AlreadyPaidBody: Decodable {
+    let already_paid: Bool?
 }
 
 /// The receipt returned by the mock pay endpoint

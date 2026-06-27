@@ -225,6 +225,16 @@
     <string name="pay_method_bank">Virement bancaire (−5%%)</string>
     <string name="pay_card_surcharge">Supplément carte (5%%)</string>
     <string name="pay_bank_discount">Remise virement bancaire (5%%)</string>
+    <!-- Paymob hosted checkout -->
+    <string name="money_pay_currency">Payer %1$s %2$s</string>
+    <string name="paymob_title">Paiement sécurisé</string>
+    <string name="pay_secure_note">Vous saisirez les détails de votre carte sur notre page de paiement sécurisée.</string>
+    <string name="pay_unavailable">Le paiement en ligne n\'est pas disponible pour le moment.</string>
+    <string name="pay_sign_in">Veuillez vous connecter pour payer.</string>
+    <string name="pay_failed">Le paiement a échoué. Veuillez réessayer.</string>
+    <string name="pay_confirmed_body">Votre paiement a été effectué et votre réservation est confirmée.</string>
+    <string name="pay_processing_title">Paiement en cours</string>
+    <string name="pay_processing_body">Le paiement est en cours — nous mettrons à jour votre réservation sous peu.</string>
     <string name="services_title">Services</string>
     <string name="services_no_experiences">Pas encore d\'expériences</string>
     <string name="services_check_back">Revenez bientôt pour découvrir des activités.</string>

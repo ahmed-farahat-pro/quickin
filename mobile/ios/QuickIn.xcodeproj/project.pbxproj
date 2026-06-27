@@ -78,6 +78,7 @@
 		C88A8FF61C90A899C65299B3 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68956C154CDD6E39CF7573F1 /* AuthService.swift */; };
 		C8B1005EE65879A85C46F29C /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A907C68E4532DF9C4F9917FD /* SplashView.swift */; };
 		CD5AC268E002E6587EE37408 /* IdentityVerificationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D726EF27316C30A43919B02D /* IdentityVerificationCard.swift */; };
+		CEF5E00670280871DB226C5D /* PaymobCheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */; };
 		CF576589D36D565A50F3541D /* SkeletonCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD92513B165FB9A5358CE95D /* SkeletonCard.swift */; };
 		D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */; };
 		D1BA4ADBF9699728C3F86252 /* BiometricEnableSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */; };
@@ -107,6 +108,7 @@
 		2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPlaceholder.swift; sourceTree = "<group>"; };
 		2E23E5D1A16E3236FC8AAB6A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerMap.swift; sourceTree = "<group>"; };
+		36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymobCheckoutView.swift; sourceTree = "<group>"; };
 		379D98016911E11E069E50D6 /* EgyptianIDScanService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EgyptianIDScanService.swift; sourceTree = "<group>"; };
 		38389AAB5C4E32B05C3A4C56 /* HostDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDashboardView.swift; sourceTree = "<group>"; };
 		38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsViewModel.swift; sourceTree = "<group>"; };
@@ -165,7 +167,7 @@
 		DCE1D8CE6B16E466244F0371 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationPolicyView.swift; sourceTree = "<group>"; };
-		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostServicesSection.swift; sourceTree = "<group>"; };
 		E95CD96DE36FCFFCFE7DC874 /* NotificationPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPrimerView.swift; sourceTree = "<group>"; };
 		F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricEnableSheet.swift; sourceTree = "<group>"; };
@@ -248,6 +250,7 @@
 				94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */,
 				3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */,
 				42DF93A288577203F495EEF5 /* PaymentSheet.swift */,
+				36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */,
 				2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */,
 				1DA9DEB1B3F64E19C8E6B115 /* ProfileService.swift */,
 				C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */,
@@ -331,6 +334,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					DC02E54AF286367F814901FD = {
+						DevelopmentTeam = U4NBL42U65;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -427,6 +431,7 @@
 				BEC3B1E8BCFDD35FB16C58F6 /* OTPVerificationView.swift in Sources */,
 				12EA0DED2C6797AC48D1955E /* PasswordStrengthView.swift in Sources */,
 				972B9A14617E75E6981E1577 /* PaymentSheet.swift in Sources */,
+				CEF5E00670280871DB226C5D /* PaymobCheckoutView.swift in Sources */,
 				22D302DB560411F03AE6107C /* PhotoPlaceholder.swift in Sources */,
 				A73C074F1B75FF3423F4EE3A /* ProfileService.swift in Sources */,
 				ABBEF04860655DEE7A15C25D /* ProfileSettingsView.swift in Sources */,
@@ -532,7 +537,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -610,7 +615,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

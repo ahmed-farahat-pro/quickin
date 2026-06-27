@@ -22,6 +22,87 @@ object BookingService {
     class HttpError(val code: Int, message: String) : RuntimeException(message)
 
     /**
+     * Result of `POST /api/local/bookings/:id/pay-init`: the Paymob hosted-checkout URL to open in an
+     * in-app WebView, plus the [returnUrlPrefix] (any URL starting with it means checkout finished —
+     * close the WebView and poll for paid). [amountCents] / [currency] mirror the charge; [reference]
+     * is our merchant order reference. [alreadyPaid] is true when the booking was already settled.
+     */
+    data class PayInit(
+        val checkoutUrl: String,
+        val returnUrlPrefix: String,
+        val amountCents: Long,
+        val currency: String,
+        val reference: String,
+        val alreadyPaid: Boolean = false
+    )
+
+    /**
+     * Starts a Paymob hosted checkout for [bookingId] (`POST /api/local/bookings/:id/pay-init`,
+     * Bearer). On 200 returns a [PayInit] with the `checkout_url` to load in a WebView. When the
+     * booking is already settled the backend answers `{ already_paid:true }` — surfaced as a
+     * [PayInit] with [PayInit.alreadyPaid] = true (no checkout needed). A 503 means the server's
+     * Paymob keys aren't configured yet — surfaced as a friendly [HttpError] the caller can show as
+     * "Online payment isn't available right now." Other non-2xx throw [HttpError]
+     * (401 not signed in, 403 not the owner, 404 not found).
+     */
+    suspend fun payInit(token: String, bookingId: String): PayInit = withContext(Dispatchers.IO) {
+        val text = send("POST", token, "/api/local/bookings/$bookingId/pay-init", JSONObject())
+        val o = JSONObject(text)
+        if (o.optBoolean("already_paid", false)) {
+            return@withContext PayInit(
+                checkoutUrl = "",
+                returnUrlPrefix = "",
+                amountCents = 0L,
+                currency = o.optString("currency").ifBlank { "EGP" },
+                reference = o.optString("reference"),
+                alreadyPaid = true
+            )
+        }
+        PayInit(
+            checkoutUrl = o.optString("checkout_url"),
+            returnUrlPrefix = o.optString("return_url_prefix"),
+            amountCents = o.optLong("amount_cents", 0L),
+            currency = o.optString("currency").ifBlank { "EGP" },
+            reference = o.optString("reference"),
+            alreadyPaid = false
+        )
+    }
+
+    /**
+     * One-shot check of whether [bookingId] has settled: fetches the reservation and reports paid
+     * when `paid_at` is set / the status is confirmed. Returns false (rather than throwing) on any
+     * transient error so a polling loop can keep trying. Use [pollBookingPaid] for the loop.
+     */
+    suspend fun isBookingPaid(token: String, bookingId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val r = fetchReservation(token, bookingId)
+            r.isPaid || !r.paidAt.isNullOrBlank() || r.status.equals("confirmed", ignoreCase = true)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Polls the booking after a Paymob checkout closes, since it's the server webhook that flips it
+     * to paid. Checks [isBookingPaid] every [intervalMs] up to [timeoutMs]; returns true as soon as
+     * it reads paid, or false if it's still unpaid when the budget runs out (the caller then shows a
+     * "payment is processing" note). Cancellable via the calling coroutine scope.
+     */
+    suspend fun pollBookingPaid(
+        token: String,
+        bookingId: String,
+        timeoutMs: Long = 20_000L,
+        intervalMs: Long = 2_000L
+    ): Boolean = withContext(Dispatchers.IO) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (isBookingPaid(token, bookingId)) return@withContext true
+            kotlinx.coroutines.delay(intervalMs)
+        }
+        isBookingPaid(token, bookingId)
+    }
+
+    /**
      * Reserves [listingId] for the given range. Dates must be yyyy-MM-dd.
      * Throws [HttpError] (401 not signed in, 400 e.g. "Those dates are not available").
      */

@@ -225,6 +225,16 @@
     <string name="pay_method_bank">Transferencia bancaria (−5%%)</string>
     <string name="pay_card_surcharge">Recargo por tarjeta (5%%)</string>
     <string name="pay_bank_discount">Descuento por transferencia bancaria (5%%)</string>
+    <!-- Paymob hosted checkout -->
+    <string name="money_pay_currency">Pagar %1$s %2$s</string>
+    <string name="paymob_title">Pago seguro</string>
+    <string name="pay_secure_note">Introducirás los datos de tu tarjeta en nuestra página de pago segura.</string>
+    <string name="pay_unavailable">El pago en línea no está disponible en este momento.</string>
+    <string name="pay_sign_in">Inicia sesión para pagar.</string>
+    <string name="pay_failed">El pago falló. Inténtalo de nuevo.</string>
+    <string name="pay_confirmed_body">Tu pago se realizó y tu reserva está confirmada.</string>
+    <string name="pay_processing_title">Procesando el pago</string>
+    <string name="pay_processing_body">El pago se está procesando: actualizaremos tu reserva en breve.</string>
     <string name="services_title">Servicios</string>
     <string name="services_no_experiences">Aún no hay experiencias</string>
     <string name="services_check_back">Vuelva pronto para descubrir actividades.</string>

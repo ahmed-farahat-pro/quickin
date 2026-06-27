@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +19,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material3.ButtonDefaults
@@ -41,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
@@ -51,48 +49,67 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.quickin.app.PaymentReceipt
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.quickin.app.BookingService
 import com.quickin.app.PaymentUiState
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.CreamPage
-import com.quickin.app.ui.theme.Gold
 import com.quickin.app.ui.theme.GoldDeep
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
+import kotlinx.coroutines.launch
 
 private val ErrorRed = Color(0xFFB3261E)
 
+// Sentinel error keys resolved to localized strings at display time (avoids reading resources off
+// the composition thread inside the coroutine).
+private const val UNAVAILABLE_ERROR = "__pay_unavailable__"
+private const val SIGN_IN_ERROR = "__pay_sign_in__"
+private const val PAYMENT_FAILED_ERROR = "__pay_failed__"
+
+/** The internal phase of the Paymob payment flow inside the sheet. */
+private enum class PayPhase {
+    /** The breakdown + Pay button. */
+    Form,
+
+    /** Calling `pay-init` (fetching the Paymob checkout URL). */
+    Initializing,
+
+    /** Hosted checkout is open in the WebView dialog. */
+    Checkout,
+
+    /** WebView closed; polling the booking for the webhook-driven paid state. */
+    Polling,
+
+    /** Booking read as paid — short confirmation before continuing. */
+    Confirmed,
+
+    /** Polling timed out still unpaid — the webhook likely lands shortly. */
+    Processing
+}
+
 /**
- * MOCK payment sheet shown after a guest creates a booking (and optionally from an unpaid
- * reservation's "Pay now"). There is NO real gateway yet — this just mimics paying so the
- * booking flow completes end-to-end. A [ModalBottomSheet] (mirroring [DateRangePickerSheet])
- * with two phases:
- *  • the amount breakdown (subtotal · service fee 10% · total) + a decorative, disabled card
- *    row + a burgundy "Pay EGP {total}" button (spinner while paying), and
- *  • on success, a paid confirmation (drawn checkmark + "Booking confirmed & paid" + the
- *    QK-… reference), with a "Done" button that continues to the reservation.
+ * Payment sheet shown after a guest creates a booking (and from an unpaid reservation's "Pay now").
+ * A [ModalBottomSheet] showing the informational price breakdown (subtotal · service fee · total)
+ * and a "Pay {amount} {currency}" button. Tapping Pay calls `pay-init` and opens Paymob's HOSTED
+ * checkout in an in-app WebView ([PaymobCheckoutScreen]) — card details are entered on Paymob's
+ * page, never collected in our UI. When the WebView reaches our return URL the sheet polls the
+ * booking (the server webhook marks it paid) and either confirms or shows a "processing" note.
  *
- * Amounts are computed locally for the breakdown (subtotal = nightly × nights, service fee = 10%,
- * total = subtotal + fee) — the same formula the backend uses — so the figures show instantly
- * before the (always-succeeds) request returns the authoritative [PaymentReceipt].
- *
- * The guest also picks a payment method — Card (+5% surcharge) or Bank transfer (−5% discount) —
- * which re-computes the shown total (subtotal + 10% service fee + signed method fee) and is sent
- * to the backend as the `method`.
- *
- * The guest can also enter a promo code: [onValidatePromo] previews it against the subtotal (the
- * preview nets its discount off the shown total) and the applied code is sent through the pay POST,
- * with the discount echoed on the [PaymentReceipt].
+ * The price breakdown still uses the local formula (subtotal = nightly × nights, service fee = 10%,
+ * plus the signed method fee and any previewed promo discount) so the figures show before checkout.
  *
  * @param nightly nightly price in EGP.
  * @param nights number of nights.
- * @param state the in-flight payment state (owned by BookingsViewModel).
- * @param onPay runs the mock payment for the booking with the chosen method ("card" | "bank_transfer").
+ * @param bookingId the booking being paid (target of `pay-init` + polling).
+ * @param token the bearer token, or null when signed out (the Pay button then surfaces a sign-in note).
+ * @param state the in-flight payment/promo state (owned by BookingsViewModel — drives the promo UI).
  * @param onValidatePromo previews a promo code against the subtotal (apply / refresh the preview).
  * @param onClearPromo clears the applied/previewed promo code.
- * @param onDone called after a successful payment to dismiss + continue to the reservation.
+ * @param onPaid called once the booking is confirmed paid (or "processing") to dismiss + continue.
  * @param onDismiss called when the sheet is dismissed (drag-down / scrim) before paying.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,20 +117,76 @@ private val ErrorRed = Color(0xFFB3261E)
 fun PaymentSheet(
     nightly: Int,
     nights: Int,
+    bookingId: String,
+    token: String?,
     state: PaymentUiState,
-    onPay: (method: String) -> Unit,
     onValidatePromo: (code: String, subtotal: Int) -> Unit = { _, _ -> },
     onClearPromo: () -> Unit = {},
-    onDone: () -> Unit,
+    onPaid: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val paid = state.receipt != null
+    val scope = rememberCoroutineScope()
+
+    var phase by remember { mutableStateOf(PayPhase.Form) }
+    var error by remember { mutableStateOf<String?>(null) }
+    // The pay-init result while the checkout dialog is open.
+    var payInit by remember { mutableStateOf<BookingService.PayInit?>(null) }
+
+    val busy = phase == PayPhase.Initializing || phase == PayPhase.Polling
+    // While initializing / in checkout / polling / done, ignore drag-to-dismiss so the flow isn't
+    // interrupted mid-payment; it exits via its explicit buttons / completion.
+    val locked = phase != PayPhase.Form
+
+    fun startPolling() {
+        val t = token ?: return
+        phase = PayPhase.Polling
+        scope.launch {
+            val paid = try {
+                BookingService.pollBookingPaid(t, bookingId)
+            } catch (_: Exception) {
+                false
+            }
+            phase = if (paid) PayPhase.Confirmed else PayPhase.Processing
+        }
+    }
+
+    fun startPay() {
+        val t = token ?: run {
+            error = SIGN_IN_ERROR
+            phase = PayPhase.Form
+            return
+        }
+        error = null
+        phase = PayPhase.Initializing
+        scope.launch {
+            try {
+                val init = BookingService.payInit(t, bookingId)
+                when {
+                    // Already settled (e.g. paid in another session) — skip checkout, just continue.
+                    init.alreadyPaid -> phase = PayPhase.Confirmed
+                    init.checkoutUrl.isBlank() -> {
+                        error = UNAVAILABLE_ERROR
+                        phase = PayPhase.Form
+                    }
+                    else -> {
+                        payInit = init
+                        phase = PayPhase.Checkout
+                    }
+                }
+            } catch (e: BookingService.HttpError) {
+                // 503 = Paymob keys not configured server-side → friendly "unavailable" message.
+                error = if (e.code == 503) UNAVAILABLE_ERROR else (e.message ?: PAYMENT_FAILED_ERROR)
+                phase = PayPhase.Form
+            } catch (e: Exception) {
+                error = e.message ?: PAYMENT_FAILED_ERROR
+                phase = PayPhase.Form
+            }
+        }
+    }
 
     ModalBottomSheet(
-        // While paying or once paid, ignore drag-to-dismiss/scrim taps so the flow isn't
-        // interrupted mid-request; the paid phase exits via its explicit "Done" button.
-        onDismissRequest = { if (!state.isPaying && !paid) onDismiss() },
+        onDismissRequest = { if (!locked) onDismiss() },
         sheetState = sheetState,
         containerColor = CreamPage,
         contentColor = Ink
@@ -125,23 +198,51 @@ fun PaymentSheet(
                 .padding(bottom = 28.dp)
         ) {
             AnimatedContent(
-                targetState = paid,
+                targetState = phase == PayPhase.Confirmed || phase == PayPhase.Processing,
                 transitionSpec = { fadeIn(tween()) togetherWith fadeOut(tween()) },
                 label = "payPhase"
-            ) { isPaid ->
-                if (isPaid) {
-                    PaidConfirmation(receipt = state.receipt!!, onDone = onDone)
+            ) { isDone ->
+                if (isDone) {
+                    PayOutcome(processing = phase == PayPhase.Processing, onContinue = onPaid)
                 } else {
                     PayForm(
                         nightly = nightly,
                         nights = nights,
                         state = state,
-                        onPay = onPay,
+                        busy = busy,
+                        error = error,
+                        onPay = { startPay() },
                         onValidatePromo = onValidatePromo,
                         onClearPromo = onClearPromo
                     )
                 }
             }
+        }
+    }
+
+    // The Paymob hosted checkout, shown full-screen over the sheet while [phase] == Checkout.
+    val init = payInit
+    if (phase == PayPhase.Checkout && init != null) {
+        Dialog(
+            onDismissRequest = {
+                // Back / scrim on the checkout dialog = cancel (no charge).
+                payInit = null
+                phase = PayPhase.Form
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            PaymobCheckoutScreen(
+                checkoutUrl = init.checkoutUrl,
+                returnUrlPrefix = init.returnUrlPrefix,
+                onFinished = {
+                    payInit = null
+                    startPolling()
+                },
+                onCancel = {
+                    payInit = null
+                    phase = PayPhase.Form
+                }
+            )
         }
     }
 }
@@ -155,13 +256,15 @@ private enum class PayMethod(val api: String, val rate: Double) {
     BankTransfer("bank_transfer", -0.05)
 }
 
-/** The breakdown + method selector + promo code + decorative card + pay button (phase 1). */
+/** The breakdown + method selector + promo code + pay button (the form phase). */
 @Composable
 private fun PayForm(
     nightly: Int,
     nights: Int,
     state: PaymentUiState,
-    onPay: (method: String) -> Unit,
+    busy: Boolean,
+    error: String?,
+    onPay: () -> Unit,
     onValidatePromo: (code: String, subtotal: Int) -> Unit,
     onClearPromo: () -> Unit
 ) {
@@ -176,6 +279,7 @@ private fun PayForm(
     // A previewed, valid promo nets its discount off the shown total (the backend re-applies it).
     val promoDiscount = state.promo?.takeIf { it.valid }?.discount ?: 0
     val total = (subtotal + serviceFee + methodFee - promoDiscount).coerceAtLeast(0)
+    val currency = "EGP"
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -194,9 +298,9 @@ private fun PayForm(
         }
 
         // Segmented method selector: Card (+5%) vs Bank transfer (−5%).
-        MethodSelector(selected = method, onSelect = { if (!state.isPaying) method = it })
+        MethodSelector(selected = method, onSelect = { if (!busy) method = it })
 
-        // Amount breakdown: subtotal · service fee (10%) · signed method fee · total.
+        // Amount breakdown: subtotal · service fee (10%) · signed method fee · total. Informational.
         Surface(
             color = Color.White,
             shape = RoundedCornerShape(20.dp),
@@ -264,15 +368,12 @@ private fun PayForm(
         PromoCodeField(
             state = state,
             subtotal = subtotal,
+            busy = busy,
             onApply = onValidatePromo,
             onClear = onClearPromo
         )
 
-        // A decorative, DISABLED card row — purely to signal "this is where the card would go".
-        // No real input; the demo note below makes clear nothing is charged.
-        DecorativeCardRow()
-
-        // Clearly-labelled demo note so it's unmistakable this is not a real charge.
+        // Secure-checkout note: card entry happens on Paymob's hosted page, not here.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -280,31 +381,38 @@ private fun PayForm(
         ) {
             Icon(Icons.Filled.Lock, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
             Text(
-                stringResource(R.string.pay_demo_note),
+                stringResource(R.string.pay_secure_note),
                 color = Muted,
                 fontSize = 12.sp
             )
         }
 
-        if (state.error != null) {
-            Text(state.error, color = ErrorRed, fontSize = 14.sp)
+        if (error != null) {
+            val message = when (error) {
+                UNAVAILABLE_ERROR -> stringResource(R.string.pay_unavailable)
+                SIGN_IN_ERROR -> stringResource(R.string.pay_sign_in)
+                PAYMENT_FAILED_ERROR -> stringResource(R.string.pay_failed)
+                else -> error
+            }
+            Text(message, color = ErrorRed, fontSize = 14.sp)
         }
 
-        // The primary CTA — burgundy gradient + pulsing ring; shows a spinner while paying.
+        // The primary CTA — opens Paymob's hosted checkout. The total is informational; the server
+        // computes the authoritative amount on pay-init.
         GradientButton(
-            onClick = { onPay(method.api) },
-            enabled = !state.isPaying,
-            pulse = !state.isPaying,
+            onClick = onPay,
+            enabled = !busy,
+            pulse = !busy,
             modifier = Modifier.fillMaxWidth(),
             height = 54.dp
         ) {
-            if (state.isPaying) {
+            if (busy) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.pay_processing), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             } else {
                 Text(
-                    stringResource(R.string.money_pay, com.quickin.app.CurrencyManager.format(total)),
+                    stringResource(R.string.money_pay_currency, com.quickin.app.CurrencyManager.format(total), currency),
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp
@@ -386,13 +494,13 @@ private fun MethodSegment(
 /**
  * Promo-code entry: a text field + Apply button that previews the code against [subtotal] via
  * [onApply]. While validating it shows a spinner; once previewed, a valid code shows an "applied"
- * confirmation (with a Remove action) and an invalid one shows the backend's message. RTL-safe —
- * the field/button row and the status row follow the layout direction.
+ * confirmation (with a Remove action) and an invalid one shows the backend's message. RTL-safe.
  */
 @Composable
 private fun PromoCodeField(
     state: PaymentUiState,
     subtotal: Int,
+    busy: Boolean,
     onApply: (code: String, subtotal: Int) -> Unit,
     onClear: () -> Unit
 ) {
@@ -400,6 +508,7 @@ private fun PromoCodeField(
     val promo = state.promo
     val applied = promo?.valid == true
     val validating = state.validatingPromo
+    val disabled = validating || busy
 
     Surface(
         color = Color.White,
@@ -436,7 +545,7 @@ private fun PromoCodeField(
                     },
                     label = { Text(stringResource(R.string.promo_code)) },
                     singleLine = true,
-                    enabled = !validating && !state.isPaying,
+                    enabled = !disabled,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { if (code.isNotBlank()) onApply(code, subtotal) }),
                     shape = RoundedCornerShape(14.dp),
@@ -452,7 +561,7 @@ private fun PromoCodeField(
                 )
                 OutlinedButton(
                     onClick = { if (code.isNotBlank()) onApply(code, subtotal) },
-                    enabled = !validating && !state.isPaying && code.isNotBlank(),
+                    enabled = !disabled && code.isNotBlank(),
                     shape = RoundedCornerShape(14.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
                     colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
@@ -499,103 +608,41 @@ private fun PromoCodeField(
     }
 }
 
-/** The paid confirmation (phase 2): drawn checkmark, confirmation text, reference, Done. */
+/**
+ * The outcome phase shown after the hosted checkout closes: a confirmed tick (the booking read as
+ * paid) or a "payment is processing" note (poll timed out — the webhook lands shortly). Either way a
+ * single button continues to the reservation.
+ */
 @Composable
-private fun PaidConfirmation(
-    receipt: PaymentReceipt,
-    onDone: () -> Unit
-) {
+private fun PayOutcome(processing: Boolean, onContinue: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Spacer(Modifier.height(8.dp))
-        // qkDraw + qkPop — the green tick draws itself on inside a popping circle.
-        PopIn { DrawCheckmark(size = 72.dp) }
+        if (processing) {
+            CircularProgressIndicator(color = Burgundy, strokeWidth = 3.dp, modifier = Modifier.size(56.dp))
+        } else {
+            PopIn { DrawCheckmark(size = 72.dp) }
+        }
 
         Text(
-            stringResource(R.string.pay_confirmed_title),
+            stringResource(if (processing) R.string.pay_processing_title else R.string.pay_confirmed_title),
             color = Ink,
             fontWeight = FontWeight.Bold,
             fontSize = 22.sp,
             textAlign = TextAlign.Center
         )
-
-        // The QK-… reference, in a soft tan card with a label.
-        Surface(
-            color = Tan,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(stringResource(R.string.pay_reference), color = Muted, fontSize = 12.sp)
-                Text(
-                    receipt.reference.ifBlank { "—" },
-                    color = Burgundy,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    letterSpacing = 2.sp
-                )
-                HorizontalDivider(color = Ink.copy(alpha = 0.08f), modifier = Modifier.padding(vertical = 4.dp))
-                // Echo the chosen method + its signed adjustment from the authoritative receipt.
-                if (receipt.methodFee != 0) {
-                    val feeMagnitude = kotlin.math.abs(receipt.methodFee)
-                    val isSurcharge = receipt.methodFee > 0
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            stringResource(
-                                if (isSurcharge) R.string.pay_card_surcharge else R.string.pay_bank_discount
-                            ),
-                            color = Muted,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            (if (isSurcharge) "+" else "−") + com.quickin.app.CurrencyManager.format(feeMagnitude),
-                            color = if (isSurcharge) Ink else GoldDeep,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-                // Echo the redeemed promo code + its discount from the authoritative receipt.
-                if (receipt.hasPromo) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            stringResource(R.string.promo_discount) + " (" + receipt.promoCode + ")",
-                            color = Muted,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            "−" + com.quickin.app.CurrencyManager.format(receipt.promoDiscount),
-                            color = GoldDeep,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(stringResource(R.string.detail_total), color = Muted, fontSize = 14.sp)
-                    Text(com.quickin.app.CurrencyManager.format(receipt.total), color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
-        }
+        Text(
+            stringResource(if (processing) R.string.pay_processing_body else R.string.pay_confirmed_body),
+            color = Muted,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center
+        )
 
         GradientButton(
-            onClick = onDone,
+            onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
             height = 52.dp
         ) {
@@ -613,41 +660,5 @@ private fun PriceRow(label: String, value: String, valueColor: Color = Ink) {
     ) {
         Text(label, color = Muted, fontSize = 14.sp)
         Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-/**
- * A purely decorative, non-interactive "card" row (gold card icon + masked number + MM/YY) on a
- * faint tan tile — it signals where a card would go without collecting any input (this is a mock).
- */
-@Composable
-private fun DecorativeCardRow() {
-    Surface(
-        color = Tan.copy(alpha = 0.45f),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Tan),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Gold.copy(alpha = 0.16f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.CreditCard, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(22.dp))
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("•••• •••• •••• 4242", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 1.sp)
-                Text(stringResource(R.string.pay_card_demo), color = Muted, fontSize = 12.sp)
-            }
-            Text("12/29", color = Muted, fontSize = 13.sp)
-        }
     }
 }

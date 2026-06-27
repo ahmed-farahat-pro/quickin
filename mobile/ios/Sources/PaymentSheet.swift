@@ -1,22 +1,26 @@
 import SwiftUI
 
-/// A **mock** payment sheet for QuickIn. There is no real gateway yet (Paymob
-/// comes later) — this just mimics paying so the booking flow completes
-/// end-to-end. It POSTs to the backend's mock pay endpoint via
-/// `BookingService.pay(bookingId:)`, which always succeeds for the booking's
-/// owner and flips the booking to paid + confirmed.
+/// The payment sheet for QuickIn, backed by **Paymob hosted checkout**.
+///
+/// The price breakdown here is purely informational — card details are entered
+/// on Paymob's hosted page inside an in-app WebView (`PaymobCheckoutView`),
+/// never collected in our own UI. Tapping Pay calls
+/// `BookingService.payInit(bookingId:)` to open a checkout session, presents the
+/// WebView, and — once it returns — polls the booking for the webhook-set paid
+/// state.
 ///
 /// Lifecycle:
 ///   • **form** — boutique amount breakdown (subtotal · service fee · total),
-///     a clearly-labelled "Demo payment — no real charge" note, a decorative
-///     (disabled) card row, and a burgundy "Pay EGP {total}" CTA.
-///   • **paying** — the CTA shows a spinner.
-///   • **paid** — a drawn checkmark + "Booking confirmed & paid" + the QK-…
+///     a "secured by Paymob" note, and a burgundy "Pay {amount} {currency}" CTA.
+///   • **paying** — the CTA shows a spinner while `pay-init` runs / the WebView
+///     is presented; afterwards a small spinner shows while we poll for paid.
+///   • **paid** — a drawn checkmark + "Booking confirmed & paid" + the Paymob
 ///     reference, then a "Continue" button that calls `onPaid` and dismisses
-///     (the caller routes on to the reservation / Apple Wallet flow).
+///     (the caller reloads the reservation). If polling times out, the form
+///     shows a "payment is processing" hint instead.
 ///
-/// All copy is localized (en + ar) and the layout is leading/trailing based, so
-/// it mirrors correctly under RTL.
+/// All copy is localized (en + ar + fr + es) and the layout is leading/trailing
+/// based, so it mirrors correctly under RTL.
 struct PaymentSheet: View {
     /// The booking to pay for.
     let bookingID: String
@@ -36,6 +40,21 @@ struct PaymentSheet: View {
     @State private var phase: Phase = .form
     @State private var receipt: PaymentReceipt?
     @State private var errorMessage: String?
+
+    // MARK: - Paymob hosted-checkout state
+
+    /// The active Paymob session from `pay-init`; presenting it drives the
+    /// in-app WebView (`PaymobCheckoutView`).
+    @State private var paymobInit: PaymobInit?
+    /// Drives the full-screen checkout cover.
+    @State private var showingCheckout = false
+    /// True while polling the booking for the webhook-set paid state after the
+    /// WebView closes.
+    @State private var isPolling = false
+    /// Set when polling times out without a paid flip → show the "processing" copy.
+    @State private var processingMessage: String?
+    /// An error to surface in an alert (e.g. 503 payment unavailable).
+    @State private var alertMessage: String?
 
     /// The payment method the guest picks. `card` adds a +5% surcharge;
     /// `bankTransfer` applies a −5% discount. Defaults to card.
@@ -88,6 +107,13 @@ struct PaymentSheet: View {
     /// is the live preview shown on the CTA.
     private var total: Int { max(0, subtotal + serviceFee + methodFee - promoDiscount) }
 
+    /// The currency code for the CTA. Prefers the value the server returns on
+    /// `pay-init`; defaults to "EGP" before that (and if the server omits it).
+    private var currencyCode: String {
+        let code = paymobInit?.currency?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (code?.isEmpty == false) ? code!.uppercased() : "EGP"
+    }
+
     var body: some View {
         ZStack {
             LinearGradient.qkPageWash.ignoresSafeArea()
@@ -108,7 +134,31 @@ struct PaymentSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .interactiveDismissDisabled(phase == .paying)
+        .interactiveDismissDisabled(phase == .paying || isPolling)
+        .fullScreenCover(isPresented: $showingCheckout) {
+            if let session = paymobInit {
+                PaymobCheckoutView(
+                    checkoutURL: session.checkoutURL,
+                    returnURLPrefix: session.returnURLPrefix,
+                    onFinished: { handleCheckoutFinished() },
+                    onCancel: { handleCheckoutCancelled() }
+                )
+                .environmentObject(loc)
+            }
+        }
+        .alert(loc.t("pay.errorTitle"), isPresented: alertBinding) {
+            Button(loc.t("common.done"), role: .cancel) { alertMessage = nil }
+        } message: {
+            Text(alertMessage ?? "")
+        }
+    }
+
+    /// Binding that shows the error alert whenever `alertMessage` is set.
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { alertMessage != nil },
+            set: { if !$0 { alertMessage = nil } }
+        )
     }
 
     // MARK: - Form (pre-payment)
@@ -123,9 +173,7 @@ struct PaymentSheet: View {
 
             promoCard
 
-            demoNote
-
-            cardRow
+            secureNote
 
             if let errorMessage {
                 Text(errorMessage)
@@ -133,6 +181,28 @@ struct PaymentSheet: View {
                     .foregroundStyle(Color.qkBurgundy)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // After the WebView closes, while we poll for the webhook-set paid
+            // state, or once polling times out without a flip.
+            if isPolling {
+                HStack(spacing: 8) {
+                    ProgressView().tint(.qkBurgundy)
+                    Text(loc.t("pay.verifying"))
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkMuted)
+                }
+                .frame(maxWidth: .infinity)
+            } else if let processingMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.qkGoldDeep)
+                    Text(processingMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkInk)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             payButton
@@ -384,13 +454,14 @@ struct PaymentSheet: View {
         .accessibilityLabel(loc.t(isApplied ? "promo.remove" : "promo.apply"))
     }
 
-    /// The clearly-labelled "Demo payment — no real charge" banner.
-    private var demoNote: some View {
+    /// A reassuring "secured by Paymob — card entered on the next screen" banner.
+    /// Card details are collected on Paymob's hosted page, never here.
+    private var secureNote: some View {
         HStack(spacing: 10) {
-            Image(systemName: "info.circle.fill")
+            Image(systemName: "lock.shield.fill")
                 .font(.system(size: 16))
                 .foregroundStyle(Color.qkGoldDeep)
-            Text(loc.t("pay.demoNote"))
+            Text(loc.t("pay.secureNote"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.qkInk)
             Spacer(minLength: 0)
@@ -402,44 +473,16 @@ struct PaymentSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    /// A purely decorative, disabled "card" row (•••• masked number) so the
-    /// sheet reads like a real checkout without collecting anything.
-    private var cardRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "creditcard.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(Color.qkBurgundy)
-                .frame(width: 28)
-            Text("•••• •••• •••• 4242")
-                .font(.system(.subheadline, design: .monospaced))
-                .foregroundStyle(Color.qkInk)
-            Spacer()
-            Image(systemName: "lock.fill")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.qkMuted)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
-        .background(Color.qkCream)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.qkInk.opacity(0.08), lineWidth: 1)
-        )
-        .opacity(0.85)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    /// Burgundy "Pay EGP {total}" CTA; shows a spinner while paying.
+    /// Burgundy "Pay {amount} {currency}" CTA; shows a spinner while starting the
+    /// checkout session.
     private var payButton: some View {
         Button {
-            Task { await pay() }
+            Task { await startCheckout() }
         } label: {
             QKPrimaryButtonLabel(
                 title: phase == .paying
                     ? loc.t("pay.processing")
-                    : String(format: loc.t("pay.payAmount"), "\(total)"),
+                    : String(format: loc.t("pay.payAmountCurrency"), "\(total)", currencyCode),
                 systemImage: phase == .paying ? nil : "lock.fill",
                 isLoading: phase == .paying
             )
@@ -539,24 +582,90 @@ struct PaymentSheet: View {
         }
     }
 
-    // MARK: - Action
+    // MARK: - Action (Paymob hosted checkout)
 
+    /// Start the Paymob hosted checkout: call `pay-init`, then present the in-app
+    /// WebView with the returned `checkout_url`. The guest enters card details on
+    /// Paymob's page — never here. On a 503 (keys not set) or other failure we
+    /// surface an alert and stay on the form.
     @MainActor
-    private func pay() async {
+    private func startCheckout() async {
         errorMessage = nil
+        processingMessage = nil
         phase = .paying
         do {
-            let r = try await BookingService.shared.pay(
-                bookingId: bookingID,
-                method: method.rawValue,
-                promoCode: appliedPromoCode
-            )
-            receipt = r
-            withAnimation(QKAnim.swap) { phase = .paid }
-        } catch {
-            errorMessage = error.localizedDescription
+            let session = try await BookingService.shared.payInit(bookingId: bookingID)
+            paymobInit = session
             phase = .form
+            showingCheckout = true
+        } catch BookingError.alreadyPaid {
+            // Already settled (e.g. paid in another session) — treat as success.
+            phase = .form
+            await finishAsPaid()
+        } catch BookingError.paymentUnavailable {
+            phase = .form
+            alertMessage = loc.t("pay.unavailable")
+        } catch {
+            phase = .form
+            alertMessage = error.localizedDescription
         }
+    }
+
+    /// The WebView reached our return-URL prefix (payment submitted on Paymob).
+    /// Close the cover and poll the booking until the webhook flips it to paid.
+    @MainActor
+    private func handleCheckoutFinished() {
+        showingCheckout = false
+        Task { await pollForPaid() }
+    }
+
+    /// The guest cancelled the WebView (Cancel / swipe-down). No charge — just
+    /// close the cover and leave the form as-is.
+    @MainActor
+    private func handleCheckoutCancelled() {
+        showingCheckout = false
+    }
+
+    /// Poll the booking up to ~20s for the webhook-set paid state. On paid →
+    /// switch to the confirmed (paid) screen; otherwise show the "processing" copy
+    /// so the guest knows we'll catch up shortly.
+    @MainActor
+    private func pollForPaid() async {
+        isPolling = true
+        processingMessage = nil
+        defer { isPolling = false }
+
+        let paid = await BookingService.shared.pollUntilPaid(bookingId: bookingID)
+        if paid {
+            await finishAsPaid()
+        } else {
+            processingMessage = loc.t("pay.processingHint")
+        }
+    }
+
+    /// Mark the flow as paid. We don't get a `PaymentReceipt` from the Paymob
+    /// flow (the booking is settled by the webhook), so build a lightweight
+    /// receipt from the local preview + the Paymob reference for the success
+    /// screen, then notify the caller to refresh the booking.
+    @MainActor
+    private func finishAsPaid() async {
+        let reference = paymobInit?.reference?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = PaymentReceipt(
+            currency: currencyCode,
+            nights: nights,
+            nightly: nightly,
+            subtotal: subtotal,
+            serviceFee: serviceFee,
+            methodFee: methodFee,
+            total: total,
+            reference: (reference?.isEmpty == false) ? reference! : "—",
+            paidAt: ISO8601DateFormatter().string(from: Date()),
+            method: method.rawValue,
+            promoCode: appliedPromoCode,
+            promoDiscount: promoDiscount > 0 ? promoDiscount : nil
+        )
+        receipt = summary
+        withAnimation(QKAnim.swap) { phase = .paid }
     }
 
     /// Validate the typed promo code against the current subtotal and apply it

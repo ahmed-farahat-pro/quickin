@@ -276,6 +276,16 @@
     <string name="pay_method_bank">Bank transfer (−5%%)</string>
     <string name="pay_card_surcharge">Card surcharge (5%%)</string>
     <string name="pay_bank_discount">Bank transfer discount (5%%)</string>
+    <!-- Paymob hosted checkout -->
+    <string name="money_pay_currency">Pay %1$s %2$s</string>
+    <string name="paymob_title">Secure checkout</string>
+    <string name="pay_secure_note">You\'ll enter your card details on our secure payment page.</string>
+    <string name="pay_unavailable">Online payment isn\'t available right now.</string>
+    <string name="pay_sign_in">Please sign in to pay.</string>
+    <string name="pay_failed">Payment failed. Please try again.</string>
+    <string name="pay_confirmed_body">Your payment went through and your reservation is confirmed.</string>
+    <string name="pay_processing_title">Payment is processing</string>
+    <string name="pay_processing_body">Payment is processing — we\'ll update your reservation shortly.</string>
 
     <!-- Services -->
     <string name="services_title">Services</string>

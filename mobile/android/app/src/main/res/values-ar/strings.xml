@@ -269,6 +269,16 @@
     <string name="pay_method_bank">تحويل بنكي (−5%%)</string>
     <string name="pay_card_surcharge">رسوم البطاقة (5%%)</string>
     <string name="pay_bank_discount">خصم التحويل البنكي (5%%)</string>
+    <!-- Paymob hosted checkout -->
+    <string name="money_pay_currency">ادفع %1$s %2$s</string>
+    <string name="paymob_title">دفع آمن</string>
+    <string name="pay_secure_note">ستُدخل بيانات بطاقتك في صفحة الدفع الآمنة الخاصة بنا.</string>
+    <string name="pay_unavailable">الدفع الإلكتروني غير متاح حاليًا.</string>
+    <string name="pay_sign_in">يرجى تسجيل الدخول للدفع.</string>
+    <string name="pay_failed">فشل الدفع. يرجى المحاولة مرة أخرى.</string>
+    <string name="pay_confirmed_body">تمت عملية الدفع وتم تأكيد حجزك.</string>
+    <string name="pay_processing_title">جارٍ معالجة الدفع</string>
+    <string name="pay_processing_body">جارٍ معالجة الدفع — سنحدّث حجزك قريبًا.</string>
 
     <!-- Services -->
     <string name="services_title">الخدمات</string>

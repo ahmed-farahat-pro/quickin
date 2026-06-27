@@ -744,16 +744,19 @@ private fun MainApp() {
         PaymentSheet(
             nightly = payTarget.second,
             nights = payTarget.third,
+            bookingId = payTarget.first,
+            token = authViewModel.currentToken(),
             state = paymentState,
-            onPay = { method -> bookingsViewModel.pay(payTarget.first, method) },
             onValidatePromo = { code, subtotal -> bookingsViewModel.validatePromo(code, subtotal) },
             onClearPromo = bookingsViewModel::clearPromo,
-            onDone = {
-                // Booking is now paid + confirmed — close the sheet and open its reservation.
+            onPaid = {
+                // Paymob checkout finished (paid or processing) — close the sheet, refresh, and open
+                // the reservation. The Trips list + detail re-read the webhook-updated paid state.
                 val bookingId = payTarget.first
                 pendingPayment = null
                 bookingsViewModel.resetPayment()
                 bookingsViewModel.resetReserve()
+                bookingsViewModel.loadReservations()
                 selectedListing = null
                 selectedService = null
                 // Land on the guest Trips tab (when applicable) under the reservation detail.

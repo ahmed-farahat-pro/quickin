@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -432,27 +433,85 @@ private fun DeleteAccountSection(
         AlertDialog(
             onDismissRequest = { if (!deleting) showConfirm = false },
             icon = {
-                Icon(
-                    Icons.Filled.DeleteForever,
-                    contentDescription = null,
-                    tint = SettingsErrorRed
+                // Warning badge: a soft red circle behind a clear warning glyph.
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(SettingsErrorRed.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint = SettingsErrorRed,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(R.string.settings_delete_account_confirm_title),
+                    color = Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             },
-            title = { Text(stringResource(R.string.settings_delete_account_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_delete_account_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showConfirm = false
-                        onDeleteAccount()
-                    },
-                    enabled = !deleting
-                ) {
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        stringResource(R.string.settings_delete_account_confirm),
+                        stringResource(R.string.settings_delete_account_confirm_intro),
+                        color = Ink,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_account))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_listings))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_bookings))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_reviews))
+                    }
+                    Text(
+                        stringResource(R.string.settings_delete_account_undone),
                         color = SettingsErrorRed,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        // Keep the dialog up while deleting so its spinner is visible; the screen
+                        // navigates away on success (and the dialog leaves with it).
+                        onDeleteAccount()
+                    },
+                    enabled = !deleting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SettingsErrorRed,
+                        contentColor = Color.White,
+                        disabledContainerColor = SettingsErrorRed.copy(alpha = 0.5f),
+                        disabledContentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    if (deleting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            stringResource(R.string.settings_delete_account_deleting),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Text(
+                            stringResource(R.string.settings_delete_account_confirm),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             },
             dismissButton = {
@@ -462,6 +521,21 @@ private fun DeleteAccountSection(
             },
             containerColor = Cream
         )
+    }
+}
+
+/** A single bullet row in the delete-account confirmation list: a red dot + label. */
+@Composable
+private fun DeleteBulletItem(text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(SettingsErrorRed)
+        )
+        Spacer(Modifier.size(10.dp))
+        Text(text, color = Ink, fontSize = 14.sp)
     }
 }
 

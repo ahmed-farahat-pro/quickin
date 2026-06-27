@@ -117,6 +117,13 @@
     <string name="settings_delete_account_confirm_body">Cette action supprime définitivement votre compte ainsi que vos annonces, réservations et avis. Elle est irréversible.</string>
     <string name="settings_delete_account_confirm">Supprimer</string>
     <string name="settings_delete_account_cancel">Annuler</string>
+    <string name="settings_delete_account_confirm_intro">Les éléments suivants seront définitivement supprimés :</string>
+    <string name="settings_delete_account_item_account">Votre compte et votre profil</string>
+    <string name="settings_delete_account_item_listings">Toutes vos annonces</string>
+    <string name="settings_delete_account_item_bookings">Vos réservations et voyages</string>
+    <string name="settings_delete_account_item_reviews">Vos avis et évaluations</string>
+    <string name="settings_delete_account_undone">Cette action est irréversible.</string>
+    <string name="settings_delete_account_deleting">Suppression…</string>
     <string name="account_photo">Photo de profil</string>
     <string name="account_change_photo">Changer la photo</string>
     <string name="account_add_photo">Ajouter une photo</string>

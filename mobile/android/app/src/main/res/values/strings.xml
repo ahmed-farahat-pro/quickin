@@ -147,6 +147,13 @@
     <string name="settings_delete_account_confirm_body">This permanently deletes your account along with your listings, bookings and reviews. This cannot be undone.</string>
     <string name="settings_delete_account_confirm">Delete</string>
     <string name="settings_delete_account_cancel">Cancel</string>
+    <string name="settings_delete_account_confirm_intro">The following will be permanently removed:</string>
+    <string name="settings_delete_account_item_account">Your account and profile</string>
+    <string name="settings_delete_account_item_listings">All of your listings</string>
+    <string name="settings_delete_account_item_bookings">Your bookings and trips</string>
+    <string name="settings_delete_account_item_reviews">Your reviews and ratings</string>
+    <string name="settings_delete_account_undone">This can\'t be undone.</string>
+    <string name="settings_delete_account_deleting">Deleting…</string>
 
     <!-- Profile photo &amp; bio -->
     <string name="account_photo">Profile photo</string>

@@ -117,6 +117,13 @@
     <string name="settings_delete_account_confirm_body">Esto elimina permanentemente tu cuenta junto con tus anuncios, reservas y reseñas. No se puede deshacer.</string>
     <string name="settings_delete_account_confirm">Eliminar</string>
     <string name="settings_delete_account_cancel">Cancelar</string>
+    <string name="settings_delete_account_confirm_intro">Se eliminará permanentemente lo siguiente:</string>
+    <string name="settings_delete_account_item_account">Tu cuenta y perfil</string>
+    <string name="settings_delete_account_item_listings">Todos tus anuncios</string>
+    <string name="settings_delete_account_item_bookings">Tus reservas y viajes</string>
+    <string name="settings_delete_account_item_reviews">Tus reseñas y valoraciones</string>
+    <string name="settings_delete_account_undone">Esto no se puede deshacer.</string>
+    <string name="settings_delete_account_deleting">Eliminando…</string>
     <string name="account_photo">Foto de perfil</string>
     <string name="account_change_photo">Cambiar foto</string>
     <string name="account_add_photo">Añadir foto</string>

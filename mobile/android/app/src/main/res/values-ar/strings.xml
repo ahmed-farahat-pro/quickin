@@ -140,6 +140,13 @@
     <string name="settings_delete_account_confirm_body">سيؤدي هذا إلى حذف حسابك نهائيًا مع جميع إعلاناتك وحجوزاتك وتقييماتك. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="settings_delete_account_confirm">حذف</string>
     <string name="settings_delete_account_cancel">إلغاء</string>
+    <string name="settings_delete_account_confirm_intro">سيتم حذف ما يلي نهائيًا:</string>
+    <string name="settings_delete_account_item_account">حسابك وملفك الشخصي</string>
+    <string name="settings_delete_account_item_listings">جميع إعلاناتك</string>
+    <string name="settings_delete_account_item_bookings">حجوزاتك ورحلاتك</string>
+    <string name="settings_delete_account_item_reviews">تقييماتك ومراجعاتك</string>
+    <string name="settings_delete_account_undone">لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="settings_delete_account_deleting">جارٍ الحذف…</string>
 
     <!-- Profile photo &amp; bio -->
     <string name="account_photo">صورة الملف الشخصي</string>

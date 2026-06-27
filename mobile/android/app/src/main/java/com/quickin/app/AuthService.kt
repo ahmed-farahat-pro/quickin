@@ -288,13 +288,16 @@ object AuthService {
 
     /**
      * Permanently deletes the signed-in account and all of its data (listings, bookings, reviews)
-     * via `DELETE /api/local/account` with the bearer [token]; the backend also clears the session
-     * server-side. Returns Unit on the 200 `{ok:true, deleted:true}`. A non-2xx (e.g. 401 when not
-     * signed in) surfaces as a [RuntimeException] carrying the server's `{error}` message — the
-     * caller is responsible for clearing the local session on success.
+     * via `POST /api/local/account` with the bearer [token]; the backend also clears the session
+     * server-side. The endpoint accepts both POST and DELETE — we use POST because Android's
+     * HttpURLConnection throws a ProtocolException when a DELETE carries a request body (and
+     * [authedSend] always writes a `{}` body), whereas POST is reliable on every platform.
+     * Returns Unit on the 200 `{ok:true, deleted:true}`. A non-2xx (e.g. 401 when not signed in)
+     * surfaces as a [RuntimeException] carrying the server's `{error}` message — the caller is
+     * responsible for clearing the local session on success.
      */
     suspend fun deleteAccount(token: String): Unit = withContext(Dispatchers.IO) {
-        val (status, text) = authedSend("DELETE", "/api/local/account", token)
+        val (status, text) = authedSend("POST", "/api/local/account", token)
         if (status !in 200..299) {
             throw RuntimeException(extractError(text, status))
         }

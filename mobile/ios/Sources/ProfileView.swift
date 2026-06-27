@@ -9,12 +9,10 @@ struct ProfileView: View {
     @StateObject private var header = ProfileHeaderModel()
     /// True while the "Become a host" request is in flight.
     @State private var isBecomingHost = false
-    /// Drives the "Delete your account?" confirmation alert.
+    /// Drives the "Delete your account?" confirmation sheet.
     @State private var showDeleteConfirm = false
     /// True while the account-deletion request is in flight.
     @State private var isDeletingAccount = false
-    /// Drives an error alert when account deletion fails.
-    @State private var showDeleteError = false
 
     var body: some View {
         NavigationStack {
@@ -82,24 +80,27 @@ struct ProfileView: View {
             header.reset()
             Task { await header.refresh() }
         }
-        // In-app account deletion (App Store Guideline 5.1.1(v)). Confirm before
-        // the irreversible delete; on success `auth.deleteAccount()` clears the
-        // session, which routes the app back to the auth screen.
-        .alert(loc.t("account.delete.confirmTitle"), isPresented: $showDeleteConfirm) {
-            Button(loc.t("common.cancel"), role: .cancel) {}
-            Button(loc.t("account.delete.confirm"), role: .destructive) {
-                Task {
-                    isDeletingAccount = true
-                    let ok = await auth.deleteAccount()
-                    isDeletingAccount = false
-                    if !ok { showDeleteError = true }
-                }
-            }
-        } message: {
-            Text(loc.t("account.delete.confirmBody"))
-        }
-        .alert(loc.t("account.delete.error"), isPresented: $showDeleteError) {
-            Button(loc.t("common.done"), role: .cancel) {}
+        // In-app account deletion (App Store Guideline 5.1.1(v)). A polished
+        // destructive confirmation sheet precedes the irreversible delete; on
+        // success `auth.deleteAccount()` clears the session, which routes the app
+        // back to the auth screen. On failure the error is surfaced inline on the
+        // sheet (via `auth.errorMessage`), keeping the user in context.
+        .sheet(isPresented: $showDeleteConfirm) {
+            DeleteAccountSheet(
+                isDeleting: $isDeletingAccount,
+                onConfirm: {
+                    // Clear any prior inline error before retrying, then run the
+                    // delete. The sheet owns the in-flight flag (spinner). On
+                    // success the session is cleared and the sheet's host view is
+                    // torn down with the signed-in experience; on failure we keep
+                    // the sheet up so the inline error is visible.
+                    auth.setError(nil)
+                    return await auth.deleteAccount()
+                },
+                onCancel: { showDeleteConfirm = false }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -418,7 +419,7 @@ struct ProfileView: View {
     }
 
     /// Destructive "Delete account" row (App Store Guideline 5.1.1(v)). Low-
-    /// emphasis red text below Sign out; tapping opens a confirmation alert.
+    /// emphasis red text below Sign out; tapping opens the confirmation sheet.
     private var deleteAccountButton: some View {
         Button(role: .destructive) {
             showDeleteConfirm = true
@@ -486,6 +487,168 @@ struct ProfileView: View {
         case "google": return "globe"
         case "apple": return "apple.logo"
         default: return "envelope.fill"
+        }
+    }
+}
+
+/// Polished destructive confirmation for permanent account deletion (App Store
+/// Guideline 5.1.1(v)). Presented as a sheet from `ProfileView`: a burgundy-
+/// tinted warning icon, a clear title, the list of what's permanently removed,
+/// an "this can't be undone" emphasis, a prominent destructive "Delete account"
+/// button (with an in-flight spinner), and Cancel. Boutique style using the
+/// app's existing tokens.
+private struct DeleteAccountSheet: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @EnvironmentObject private var auth: AuthStore
+
+    /// Bound to the parent's in-flight flag so the button shows a spinner and
+    /// both Cancel + dismissal are disabled mid-request.
+    @Binding var isDeleting: Bool
+    /// Performs the delete; returns `true` on success.
+    let onConfirm: () async -> Bool
+    /// Dismisses the sheet without deleting.
+    let onCancel: () -> Void
+
+    private let removedItems: [(icon: String, key: String)] = [
+        ("person.crop.circle", "account.delete.itemAccount"),
+        ("house", "account.delete.itemListings"),
+        ("calendar", "account.delete.itemBookings"),
+        ("star", "account.delete.itemReviews"),
+    ]
+
+    var body: some View {
+        ZStack {
+            LinearGradient.qkPageWash.ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 22) {
+                    warningIcon
+                        .padding(.top, 28)
+
+                    Text(loc.t("account.delete.confirmTitle"))
+                        .font(.system(.title2, design: .serif).weight(.bold))
+                        .foregroundStyle(Color.qkInk)
+                        .multilineTextAlignment(.center)
+
+                    removedList
+
+                    irreversibleNote
+
+                    if let error = auth.errorMessage, !error.isEmpty {
+                        Text(error)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(Color.red)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    actionButtons
+                        .padding(.top, 4)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .tint(.qkBurgundy)
+        .interactiveDismissDisabled(isDeleting)
+    }
+
+    private var warningIcon: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 34, weight: .bold))
+            .foregroundStyle(Color.qkBurgundy)
+            .frame(width: 76, height: 76)
+            .background(Color.qkBurgundy.opacity(0.12))
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.qkBurgundy.opacity(0.18), lineWidth: 1))
+    }
+
+    private var removedList: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(loc.t("account.delete.intro"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.qkInk)
+
+            ForEach(removedItems, id: \.key) { item in
+                HStack(spacing: 12) {
+                    Image(systemName: item.icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(width: 22)
+                    Text(loc.t(item.key))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.qkInk.opacity(0.85))
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .qkCard(cornerRadius: 18)
+    }
+
+    private var irreversibleNote: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 12, weight: .bold))
+            Text(loc.t("account.delete.irreversible"))
+                .font(.footnote.weight(.bold))
+        }
+        .foregroundStyle(Color.qkBurgundy)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 11)
+        .padding(.horizontal, 14)
+        .background(Color.qkBurgundy.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            Button {
+                Task {
+                    isDeleting = true
+                    let ok = await onConfirm()
+                    isDeleting = false
+                    // On failure the inline error (auth.errorMessage) is shown and
+                    // the sheet stays up. On success the parent tears down with
+                    // the signed-in experience, so no explicit dismiss is needed.
+                    _ = ok
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if isDeleting {
+                        ProgressView()
+                            .tint(.qkCream)
+                            .frame(width: 18)
+                    } else {
+                        Image(systemName: "trash.fill")
+                    }
+                    Text(loc.t("account.delete.confirm"))
+                        .fontWeight(.bold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .foregroundStyle(Color.qkCream)
+                .background(LinearGradient.qkBurgundyCTA)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .opacity(isDeleting ? 0.85 : 1)
+            }
+            .buttonStyle(QKPressStyle())
+            .disabled(isDeleting)
+
+            Button(role: .cancel) {
+                onCancel()
+            } label: {
+                Text(loc.t("common.cancel"))
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .foregroundStyle(Color.qkInk)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isDeleting)
         }
     }
 }

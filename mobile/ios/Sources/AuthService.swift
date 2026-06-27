@@ -461,12 +461,17 @@ final class AuthStore: ObservableObject {
 
     /// Permanently delete the signed-in account and all its data (App Store
     /// Guideline 5.1.1(v) — in-app account deletion). Sends an authenticated
-    /// `DELETE /api/local/account` with the stored Bearer token; the backend
-    /// removes the account + data and clears the server session, replying
-    /// `{ ok: true, deleted: true }`. On success this clears the local session
-    /// (same as `logout()`), dropping the app back to the auth screen. Returns
-    /// `true` on success; on failure the message is set on `errorMessage` and the
-    /// session is left intact. Mirrors `becomeHost`'s authed-request pattern.
+    /// `POST /api/local/account` (with a `{}` body) and the stored Bearer token;
+    /// the backend removes the account + data and clears the server session,
+    /// replying `{ ok: true, deleted: true }`. On success this clears the local
+    /// session (same as `logout()`), dropping the app back to the auth screen.
+    /// Returns `true` on success; on failure the message is set on `errorMessage`
+    /// and the session is left intact. Mirrors `becomeHost`'s authed-request
+    /// pattern.
+    ///
+    /// The endpoint accepts both POST and DELETE; we use **POST** because
+    /// `HttpURLConnection` on Android cannot send a request body with DELETE
+    /// (it throws), so POST is the reliable cross-platform method.
     @discardableResult
     func deleteAccount() async -> Bool {
         isLoading = true
@@ -483,10 +488,11 @@ final class AuthStore: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = "{}".data(using: .utf8)
 
         do {
             let (data, response) = try await session.data(for: request)

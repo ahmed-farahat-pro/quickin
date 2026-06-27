@@ -49,19 +49,6 @@ enum Config {
     /// dotted halves swapped, e.g.
     /// "com.googleusercontent.apps.1234567890-abcdefg". Derived automatically
     /// from `googleClientID` when possible.
-    /// Dev Mac's LAN IP — the machine running the local Python OCR server.
-    /// **Update this one line when your Mac's IP changes** (`ipconfig getifaddr en0`);
-    /// a physical device must be on the same Wi-Fi. The Simulator uses `localhost`
-    /// instead (it shares the host network), so this only affects on-device builds.
-    static let devServerLANIP = "192.168.8.24"
-
-    /// Base URL for the local Egyptian National ID OCR server (port 8000).
-    #if targetEnvironment(simulator)
-    static let idOcrBaseURL = "http://localhost:8000"
-    #else
-    static let idOcrBaseURL = "http://\(devServerLANIP):8000"
-    #endif
-
     static var googleRedirectScheme: String? {
         guard !googleClientID.isEmpty else { return nil }
         // iOS client ids look like "<num>-<hash>.apps.googleusercontent.com".

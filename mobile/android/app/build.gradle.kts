@@ -143,12 +143,5 @@ dependencies {
     // Keystore. Used by BiometricAuthManager's EncryptedSharedPreferences.
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // CameraX — live camera preview + frame analysis for Egyptian National ID scanning.
-    val cameraVersion = "1.3.4"
-    implementation("androidx.camera:camera-core:$cameraVersion")
-    implementation("androidx.camera:camera-camera2:$cameraVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
-    implementation("androidx.camera:camera-view:$cameraVersion")
-
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -4,26 +4,27 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ShieldCheck, Clock, ShieldAlert, XCircle, UploadCloud, Loader2 } from 'lucide-react'
+import { ShieldCheck, Clock, ShieldAlert, XCircle, UploadCloud, Loader2, X } from 'lucide-react'
 
 type Status = 'loading' | 'guest' | 'unverified' | 'pending' | 'verified' | 'rejected'
+type Side = 'front' | 'back'
 
 /**
  * Self-contained identity-verification panel for the live (Supabase-free) web app.
  * Talks to the node-pg backend the mobile apps also use:
- *   GET  /api/local/verification               → current status (qk_token cookie)
- *   POST /api/local/verification { doc, … }     → submit ID photo for admin review
- *   POST /api/id-scan { image }                 → best-effort auto-read (StructOCR)
+ *   GET  /api/local/verification                          → current status (qk_token cookie)
+ *   POST /api/local/verification { front, back, id_number? } → submit ID photos for admin review
  *
- * Auto-scan is attempted first; whether or not it reads the number, the photo is
- * saved as a pending submission for an admin to verify in the admin panel.
+ * No OCR: the user simply picks or captures a FRONT photo and a BACK photo of their ID and submits
+ * both. Every submission becomes a pending row for an admin to verify in the admin panel.
  */
 export function IdVerificationPanel() {
   const [status, setStatus] = useState<Status>('loading')
   const [notes, setNotes] = useState<string | null>(null)
-  const [idNumber, setIdNumber] = useState<string | null>(null)
-  const [preview, setPreview] = useState<string | null>(null) // data URL of the picked photo
-  const [scanMsg, setScanMsg] = useState<string | null>(null)
+  const [idNumberSaved, setIdNumberSaved] = useState<string | null>(null)
+  const [front, setFront] = useState<string | null>(null) // data URL of the front photo
+  const [back, setBack] = useState<string | null>(null) // data URL of the back photo
+  const [idNumber, setIdNumber] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,61 +35,47 @@ export function IdVerificationPanel() {
       const d = await res.json()
       setStatus((d.status as Status) || 'unverified')
       setNotes(d.notes || null)
-      setIdNumber(d.id_number || null)
+      setIdNumberSaved(d.id_number || null)
     } catch {
       setStatus('unverified')
     }
   }
   useEffect(() => { load() }, [])
 
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+  function onPick(side: Side, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setError(null); setScanMsg(null)
+    setError(null)
     const reader = new FileReader()
-    reader.onload = () => setPreview(typeof reader.result === 'string' ? reader.result : null)
+    reader.onload = () => {
+      const url = typeof reader.result === 'string' ? reader.result : null
+      if (side === 'front') setFront(url)
+      else setBack(url)
+    }
     reader.readAsDataURL(file)
+    // Allow re-picking the same file.
+    e.target.value = ''
   }
 
   async function submit() {
-    if (!preview) return
-    setSubmitting(true); setError(null); setScanMsg(null)
-    const base64 = preview.includes(',') ? preview.split(',')[1] : preview
-
-    // 1) Best-effort auto-scan (fills the ID number when it can read the card).
-    let source = 'manual'
-    let id_number: string | null = null
-    let full_name: string | null = null
-    try {
-      const scan = await fetch('/api/id-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
-      }).then((r) => r.json())
-      if (scan?.success && scan?.id_number) {
-        source = 'structocr'; id_number = scan.id_number; full_name = scan.full_name ?? null
-        setScanMsg(`Auto-detected ID ${scan.id_number} — submitting for confirmation.`)
-      } else {
-        setScanMsg("Couldn't auto-read the card — submitting for manual review.")
-      }
-    } catch {
-      setScanMsg('Submitting for manual review.')
+    if (!front || !back) {
+      setError('Please add both the front and back of your ID.')
+      return
     }
-
-    // 2) Always save the photo as a pending submission for the admin.
+    setSubmitting(true); setError(null)
     try {
       const res = await fetch('/api/local/verification', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc: preview, id_number, full_name, source }),
+        body: JSON.stringify({ front, back, id_number: idNumber.trim() || undefined }),
       })
       if (res.status === 401) { setError('Please sign in to submit your ID.'); return }
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
         throw new Error(e.error || 'Upload failed. Please try again.')
       }
-      setPreview(null)
+      setFront(null); setBack(null); setIdNumber('')
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed. Please try again.')
@@ -120,20 +107,19 @@ export function IdVerificationPanel() {
           <Badge className={pill.cls}><PillIcon className="h-3 w-3 mr-1" />{pill.label}</Badge>
         </CardTitle>
         <CardDescription>
-          Upload a clear photo of your National ID. We&apos;ll try to read it automatically; if not,
-          our team verifies it manually.
+          Upload a clear photo of the front and back of your National ID. Our team verifies it manually.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {status === 'verified' && (
-          <p className="text-sm text-green-700">Your identity is verified{idNumber ? ` (ID ${idNumber})` : ''}. Nothing more to do.</p>
+          <p className="text-sm text-green-700">Your identity is verified{idNumberSaved ? ` (ID ${idNumberSaved})` : ''}. Nothing more to do.</p>
         )}
         {status === 'pending' && (
           <p className="text-sm text-yellow-700">Thanks! Your ID is in review — an admin will approve it shortly.</p>
         )}
         {status === 'rejected' && notes && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            <span className="font-medium">Rejected:</span> {notes}. Please re-upload a clearer photo.
+            <span className="font-medium">Rejected:</span> {notes}. Please re-upload clearer photos.
           </div>
         )}
         {status === 'guest' && (
@@ -142,29 +128,75 @@ export function IdVerificationPanel() {
 
         {canSubmit && (
           <div className="space-y-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 p-6 text-center transition-colors hover:bg-muted/50">
-              {preview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview} alt="ID preview" className="max-h-48 rounded-lg object-contain" />
-              ) : (
-                <>
-                  <UploadCloud className="h-8 w-8 text-primary/70" />
-                  <span className="text-sm font-medium">Choose or take a photo of your ID</span>
-                  <span className="text-xs text-muted-foreground">JPG or PNG</span>
-                </>
-              )}
-              <input type="file" accept="image/*" className="hidden" onChange={onPick} disabled={submitting} />
-            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <IdPhotoInput side="front" label="Front of ID" value={front} onPick={onPick} onClear={() => setFront(null)} disabled={submitting} />
+              <IdPhotoInput side="back" label="Back of ID" value={back} onPick={onPick} onClear={() => setBack(null)} disabled={submitting} />
+            </div>
 
-            {scanMsg && <p className="text-xs text-muted-foreground">{scanMsg}</p>}
+            <div className="space-y-1">
+              <label htmlFor="id-number" className="text-xs font-medium text-muted-foreground">ID number (optional)</label>
+              <input
+                id="id-number"
+                type="text"
+                inputMode="numeric"
+                value={idNumber}
+                onChange={(e) => setIdNumber(e.target.value)}
+                disabled={submitting}
+                placeholder="e.g. 29001011234567"
+                className="w-full rounded-input border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <Button onClick={submit} disabled={!preview || submitting} className="w-full">
+            <Button onClick={submit} disabled={!front || !back || submitting} className="w-full">
               {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</> : 'Submit for verification'}
             </Button>
           </div>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+interface IdPhotoInputProps {
+  side: Side
+  label: string
+  value: string | null
+  onPick: (side: Side, e: React.ChangeEvent<HTMLInputElement>) => void
+  onClear: () => void
+  disabled?: boolean
+}
+
+function IdPhotoInput({ side, label, value, onPick, onClear, disabled }: IdPhotoInputProps) {
+  return (
+    <div className="space-y-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="relative">
+        <label className="flex aspect-[3/2] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition-colors hover:bg-muted/50">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={value} alt={`${label} preview`} className="max-h-full max-w-full rounded-lg object-contain" />
+          ) : (
+            <>
+              <UploadCloud className="h-7 w-7 text-primary/70" />
+              <span className="text-xs font-medium">Choose or take a photo</span>
+              <span className="text-[10px] text-muted-foreground">JPG or PNG</span>
+            </>
+          )}
+          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onPick(side, e)} disabled={disabled} />
+        </label>
+        {value && !disabled && (
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label={`Remove ${label}`}
+            className="absolute right-2 top-2 rounded-full bg-white/90 p-1 text-red-500 shadow-sm transition-colors hover:bg-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    </div>
   )
 }

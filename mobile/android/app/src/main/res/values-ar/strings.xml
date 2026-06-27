@@ -454,12 +454,15 @@
 
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">وثّق هويتك</string>
-    <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة من هويتك الرسمية وسنراجعها قريبًا.</string>
+    <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة الوجه الأمامي والخلفي لهويتك الرسمية وسنراجعها قريبًا.</string>
     <string name="trust_status_unverified">غير موثّق</string>
     <string name="trust_status_pending">قيد المراجعة</string>
     <string name="trust_status_verified">تم توثيق الهوية</string>
     <string name="trust_status_rejected">تم رفض التوثيق</string>
     <string name="trust_upload_id">ارفع صورة الهوية</string>
+    <string name="trust_front_photo">الوجه الأمامي للهوية</string>
+    <string name="trust_back_photo">الوجه الخلفي للهوية</string>
+    <string name="trust_id_number">رقم الهوية (اختياري)</string>
     <string name="trust_pending_note">نراجع هويتك الآن. عادةً ما يستغرق ذلك بعض الوقت.</string>
     <string name="trust_verified_note">تم توثيق هويتك. يمكن للضيوف والمضيفين رؤية شارة التوثيق الخاصة بك.</string>
     <string name="trust_rejected_note">تعذّر علينا توثيق طلبك السابق. يرجى رفع صورة أوضح لهويتك.</string>

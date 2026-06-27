@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.NewReleases
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -69,24 +71,37 @@ import com.quickin.app.ui.theme.Tan
 private val ReportRed = Color(0xFFB3261E)
 
 /**
- * Identity-verification card for the Profile tab. Shows the user's current status with a colored
- * status pill; for "unverified"/"rejected" it offers an ID photo picker (Photo Picker,
- * ImageOnly) that the caller submits via [onPickImage]. The "pending"/"verified" states show a
- * read-only note. RTL-safe — rows lay out start→end so icons lead in both reading directions.
+ * Identity-verification card for the Profile tab — NO OCR. Shows the user's current status with a
+ * colored status pill; for "unverified"/"rejected" it lets the user pick OR capture a FRONT photo
+ * and a BACK photo of their ID (Photo Picker, ImageOnly), shows thumbnails, optionally enter their
+ * ID number, then submits both over HTTPS via [onSubmit] (front, back, idNumber?). The
+ * "pending"/"verified" states show a read-only note. RTL-safe — rows lay out start→end.
  */
 @Composable
 fun VerificationCard(
     state: VerificationUiState,
-    onPickImage: (android.net.Uri) -> Unit,
+    onSubmit: (front: android.net.Uri, back: android.net.Uri, idNumber: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Photo Picker (no storage permission needed). ImageOnly; single item.
-    val pickMedia = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri -> if (uri != null) onPickImage(uri) }
-
     val status = state.status.lowercase()
     val canSubmit = status == "unverified" || status == "rejected"
+
+    // Picked FRONT / BACK photo URIs (Photo Picker — no storage permission needed) + optional id no.
+    var frontUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var backUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var idNumber by remember { mutableStateOf("") }
+
+    // Clear the staged photos once a submission succeeds (status leaves the submittable states).
+    androidx.compose.runtime.LaunchedEffect(status) {
+        if (!canSubmit) { frontUri = null; backUri = null; idNumber = "" }
+    }
+
+    val pickFront = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) frontUri = uri }
+    val pickBack = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) backUri = uri }
 
     BoutiqueCard(modifier = modifier.fillMaxWidth(), shadow = 6.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -132,6 +147,56 @@ fun VerificationCard(
                 modifier = Modifier.padding(top = 14.dp)
             )
 
+            if (canSubmit) {
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    IdPhotoSlot(
+                        label = stringResource(R.string.trust_front_photo),
+                        uri = frontUri,
+                        enabled = !state.isSubmitting,
+                        onPick = {
+                            pickFront.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    IdPhotoSlot(
+                        label = stringResource(R.string.trust_back_photo),
+                        uri = backUri,
+                        enabled = !state.isSubmitting,
+                        onPick = {
+                            pickBack.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = idNumber,
+                    onValueChange = { idNumber = it },
+                    label = { Text(stringResource(R.string.trust_id_number)) },
+                    singleLine = true,
+                    enabled = !state.isSubmitting,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Burgundy,
+                        unfocusedBorderColor = Tan,
+                        focusedLabelColor = Burgundy,
+                        cursorColor = Burgundy,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             if (state.error != null) {
                 Text(
                     state.error.ifBlank { stringResource(R.string.trust_error) },
@@ -142,14 +207,17 @@ fun VerificationCard(
             }
 
             if (canSubmit) {
+                val front = frontUri
+                val back = backUri
+                val ready = front != null && back != null && !state.isSubmitting
                 Spacer(Modifier.height(16.dp))
                 GradientButton(
                     onClick = {
-                        pickMedia.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        if (front != null && back != null) {
+                            onSubmit(front, back, idNumber.trim().ifBlank { null })
+                        }
                     },
-                    enabled = !state.isSubmitting,
+                    enabled = ready,
                     radius = 16.dp,
                     height = 50.dp,
                     modifier = Modifier.fillMaxWidth()
@@ -162,13 +230,81 @@ fun VerificationCard(
                         )
                     } else {
                         Text(
-                            stringResource(R.string.trust_upload_id),
+                            stringResource(R.string.trust_submit),
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * One ID-photo slot: a tappable rounded box that shows the picked photo's thumbnail (Coil renders
+ * the content [uri] directly) or an "Add photo" placeholder with a label (FRONT / BACK). Tapping
+ * opens the system Photo Picker via [onPick]; a checkmark overlays a chosen photo.
+ */
+@Composable
+private fun IdPhotoSlot(
+    label: String,
+    uri: android.net.Uri?,
+    enabled: Boolean,
+    onPick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = modifier
+            .height(112.dp)
+            .clip(shape)
+            .background(Cream, shape)
+            .border(1.dp, if (uri != null) SuccessGreen else Tan, shape)
+            .clickable(enabled = enabled, onClick = onPick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (uri != null) {
+            coil.compose.AsyncImage(
+                model = uri,
+                contentDescription = label,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().height(112.dp).clip(shape)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(22.dp)
+                    .background(SuccessGreen, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Filled.AddAPhoto,
+                    contentDescription = null,
+                    tint = Burgundy,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    label,
+                    color = Ink,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

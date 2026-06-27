@@ -128,11 +128,12 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Submits the ID photo at [uri] for verification: downscales it off the main thread to a
-     * `data:image/jpeg;base64,…` data URL (≤1024px), POSTs it, and flips the status to "pending"
+     * Submits the FRONT photo at [frontUri] and the BACK photo at [backUri] for verification — NO
+     * OCR. Both are downscaled off the main thread to `data:image/jpeg;base64,…` data URLs (≤1024px)
+     * and POSTed over HTTPS together with an optional [idNumber], flipping the status to "pending"
      * on success. A null decode or a network failure surfaces [VerificationUiState.error].
      */
-    fun submitVerification(uri: Uri) {
+    fun submitVerification(frontUri: Uri, backUri: Uri, idNumber: String? = null) {
         if (_verification.value.isSubmitting) return
         val token = token() ?: run {
             _verification.value = _verification.value.copy(error = "Please sign in.")
@@ -142,10 +143,15 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>().applicationContext
         viewModelScope.launch {
             try {
-                val doc = withContext(Dispatchers.IO) {
-                    AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1024)
-                } ?: throw IllegalStateException("Couldn't read that image.")
-                val state = TrustService.submitVerification(token, doc)
+                val (front, back) = withContext(Dispatchers.IO) {
+                    val f = async { AvatarImage.loadDownscaledJpegDataUrl(context, frontUri, maxDim = 1024) }
+                    val b = async { AvatarImage.loadDownscaledJpegDataUrl(context, backUri, maxDim = 1024) }
+                    f.await() to b.await()
+                }
+                if (front == null || back == null) {
+                    throw IllegalStateException("Couldn't read those images.")
+                }
+                val state = TrustService.submitVerification(token, front, back, idNumber)
                 _verification.value = _verification.value.copy(
                     isSubmitting = false,
                     loaded = true,

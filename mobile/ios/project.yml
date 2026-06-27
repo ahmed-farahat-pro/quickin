@@ -75,13 +75,11 @@ targets:
         # saved session on the sign-in screen (LocalAuthentication). Touch ID
         # devices don't require a usage string.
         NSFaceIDUsageDescription: "Use Face ID to sign in to QuickIn faster."
-        # ID verification: camera to photograph the National ID, photo library to
-        # pick an existing image, and a local-networking ATS exception so the app
-        # can reach the local OCR / dev server over plain HTTP.
-        NSCameraUsageDescription: "QuickIn needs camera access to photograph your National ID card for verification."
-        NSPhotoLibraryUsageDescription: "QuickIn needs photo library access to let you choose your National ID card image."
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+        # ID verification: camera to photograph the ID card (front + back) and
+        # photo library to pick existing images. The photos are uploaded to the
+        # backend over HTTPS only (no local/plain-HTTP networking).
+        NSCameraUsageDescription: "QuickIn needs camera access to photograph your ID card for verification."
+        NSPhotoLibraryUsageDescription: "QuickIn needs photo library access to let you choose your ID card image."
         # Declare no non-exempt encryption so TestFlight skips the export-compliance
         # prompt on every build (standard HTTPS/TLS is exempt).
         ITSAppUsesNonExemptEncryption: false

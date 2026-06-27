@@ -26,7 +26,6 @@ import
 } from 'lucide-react'
 import { IdentityVerificationForm } from '@/components/features/verification'
 import { ProfileEditForm } from './profile-edit-form'
-import { ScanIDButton } from './scan-id-button'
 import { getTranslations } from 'next-intl/server'
 import { getRequestLocale } from '@/i18n/request-locale'
 
@@ -413,7 +412,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps)
                           {t('verification.submit.description')}
                         </CardDescription>
                       </div>
-                      <ScanIDButton />
                     </div>
                   </CardHeader>
                   <CardContent>

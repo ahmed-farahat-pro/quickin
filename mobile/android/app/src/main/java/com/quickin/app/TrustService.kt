@@ -23,10 +23,10 @@ data class VerificationState(
  * [ProfileService]: HttpURLConnection + org.json on Dispatchers.IO, bearer-token auth, and an
  * [HttpError] so callers can distinguish 401 (sign in) from 400 (validation).
  *
- *   GET  {base}/api/local/verification        -> { status, verified_at }
- *   POST {base}/api/local/verification {doc}   -> { status: "pending", ... }   (submit ID image)
- *   GET  {base}/api/local/users/:id            -> public profile + trust badges (no auth, no PII)
- *   POST {base}/api/local/reports {...}         -> file a report on a listing/user/review
+ *   GET  {base}/api/local/verification                 -> { status, verified_at }
+ *   POST {base}/api/local/verification {front,back,..}  -> { status: "pending" }   (submit ID photos)
+ *   GET  {base}/api/local/users/:id                     -> public profile + trust badges (no auth, no PII)
+ *   POST {base}/api/local/reports {...}                  -> file a report on a listing/user/review
  */
 object TrustService {
 
@@ -42,17 +42,37 @@ object TrustService {
     }
 
     /**
-     * Submits an ID image for verification (`POST /api/local/verification {doc}`). [doc] is a
-     * `data:image/...;base64,…` data URL produced off the main thread via
-     * [AvatarImage.loadDownscaledJpegDataUrl] (maxDim 1024). Returns the resulting state (status
-     * flips to "pending"). Throws [HttpError] (401 not signed in, 400 on validation).
+     * Submits the FRONT and BACK photos of the user's ID for verification — NO OCR; the images are
+     * uploaded over the app's normal HTTPS [Config.API_BASE_URL] for a human to review
+     * (`POST /api/local/verification { front, back, id_number?, full_name? }`).
+     *
+     * [front] / [back] are `data:image/jpeg;base64,…` data URLs produced off the main thread via
+     * [AvatarImage.loadDownscaledJpegDataUrl] (maxDim 1024); each is normalized to a data URL here
+     * defensively in case a raw base64 string is passed. [idNumber] / [fullName] are optional and
+     * omitted when blank. Returns the resulting state (status flips to "pending"). Throws [HttpError]
+     * (401 not signed in, 400 on validation).
      */
-    suspend fun submitVerification(token: String, doc: String): VerificationState =
-        withContext(Dispatchers.IO) {
-            val body = JSONObject().apply { put("doc", doc) }
-            val text = send("POST", token, "/api/local/verification", body)
-            parseVerification(JSONObject(text))
+    suspend fun submitVerification(
+        token: String,
+        front: String,
+        back: String,
+        idNumber: String? = null,
+        fullName: String? = null
+    ): VerificationState = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("front", asJpegDataUrl(front))
+            put("back", asJpegDataUrl(back))
+            if (!idNumber.isNullOrBlank()) put("id_number", idNumber.trim())
+            if (!fullName.isNullOrBlank()) put("full_name", fullName.trim())
         }
+        val text = send("POST", token, "/api/local/verification", body)
+        parseVerification(JSONObject(text))
+    }
+
+    /** Normalizes a raw base64 JPEG or an existing data URL to a `data:image/jpeg;base64,…` URL. */
+    private fun asJpegDataUrl(image: String): String =
+        if (image.startsWith("data:", ignoreCase = true)) image
+        else "data:image/jpeg;base64,$image"
 
     // ---- Public profile + trust badges (no auth, no PII) ----------------------
 

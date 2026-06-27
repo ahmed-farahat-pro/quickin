@@ -575,15 +575,16 @@ export async function getVerification(userId: string): Promise<VerificationRow> 
   return (rows[0] as VerificationRow) ?? UNVERIFIED
 }
 
-/** Submit an ID photo for review — reuses the user's pending row if one exists. */
+/** Submit ID photos (front + optional back) for review — reuses the user's pending row if one exists. */
 export async function submitVerification(args: {
   userId: string
   imageData: string
+  backImageData?: string | null
   idNumber?: string | null
   fullName?: string | null
   source?: string
 }): Promise<VerificationRow> {
-  const { userId, imageData, idNumber = null, fullName = null, source = 'manual' } = args
+  const { userId, imageData, backImageData = null, idNumber = null, fullName = null, source = 'manual' } = args
   const existing = await pool.query(
     `SELECT id FROM id_verifications WHERE user_id = $1 AND status = 'pending' LIMIT 1`,
     [userId]
@@ -591,17 +592,17 @@ export async function submitVerification(args: {
   if (existing.rows[0]) {
     await pool.query(
       `UPDATE id_verifications
-          SET image_data = $2, id_number = COALESCE($3, id_number),
-              full_name = COALESCE($4, full_name), source = $5,
+          SET image_data = $2, back_image_data = $3, id_number = COALESCE($4, id_number),
+              full_name = COALESCE($5, full_name), source = $6,
               submitted_at = now(), reviewed_at = NULL, reviewed_by = NULL, notes = NULL
         WHERE id = $1`,
-      [existing.rows[0].id, imageData, idNumber, fullName, source]
+      [existing.rows[0].id, imageData, backImageData, idNumber, fullName, source]
     )
   } else {
     await pool.query(
-      `INSERT INTO id_verifications (user_id, image_data, id_number, full_name, source)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, imageData, idNumber, fullName, source]
+      `INSERT INTO id_verifications (user_id, image_data, back_image_data, id_number, full_name, source)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, imageData, backImageData, idNumber, fullName, source]
     )
   }
   return getVerification(userId)
@@ -855,9 +856,9 @@ export async function reviewHostApplication(appId: string, action: 'approve' | '
 
 // ---- Admin: ID verification review -----------------------------------------
 
-export async function getPendingVerifications(): Promise<Array<{ id: string; user_id: string; email: string; full_name: string | null; id_number: string | null; status: string; image_data: string; submitted_at: string }>> {
+export async function getPendingVerifications(): Promise<Array<{ id: string; user_id: string; email: string; full_name: string | null; id_number: string | null; status: string; image_data: string; back_image_data: string | null; submitted_at: string }>> {
   const { rows } = await pool.query(
-    `SELECT v.id, v.user_id, u.email, v.full_name, v.id_number, v.status, v.image_data,
+    `SELECT v.id, v.user_id, u.email, v.full_name, v.id_number, v.status, v.image_data, v.back_image_data,
             to_char(v.submitted_at,'YYYY-MM-DD HH24:MI') AS submitted_at
        FROM id_verifications v JOIN users u ON u.id = v.user_id
       WHERE v.status = 'pending' ORDER BY v.submitted_at ASC`

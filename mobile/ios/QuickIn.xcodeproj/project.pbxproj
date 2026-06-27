@@ -13,8 +13,6 @@
 		07402591A22528FEFB542306 /* CountryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */; };
 		0B6A66D317E61B089C5BCBFF /* HostProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC9CD43DD80B4E326D6879B /* HostProfileView.swift */; };
 		0D147128BEE051F5D60C0E62 /* HostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB52C8948744ACE9887DB2B9 /* HostService.swift */; };
-		0D5630AC097F6C7BD2FA0F23 /* EgyptianIDScanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379D98016911E11E069E50D6 /* EgyptianIDScanService.swift */; };
-		0DEC8D5AC334DDEFEEC53DBB /* EgyptianIDScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85A0F48E096834B595BD3A7A /* EgyptianIDScanView.swift */; };
 		0EBCC2FF2EFB4774BA1F7246 /* ListingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6194B50F23543B7BD6ED9848 /* ListingsView.swift */; };
 		12EA0DED2C6797AC48D1955E /* PasswordStrengthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */; };
 		147CD92165B42D7949D71423 /* WishlistStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA4843395698B645C141F0A /* WishlistStore.swift */; };
@@ -109,7 +107,6 @@
 		2E23E5D1A16E3236FC8AAB6A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerMap.swift; sourceTree = "<group>"; };
 		36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymobCheckoutView.swift; sourceTree = "<group>"; };
-		379D98016911E11E069E50D6 /* EgyptianIDScanService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EgyptianIDScanService.swift; sourceTree = "<group>"; };
 		38389AAB5C4E32B05C3A4C56 /* HostDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDashboardView.swift; sourceTree = "<group>"; };
 		38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsViewModel.swift; sourceTree = "<group>"; };
 		3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostTabs.swift; sourceTree = "<group>"; };
@@ -138,7 +135,6 @@
 		7A1DB343FBE39B4090D683BF /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		7A80DBB0DD863A9BB50E90BB /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddServiceView.swift; sourceTree = "<group>"; };
-		85A0F48E096834B595BD3A7A /* EgyptianIDScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EgyptianIDScanView.swift; sourceTree = "<group>"; };
 		869EC528CD5922050D913E0E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		86E6F924C0C3C2D119DA208D /* ServiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceService.swift; sourceTree = "<group>"; };
 		8817D5DCCE26F954A93F06E3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -221,8 +217,6 @@
 				4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */,
 				B10F92154FB10BCA232F64D2 /* DeepLinkRouter.swift */,
 				D587744AA4C862A7D6A42180 /* DesignKit.swift */,
-				379D98016911E11E069E50D6 /* EgyptianIDScanService.swift */,
-				85A0F48E096834B595BD3A7A /* EgyptianIDScanView.swift */,
 				964FDA2088C992AC5F215AEA /* ForgotPasswordView.swift */,
 				28C85D0303F9DBD6A8B43955 /* GrowthViews.swift */,
 				3FA3EF2BC72AF13D0892428C /* GuestReviewViews.swift */,
@@ -403,8 +397,6 @@
 				957E7380E07B8CC3821D7BEA /* DateRangePicker.swift in Sources */,
 				6BA9B585F48EB169AD7AB94B /* DeepLinkRouter.swift in Sources */,
 				C55487BE6EEAD4C13DC67996 /* DesignKit.swift in Sources */,
-				0D5630AC097F6C7BD2FA0F23 /* EgyptianIDScanService.swift in Sources */,
-				0DEC8D5AC334DDEFEEC53DBB /* EgyptianIDScanView.swift in Sources */,
 				275C0E45543A82F8B969B429 /* ForgotPasswordView.swift in Sources */,
 				354814D8E5D68EFEFF25D780 /* GrowthViews.swift in Sources */,
 				F2DFB3F0CE2BCD765021368A /* GuestReviewViews.swift in Sources */,

@@ -94,8 +94,8 @@ fun ProfileScreen(
     receivedReviews: com.quickin.app.ReceivedReviewsUiState = com.quickin.app.ReceivedReviewsUiState(),
     /** Identity-verification state for the "Verify your identity" card. */
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
-    /** Submits a picked ID photo (Uri) for verification. */
-    onSubmitVerification: (android.net.Uri) -> Unit = {},
+    /** Submits the picked FRONT + BACK ID photos (and an optional id number) for verification. */
+    onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, idNumber: String?) -> Unit = { _, _, _ -> },
     /** True while a "Become a host" promotion is in flight (drives the button spinner). */
     becomingHost: Boolean = false,
     /** Promotes this account to a host in-app (POST /api/local/host/become). */
@@ -227,10 +227,10 @@ fun ProfileScreen(
         // Account section — settings rows available to everyone.
         SectionHeader(stringResource(R.string.profile_account), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
 
-        // "Verify your identity" — status pill + ID photo picker (Trust & Safety).
+        // "Verify your identity" — status pill + FRONT/BACK ID photo upload (Trust & Safety).
         VerificationCard(
             state = verificationState,
-            onPickImage = onSubmitVerification,
+            onSubmit = onSubmitVerification,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(12.dp))

@@ -13,18 +13,6 @@ object Config {
     val API_BASE_URL: String = BuildConfig.API_BASE_URL
 
     /**
-     * Base URL of the local Egyptian National ID OCR server (the Python/EasyOCR service
-     * on port 8000). Used by [IDScanService].
-     *
-     * **Update the IP in this one place when your dev Mac's address changes**
-     * (`ipconfig getifaddr en0`), and keep it in sync with the cleartext allowlist in
-     * res/xml/network_security_config.xml:
-     *   - Real device on the same Wi-Fi -> http://<Mac-LAN-IP>:8000  (e.g. 192.168.8.24)
-     *   - Android emulator              -> http://10.0.2.2:8000      (host machine alias)
-     */
-    const val ID_OCR_BASE_URL = "http://192.168.8.24:8000"
-
-    /**
      * Google OAuth **server/web** client ID (the "Web application" OAuth 2.0 client
      * created in the Google Cloud Console — the same one the backend verifies against
      * in GOOGLE_CLIENT_ID). Leave blank to disable Google sign-in: the button then

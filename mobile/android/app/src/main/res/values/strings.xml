@@ -459,12 +459,15 @@
 
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">Verify your identity</string>
-    <string name="trust_verify_intro">Add a verified badge to your profile. Upload a photo of your government ID — we\'ll review it shortly.</string>
+    <string name="trust_verify_intro">Add a verified badge to your profile. Upload the front and back of your government ID — we\'ll review it shortly.</string>
     <string name="trust_status_unverified">Not verified</string>
     <string name="trust_status_pending">Verification pending</string>
     <string name="trust_status_verified">Identity verified</string>
     <string name="trust_status_rejected">Verification rejected</string>
     <string name="trust_upload_id">Upload ID photo</string>
+    <string name="trust_front_photo">Front of ID</string>
+    <string name="trust_back_photo">Back of ID</string>
+    <string name="trust_id_number">ID number (optional)</string>
     <string name="trust_pending_note">We\'re reviewing your ID. This usually takes a little while.</string>
     <string name="trust_verified_note">Your identity is verified. Guests and hosts can see your verified badge.</string>
     <string name="trust_rejected_note">We couldn\'t verify your last submission. Please upload a clearer photo of your ID.</string>

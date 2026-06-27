@@ -105,7 +105,8 @@ CREATE INDEX IF NOT EXISTS idx_bookings_listing ON bookings(listing_id);
 CREATE TABLE IF NOT EXISTS id_verifications (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  image_data   text NOT NULL,                       -- data:image/jpeg;base64,...
+  image_data   text NOT NULL,                       -- FRONT of the ID (data:image/jpeg;base64,...)
+  back_image_data text,                             -- BACK of the ID (data:image/jpeg;base64,...)
   id_number    text,                                -- 14-digit national ID, if known
   full_name    text,
   source       text NOT NULL DEFAULT 'manual',      -- 'manual' | 'structocr'

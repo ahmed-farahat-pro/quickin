@@ -371,12 +371,15 @@
     <string name="approval_rejected_note">Su documento de propiedad fue rechazado. Vuelva a subirlo para enviar su anuncio a revisión de nuevo.</string>
     <string name="approval_doc_resubmitted">Documento enviado. Su anuncio está de nuevo en revisión.</string>
     <string name="trust_verify">Verifique su identidad</string>
-    <string name="trust_verify_intro">Añada una insignia verificada a su perfil. Suba una foto de su documento de identidad oficial — la revisaremos en breve.</string>
+    <string name="trust_verify_intro">Añada una insignia verificada a su perfil. Suba el anverso y el reverso de su documento de identidad oficial — los revisaremos en breve.</string>
     <string name="trust_status_unverified">Sin verificar</string>
     <string name="trust_status_pending">Verificación pendiente</string>
     <string name="trust_status_verified">Identidad verificada</string>
     <string name="trust_status_rejected">Verificación rechazada</string>
     <string name="trust_upload_id">Subir foto del documento</string>
+    <string name="trust_front_photo">Anverso del documento</string>
+    <string name="trust_back_photo">Reverso del documento</string>
+    <string name="trust_id_number">Número de documento (opcional)</string>
     <string name="trust_pending_note">Estamos revisando su documento. Esto suele tardar un poco.</string>
     <string name="trust_verified_note">Su identidad está verificada. Los huéspedes y anfitriones pueden ver su insignia verificada.</string>
     <string name="trust_rejected_note">No hemos podido verificar su último envío. Suba una foto más nítida de su documento.</string>

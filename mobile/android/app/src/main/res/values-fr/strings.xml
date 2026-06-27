@@ -371,12 +371,15 @@
     <string name="approval_rejected_note">Votre justificatif de propriété a été refusé. Téléversez-le à nouveau pour soumettre votre annonce à un nouvel examen.</string>
     <string name="approval_doc_resubmitted">Document soumis. Votre annonce est de nouveau en cours d\'examen.</string>
     <string name="trust_verify">Vérifiez votre identité</string>
-    <string name="trust_verify_intro">Ajoutez un badge vérifié à votre profil. Téléchargez une photo de votre pièce d\'identité officielle — nous l\'examinerons sous peu.</string>
+    <string name="trust_verify_intro">Ajoutez un badge vérifié à votre profil. Téléchargez le recto et le verso de votre pièce d\'identité officielle — nous les examinerons sous peu.</string>
     <string name="trust_status_unverified">Non vérifié</string>
     <string name="trust_status_pending">Vérification en attente</string>
     <string name="trust_status_verified">Identité vérifiée</string>
     <string name="trust_status_rejected">Vérification refusée</string>
     <string name="trust_upload_id">Télécharger une photo de la pièce d\'identité</string>
+    <string name="trust_front_photo">Recto de la pièce</string>
+    <string name="trust_back_photo">Verso de la pièce</string>
+    <string name="trust_id_number">Numéro de pièce (facultatif)</string>
     <string name="trust_pending_note">Nous examinons votre pièce d\'identité. Cela prend généralement un peu de temps.</string>
     <string name="trust_verified_note">Votre identité est vérifiée. Les voyageurs et les hôtes peuvent voir votre badge vérifié.</string>
     <string name="trust_rejected_note">Nous n\'avons pas pu vérifier votre dernier envoi. Veuillez télécharger une photo plus nette de votre pièce d\'identité.</string>

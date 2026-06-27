@@ -6,7 +6,7 @@ import Foundation
 /// `AuthStore.tokenKey`.
 ///
 ///   GET  {base}/api/local/verification        (Bearer) → { status, verified_at }
-///   POST {base}/api/local/verification        (Bearer) { doc } → { status, … }
+///   POST {base}/api/local/verification        (Bearer) { front, back, id_number? } → { status, … }
 ///   POST {base}/api/local/reports             (Bearer) { target_type, target_id, reason, details? }
 ///   GET  {base}/api/local/users/:id           (public)  → PublicProfile
 struct TrustService {
@@ -14,7 +14,7 @@ struct TrustService {
 
     private let session: URLSession = {
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 20   // ID uploads carry a base64 image
+        cfg.timeoutIntervalForRequest = 30   // ID uploads carry two base64 images (front + back)
         cfg.waitsForConnectivity = true
         return URLSession(configuration: cfg)
     }()
@@ -50,12 +50,14 @@ struct TrustService {
         return try JSONDecoder().decode(VerificationState.self, from: data)
     }
 
-    /// Submit an ID image for review
-    /// (`POST /api/local/verification` (Bearer) `{ doc }`). `doc` is a
-    /// `data:image/*;base64,…` URL produced by `QKAvatarImage.makeDataURL`.
-    /// The server flips the status to "pending" and echoes the new state.
+    /// Submit FRONT + BACK ID images for review
+    /// (`POST /api/local/verification` (Bearer) `{ front, back, id_number? }`).
+    /// `front`/`back` are `data:image/jpeg;base64,…` URLs produced by
+    /// `QKAvatarImage.makeDataURL`. An optional `idNumber` is forwarded when set.
+    /// The server stores FRONT→image_data, BACK→back_image_data, flips the status
+    /// to "pending", and echoes the new state. HTTPS only (normal `apiBaseURL`).
     @discardableResult
-    func submitVerification(doc: String) async throws -> VerificationState {
+    func submitVerification(front: String, back: String, idNumber: String? = nil) async throws -> VerificationState {
         guard let token else { throw TrustError.notSignedIn }
 
         let url = URL(string: "\(Config.apiBaseURL)/api/local/verification")!
@@ -64,7 +66,11 @@ struct TrustService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["doc": doc])
+        var body: [String: Any] = ["front": front, "back": back]
+        if let idNumber = idNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !idNumber.isEmpty {
+            body["id_number"] = idNumber
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {

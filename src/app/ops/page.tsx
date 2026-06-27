@@ -106,6 +106,7 @@ type Verification = {
   id_number?: string | null
   status?: string | null
   image_data?: string | null
+  back_image_data?: string | null
   submitted_at?: string | null
 }
 
@@ -1080,20 +1081,50 @@ export default function OpsPage() {
                       </div>
                     ) : null}
                   </div>
-                  {v.image_data ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={v.image_data}
-                      alt="Submitted ID"
+                  {v.image_data || v.back_image_data ? (
+                    <div
                       style={{
-                        maxHeight: 160,
-                        maxWidth: '100%',
-                        borderRadius: 12,
-                        border: `1px solid ${TAN}`,
-                        display: 'block',
+                        display: 'flex',
+                        gap: 12,
+                        flexWrap: 'wrap',
                         marginBottom: 14,
                       }}
-                    />
+                    >
+                      {v.image_data ? (
+                        <div>
+                          <div style={labelStyle}>Front</div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={v.image_data}
+                            alt="ID front"
+                            style={{
+                              maxHeight: 160,
+                              maxWidth: '100%',
+                              borderRadius: 12,
+                              border: `1px solid ${TAN}`,
+                              display: 'block',
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {v.back_image_data ? (
+                        <div>
+                          <div style={labelStyle}>Back</div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={v.back_image_data}
+                            alt="ID back"
+                            style={{
+                              maxHeight: 160,
+                              maxWidth: '100%',
+                              borderRadius: 12,
+                              border: `1px solid ${TAN}`,
+                              display: 'block',
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button

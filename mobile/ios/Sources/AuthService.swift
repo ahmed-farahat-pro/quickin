@@ -459,6 +459,57 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Permanently delete the signed-in account and all its data (App Store
+    /// Guideline 5.1.1(v) — in-app account deletion). Sends an authenticated
+    /// `DELETE /api/local/account` with the stored Bearer token; the backend
+    /// removes the account + data and clears the server session, replying
+    /// `{ ok: true, deleted: true }`. On success this clears the local session
+    /// (same as `logout()`), dropping the app back to the auth screen. Returns
+    /// `true` on success; on failure the message is set on `errorMessage` and the
+    /// session is left intact. Mirrors `becomeHost`'s authed-request pattern.
+    @discardableResult
+    func deleteAccount() async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        guard let token = currentToken else {
+            errorMessage = "Sign in to delete your account."
+            return false
+        }
+        guard let url = URL(string: Config.apiBaseURL + "/api/local/account") else {
+            errorMessage = "Invalid server URL."
+            return false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "Invalid response from the server."
+                return false
+            }
+            guard (200...299).contains(http.statusCode) else {
+                setErrorFromResponse(data, status: http.statusCode)
+                return false
+            }
+            // Account + data gone server-side and the session cleared. Drop the
+            // local session too — also clears any stored Face ID session so the
+            // deleted account can't be restored biometrically.
+            BiometricAuth.shared.clearStoredSession()
+            logout()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     /// Update the cached account (UserDefaults + published `user`) to the
     /// host-flagged version returned by `becomeHost`, keeping the existing token.
     private func applyHostUser(_ updated: AuthUser) {

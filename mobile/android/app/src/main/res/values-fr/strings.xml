@@ -111,6 +111,12 @@
     <string name="settings_new_password">Nouveau mot de passe</string>
     <string name="settings_update_password">Mettre à jour le mot de passe</string>
     <string name="settings_password_updated">Mot de passe mis à jour</string>
+    <string name="settings_delete_account">Supprimer le compte</string>
+    <string name="settings_delete_account_caption">Supprimez définitivement votre compte et toutes vos données.</string>
+    <string name="settings_delete_account_confirm_title">Supprimer votre compte ?</string>
+    <string name="settings_delete_account_confirm_body">Cette action supprime définitivement votre compte ainsi que vos annonces, réservations et avis. Elle est irréversible.</string>
+    <string name="settings_delete_account_confirm">Supprimer</string>
+    <string name="settings_delete_account_cancel">Annuler</string>
     <string name="account_photo">Photo de profil</string>
     <string name="account_change_photo">Changer la photo</string>
     <string name="account_add_photo">Ajouter une photo</string>

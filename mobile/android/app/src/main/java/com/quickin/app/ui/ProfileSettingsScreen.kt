@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -97,7 +99,11 @@ fun ProfileSettingsScreen(
     onSave: (fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?, country: String) -> Unit,
     onSavedAck: () -> Unit,
     onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
-    onPasswordChangedAck: () -> Unit
+    onPasswordChangedAck: () -> Unit,
+    /** True while the account deletion is in flight (disables the confirm button + shows a spinner). */
+    deletingAccount: Boolean = false,
+    /** Confirmed account deletion: permanently deletes the account, then signs out. */
+    onDeleteAccount: () -> Unit = {}
 ) {
     // Always reload when the screen opens so edits are always fresh.
     LaunchedEffect(Unit) {
@@ -303,6 +309,15 @@ fun ProfileSettingsScreen(
                         onChangePassword = onChangePassword,
                         onPasswordChangedAck = onPasswordChangedAck
                     )
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = Tan)
+                    Spacer(Modifier.height(8.dp))
+
+                    DeleteAccountSection(
+                        deleting = deletingAccount,
+                        onDeleteAccount = onDeleteAccount
+                    )
                 }
             }
         }
@@ -387,6 +402,93 @@ private fun ChangePasswordSection(
         } else {
             Text(stringResource(R.string.settings_update_password), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
+    }
+}
+
+/**
+ * "Delete account" block — a destructive, red entry near the bottom of the settings screen (just
+ * below the change-password section, mirroring the Sign out destructive style). Tapping it opens a
+ * confirmation [AlertDialog] explaining the deletion is permanent (account, listings, bookings,
+ * reviews) before calling [onDeleteAccount]. Required by Google Play's account-deletion policy.
+ */
+@Composable
+private fun DeleteAccountSection(
+    deleting: Boolean,
+    onDeleteAccount: () -> Unit
+) {
+    var showConfirm by remember { mutableStateOf(false) }
+
+    SectionHeader(
+        title = stringResource(R.string.settings_delete_account),
+        caption = stringResource(R.string.settings_delete_account_caption)
+    )
+    Spacer(Modifier.height(14.dp))
+
+    Button(
+        onClick = { showConfirm = true },
+        enabled = !deleting,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = SettingsErrorRed,
+            contentColor = Color.White,
+            disabledContainerColor = SettingsErrorRed.copy(alpha = 0.5f),
+            disabledContentColor = Color.White
+        ),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (deleting) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+        } else {
+            Icon(
+                Icons.Filled.DeleteForever,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.size(8.dp))
+            Text(
+                stringResource(R.string.settings_delete_account),
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) showConfirm = false },
+            icon = {
+                Icon(
+                    Icons.Filled.DeleteForever,
+                    contentDescription = null,
+                    tint = SettingsErrorRed
+                )
+            },
+            title = { Text(stringResource(R.string.settings_delete_account_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_delete_account_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirm = false
+                        onDeleteAccount()
+                    },
+                    enabled = !deleting
+                ) {
+                    Text(
+                        stringResource(R.string.settings_delete_account_confirm),
+                        color = SettingsErrorRed,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }, enabled = !deleting) {
+                    Text(stringResource(R.string.settings_delete_account_cancel), color = Muted)
+                }
+            },
+            containerColor = Cream
+        )
     }
 }
 

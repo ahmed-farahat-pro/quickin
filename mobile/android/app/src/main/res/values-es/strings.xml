@@ -111,6 +111,12 @@
     <string name="settings_new_password">Nueva contraseña</string>
     <string name="settings_update_password">Actualizar contraseña</string>
     <string name="settings_password_updated">Contraseña actualizada</string>
+    <string name="settings_delete_account">Eliminar cuenta</string>
+    <string name="settings_delete_account_caption">Elimina permanentemente tu cuenta y todos tus datos.</string>
+    <string name="settings_delete_account_confirm_title">¿Eliminar tu cuenta?</string>
+    <string name="settings_delete_account_confirm_body">Esto elimina permanentemente tu cuenta junto con tus anuncios, reservas y reseñas. No se puede deshacer.</string>
+    <string name="settings_delete_account_confirm">Eliminar</string>
+    <string name="settings_delete_account_cancel">Cancelar</string>
     <string name="account_photo">Foto de perfil</string>
     <string name="account_change_photo">Cambiar foto</string>
     <string name="account_add_photo">Añadir foto</string>

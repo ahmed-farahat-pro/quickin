@@ -306,6 +306,8 @@ private fun MainApp() {
     val forgotState by authViewModel.forgot.collectAsState()
     // Whether a "become a host" promotion is in flight (drives the Profile button spinner).
     val becomingHost by authViewModel.becomingHost.collectAsState()
+    // Whether an account deletion is in flight (drives the settings delete dialog's spinner).
+    val deletingAccount by authViewModel.deletingAccount.collectAsState()
 
     val listingsViewModel: ListingsViewModel = viewModel()
     val listingsState by listingsViewModel.state.collectAsState()
@@ -993,7 +995,14 @@ private fun MainApp() {
             onChangePassword = { current, next ->
                 profileSettingsViewModel.changePassword(current, next)
             },
-            onPasswordChangedAck = profileSettingsViewModel::acknowledgePasswordChanged
+            onPasswordChangedAck = profileSettingsViewModel::acknowledgePasswordChanged,
+            // Account deletion (Google Play policy): DELETE /api/local/account, then the auth
+            // state flips signed-out — the LaunchedEffect(isAuthenticated) below clears every
+            // per-account view-model and returns to the auth screen. Close this overlay too.
+            deletingAccount = deletingAccount,
+            onDeleteAccount = {
+                authViewModel.deleteAccount(onDeleted = { showProfileSettings = false })
+            }
         )
         return
     }

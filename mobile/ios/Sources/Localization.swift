@@ -450,6 +450,12 @@ enum Strings {
         "profile.becomeHost.subtitle": "List your place & start hosting — on the same account.",
         "profile.logout": "Log out",
         "profile.language": "Language",
+        // Delete account (App Store Guideline 5.1.1(v))
+        "account.delete": "Delete account",
+        "account.delete.confirmTitle": "Delete your account?",
+        "account.delete.confirmBody": "This permanently deletes your account and all your data — listings, bookings, and reviews. This can't be undone.",
+        "account.delete.confirm": "Delete",
+        "account.delete.error": "Couldn't delete your account. Please try again.",
 
         // Profile settings (edit profile)
         "settings.fullName": "Full name",
@@ -1040,6 +1046,12 @@ enum Strings {
         "profile.becomeHost.subtitle": "أضف مكانك وابدأ الاستضافة — على نفس الحساب.",
         "profile.logout": "تسجيل الخروج",
         "profile.language": "اللغة",
+        // حذف الحساب (إرشادات App Store 5.1.1(v))
+        "account.delete": "حذف الحساب",
+        "account.delete.confirmTitle": "حذف حسابك؟",
+        "account.delete.confirmBody": "سيؤدي هذا إلى حذف حسابك وكل بياناتك نهائيًا — الإعلانات والحجوزات والتقييمات. لا يمكن التراجع عن ذلك.",
+        "account.delete.confirm": "حذف",
+        "account.delete.error": "تعذّر حذف حسابك. من فضلك حاول مرة أخرى.",
 
         // Profile settings (edit profile)
         "settings.fullName": "الاسم الكامل",
@@ -1575,6 +1587,12 @@ enum Strings {
         "profile.becomeHost.subtitle": "Publiez votre logement et commencez à héberger — sur le même compte.",
         "profile.logout": "Se déconnecter",
         "profile.language": "Langue",
+        // Suppression du compte (Directive App Store 5.1.1(v))
+        "account.delete": "Supprimer le compte",
+        "account.delete.confirmTitle": "Supprimer votre compte ?",
+        "account.delete.confirmBody": "Cela supprime définitivement votre compte et toutes vos données — annonces, réservations et avis. Cette action est irréversible.",
+        "account.delete.confirm": "Supprimer",
+        "account.delete.error": "Impossible de supprimer votre compte. Veuillez réessayer.",
         "settings.fullName": "Nom complet",
         "settings.fullName.placeholder": "Votre nom complet",
         "settings.age": "Âge",
@@ -2080,6 +2098,12 @@ enum Strings {
         "profile.becomeHost.subtitle": "Publica tu alojamiento y empieza a hospedar — en la misma cuenta.",
         "profile.logout": "Cerrar sesión",
         "profile.language": "Idioma",
+        // Eliminar cuenta (Directriz de App Store 5.1.1(v))
+        "account.delete": "Eliminar cuenta",
+        "account.delete.confirmTitle": "¿Eliminar tu cuenta?",
+        "account.delete.confirmBody": "Esto elimina permanentemente tu cuenta y todos tus datos: anuncios, reservas y reseñas. Esta acción no se puede deshacer.",
+        "account.delete.confirm": "Eliminar",
+        "account.delete.error": "No se pudo eliminar tu cuenta. Inténtalo de nuevo.",
         "settings.fullName": "Nombre completo",
         "settings.fullName.placeholder": "Su nombre completo",
         "settings.age": "Edad",

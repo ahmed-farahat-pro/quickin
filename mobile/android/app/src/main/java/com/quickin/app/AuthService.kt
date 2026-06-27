@@ -287,6 +287,45 @@ object AuthService {
     }
 
     /**
+     * Permanently deletes the signed-in account and all of its data (listings, bookings, reviews)
+     * via `DELETE /api/local/account` with the bearer [token]; the backend also clears the session
+     * server-side. Returns Unit on the 200 `{ok:true, deleted:true}`. A non-2xx (e.g. 401 when not
+     * signed in) surfaces as a [RuntimeException] carrying the server's `{error}` message — the
+     * caller is responsible for clearing the local session on success.
+     */
+    suspend fun deleteAccount(token: String): Unit = withContext(Dispatchers.IO) {
+        val (status, text) = authedSend("DELETE", "/api/local/account", token)
+        if (status !in 200..299) {
+            throw RuntimeException(extractError(text, status))
+        }
+    }
+
+    /**
+     * Sends an authed request with the given [method] (e.g. "POST", "DELETE"), an empty `{}` body and
+     * a Bearer [token], returning the raw (statusCode, responseText) without throwing on 4xx/5xx.
+     */
+    private fun authedSend(method: String, path: String, token: String): Pair<Int, String> {
+        val conn = (URL(Config.API_BASE_URL + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = 15_000
+            readTimeout = 15_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Authorization", "Bearer $token")
+        }
+        return try {
+            conn.outputStream.use { out -> out.write("{}".toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            code to text
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
      * POSTs to [path] with an empty body and a Bearer [token], returning the raw
      * (statusCode, responseText) without throwing on 4xx/5xx.
      */

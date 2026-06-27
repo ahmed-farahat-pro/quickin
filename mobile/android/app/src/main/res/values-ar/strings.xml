@@ -134,6 +134,12 @@
     <string name="settings_new_password">كلمة المرور الجديدة</string>
     <string name="settings_update_password">تحديث كلمة المرور</string>
     <string name="settings_password_updated">تم تحديث كلمة المرور</string>
+    <string name="settings_delete_account">حذف الحساب</string>
+    <string name="settings_delete_account_caption">احذف حسابك وكل بياناتك نهائيًا.</string>
+    <string name="settings_delete_account_confirm_title">حذف حسابك؟</string>
+    <string name="settings_delete_account_confirm_body">سيؤدي هذا إلى حذف حسابك نهائيًا مع جميع إعلاناتك وحجوزاتك وتقييماتك. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="settings_delete_account_confirm">حذف</string>
+    <string name="settings_delete_account_cancel">إلغاء</string>
 
     <!-- Profile photo &amp; bio -->
     <string name="account_photo">صورة الملف الشخصي</string>

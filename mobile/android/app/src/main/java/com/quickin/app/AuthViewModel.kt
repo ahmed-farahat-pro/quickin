@@ -159,6 +159,42 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ---- Delete account (Google Play account-deletion requirement) ------------
+
+    /**
+     * Whether an account deletion is in flight (drives the confirm dialog's spinner / disables the
+     * destructive button). Separate from the main auth spinner so it doesn't fight other loads.
+     */
+    private val _deletingAccount = MutableStateFlow(false)
+    val deletingAccount: StateFlow<Boolean> = _deletingAccount.asStateFlow()
+
+    /**
+     * Permanently deletes the signed-in account and all of its data via `DELETE /api/local/account`
+     * (Bearer token). On success the local session is cleared exactly as [logout] does (which the
+     * UI reacts to by tearing down per-account state and returning to the auth screen), then
+     * [onDeleted] runs so the caller can dismiss the settings screen. On failure the message is
+     * surfaced in [AuthUiState.error]. No-op when signed out or already deleting.
+     */
+    fun deleteAccount(onDeleted: () -> Unit = {}) {
+        if (_deletingAccount.value || !_state.value.isAuthenticated) return
+        val token = currentToken() ?: return
+        _deletingAccount.value = true
+        viewModelScope.launch {
+            try {
+                AuthService.deleteAccount(token)
+                // The account is gone server-side: drop the saved biometric session too so a
+                // fingerprint can't restore the deleted account, then clear the local session.
+                BiometricAuthManager.clear(getApplication())
+                logout()
+                onDeleted()
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = e.message ?: "Couldn't delete your account.")
+            } finally {
+                _deletingAccount.value = false
+            }
+        }
+    }
+
     /** Verifies the 6-digit [code] for the pending email and completes login on success. */
     fun verifyOtp(code: String) {
         val email = _state.value.pendingEmail ?: return

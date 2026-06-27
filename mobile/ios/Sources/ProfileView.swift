@@ -9,6 +9,12 @@ struct ProfileView: View {
     @StateObject private var header = ProfileHeaderModel()
     /// True while the "Become a host" request is in flight.
     @State private var isBecomingHost = false
+    /// Drives the "Delete your account?" confirmation alert.
+    @State private var showDeleteConfirm = false
+    /// True while the account-deletion request is in flight.
+    @State private var isDeletingAccount = false
+    /// Drives an error alert when account deletion fails.
+    @State private var showDeleteError = false
 
     var body: some View {
         NavigationStack {
@@ -49,6 +55,7 @@ struct ProfileView: View {
                             }
                             Spacer(minLength: 8)
                             logoutButton
+                            deleteAccountButton
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 24)
@@ -74,6 +81,25 @@ struct ProfileView: View {
         .onChange(of: auth.user?.id) { _, _ in
             header.reset()
             Task { await header.refresh() }
+        }
+        // In-app account deletion (App Store Guideline 5.1.1(v)). Confirm before
+        // the irreversible delete; on success `auth.deleteAccount()` clears the
+        // session, which routes the app back to the auth screen.
+        .alert(loc.t("account.delete.confirmTitle"), isPresented: $showDeleteConfirm) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("account.delete.confirm"), role: .destructive) {
+                Task {
+                    isDeletingAccount = true
+                    let ok = await auth.deleteAccount()
+                    isDeletingAccount = false
+                    if !ok { showDeleteError = true }
+                }
+            }
+        } message: {
+            Text(loc.t("account.delete.confirmBody"))
+        }
+        .alert(loc.t("account.delete.error"), isPresented: $showDeleteError) {
+            Button(loc.t("common.done"), role: .cancel) {}
         }
     }
 
@@ -389,6 +415,34 @@ struct ProfileView: View {
         }
         .buttonStyle(QKPressStyle())
         .padding(.top, 8)
+    }
+
+    /// Destructive "Delete account" row (App Store Guideline 5.1.1(v)). Low-
+    /// emphasis red text below Sign out; tapping opens a confirmation alert.
+    private var deleteAccountButton: some View {
+        Button(role: .destructive) {
+            showDeleteConfirm = true
+        } label: {
+            HStack(spacing: 8) {
+                if isDeletingAccount {
+                    ProgressView()
+                        .tint(.red)
+                        .frame(width: 16)
+                } else {
+                    Image(systemName: "trash")
+                }
+                Text(loc.t("account.delete"))
+                    .fontWeight(.semibold)
+            }
+            .font(.subheadline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .foregroundStyle(Color.red)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isDeletingAccount)
+        .padding(.top, 2)
     }
 
     // MARK: - Derived values

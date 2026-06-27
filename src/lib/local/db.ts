@@ -843,6 +843,10 @@ export async function reviewHostApplication(appId: string, action: 'approve' | '
   if (!uid) throw new Error('Application not found')
   if (action === 'approve') {
     await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [uid])
+    // Keep the legacy `role` flag in sync so the mobile backend (which reads role)
+    // also recognizes this host. The column is absent on a frontend-only dev DB, so
+    // this is best-effort and must never fail the approval.
+    try { await pool.query(`UPDATE users SET role = 'host' WHERE id = $1`, [uid]) } catch { /* role column not present */ }
     await createNotification(uid, 'host', 'You are now a host!', 'Your host application was approved — you can now list your space and accept guests.', '/host')
   } else {
     await createNotification(uid, 'host', 'Host application update', note ? `Your application needs attention: ${note}` : 'Your host application was not approved this time.', '/account')

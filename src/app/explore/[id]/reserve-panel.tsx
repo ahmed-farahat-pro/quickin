@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { formatPrice } from '@/lib/utils'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 
 const COLORS = {
   burgundy: '#5B0F16',
@@ -22,19 +23,6 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: '0.06em',
   color: COLORS.muted,
   marginBottom: 6,
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '10px 12px',
-  fontSize: 14,
-  fontFamily: FONT,
-  color: COLORS.ink,
-  background: '#fff',
-  border: `1px solid rgba(42,34,32,0.14)`,
-  borderRadius: 12,
-  outline: 'none',
 }
 
 type Status =
@@ -139,41 +127,19 @@ export default function ReservePanel({
         {t('pricesIn', { currency })}
       </p>
 
-      {/* Date inputs */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div>
-          <label htmlFor="rp-checkin" style={labelStyle}>
-            {t('checkIn')}
-          </label>
-          <input
-            id="rp-checkin"
-            type="date"
-            value={checkIn}
-            min={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => {
-              setCheckIn(e.target.value)
-              setStatus({ kind: 'idle' })
-            }}
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label htmlFor="rp-checkout" style={labelStyle}>
-            {t('checkOut')}
-          </label>
-          <input
-            id="rp-checkout"
-            type="date"
-            value={checkOut}
-            min={checkIn || new Date().toISOString().slice(0, 10)}
-            onChange={(e) => {
-              setCheckOut(e.target.value)
-              setStatus({ kind: 'idle' })
-            }}
-            style={inputStyle}
-          />
-        </div>
-      </div>
+      {/* Date range picker (custom, replaces native date inputs) */}
+      <DateRangePicker
+        checkIn={checkIn}
+        checkOut={checkOut}
+        checkInLabel={t('checkIn')}
+        checkOutLabel={t('checkOut')}
+        nightsLabel={(n) => t('nightsCount', { nights: n })}
+        onChange={(ci, co) => {
+          setCheckIn(ci)
+          setCheckOut(co)
+          setStatus({ kind: 'idle' })
+        }}
+      />
 
       <div style={{ marginTop: 12 }}>
         <label style={labelStyle}>{t('guests')}</label>

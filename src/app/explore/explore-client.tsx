@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import type { Listing } from '@/lib/local/db'
 import { formatPrice } from '@/lib/utils'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import WishlistButton from './wishlist-button'
 
 // Leaflet must never run on the server (it reads `window` at import time), so
@@ -240,6 +241,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
             grid-template-columns: 1fr 1fr !important;
           }
           .qk-search-grid .qk-search-location,
+          .qk-search-grid .qk-search-dates,
           .qk-search-grid .qk-search-clear {
             grid-column: 1 / -1 !important;
           }
@@ -322,7 +324,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               padding: 18,
               display: 'grid',
               gridTemplateColumns:
-                'minmax(160px, 2fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(96px, 0.8fr) auto',
+                'minmax(160px, 2fr) minmax(220px, 1.8fr) minmax(96px, 0.8fr) auto',
               gap: 14,
               alignItems: 'end',
             }}
@@ -342,40 +344,13 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 style={inputStyle}
               />
             </div>
-            <div>
-              <label htmlFor="checkIn" style={labelStyle}>
-                {t('search.checkInLabel')}
-              </label>
-              <input
-                id="checkIn"
-                type="date"
-                name="checkIn"
-                min={today}
-                value={filters.checkIn}
-                onChange={(e) => {
-                  const checkIn = e.target.value
-                  // If the chosen check-out now predates check-in, clear it.
-                  const patch: Partial<Filters> =
-                    filters.checkOut && checkIn && filters.checkOut < checkIn
-                      ? { checkIn, checkOut: '' }
-                      : { checkIn }
-                  updateFilter(patch)
-                }}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label htmlFor="checkOut" style={labelStyle}>
-                {t('search.checkOutLabel')}
-              </label>
-              <input
-                id="checkOut"
-                type="date"
-                name="checkOut"
-                min={filters.checkIn || today}
-                value={filters.checkOut}
-                onChange={(e) => updateFilter({ checkOut: e.target.value })}
-                style={inputStyle}
+            <div className="qk-search-dates" style={{ alignSelf: 'end' }}>
+              <DateRangePicker
+                checkIn={filters.checkIn}
+                checkOut={filters.checkOut}
+                checkInLabel={t('search.checkInLabel')}
+                checkOutLabel={t('search.checkOutLabel')}
+                onChange={(checkIn, checkOut) => updateFilter({ checkIn, checkOut })}
               />
             </div>
             <div>

@@ -289,7 +289,7 @@ final class AuthStore: ObservableObject {
 
         switch result {
         case .success(let data):
-            // Expected: { pending: true, email, role } (no token).
+            // Expected: { pending: true, email } (no token).
             if let body = try? JSONDecoder().decode(PendingBody.self, from: data), body.pending {
                 return .needsVerification(email: body.email ?? email)
             }

@@ -64,10 +64,6 @@ import com.quickin.app.ui.theme.Tan
 
 private val ErrorRed = Color(0xFFB3261E)
 
-// Roles sent to /api/auth/signup and /api/auth/login: "user" = Guest, "host" = Host.
-private const val ROLE_GUEST = "user"
-private const val ROLE_HOST = "host"
-
 /**
  * Authentication screen: email sign-in / sign-up plus a real, config-gated
  * "Continue with Google" flow. Reachable from the Profile tab's sign-in CTA;
@@ -81,8 +77,8 @@ private const val ROLE_HOST = "host"
 @Composable
 fun AuthScreen(
     state: AuthUiState,
-    onLogin: (email: String, password: String, role: String) -> Unit,
-    onSignup: (name: String, email: String, password: String, role: String, referralCode: String?, country: String?) -> Unit,
+    onLogin: (email: String, password: String) -> Unit,
+    onSignup: (name: String, email: String, password: String, referralCode: String?, country: String?) -> Unit,
     onGoogleLaunch: (nonce: String, state: String) -> Unit,
     onGoogleNotConfigured: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -104,9 +100,6 @@ fun AuthScreen(
     // Optional "country you're from" (sign-up only); the selected English display name is sent with
     // the sign-up request. Blank until the user picks one in the searchable CountrySelector dialog.
     var country by remember { mutableStateOf("") }
-    // Selected role: "user" (Guest) or "host". Used in BOTH modes — on sign-up it registers
-    // the account with that role; on sign-in, picking Host grants the host role server-side.
-    var role by remember { mutableStateOf(ROLE_GUEST) }
 
     val loading = state.isLoading
 
@@ -162,16 +155,6 @@ fun AuthScreen(
             )
 
             Spacer(Modifier.height(24.dp))
-
-            // Guest/Host role chooser — shown in both sign-up and sign-in modes. In sign-in,
-            // picking Host upgrades the account to a host and signs in as host.
-            RoleSelector(
-                role = role,
-                enabled = !loading,
-                isSignUp = isSignUp,
-                onSelect = { role = it }
-            )
-            Spacer(Modifier.height(14.dp))
 
             if (isSignUp) {
                 AuthField(
@@ -259,8 +242,8 @@ fun AuthScreen(
             val canSubmit = !loading && (!isSignUp || passwordMeetsMin(password))
             GradientButton(
                 onClick = {
-                    if (isSignUp) onSignup(name, email, password, role, referralCode.ifBlank { null }, country.ifBlank { null })
-                    else onLogin(email, password, role)
+                    if (isSignUp) onSignup(name, email, password, referralCode.ifBlank { null }, country.ifBlank { null })
+                    else onLogin(email, password)
                 },
                 enabled = canSubmit,
                 pulse = canSubmit,
@@ -399,93 +382,6 @@ private fun ToggleTab(
         modifier = modifier.height(44.dp)
     ) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-    }
-}
-
-/**
- * Two-button Guest/Host role chooser used in both auth modes. The labels adapt to [isSignUp]
- * ("Register as …" vs "Sign in as …") for role "user" (Guest) / "host" (Host). The selected
- * button fills burgundy; the other is an outlined tan button — matching the boutique palette.
- */
-@Composable
-private fun RoleSelector(
-    role: String,
-    enabled: Boolean,
-    isSignUp: Boolean,
-    onSelect: (String) -> Unit
-) {
-    // Distinct strings per (mode, role) so each language can use its natural word order.
-    val guestLabel = stringResource(if (isSignUp) R.string.role_register_guest else R.string.role_signin_guest)
-    val hostLabel = stringResource(if (isSignUp) R.string.role_register_host else R.string.role_signin_host)
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.role_i_want_to),
-            color = Muted,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            RoleOption(
-                label = guestLabel,
-                selected = role == ROLE_GUEST,
-                enabled = enabled,
-                modifier = Modifier.weight(1f),
-                onClick = { onSelect(ROLE_GUEST) }
-            )
-            Spacer(Modifier.width(12.dp))
-            RoleOption(
-                label = hostLabel,
-                selected = role == ROLE_HOST,
-                enabled = enabled,
-                modifier = Modifier.weight(1f),
-                onClick = { onSelect(ROLE_HOST) }
-            )
-        }
-        Text(
-            stringResource(if (role == ROLE_HOST) R.string.role_hosts_caption else R.string.role_guests_caption),
-            color = Muted,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-    }
-}
-
-@Composable
-private fun RoleOption(
-    label: String,
-    selected: Boolean,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    if (selected) {
-        Button(
-            onClick = onClick,
-            enabled = enabled,
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Burgundy,
-                contentColor = Color.White
-            ),
-            modifier = modifier.height(48.dp)
-        ) {
-            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-        }
-    } else {
-        OutlinedButton(
-            onClick = onClick,
-            enabled = enabled,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, Tan),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.White,
-                contentColor = Ink
-            ),
-            modifier = modifier.height(48.dp)
-        ) {
-            Text(label, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        }
     }
 }
 

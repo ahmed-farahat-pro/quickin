@@ -1201,11 +1201,10 @@ private fun MainApp() {
     if (showAuth && !authState.isAuthenticated) {
         AuthScreen(
             state = authState,
-            // Unified account: one account per person, no "sign in/register as host". Any role the
-            // auth form still passes is ignored — the backend returns the account's is_host flag,
-            // and a user becomes a host in-app from their profile.
-            onLogin = { email, password, _ -> authViewModel.login(email, password) },
-            onSignup = { name, email, password, _, referralCode, country ->
+            // Unified account: one account per person, no "sign in/register as host". The backend
+            // returns the account's is_host flag, and a user becomes a host in-app from their profile.
+            onLogin = { email, password -> authViewModel.login(email, password) },
+            onSignup = { name, email, password, referralCode, country ->
                 authViewModel.signup(name, email, password, referralCode, country)
             },
             onGoogleLaunch = { _, _ ->

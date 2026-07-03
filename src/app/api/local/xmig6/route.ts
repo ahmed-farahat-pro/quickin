@@ -36,15 +36,17 @@ export async function GET(req: Request) {
       last_message_at timestamptz DEFAULT now(),
       UNIQUE (listing_id, guest_id)
     )`)
-  await run('messages table', `
-    CREATE TABLE IF NOT EXISTS messages (
+  // chat_messages (not "messages") — the shared Neon DB already has a backend
+  // booking-scoped `messages` table, so we use a distinct name.
+  await run('chat_messages table', `
+    CREATE TABLE IF NOT EXISTS chat_messages (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       body text NOT NULL,
       created_at timestamptz DEFAULT now()
     )`)
-  await run('messages index', `CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at)`)
+  await run('chat_messages index', `CREATE INDEX IF NOT EXISTS chat_messages_conversation_idx ON chat_messages (conversation_id, created_at)`)
   await run('conversations guest index', `CREATE INDEX IF NOT EXISTS conversations_guest_idx ON conversations (guest_id, last_message_at DESC)`)
   await run('conversations host index', `CREATE INDEX IF NOT EXISTS conversations_host_idx ON conversations (host_id, last_message_at DESC)`)
 
@@ -55,7 +57,7 @@ export async function GET(req: Request) {
         OR (table_name='id_verifications' AND column_name='selfie_image_data')`
   ).then((r) => r.rows).catch(() => [])
   const tables = await pool.query(
-    `SELECT table_name FROM information_schema.tables WHERE table_name IN ('conversations','messages')`
+    `SELECT table_name FROM information_schema.tables WHERE table_name IN ('conversations','chat_messages')`
   ).then((r) => r.rows.map((x) => x.table_name)).catch(() => [])
 
   return NextResponse.json({ ok: true, steps, cols, tables })

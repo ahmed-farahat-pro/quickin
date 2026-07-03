@@ -1436,7 +1436,7 @@ export async function listConversations(userId: string): Promise<ConversationSum
             l.title AS listing_title,
             (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS listing_image,
             CASE WHEN c.guest_id = $1 THEN hu.full_name ELSE gu.full_name END AS other_name,
-            (SELECT m.body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+            (SELECT m.body FROM chat_messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
             to_char(c.last_message_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS last_message_at,
             (c.host_id = $1) AS is_host
        FROM conversations c
@@ -1469,7 +1469,7 @@ export async function listMessages(userId: string, conversationId: string): Prom
   const { rows } = await pool.query(
     `SELECT id, sender_id, body,
             to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
-       FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 500`,
+       FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 500`,
     [conversationId]
   )
   return (rows as ChatMessage[]).map((m) => ({ ...m, mine: m.sender_id === userId }))
@@ -1484,7 +1484,7 @@ export async function postMessage(userId: string, conversationId: string, rawBod
   if (!convo) throw new Error('Conversation not found')
   const { rows } = await pool.query(
     `WITH ins AS (
-       INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING *
+       INSERT INTO chat_messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING *
      ), upd AS (
        UPDATE conversations SET last_message_at = now() WHERE id = $1
      )

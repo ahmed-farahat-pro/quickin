@@ -207,14 +207,16 @@ CREATE TABLE IF NOT EXISTS conversations (
 CREATE INDEX IF NOT EXISTS conversations_guest_idx ON conversations (guest_id, last_message_at DESC);
 CREATE INDEX IF NOT EXISTS conversations_host_idx  ON conversations (host_id, last_message_at DESC);
 
-CREATE TABLE IF NOT EXISTS messages (
+-- Named chat_messages (not "messages") to avoid colliding with the backend's
+-- booking-scoped `messages` table on the shared Neon DB.
+CREATE TABLE IF NOT EXISTS chat_messages (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body            text NOT NULL,
   created_at      timestamptz DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS chat_messages_conversation_idx ON chat_messages (conversation_id, created_at);
 
 -- ---- Seed listings (only if the table is empty) -----------------------------
 DO $$

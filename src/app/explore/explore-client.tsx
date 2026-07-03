@@ -1,14 +1,17 @@
 'use client'
 
-// Client-side browse experience: live type-to-filter search + a List/Map toggle.
-// The server component (page.tsx) renders the header/footer and passes the
+// Client-side browse experience: a polished search bar, an Airbnb-style
+// property-type category filter (icons), a List/Map toggle and a lively results
+// grid. The server component (page.tsx) renders header/footer and passes the
 // first page of listings as `initialListings` so the first paint is instant.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
+import { MapPin, Users, Search as SearchIcon, Sparkles, Star } from 'lucide-react'
 import type { Listing } from '@/lib/local/db'
 import { formatPrice } from '@/lib/utils'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { PROPERTY_TYPES, iconForPropertyType } from '@/lib/property-types'
 import WishlistButton from './wishlist-button'
 
 // Leaflet must never run on the server (it reads `window` at import time), so
@@ -72,7 +75,9 @@ const COLORS = {
 const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 
 const labelStyle: React.CSSProperties = {
-  display: 'block',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
   fontSize: 11,
   fontWeight: 700,
   textTransform: 'uppercase',
@@ -101,6 +106,7 @@ interface Filters {
   checkIn: string
   checkOut: string
   guests: string
+  type: string
 }
 
 interface Props {
@@ -116,13 +122,15 @@ function buildQuery(f: Filters): string {
   if (f.checkIn) params.set('checkIn', f.checkIn)
   if (f.checkOut) params.set('checkOut', f.checkOut)
   if (f.guests.trim()) params.set('guests', f.guests.trim())
+  if (f.type.trim()) params.set('type', f.type.trim())
   return params.toString()
 }
 
-const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '' }
+const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '', type: '' }
 
 export default function ExploreClient({ initialListings, initialFilters, savedIds }: Props) {
   const t = useTranslations('explorePage')
+  const tp = useTranslations('hostPage.create.propertyTypes')
   const savedSet = useMemo(() => new Set(savedIds ?? []), [savedIds])
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [listings, setListings] = useState<Listing[]>(initialListings)
@@ -130,9 +138,8 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   const [searchError, setSearchError] = useState(false)
   const [view, setView] = useState<View>('list')
 
-  // Airbnb-style: on desktop, collapse the hero copy + shrink the search bar into
-  // a compact sticky bar once the user scrolls past the hero. (Mobile keeps the
-  // full inline search — the CSS for this is gated to >=821px, see <style> below.)
+  // Airbnb-style: on desktop, collapse the hero copy once the user scrolls past
+  // the hero, keeping the search + category bar sticky at the top.
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 56)
@@ -148,11 +155,9 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
 
   const runSearch = useCallback(async (f: Filters) => {
     const query = buildQuery(f)
-    // Skip redundant fetches (e.g. whitespace-only edits that don't change params).
     if (query === lastQueryRef.current) return
     lastQueryRef.current = query
 
-    // Abort any in-flight request so only the latest keystroke wins.
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -165,12 +170,9 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
       })
       if (!res.ok) throw new Error(`Request failed: ${res.status}`)
       const data: Listing[] = await res.json()
-      // Ignore stale responses that lost the race.
       if (!controller.signal.aborted) setListings(data)
     } catch (err) {
       if ((err as Error)?.name !== 'AbortError') {
-        // Keep the previous results on transient failure; just clear the spinner
-        // and surface a subtle, non-blocking notice.
         console.error('Live search failed:', err)
         setSearchError(true)
       }
@@ -182,23 +184,29 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
     }
   }, [])
 
-  // Edit filters locally; nothing fetches until the user hits "Search" (or Enter).
+  // Edit text/date/guest filters locally; the fetch happens on "Search"/Enter.
   const updateFilter = useCallback((patch: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...patch }))
   }, [])
 
-  // Explicit search trigger (Search button + Enter in the text fields).
   const submitSearch = useCallback(() => {
     runSearch(filters)
   }, [runSearch, filters])
 
-  // Reset filters back to empty and re-fetch (used by the zero-results state).
+  // Category chips filter instantly (like Airbnb's category bar).
+  const selectType = useCallback((type: string) => {
+    setFilters((prev) => {
+      const next = { ...prev, type }
+      runSearch(next)
+      return next
+    })
+  }, [runSearch])
+
   const clearAll = useCallback(() => {
     setFilters(EMPTY)
     runSearch(EMPTY)
   }, [runSearch])
 
-  // Cleanup in-flight request on unmount.
   useEffect(() => {
     return () => {
       abortRef.current?.abort()
@@ -210,11 +218,10 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
 
   return (
     <>
-      {/* Responsive rules for the inline-styled search bar + results grid.
-          Inline styles can't hold media queries, so the layout-shifting bits
-          carry class names and collapse to a single column on small screens. */}
       <style>{`
-        @media (max-width: 720px) {
+        @keyframes qkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+        @media (max-width: 760px) {
           .qk-search-grid {
             grid-template-columns: 1fr 1fr !important;
           }
@@ -225,43 +232,37 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
           }
         }
         @media (max-width: 440px) {
-          .qk-search-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .qk-results-grid {
-            grid-template-columns: 1fr !important;
-          }
+          .qk-search-grid { grid-template-columns: 1fr !important; }
+          .qk-results-grid { grid-template-columns: 1fr !important; }
         }
 
-        /* Airbnb-style scroll-minimise of the hero search. The collapsing
-           transitions are always defined; the sticky + collapsed state only
-           applies on desktop (>=821px) so the mobile layout is untouched. */
+        /* Category bar — horizontal scroll, hidden scrollbar. */
+        .qk-cats { scrollbar-width: none; -ms-overflow-style: none; }
+        .qk-cats::-webkit-scrollbar { display: none; }
+        .qk-cat { transition: color .16s ease, border-color .16s ease, opacity .16s ease; opacity: .7; }
+        .qk-cat:hover { opacity: 1; }
+        .qk-cat[data-on="true"] { opacity: 1; }
+
+        /* Card hover life. */
+        .qk-card { transition: transform .22s ease, box-shadow .22s ease; will-change: transform; }
+        .qk-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(42,34,32,0.16); }
+        .qk-card:hover .qk-card-img { transform: scale(1.07); }
+        .qk-card-img { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+        .qk-card-cta { transition: background .16s ease; }
+
+        /* Scroll-minimise of the hero copy on desktop. */
         .qk-hero { transition: padding 0.3s ease, box-shadow 0.3s ease; }
-        .qk-hero-headline {
-          overflow: hidden;
-          max-height: 260px;
-          opacity: 1;
-          transition: max-height 0.4s ease, opacity 0.25s ease, margin 0.35s ease;
-        }
+        .qk-hero-headline { overflow: hidden; max-height: 280px; opacity: 1; transition: max-height 0.4s ease, opacity 0.25s ease, margin 0.35s ease; }
         .qk-search-grid { transition: padding 0.3s ease, border-radius 0.3s ease, box-shadow 0.3s ease; }
         @media (min-width: 821px) {
           .qk-hero { position: sticky; top: 0; z-index: 40; }
           .qk-hero[data-scrolled="true"] {
-            padding-top: 12px !important;
-            padding-bottom: 12px !important;
+            padding-top: 10px !important; padding-bottom: 8px !important;
             box-shadow: 0 6px 20px rgba(42, 34, 32, 0.10);
             border-bottom: 1px solid rgba(42, 34, 32, 0.06);
           }
-          .qk-hero[data-scrolled="true"] .qk-hero-headline {
-            max-height: 0;
-            opacity: 0;
-            margin: 0 !important;
-          }
-          .qk-hero[data-scrolled="true"] .qk-search-grid {
-            padding: 10px !important;
-            border-radius: 16px !important;
-            box-shadow: 0 4px 14px rgba(42, 34, 32, 0.12) !important;
-          }
+          .qk-hero[data-scrolled="true"] .qk-hero-headline { max-height: 0; opacity: 0; margin: 0 !important; }
+          .qk-hero[data-scrolled="true"] .qk-search-grid { padding: 10px !important; border-radius: 16px !important; box-shadow: 0 4px 14px rgba(42, 34, 32, 0.12) !important; }
         }
       `}</style>
 
@@ -269,28 +270,42 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
       <section
         className="qk-hero"
         data-scrolled={scrolled ? 'true' : 'false'}
-        style={{ background: COLORS.cream, padding: '36px 24px 8px' }}
+        style={{
+          background: `radial-gradient(1200px 300px at 50% -80px, ${COLORS.tan} 0%, ${COLORS.cream} 62%)`,
+          padding: '34px 24px 12px',
+        }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div className="qk-hero-headline">
+            <div
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                background: 'rgba(91,15,22,0.07)', color: COLORS.burgundy,
+                fontSize: 12.5, fontWeight: 700, letterSpacing: '0.02em',
+                padding: '6px 13px', borderRadius: 999, marginBottom: 14,
+              }}
+            >
+              <Sparkles size={14} /> {t('hero.badge')}
+            </div>
             <h1
               style={{
                 margin: 0,
                 fontFamily: '"Playfair Display", Georgia, serif',
-                fontSize: 'clamp(26px, 4vw, 38px)',
+                fontSize: 'clamp(28px, 4.6vw, 44px)',
                 fontWeight: 700,
                 letterSpacing: '-0.02em',
                 color: COLORS.burgundy,
+                lineHeight: 1.08,
               }}
             >
               {t('hero.title')}
             </h1>
-            <p style={{ margin: '10px 0 24px', fontSize: 15, color: COLORS.muted, maxWidth: 560 }}>
+            <p style={{ margin: '12px 0 22px', fontSize: 15.5, color: COLORS.muted, maxWidth: 580, lineHeight: 1.6 }}>
               {t('hero.subtitle')}
             </p>
           </div>
 
-          {/* Search bar — edits stay local until the user hits Search (or Enter) */}
+          {/* Search bar */}
           <div
             role="search"
             className="qk-search-grid"
@@ -298,18 +313,17 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               background: '#fff',
               borderRadius: 22,
               border: '1px solid rgba(42,34,32,0.08)',
-              boxShadow: '0 8px 28px rgba(42,34,32,0.08)',
+              boxShadow: '0 10px 34px rgba(42,34,32,0.10)',
               padding: 18,
               display: 'grid',
-              gridTemplateColumns:
-                'minmax(160px, 2fr) minmax(220px, 1.8fr) minmax(96px, 0.8fr) auto',
+              gridTemplateColumns: 'minmax(160px, 2fr) minmax(220px, 1.8fr) minmax(96px, 0.8fr) auto',
               gap: 14,
               alignItems: 'end',
             }}
           >
             <div className="qk-search-location">
               <label htmlFor="location" style={labelStyle}>
-                {t('search.locationLabel')}
+                <MapPin size={13} /> {t('search.locationLabel')}
               </label>
               <input
                 id="location"
@@ -334,7 +348,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
             </div>
             <div>
               <label htmlFor="guests" style={labelStyle}>
-                {t('search.guestsLabel')}
+                <Users size={13} /> {t('search.guestsLabel')}
               </label>
               <input
                 id="guests"
@@ -351,8 +365,9 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
             <button
               type="button"
               onClick={submitSearch}
-              className="qk-search-submit"
+              className="qk-search-submit qk-card-cta"
               style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 padding: '12px 26px',
                 fontSize: 15,
                 fontWeight: 700,
@@ -363,17 +378,44 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 borderRadius: 14,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                transition: 'background 0.15s ease',
               }}
             >
-              {t('search.search')}
+              <SearchIcon size={17} /> {t('search.search')}
             </button>
           </div>
 
-          {/* Status row: result count + searching indicator + List/Map toggle */}
+          {/* Property-type category bar */}
+          <div
+            className="qk-cats"
+            style={{
+              display: 'flex',
+              gap: 26,
+              overflowX: 'auto',
+              padding: '16px 2px 6px',
+              marginTop: 6,
+            }}
+          >
+            <CategoryChip
+              label={t('categories.all')}
+              Icon={Sparkles}
+              active={!filters.type}
+              onClick={() => selectType('')}
+            />
+            {PROPERTY_TYPES.map((p) => (
+              <CategoryChip
+                key={p.value}
+                label={tp(p.key)}
+                Icon={p.Icon}
+                active={filters.type.toLowerCase() === p.value.toLowerCase()}
+                onClick={() => selectType(p.value)}
+              />
+            ))}
+          </div>
+
+          {/* Status row: result count + searching + List/Map toggle */}
           <div
             style={{
-              marginTop: 16,
+              marginTop: 8,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -381,11 +423,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               flexWrap: 'wrap',
             }}
           >
-            <div
-              style={{ fontSize: 14, color: COLORS.muted }}
-              aria-live="polite"
-              aria-busy={searching}
-            >
+            <div style={{ fontSize: 14, color: COLORS.muted }} aria-live="polite" aria-busy={searching}>
               {searching ? (
                 <span style={{ color: COLORS.burgundy, fontWeight: 600 }}>{t('results.searching')}</span>
               ) : (
@@ -393,33 +431,16 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               )}
             </div>
 
-            {/* List / Map toggle */}
             <div
               role="tablist"
               aria-label={t('view.toggleLabel')}
-              style={{
-                display: 'inline-flex',
-                background: COLORS.tan,
-                borderRadius: 999,
-                padding: 4,
-                gap: 4,
-              }}
+              style={{ display: 'inline-flex', background: COLORS.tan, borderRadius: 999, padding: 4, gap: 4 }}
             >
-              <ToggleButton
-                label={t('view.list')}
-                active={view === 'list'}
-                onClick={() => setView('list')}
-              />
-              <ToggleButton
-                label={t('view.map')}
-                active={view === 'map'}
-                onClick={() => setView('map')}
-              />
+              <ToggleButton label={t('view.list')} active={view === 'list'} onClick={() => setView('list')} />
+              <ToggleButton label={t('view.map')} active={view === 'map'} onClick={() => setView('map')} />
             </div>
           </div>
 
-          {/* Non-blocking notice if a live search request fails. Previous
-              results stay on screen; this just explains the stale state. */}
           {searchError && (
             <div
               role="status"
@@ -437,24 +458,12 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 gap: 12,
               }}
             >
-              <span>
-                {t('error.refresh')}
-              </span>
+              <span>{t('error.refresh')}</span>
               <button
                 type="button"
                 onClick={() => setSearchError(false)}
                 aria-label={t('error.dismiss')}
-                style={{
-                  appearance: 'none',
-                  border: 'none',
-                  background: 'transparent',
-                  color: COLORS.burgundy,
-                  fontSize: 18,
-                  lineHeight: 1,
-                  cursor: 'pointer',
-                  padding: 0,
-                  flex: '0 0 auto',
-                }}
+                style={{ appearance: 'none', border: 'none', background: 'transparent', color: COLORS.burgundy, fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 0, flex: '0 0 auto' }}
               >
                 ×
               </button>
@@ -463,43 +472,25 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
         </div>
       </section>
 
-      {/* Results: list grid or map */}
+      {/* Results */}
       <section
         style={{
           maxWidth: 1200,
           margin: '0 auto',
           width: '100%',
           boxSizing: 'border-box',
-          padding: '28px 24px 72px',
+          padding: '26px 24px 72px',
           flex: 1,
         }}
       >
         {listings.length === 0 ? (
-          // Empty state takes precedence over the view toggle so a zero-result
-          // search never renders a blank world map — it shows the clear-filters
-          // CTA in both list and map views.
           <div style={{ textAlign: 'center', padding: '64px 24px', color: COLORS.muted }}>
-            <p style={{ margin: 0, fontSize: 20, fontWeight: 600, color: COLORS.ink }}>
-              {t('empty.title')}
-            </p>
-            <p style={{ margin: '8px 0 18px', fontSize: 15 }}>
-              {t('empty.subtitle')}
-            </p>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 600, color: COLORS.ink }}>{t('empty.title')}</p>
+            <p style={{ margin: '8px 0 18px', fontSize: 15 }}>{t('empty.subtitle')}</p>
             <button
               type="button"
               onClick={clearAll}
-              style={{
-                display: 'inline-block',
-                color: '#fff',
-                background: COLORS.burgundy,
-                border: 'none',
-                fontFamily: FONT,
-                fontSize: 15,
-                fontWeight: 600,
-                padding: '10px 22px',
-                borderRadius: 999,
-                cursor: 'pointer',
-              }}
+              style={{ display: 'inline-block', color: '#fff', background: COLORS.burgundy, border: 'none', fontFamily: FONT, fontSize: 15, fontWeight: 600, padding: '10px 22px', borderRadius: 999, cursor: 'pointer' }}
             >
               {t('empty.clearFilters')}
             </button>
@@ -509,109 +500,17 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
         ) : (
           <div
             className="qk-results-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 28,
-            }}
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 28 }}
           >
-            {listings.map((listing) => {
-              const cover = listing.listing_images[0]?.url || FALLBACK_IMG
-              return (
-                <a
-                  key={listing.id}
-                  href={`/explore/${listing.id}`}
-                  style={{
-                    display: 'block',
-                    background: '#fff',
-                    borderRadius: 22,
-                    overflow: 'hidden',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    boxShadow: '0 6px 24px rgba(42,34,32,0.08)',
-                    border: '1px solid rgba(42,34,32,0.05)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {/* Cover */}
-                  <div
-                    style={{
-                      position: 'relative',
-                      width: '100%',
-                      aspectRatio: '4 / 3',
-                      overflow: 'hidden',
-                      background: COLORS.tan,
-                    }}
-                  >
-                    <img
-                      src={cover}
-                      alt={listing.title}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.onerror = null
-                        e.currentTarget.src = FALLBACK_IMG
-                      }}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                    />
-                    {listing.is_guest_favorite && (
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 14,
-                          left: 14,
-                          background: 'rgba(255,255,255,0.94)',
-                          color: COLORS.burgundy,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          letterSpacing: '0.01em',
-                          padding: '6px 12px',
-                          borderRadius: 999,
-                          boxShadow: '0 2px 8px rgba(42,34,32,0.14)',
-                        }}
-                      >
-                        {t('card.guestFavorite')}
-                      </span>
-                    )}
-                    {/* Heart toggle — self-managing; seeded with the saved state
-                        when the server passed the user's saved ids. */}
-                    <span style={{ position: 'absolute', top: 12, right: 12 }}>
-                      <WishlistButton listingId={listing.id} initialSaved={savedSet.has(listing.id)} />
-                    </span>
-                  </div>
-
-                  {/* Body */}
-                  <div style={{ padding: '18px 20px 22px' }}>
-                    <h2
-                      style={{
-                        margin: 0,
-                        fontSize: 18,
-                        fontWeight: 600,
-                        lineHeight: 1.3,
-                        color: COLORS.ink,
-                      }}
-                    >
-                      {listing.title}
-                    </h2>
-                    {listing.location && (
-                      <p style={{ margin: '6px 0 0', fontSize: 14, color: COLORS.muted }}>
-                        {listing.location}
-                      </p>
-                    )}
-                    <p style={{ margin: '14px 0 0', fontSize: 15, color: COLORS.ink }}>
-                      <span style={{ fontWeight: 700, color: COLORS.burgundy }}>
-                        {formatPrice(listing.price_per_night, listing.currency)}
-                      </span>{' '}
-                      <span style={{ color: COLORS.muted }}>{t('card.perNight')}</span>
-                    </p>
-                  </div>
-                </a>
-              )
-            })}
+            {listings.map((listing, i) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                saved={savedSet.has(listing.id)}
+                index={i}
+                t={t}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -619,15 +518,135 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   )
 }
 
-function ToggleButton({
-  label,
-  active,
-  onClick,
+function CategoryChip({
+  label, Icon, active, onClick,
 }: {
   label: string
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; color?: string }>
   active: boolean
   onClick: () => void
 }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-on={active ? 'true' : 'false'}
+      className="qk-cat"
+      style={{
+        appearance: 'none',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: `2px solid ${active ? COLORS.burgundy : 'transparent'}`,
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 7,
+        padding: '4px 2px 10px',
+        minWidth: 62,
+        flex: '0 0 auto',
+        fontFamily: FONT,
+        fontSize: 12,
+        fontWeight: active ? 700 : 600,
+        color: active ? COLORS.burgundy : COLORS.ink,
+      }}
+    >
+      <Icon size={23} strokeWidth={1.7} color={active ? COLORS.burgundy : COLORS.muted} />
+      <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
+    </button>
+  )
+}
+
+function ListingCard({
+  listing, saved, index, t,
+}: {
+  listing: Listing
+  saved: boolean
+  index: number
+  t: ReturnType<typeof useTranslations>
+}) {
+  const cover = listing.listing_images[0]?.url || FALLBACK_IMG
+  const TypeIcon = iconForPropertyType(listing.property_type)
+  return (
+    <a
+      href={`/explore/${listing.id}`}
+      className="qk-card"
+      style={{
+        display: 'block',
+        background: '#fff',
+        borderRadius: 22,
+        overflow: 'hidden',
+        textDecoration: 'none',
+        color: 'inherit',
+        boxShadow: '0 6px 24px rgba(42,34,32,0.08)',
+        border: '1px solid rgba(42,34,32,0.05)',
+        cursor: 'pointer',
+        animation: `qkFadeUp .5s ease both`,
+        animationDelay: `${Math.min(index, 8) * 45}ms`,
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', background: COLORS.tan }}>
+        <img
+          src={cover}
+          alt={listing.title}
+          loading="lazy"
+          className="qk-card-img"
+          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = FALLBACK_IMG }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+        {listing.is_guest_favorite && (
+          <span
+            style={{
+              position: 'absolute', top: 14, left: 14,
+              background: 'rgba(255,255,255,0.94)', color: COLORS.burgundy,
+              fontSize: 12, fontWeight: 600, letterSpacing: '0.01em',
+              padding: '6px 12px', borderRadius: 999,
+              boxShadow: '0 2px 8px rgba(42,34,32,0.14)',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            <Star size={12} fill={COLORS.burgundy} /> {t('card.guestFavorite')}
+          </span>
+        )}
+        <span style={{ position: 'absolute', top: 12, right: 12 }}>
+          <WishlistButton listingId={listing.id} initialSaved={saved} />
+        </span>
+      </div>
+
+      <div style={{ padding: '16px 18px 20px' }}>
+        <h2 style={{ margin: 0, fontSize: 17.5, fontWeight: 600, lineHeight: 1.3, color: COLORS.ink }}>
+          {listing.title}
+        </h2>
+        {listing.location && (
+          <p style={{ margin: '6px 0 0', fontSize: 13.5, color: COLORS.muted, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <MapPin size={13} /> {listing.location}
+          </p>
+        )}
+        {listing.property_type && (
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 10,
+              background: COLORS.cream, color: COLORS.ink,
+              fontSize: 12, fontWeight: 600,
+              padding: '4px 10px', borderRadius: 999,
+            }}
+          >
+            <TypeIcon size={13} strokeWidth={1.8} color={COLORS.burgundy} /> {listing.property_type}
+          </span>
+        )}
+        <p style={{ margin: '12px 0 0', fontSize: 15, color: COLORS.ink }}>
+          <span style={{ fontWeight: 700, color: COLORS.burgundy, fontSize: 17 }}>
+            {formatPrice(listing.price_per_night, listing.currency)}
+          </span>{' '}
+          <span style={{ color: COLORS.muted }}>{t('card.perNight')}</span>
+        </p>
+      </div>
+    </a>
+  )
+}
+
+function ToggleButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"

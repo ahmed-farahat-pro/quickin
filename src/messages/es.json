@@ -1400,7 +1400,8 @@
     },
     "hero": {
       "title": "Encuentra tu próximo alojamiento boutique",
-      "subtitle": "Una colección cuidada de casas seleccionadas a mano — desde villas junto al lago hasta refugios en el desierto."
+      "subtitle": "Una colección cuidada de casas seleccionadas a mano — desde villas junto al lago hasta refugios en el desierto.",
+      "badge": "Alojamientos boutique seleccionados"
     },
     "search": {
       "locationLabel": "Ubicación",
@@ -1442,7 +1443,8 @@
         "title": "Ayuda",
         "helpCenter": "Centro de ayuda",
         "cancellation": "Opciones de cancelación",
-        "safetyInfo": "Información de seguridad"
+        "safetyInfo": "Información de seguridad",
+        "contact": "Contáctanos"
       },
       "hosting": {
         "title": "Anfitriones",
@@ -1456,12 +1458,21 @@
         "careers": "Empleo",
         "press": "Prensa"
       },
-      "copyright": "© 2026 QuickIn. Creado para el viajero curioso."
+      "copyright": "© 2026 QuickIn. Creado para el viajero curioso.",
+      "legal": {
+        "terms": "Términos",
+        "privacy": "Privacidad",
+        "sitemap": "Mapa del sitio"
+      },
+      "whatsapp": "Chatear por WhatsApp"
     },
     "notFound": {
       "title": "Este alojamiento se te escapó",
       "description": "No pudimos encontrar la casa que buscabas. Puede que la hayan reservado, pausado o trasladado — pero hay muchas más por descubrir.",
       "browseStays": "Explorar alojamientos"
+    },
+    "categories": {
+      "all": "Todo"
     }
   },
   "listingPage": {

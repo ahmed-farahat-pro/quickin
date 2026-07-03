@@ -1400,7 +1400,8 @@
     },
     "hero": {
       "title": "Find your next boutique stay",
-      "subtitle": "A curated collection of hand-picked homes — from lakeside villas to desert hideaways."
+      "subtitle": "A curated collection of hand-picked homes — from lakeside villas to desert hideaways.",
+      "badge": "Handpicked boutique stays"
     },
     "search": {
       "locationLabel": "Location",
@@ -1442,7 +1443,8 @@
         "title": "Support",
         "helpCenter": "Help center",
         "cancellation": "Cancellation options",
-        "safetyInfo": "Safety info"
+        "safetyInfo": "Safety info",
+        "contact": "Contact us"
       },
       "hosting": {
         "title": "Hosting",
@@ -1456,12 +1458,21 @@
         "careers": "Careers",
         "press": "Press"
       },
-      "copyright": "© 2026 QuickIn. Crafted for the curious traveler."
+      "copyright": "© 2026 QuickIn. Crafted for the curious traveler.",
+      "legal": {
+        "terms": "Terms",
+        "privacy": "Privacy",
+        "sitemap": "Sitemap"
+      },
+      "whatsapp": "Chat on WhatsApp"
     },
     "notFound": {
       "title": "This stay slipped away",
       "description": "We couldn't find the home you were looking for. It may have been booked, paused, or moved — but there are plenty more to discover.",
       "browseStays": "Browse stays"
+    },
+    "categories": {
+      "all": "All"
     }
   },
   "listingPage": {

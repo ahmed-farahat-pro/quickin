@@ -1400,7 +1400,8 @@
     },
     "hero": {
       "title": "Trouvez votre prochain séjour de charme",
-      "subtitle": "Une collection soignée de logements triés sur le volet — des villas au bord d'un lac aux refuges dans le désert."
+      "subtitle": "Une collection soignée de logements triés sur le volet — des villas au bord d'un lac aux refuges dans le désert.",
+      "badge": "Séjours boutique triés sur le volet"
     },
     "search": {
       "locationLabel": "Lieu",
@@ -1442,7 +1443,8 @@
         "title": "Assistance",
         "helpCenter": "Centre d'aide",
         "cancellation": "Options d'annulation",
-        "safetyInfo": "Informations de sécurité"
+        "safetyInfo": "Informations de sécurité",
+        "contact": "Contactez-nous"
       },
       "hosting": {
         "title": "Hébergement",
@@ -1456,12 +1458,21 @@
         "careers": "Carrières",
         "press": "Presse"
       },
-      "copyright": "© 2026 QuickIn. Conçu pour le voyageur curieux."
+      "copyright": "© 2026 QuickIn. Conçu pour le voyageur curieux.",
+      "legal": {
+        "terms": "Conditions",
+        "privacy": "Confidentialité",
+        "sitemap": "Plan du site"
+      },
+      "whatsapp": "Discuter sur WhatsApp"
     },
     "notFound": {
       "title": "Ce séjour vous a échappé",
       "description": "Nous n'avons pas trouvé le logement que vous cherchiez. Il a peut-être été réservé, mis en pause ou déplacé — mais il y en a beaucoup d'autres à découvrir.",
       "browseStays": "Parcourir les séjours"
+    },
+    "categories": {
+      "all": "Tout"
     }
   },
   "listingPage": {

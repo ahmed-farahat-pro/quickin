@@ -256,9 +256,6 @@ export function Footer({ config }: FooterProps)
 
             <div className='flex items-center gap-4'>
               <LocaleSwitcher className='flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors' />
-              <button className='text-sm font-medium text-muted-foreground hover:text-foreground transition-colors'>
-                {t('currency')}
-              </button>
             </div>
           </div>
         </div>

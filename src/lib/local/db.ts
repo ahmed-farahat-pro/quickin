@@ -57,6 +57,7 @@ export interface SearchFilters {
   guests?: number
   checkIn?: string
   checkOut?: string
+  type?: string
 }
 
 export interface Booking {
@@ -96,6 +97,10 @@ export async function getListings(filters: SearchFilters = {}): Promise<Listing[
   if (filters.location && filters.location.trim()) {
     params.push('%' + filters.location.trim() + '%')
     where.push(`l.location ILIKE $${params.length}`)
+  }
+  if (filters.type && filters.type.trim()) {
+    params.push(filters.type.trim())
+    where.push(`lower(l.property_type) = lower($${params.length})`)
   }
   // Clamp guests to a sane range so a non-finite / absurd value (e.g. an
   // integer-overflow string) can't reach Postgres and blow up the int comparison.

@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       guests: url.searchParams.get('guests') ? Number(url.searchParams.get('guests')) : undefined,
       checkIn: url.searchParams.get('checkIn') || undefined,
       checkOut: url.searchParams.get('checkOut') || undefined,
+      type: url.searchParams.get('type') || undefined,
     })
     return NextResponse.json(listings, {
       headers: {

@@ -122,10 +122,10 @@
     "goHome": "العودة للصفحة الرئيسية"
   },
   "chat": {
-    "title": "كويك إن AI",
+    "title": "الدردشة مع",
     "poweredBy": "مدعوم بواسطة Gemini",
     "welcome": "مرحبًا! أنا مساعد كويك إن. يمكنني مساعدتك في العثور على الإقامة المناسبة، والإجابة عن أسئلة العروض، وتقديم اقتراحات سفر. كيف يمكنني مساعدتك اليوم؟",
-    "placeholder": "اسألني أي شيء...",
+    "placeholder": "اكتب رسالة…",
     "suggested": {
       "beach": "اعثر على أماكن مطلة على الشاطئ",
       "included": "ما الذي يتضمنه هذا العرض؟",
@@ -136,7 +136,21 @@
     "fallbackError": "عذرًا، حدث خطأ ما.",
     "ariaOpenChat": "فتح الدردشة",
     "ariaCloseChat": "إغلاق الدردشة",
-    "ariaSendMessage": "إرسال الرسالة"
+    "ariaSendMessage": "إرسال الرسالة",
+    "needsLogin": "يرجى تسجيل الدخول للدردشة مع المضيف.",
+    "logIn": "تسجيل الدخول",
+    "loading": "جارٍ التحميل…",
+    "empty": "لا رسائل بعد — ابدأ بالتحية!",
+    "send": "إرسال",
+    "guardNote": "لأمانك، أبقِ المحادثات داخل QuickIn. يتم إخفاء أرقام الهواتف والروابط.",
+    "messageHost": "مراسلة المضيف",
+    "host": "المضيف",
+    "close": "إغلاق",
+    "backToExplore": "العودة إلى الاستكشاف",
+    "inboxTitle": "الرسائل",
+    "noThreads": "لا محادثات بعد.",
+    "pickThread": "اختر محادثة لقراءتها.",
+    "asHost": "مضيف"
   },
   "bookingPage": {
     "title": "تأكيد الطلب",
@@ -1380,7 +1394,9 @@
       "noNotifications": "لا توجد إشعارات بعد",
       "trips": "الرحلات",
       "saved": "المحفوظات",
-      "account": "الحساب"
+      "account": "الحساب",
+      "messages": "الرسائل",
+      "contact": "اتصل بنا"
     },
     "hero": {
       "title": "اعثر على إقامة البوتيك التالية",
@@ -1392,7 +1408,8 @@
       "checkInLabel": "تسجيل الوصول",
       "checkOutLabel": "تسجيل المغادرة",
       "guestsLabel": "الضيوف",
-      "clear": "مسح"
+      "clear": "مسح",
+      "search": "بحث"
     },
     "results": {
       "countFound": "{count, plural, one {تم العثور على إقامة #} other {تم العثور على # إقامات}}",
@@ -1504,7 +1521,14 @@
     },
     "decrease": "إنقاص {label}",
     "increase": "زيادة {label}",
-    "hostedBy": "يستضيفك"
+    "hostedBy": "يستضيفك",
+    "whereYoullBe": "أين ستقيم",
+    "approxLocation": "موقع تقريبي — تتم مشاركة العنوان الدقيق بعد تأكيد الحجز.",
+    "hostType": {
+      "individual": "فرد",
+      "company": "شركة",
+      "brokerage": "وساطة عقارية"
+    }
   },
   "loginLocal": {
     "subtitle": "أهلاً بعودتك — سجّل الدخول للمتابعة",
@@ -1910,14 +1934,18 @@
         "bathrooms": "الحمّامات",
         "maxGuests": "الحد الأقصى للضيوف",
         "propertyType": "نوع العقار",
-        "photos": "روابط الصور"
+        "photos": "روابط الصور",
+        "pinLocation": "حدّد الموقع على الخريطة",
+        "weekendPrice": "سعر نهاية الأسبوع (اختياري)",
+        "weekendDays": "ما هي أيام نهاية الأسبوع؟"
       },
       "placeholders": {
         "title": "شقة مشمسة على ضفاف النيل",
         "description": "ما الذي يميّز مكانك؟",
         "location": "الزمالك، القاهرة",
         "country": "مصر",
-        "photos": "رابط واحد في كل سطر، أو مفصولة بفواصل\nhttps://images.unsplash.com/photo-..."
+        "photos": "رابط واحد في كل سطر، أو مفصولة بفواصل\nhttps://images.unsplash.com/photo-...",
+        "weekendPrice": "مثال: 1500"
       },
       "propertyTypes": {
         "apartment": "شقة",
@@ -1938,8 +1966,26 @@
         "titleRequired": "يرجى إعطاء قائمتك عنوانًا.",
         "priceInvalid": "يرجى إدخال سعر صحيح لكل ليلة.",
         "invalidImageUrl": "لا يبدو رابط الصورة هذا رابطًا صالحًا: {url}",
-        "createFailed": "تعذّر إنشاء القائمة"
-      }
+        "createFailed": "تعذّر إنشاء القائمة",
+        "tooManyPhotos": "يمكنك رفع حتى {max} صور.",
+        "photoFailed": "تعذّرت معالجة الصورة. جرّب صورة أخرى."
+      },
+      "pinHint": "انقر على الخريطة لتحديد الموقع. يرى الضيوف منطقة تقريبية وليس العنوان الدقيق.",
+      "pinSet": "تم التحديد عند {lat}، {lng}. انقر مجددًا لتغييره.",
+      "weekdays": {
+        "sun": "أحد",
+        "mon": "إثنين",
+        "tue": "ثلاثاء",
+        "wed": "أربعاء",
+        "thu": "خميس",
+        "fri": "جمعة",
+        "sat": "سبت"
+      },
+      "photosCta": "إضافة صور",
+      "photosProcessing": "جارٍ المعالجة…",
+      "photosCount": "{count} من {max} صور",
+      "photosCover": "الغلاف",
+      "photosRemove": "حذف الصورة"
     }
   },
   "hostApply": {
@@ -1958,7 +2004,10 @@
       "company": "الشركة / الوساطة",
       "companyOptional": "الشركة / الوساطة (اختياري)",
       "notes": "ملاحظات",
-      "notesOptional": "ملاحظات (اختياري)"
+      "notesOptional": "ملاحظات (اختياري)",
+      "hostType": "هل أنت فرد أم شركة أم وساطة عقارية؟",
+      "companyName": "اسم الشركة",
+      "brokerageName": "اسم مكتب الوساطة"
     },
     "placeholders": {
       "fullName": "اسمك",
@@ -1988,6 +2037,14 @@
       "title": "تم إرسال الطلب",
       "body": "شكرًا لتقديم طلبك. سيراجع فريقنا طلبك ويخطرك فور الموافقة عليك.",
       "backToAccount": "العودة إلى الحساب"
+    },
+    "hostTypes": {
+      "individual": "فرد",
+      "company": "شركة",
+      "brokerage": "وساطة عقارية"
     }
+  },
+  "contact": {
+    "whatsappAria": "تواصل معنا عبر واتساب"
   }
 }

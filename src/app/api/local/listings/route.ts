@@ -9,11 +9,13 @@ import { getUserFromRequest } from '@/lib/local/auth'
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 
-/** True only for well-formed http(s) URLs — keeps garbage/non-image entries out. */
-function isHttpUrl(value: unknown): boolean {
+/** Accepts http(s) image URLs or inline base64 image data URLs (device uploads). */
+function isImageSrc(value: unknown): boolean {
   if (typeof value !== 'string') return false
+  const v = value.trim()
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(v)) return true
   try {
-    const u = new URL(value.trim())
+    const u = new URL(v)
     return u.protocol === 'http:' || u.protocol === 'https:'
   } catch {
     return false
@@ -51,12 +53,20 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null)
     if (!body) return NextResponse.json({ error: 'Invalid request body' }, { status: 400, headers: CORS })
     const num = (v: unknown) => (v === undefined || v === null || v === '' ? undefined : Number(v))
+    // Weekend days: keep only valid 0..6 integers.
+    const weekendDays = Array.isArray(body.weekend_days)
+      ? body.weekend_days.map((d: unknown) => Math.floor(Number(d))).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6)
+      : undefined
     const listing = await createListing(user.id, {
       title: String(body.title ?? ''),
       description: body.description ?? undefined,
       location: body.location ?? undefined,
       country: body.country ?? undefined,
+      lat: num(body.lat),
+      lng: num(body.lng),
       price_per_night: Number(body.price_per_night),
+      weekend_price: num(body.weekend_price),
+      weekend_days: weekendDays && weekendDays.length ? weekendDays : undefined,
       currency: body.currency ?? undefined,
       bedrooms: num(body.bedrooms),
       beds: num(body.beds),
@@ -64,7 +74,7 @@ export async function POST(req: Request) {
       max_guests: num(body.max_guests),
       property_type: body.property_type ?? undefined,
       images: Array.isArray(body.images)
-        ? body.images.filter(isHttpUrl).map((u: string) => u.trim())
+        ? body.images.filter(isImageSrc).map((u: string) => u.trim())
         : undefined,
     })
     return NextResponse.json({ listing }, { status: 201, headers: CORS })

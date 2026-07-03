@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import type { Listing } from '@/lib/local/db'
+import { approxLatLng } from '@/lib/geo'
 
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1200&q=80'
@@ -166,16 +167,22 @@ export default function GoogleListingsMap({
   const infoRef = useRef<GInfoWindow | null>(null)
   const markersRef = useRef<GMarkerLike[]>([])
 
-  // Only listings with real coordinates can be placed on the map.
+  // Only listings with real coordinates can be placed on the map. Coordinates
+  // are coarsened (approxLatLng) so pins show the neighbourhood, not the address.
   const points = useMemo<GeoListing[]>(
     () =>
-      listings.filter(
-        (l): l is GeoListing =>
-          typeof l.lat === 'number' &&
-          typeof l.lng === 'number' &&
-          Number.isFinite(l.lat) &&
-          Number.isFinite(l.lng)
-      ),
+      listings
+        .filter(
+          (l): l is GeoListing =>
+            typeof l.lat === 'number' &&
+            typeof l.lng === 'number' &&
+            Number.isFinite(l.lat) &&
+            Number.isFinite(l.lng)
+        )
+        .map((l) => {
+          const c = approxLatLng(l.lat, l.lng)
+          return { ...l, lat: c.lat, lng: c.lng }
+        }),
     [listings]
   )
 

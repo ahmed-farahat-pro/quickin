@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getListingById, getListingReviews } from '@/lib/local/db'
 import ReservePanel from './reserve-panel'
+import MessageHostButton from './message-host-button'
+import ListingLocationMap from './listing-location-map-client'
 import WishlistButton from '../wishlist-button'
 import { FallbackImg } from '../explore-client'
 
@@ -304,10 +306,35 @@ export default async function ListingDetailPage({
                 <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600 }}>
                   {t('hostedBy')}
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink }}>
-                  {listing.host_name}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink }}>
+                    {listing.host_company?.trim() || listing.host_name}
+                  </span>
+                  {(listing.host_type === 'company' || listing.host_type === 'brokerage') && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.03em',
+                        textTransform: 'uppercase',
+                        color: COLORS.burgundy,
+                        background: COLORS.tan,
+                        borderRadius: 999,
+                        padding: '3px 9px',
+                      }}
+                    >
+                      {t(`hostType.${listing.host_type}`)}
+                    </span>
+                  )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Contact the host before booking */}
+          {listing.host_id && (
+            <div style={{ marginTop: 14 }}>
+              <MessageHostButton listingId={listing.id} hostName={listing.host_company?.trim() || listing.host_name || ''} />
             </div>
           )}
         </div>
@@ -367,6 +394,19 @@ export default async function ListingDetailPage({
               </div>
             )}
 
+            {/* Approximate location — a circle over a coarsened point, not a pin */}
+            {typeof listing.lat === 'number' && typeof listing.lng === 'number' && (
+              <div style={{ marginTop: 26 }}>
+                <h2 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
+                  {t('whereYoullBe')}
+                </h2>
+                <ListingLocationMap lat={listing.lat} lng={listing.lng} />
+                <p style={{ margin: '8px 0 0', fontSize: 13, color: COLORS.muted }}>
+                  {t('approxLocation')}
+                </p>
+              </div>
+            )}
+
             {/* Guest reviews */}
             <div style={{ marginTop: 26 }}>
               <h2 style={{ margin: '0 0 12px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
@@ -413,6 +453,8 @@ export default async function ListingDetailPage({
             <ReservePanel
               listingId={listing.id}
               pricePerNight={listing.price_per_night}
+              weekendPrice={listing.weekend_price}
+              weekendDays={listing.weekend_days}
               currency={listing.currency}
               maxGuests={listing.max_guests}
             />

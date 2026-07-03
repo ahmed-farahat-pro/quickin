@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { formatPrice } from '@/lib/utils'
+import { stayQuote } from '@/lib/geo'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 
 const COLORS = {
@@ -32,23 +33,18 @@ type Status =
   | { kind: 'error'; message: string }
   | { kind: 'success'; nights: number; total: number }
 
-function nightsBetween(checkIn: string, checkOut: string): number {
-  if (!checkIn || !checkOut) return 0
-  const a = new Date(checkIn + 'T00:00:00')
-  const b = new Date(checkOut + 'T00:00:00')
-  const ms = b.getTime() - a.getTime()
-  if (!Number.isFinite(ms) || ms <= 0) return 0
-  return Math.round(ms / (1000 * 60 * 60 * 24))
-}
-
 export default function ReservePanel({
   listingId,
   pricePerNight,
+  weekendPrice,
+  weekendDays,
   currency,
   maxGuests,
 }: {
   listingId: string
   pricePerNight: number
+  weekendPrice?: number | null
+  weekendDays?: number[] | null
   currency: string
   maxGuests: number | null
 }) {
@@ -62,8 +58,8 @@ export default function ReservePanel({
   const guests = adults + children // total headcount (infants/pets don't count)
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
-  const nights = nightsBetween(checkIn, checkOut)
-  const total = nights * pricePerNight
+  const { nights, total } = stayQuote(checkIn, checkOut, pricePerNight, weekendPrice, weekendDays)
+  const weekendActive = typeof weekendPrice === 'number' && weekendPrice > 0 && !!weekendDays && weekendDays.length > 0
 
   async function handleReserve() {
     setStatus({ kind: 'loading' })
@@ -93,7 +89,7 @@ export default function ReservePanel({
       if (res.status === 201) {
         setStatus({
           kind: 'success',
-          nights: data.total_price && pricePerNight ? Math.round(data.total_price / pricePerNight) : nights,
+          nights,
           total: typeof data.total_price === 'number' ? data.total_price : total,
         })
         return
@@ -178,7 +174,9 @@ export default function ReservePanel({
           }}
         >
           <span>
-            {formatPrice(pricePerNight, currency)} × {t('nightsCount', { nights })}
+            {weekendActive
+              ? t('nightsCount', { nights })
+              : `${formatPrice(pricePerNight, currency)} × ${t('nightsCount', { nights })}`}
           </span>
           <span style={{ fontWeight: 700 }}>{formatPrice(total, currency)}</span>
         </div>

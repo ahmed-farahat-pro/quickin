@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid body' }, { status: 400, headers: CORS })
     const out = await submitHostApplication(me.id, {
       full_name: body.full_name, national_id: body.national_id, phone: body.phone,
-      address: body.address, company: body.company, notes: body.notes,
+      address: body.address, company: body.company, notes: body.notes, host_type: body.host_type,
     })
     return NextResponse.json({ ok: true, ...out }, { headers: CORS })
   } catch (err) {

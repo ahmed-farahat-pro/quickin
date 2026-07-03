@@ -107,6 +107,7 @@ type Verification = {
   status?: string | null
   image_data?: string | null
   back_image_data?: string | null
+  selfie_image_data?: string | null
   submitted_at?: string | null
 }
 
@@ -1081,7 +1082,7 @@ export default function OpsPage() {
                       </div>
                     ) : null}
                   </div>
-                  {v.image_data || v.back_image_data ? (
+                  {v.image_data || v.back_image_data || v.selfie_image_data ? (
                     <div
                       style={{
                         display: 'flex',
@@ -1114,6 +1115,23 @@ export default function OpsPage() {
                           <img
                             src={v.back_image_data}
                             alt="ID back"
+                            style={{
+                              maxHeight: 160,
+                              maxWidth: '100%',
+                              borderRadius: 12,
+                              border: `1px solid ${TAN}`,
+                              display: 'block',
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {v.selfie_image_data ? (
+                        <div>
+                          <div style={labelStyle}>Selfie</div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={v.selfie_image_data}
+                            alt="Personal photo"
                             style={{
                               maxHeight: 160,
                               maxWidth: '100%',

@@ -43,23 +43,27 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null)
     if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: CORS })
 
-    // FRONT: prefer { front }; fall back to legacy { doc } / { image } (front-only). BACK: { back } (optional).
+    // FRONT: prefer { front }; fall back to legacy { doc } / { image } (front-only). BACK + SELFIE optional.
     const frontRaw: string = body.front || body.doc || body.image || ''
     const backRaw: string = body.back || ''
+    const selfieRaw: string = body.selfie || ''
     if (!frontRaw || frontRaw.length < 100) {
       return NextResponse.json({ error: 'front (ID image) is required' }, { status: 400, headers: CORS })
     }
     // Normalize each to a data URL so the admin can render it directly in an <img>.
-    const front = frontRaw.startsWith('data:') ? frontRaw : `data:image/jpeg;base64,${frontRaw}`
-    const back = backRaw ? (backRaw.startsWith('data:') ? backRaw : `data:image/jpeg;base64,${backRaw}`) : null
+    const toDataUrl = (s: string) => (s.startsWith('data:') ? s : `data:image/jpeg;base64,${s}`)
+    const front = toDataUrl(frontRaw)
+    const back = backRaw ? toDataUrl(backRaw) : null
+    const selfie = selfieRaw ? toDataUrl(selfieRaw) : null
     // Guard against runaway payloads (base64 of a ~5 MB image ≈ 6.7 MB).
-    if (front.length > 9_000_000 || (back && back.length > 9_000_000)) {
+    if (front.length > 9_000_000 || (back && back.length > 9_000_000) || (selfie && selfie.length > 9_000_000)) {
       return NextResponse.json({ error: 'Image too large; please use a smaller photo' }, { status: 413, headers: CORS })
     }
     const v = await submitVerification({
       userId: user.id,
       imageData: front,
       backImageData: back,
+      selfieImageData: selfie,
       idNumber: body.id_number || body.idNumber || null,
       fullName: body.full_name || body.fullName || null,
       source: 'manual',

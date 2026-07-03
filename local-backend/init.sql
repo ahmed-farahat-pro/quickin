@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS listings (
   location          text,
   country           text,
   price_per_night   numeric NOT NULL,
+  weekend_price     numeric,                           -- optional per-night price on weekend_days
+  weekend_days      smallint[],                        -- which days are "weekend" (0=Sun … 6=Sat)
   currency          text DEFAULT 'USD',
   bedrooms          int DEFAULT 1,
   beds              int DEFAULT 1,
@@ -47,6 +49,8 @@ CREATE TABLE IF NOT EXISTS users (
   fcm_token     text,
   push_platform text,
   is_host       boolean NOT NULL DEFAULT false,  -- one account; becomes a host in-app
+  host_type     text,                            -- 'individual' | 'company' | 'brokerage' (set on host apply/approve)
+  company       text,                            -- company/brokerage display name
   email_verified boolean NOT NULL DEFAULT false, -- email OTP gate (social accounts -> true)
   created_at    timestamptz DEFAULT now()
 );
@@ -107,6 +111,7 @@ CREATE TABLE IF NOT EXISTS id_verifications (
   user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   image_data   text NOT NULL,                       -- FRONT of the ID (data:image/jpeg;base64,...)
   back_image_data text,                             -- BACK of the ID (data:image/jpeg;base64,...)
+  selfie_image_data text,                           -- PERSONAL/SELFIE photo (data:image/jpeg;base64,...)
   id_number    text,                                -- 14-digit national ID, if known
   full_name    text,
   source       text NOT NULL DEFAULT 'manual',      -- 'manual' | 'structocr'
@@ -187,6 +192,29 @@ CREATE TABLE IF NOT EXISTS host_applications (
   UNIQUE (user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_host_apps_status ON host_applications(status);
+
+-- Pre-booking chat. One conversation thread per (listing, guest); the host is the
+-- listing owner. Messages belong to a thread. Polled by the web client.
+CREATE TABLE IF NOT EXISTS conversations (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id      uuid REFERENCES listings(id) ON DELETE CASCADE,
+  guest_id        uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  host_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at      timestamptz DEFAULT now(),
+  last_message_at timestamptz DEFAULT now(),
+  UNIQUE (listing_id, guest_id)
+);
+CREATE INDEX IF NOT EXISTS conversations_guest_idx ON conversations (guest_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS conversations_host_idx  ON conversations (host_id, last_message_at DESC);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body            text NOT NULL,
+  created_at      timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages (conversation_id, created_at);
 
 -- ---- Seed listings (only if the table is empty) -----------------------------
 DO $$

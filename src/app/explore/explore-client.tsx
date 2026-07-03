@@ -121,13 +121,6 @@ function buildQuery(f: Filters): string {
 
 const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '' }
 
-// Today as YYYY-MM-DD (local) for date-input min attributes.
-function todayISO(): string {
-  const d = new Date()
-  const tz = d.getTimezoneOffset() * 60000
-  return new Date(d.getTime() - tz).toISOString().slice(0, 10)
-}
-
 export default function ExploreClient({ initialListings, initialFilters, savedIds }: Props) {
   const t = useTranslations('explorePage')
   const savedSet = useMemo(() => new Set(savedIds ?? []), [savedIds])
@@ -152,7 +145,6 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   // first fetch (the server already rendered that exact result set).
   const lastQueryRef = useRef<string>(buildQuery(initialFilters))
   const abortRef = useRef<AbortController | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const runSearch = useCallback(async (f: Filters) => {
     const query = buildQuery(f)
@@ -190,45 +182,31 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
     }
   }, [])
 
-  // Debounce location typing (~300ms); fire dates/guests immediately.
-  const updateFilter = useCallback(
-    (patch: Partial<Filters>, opts?: { debounce?: boolean }) => {
-      setFilters((prev) => {
-        const next = { ...prev, ...patch }
-        if (debounceRef.current) clearTimeout(debounceRef.current)
-        if (opts?.debounce) {
-          debounceRef.current = setTimeout(() => runSearch(next), 300)
-        } else {
-          runSearch(next)
-        }
-        return next
-      })
-    },
-    [runSearch]
-  )
+  // Edit filters locally; nothing fetches until the user hits "Search" (or Enter).
+  const updateFilter = useCallback((patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }))
+  }, [])
 
+  // Explicit search trigger (Search button + Enter in the text fields).
+  const submitSearch = useCallback(() => {
+    runSearch(filters)
+  }, [runSearch, filters])
+
+  // Reset filters back to empty and re-fetch (used by the zero-results state).
   const clearAll = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
     setFilters(EMPTY)
     runSearch(EMPTY)
   }, [runSearch])
 
-  // Cleanup timers/requests on unmount.
+  // Cleanup in-flight request on unmount.
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
       abortRef.current?.abort()
     }
   }, [])
 
-  const hasFilters = useMemo(
-    () => Boolean(buildQuery(filters)),
-    [filters]
-  )
-
   const count = listings.length
   const countLabel = t('results.countFound', { count })
-  const today = todayISO()
 
   return (
     <>
@@ -242,7 +220,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
           }
           .qk-search-grid .qk-search-location,
           .qk-search-grid .qk-search-dates,
-          .qk-search-grid .qk-search-clear {
+          .qk-search-grid .qk-search-submit {
             grid-column: 1 / -1 !important;
           }
         }
@@ -312,7 +290,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
             </p>
           </div>
 
-          {/* Live search (no submit needed — filters as you type) */}
+          {/* Search bar — edits stay local until the user hits Search (or Enter) */}
           <div
             role="search"
             className="qk-search-grid"
@@ -340,7 +318,8 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 placeholder={t('search.locationPlaceholder')}
                 autoComplete="off"
                 value={filters.location}
-                onChange={(e) => updateFilter({ location: e.target.value }, { debounce: true })}
+                onChange={(e) => updateFilter({ location: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitSearch() }}
                 style={inputStyle}
               />
             </div>
@@ -365,29 +344,29 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 placeholder="1"
                 value={filters.guests}
                 onChange={(e) => updateFilter({ guests: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitSearch() }}
                 style={inputStyle}
               />
             </div>
             <button
               type="button"
-              onClick={clearAll}
-              disabled={!hasFilters}
-              className="qk-search-clear"
+              onClick={submitSearch}
+              className="qk-search-submit"
               style={{
                 padding: '12px 26px',
                 fontSize: 15,
                 fontWeight: 700,
                 fontFamily: FONT,
-                color: hasFilters ? '#fff' : COLORS.muted,
-                background: hasFilters ? COLORS.burgundy : COLORS.tan,
+                color: '#fff',
+                background: COLORS.burgundy,
                 border: 'none',
                 borderRadius: 14,
-                cursor: hasFilters ? 'pointer' : 'default',
+                cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'background 0.15s ease',
               }}
             >
-              {t('search.clear')}
+              {t('search.search')}
             </button>
           </div>
 

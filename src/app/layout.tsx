@@ -10,6 +10,7 @@ import { getMessages } from '@/i18n/messages'
 import { getRequestLocale } from '@/i18n/request-locale'
 import { AppDirectionProvider } from '@/components/providers/app-direction-provider'
 import { AuthNotification } from '@/components/features/auth/auth-notification'
+import WhatsAppFab from "@/components/whatsapp-fab";
 import { getBaseUrl } from "@/lib/utils";
 
 // Body fonts
@@ -125,6 +126,7 @@ async function RootLayoutInner({
             <GlobalLoadingBar />
             <AuthNotification />
             {children}
+            <WhatsAppFab />
             <Toaster position="top-center" />
           </AppDirectionProvider>
         </NextIntlClientProvider>

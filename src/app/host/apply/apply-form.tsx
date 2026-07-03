@@ -43,11 +43,13 @@ export function ApplyForm({ initialName }: { initialName: string }) {
   const t = useTranslations('hostApply')
 
   const [fullName, setFullName] = useState(initialName)
+  const [hostType, setHostType] = useState<'individual' | 'company' | 'brokerage'>('individual')
   const [nationalId, setNationalId] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [company, setCompany] = useState('')
   const [notes, setNotes] = useState('')
+  const isBusiness = hostType === 'company' || hostType === 'brokerage'
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,10 +80,11 @@ export function ApplyForm({ initialName }: { initialName: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           full_name: fullName.trim() || undefined,
+          host_type: hostType,
           national_id: nationalId.trim(),
           phone: phone.trim(),
           address: address.trim(),
-          company: company.trim() || undefined,
+          company: isBusiness ? company.trim() || undefined : undefined,
           notes: notes.trim() || undefined,
         }),
       })
@@ -168,6 +171,36 @@ export function ApplyForm({ initialName }: { initialName: string }) {
       }}
     >
       <div style={fieldWrap}>
+        <label style={label}>{t('fields.hostType')}</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(['individual', 'company', 'brokerage'] as const).map((ht) => {
+            const on = hostType === ht
+            return (
+              <button
+                key={ht}
+                type="button"
+                onClick={() => setHostType(ht)}
+                aria-pressed={on}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 999,
+                  fontSize: 13.5,
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  border: `1px solid ${on ? C.burgundy : 'rgba(42,34,32,0.16)'}`,
+                  background: on ? C.burgundy : '#fff',
+                  color: on ? '#fff' : C.ink,
+                }}
+              >
+                {t(`hostTypes.${ht}`)}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div style={fieldWrap}>
         <label style={label} htmlFor="apply-name">{t('fields.fullName')}</label>
         <input
           id="apply-name"
@@ -224,17 +257,21 @@ export function ApplyForm({ initialName }: { initialName: string }) {
         />
       </div>
 
-      <div style={fieldWrap}>
-        <label style={label} htmlFor="apply-company">{t('fields.companyOptional')}</label>
-        <input
-          id="apply-company"
-          style={input}
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          placeholder={t('placeholders.company')}
-          autoComplete="organization"
-        />
-      </div>
+      {isBusiness && (
+        <div style={fieldWrap}>
+          <label style={label} htmlFor="apply-company">
+            {hostType === 'brokerage' ? t('fields.brokerageName') : t('fields.companyName')}
+          </label>
+          <input
+            id="apply-company"
+            style={input}
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder={t('placeholders.company')}
+            autoComplete="organization"
+          />
+        </div>
+      )}
 
       <div style={fieldWrap}>
         <label style={label} htmlFor="apply-notes">{t('fields.notesOptional')}</label>

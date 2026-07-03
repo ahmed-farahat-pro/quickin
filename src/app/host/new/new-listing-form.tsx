@@ -2,10 +2,15 @@
 
 // Create-listing form: POSTs the listing fields to /api/local/listings (host_id
 // is taken from the signed-in caller server-side) and on success navigates to
-// /host. Images are entered as comma/newline-separated URLs.
-import { useState } from 'react'
+// /host. Location is set with a map pin; photos are uploaded from the device
+// (camera or library) and sent as compressed base64 data URLs.
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
+import { PROPERTY_TYPES, MAX_WEB_LISTING_PHOTOS } from '@/lib/property-types'
+import { fileToCompressedDataUrl } from '@/lib/image'
+import { DEFAULT_WEEKEND_DAYS } from '@/lib/geo'
 
 const C = {
   burgundy: '#5B0F16',
@@ -15,19 +20,12 @@ const C = {
   muted: '#6B6055',
 }
 
-// Canonical (stored) value + its translation key. The value sent to the API
-// stays English so existing data/filters keep working; only the label is i18n'd.
-const PROPERTY_TYPES: { value: string; key: string }[] = [
-  { value: 'Apartment', key: 'apartment' },
-  { value: 'House', key: 'house' },
-  { value: 'Villa', key: 'villa' },
-  { value: 'Cabin', key: 'cabin' },
-  { value: 'Studio', key: 'studio' },
-  { value: 'Loft', key: 'loft' },
-  { value: 'Chalet', key: 'chalet' },
-  { value: 'Cottage', key: 'cottage' },
-  { value: 'Guest suite', key: 'guestSuite' },
-]
+const LocationPickerMap = dynamic(() => import('./location-picker-map'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 260, borderRadius: 14, background: C.tan, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: 13 }}>…</div>
+  ),
+})
 
 const label: React.CSSProperties = {
   display: 'block',
@@ -51,6 +49,8 @@ const input: React.CSSProperties = {
 
 const fieldWrap: React.CSSProperties = { marginBottom: 18 }
 
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+
 export function NewListingForm() {
   const router = useRouter()
   const t = useTranslations('hostPage.create')
@@ -62,14 +62,56 @@ export function NewListingForm() {
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
   const [country, setCountry] = useState('')
+  const [lat, setLat] = useState<number | null>(null)
+  const [lng, setLng] = useState<number | null>(null)
   const [price, setPrice] = useState('')
+  const [weekendPrice, setWeekendPrice] = useState('')
+  const [weekendDays, setWeekendDays] = useState<number[]>(DEFAULT_WEEKEND_DAYS)
   const [currency, setCurrency] = useState('EGP')
   const [bedrooms, setBedrooms] = useState('1')
   const [beds, setBeds] = useState('1')
   const [bathrooms, setBathrooms] = useState('1')
   const [maxGuests, setMaxGuests] = useState('2')
   const [propertyType, setPropertyType] = useState('Apartment')
-  const [imagesText, setImagesText] = useState('')
+  const [photos, setPhotos] = useState<string[]>([]) // base64 data URLs
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement | null>(null)
+
+  function toggleWeekendDay(day: number) {
+    setWeekendDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
+  }
+
+  async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = '' // allow re-picking the same file
+    if (!files.length) return
+    const room = MAX_WEB_LISTING_PHOTOS - photos.length
+    if (room <= 0) {
+      setError(t('errors.tooManyPhotos', { max: MAX_WEB_LISTING_PHOTOS }))
+      return
+    }
+    setPhotoBusy(true)
+    setError(null)
+    try {
+      const picked = files.slice(0, room)
+      const encoded: string[] = []
+      for (const f of picked) {
+        try {
+          encoded.push(await fileToCompressedDataUrl(f))
+        } catch {
+          setError(t('errors.photoFailed'))
+        }
+      }
+      setPhotos((prev) => [...prev, ...encoded].slice(0, MAX_WEB_LISTING_PHOTOS))
+      if (files.length > room) setError(t('errors.tooManyPhotos', { max: MAX_WEB_LISTING_PHOTOS }))
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  function removePhoto(i: number) {
+    setPhotos((prev) => prev.filter((_, idx) => idx !== i))
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -86,33 +128,12 @@ export function NewListingForm() {
       return
     }
 
-    const images = imagesText
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-
-    // Validate each photo URL: must be an http(s) URL, ideally ending in a
-    // plausible image extension (a bare http(s) URL is also accepted).
-    const isImageUrl = (raw: string): boolean => {
-      let u: URL
-      try {
-        u = new URL(raw)
-      } catch {
-        return false
-      }
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
-      return true
-    }
-    const badUrl = images.find((u) => !isImageUrl(u))
-    if (badUrl) {
-      setError(t('errors.invalidImageUrl', { url: badUrl }))
-      return
-    }
-
     const num = (v: string, d: number) => {
       const n = Math.floor(Number(v))
       return Number.isFinite(n) && n >= 0 ? n : d
     }
+    const wkNum = Number(weekendPrice)
+    const weekend_price = weekendPrice.trim() && Number.isFinite(wkNum) && wkNum > 0 ? wkNum : undefined
 
     setBusy(true)
     try {
@@ -125,14 +146,18 @@ export function NewListingForm() {
           description: description.trim() || undefined,
           location: location.trim() || undefined,
           country: country.trim() || undefined,
+          lat: lat ?? undefined,
+          lng: lng ?? undefined,
           price_per_night: priceNum,
+          weekend_price,
+          weekend_days: weekend_price ? weekendDays : undefined,
           currency: currency.trim() || 'EGP',
           bedrooms: num(bedrooms, 1),
           beds: num(beds, 1),
           bathrooms: num(bathrooms, 1),
           max_guests: num(maxGuests, 2),
           property_type: propertyType || undefined,
-          images,
+          images: photos,
         }),
       })
       if (res.status === 401) {
@@ -214,6 +239,17 @@ export function NewListingForm() {
         </div>
       </div>
 
+      {/* Map pin — sets lat/lng; guests see an approximate area, not the exact pin. */}
+      <div style={fieldWrap}>
+        <label style={label}>{t('fields.pinLocation')}</label>
+        <LocationPickerMap lat={lat} lng={lng} onChange={(la, ln) => { setLat(la); setLng(ln) }} />
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>
+          {lat != null && lng != null
+            ? t('pinSet', { lat: lat.toFixed(4), lng: lng.toFixed(4) })
+            : t('pinHint')}
+        </p>
+      </div>
+
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, ...fieldWrap }}>
         <div>
           <label style={label} htmlFor="price">{t('fields.price')}</label>
@@ -242,6 +278,48 @@ export function NewListingForm() {
         </div>
       </div>
 
+      {/* Weekend pricing (optional, configurable days) */}
+      <div style={fieldWrap}>
+        <label style={label} htmlFor="weekendPrice">{t('fields.weekendPrice')}</label>
+        <input
+          id="weekendPrice"
+          style={input}
+          type="number"
+          min="0"
+          step="1"
+          value={weekendPrice}
+          onChange={(e) => setWeekendPrice(e.target.value)}
+          placeholder={t('placeholders.weekendPrice')}
+        />
+        <p style={{ margin: '8px 0 8px', fontSize: 12.5, color: C.muted }}>{t('fields.weekendDays')}</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {WEEKDAY_KEYS.map((k, day) => {
+            const on = weekendDays.includes(day)
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => toggleWeekendDay(day)}
+                aria-pressed={on}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 999,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  border: `1px solid ${on ? C.burgundy : 'rgba(42,34,32,0.16)'}`,
+                  background: on ? C.burgundy : '#fff',
+                  color: on ? '#fff' : C.ink,
+                }}
+              >
+                {t(`weekdays.${k}`)}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, ...fieldWrap }}>
         <div>
           <label style={label} htmlFor="bedrooms">{t('fields.bedrooms')}</label>
@@ -261,32 +339,121 @@ export function NewListingForm() {
         </div>
       </div>
 
+      {/* Property type — icon grid */}
       <div style={fieldWrap}>
-        <label style={label} htmlFor="propertyType">{t('fields.propertyType')}</label>
-        <select
-          id="propertyType"
-          style={{ ...input, appearance: 'auto' }}
-          value={propertyType}
-          onChange={(e) => setPropertyType(e.target.value)}
+        <label style={label}>{t('fields.propertyType')}</label>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))',
+            gap: 10,
+          }}
         >
-          {PROPERTY_TYPES.map((p) => (
-            <option key={p.value} value={p.value}>{t(`propertyTypes.${p.key}`)}</option>
-          ))}
-        </select>
+          {PROPERTY_TYPES.map((p) => {
+            const on = propertyType === p.value
+            const Icon = p.Icon
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setPropertyType(p.value)}
+                aria-pressed={on}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '14px 8px',
+                  borderRadius: 14,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  border: `1px solid ${on ? C.burgundy : 'rgba(42,34,32,0.14)'}`,
+                  background: on ? 'rgba(91,15,22,0.06)' : '#fff',
+                  color: on ? C.burgundy : C.ink,
+                }}
+              >
+                <Icon size={22} strokeWidth={1.8} color={on ? C.burgundy : C.muted} />
+                {t(`propertyTypes.${p.key}`)}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
+      {/* Photos — camera or library, compressed to base64, up to MAX_WEB_LISTING_PHOTOS */}
       <div style={fieldWrap}>
-        <label style={label} htmlFor="images">{t('fields.photos')}</label>
-        <textarea
-          id="images"
-          style={{ ...input, minHeight: 84, resize: 'vertical' }}
-          value={imagesText}
-          onChange={(e) => setImagesText(e.target.value)}
-          placeholder={t('placeholders.photos')}
+        <label style={label}>{t('fields.photos')}</label>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          onChange={onPickFiles}
+          style={{ display: 'none' }}
         />
-        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>
-          {t('photosHint')}
-        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={photoBusy || photos.length >= MAX_WEB_LISTING_PHOTOS}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 12,
+              border: `1px solid ${C.tan}`,
+              background: C.cream,
+              color: C.burgundy,
+              fontWeight: 700,
+              fontSize: 14,
+              fontFamily: 'inherit',
+              cursor: photoBusy || photos.length >= MAX_WEB_LISTING_PHOTOS ? 'default' : 'pointer',
+              opacity: photoBusy || photos.length >= MAX_WEB_LISTING_PHOTOS ? 0.6 : 1,
+            }}
+          >
+            {photoBusy ? t('photosProcessing') : t('photosCta')}
+          </button>
+          <span style={{ fontSize: 12.5, color: C.muted }}>
+            {t('photosCount', { count: photos.length, max: MAX_WEB_LISTING_PHOTOS })}
+          </span>
+        </div>
+
+        {photos.length > 0 && (
+          <div
+            style={{
+              marginTop: 12,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+              gap: 10,
+            }}
+          >
+            {photos.map((src, i) => (
+              <div key={i} style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 12, overflow: 'hidden', background: C.tan }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {i === 0 && (
+                  <span style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(91,15,22,0.92)', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>
+                    {t('photosCover')}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  aria-label={t('photosRemove')}
+                  style={{
+                    position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 999,
+                    border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 14, lineHeight: 1,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('photosHint')}</p>
       </div>
 
       {error && (

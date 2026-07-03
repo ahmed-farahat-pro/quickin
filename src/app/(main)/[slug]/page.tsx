@@ -98,8 +98,7 @@ const INFO_PAGES: Record<string, { title: string; body: string[] }> = {
   contact: {
     title: 'Contact Us',
     body: [
-      'We’d love to hear from you.',
-      'Support: support@quickin.app · Press: press@quickin.app · Hosting: hosts@quickin.app',
+      'We’d love to hear from you. Reach the QuickIn team by email, phone, or WhatsApp — we usually reply within a few hours.',
     ],
   },
   terms: {
@@ -129,6 +128,48 @@ const INFO_PAGES: Record<string, { title: string; body: string[] }> = {
 
 function humanize(slug: string) {
   return slug.replace(/[-/]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// Contact methods block (email / phone / WhatsApp). Values come from env with
+// clearly-marked PLACEHOLDER defaults — set NEXT_PUBLIC_* in Vercel to swap.
+function ContactMethods() {
+  const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'support@quickin.app'
+  const phoneRaw = process.env.NEXT_PUBLIC_CONTACT_PHONE || '+20 100 000 0000'
+  const waRaw = process.env.NEXT_PUBLIC_WHATSAPP || '201000000000'
+  const wa = waRaw.replace(/[^\d]/g, '')
+  const tel = phoneRaw.replace(/[^\d+]/g, '')
+  const rows: { label: string; value: string; href: string }[] = [
+    { label: 'Email', value: email, href: `mailto:${email}` },
+    { label: 'Phone', value: phoneRaw, href: `tel:${tel}` },
+    { label: 'WhatsApp', value: phoneRaw, href: `https://wa.me/${wa}` },
+  ]
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, margin: '8px 0 4px' }}>
+      {rows.map((r) => (
+        <a
+          key={r.label}
+          href={r.href}
+          target={r.label === 'WhatsApp' ? '_blank' : undefined}
+          rel={r.label === 'WhatsApp' ? 'noopener noreferrer' : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            background: '#fff',
+            border: '1px solid rgba(42,34,32,0.10)',
+            borderRadius: 14,
+            padding: '14px 18px',
+            textDecoration: 'none',
+            color: '#2A2220',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#6B6055' }}>{r.label}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#5B0F16' }}>{r.value}</span>
+        </a>
+      ))}
+    </div>
+  )
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -208,6 +249,9 @@ export default async function CustomPage({ params }: PageProps) {
           {p}
         </p>
       ))}
+
+      {slug === 'contact' && <ContactMethods />}
+
       <div style={{ marginTop: 36 }}>
         <Link
           href="/explore"

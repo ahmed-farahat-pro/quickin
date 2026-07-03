@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Listing } from '@/lib/local/db'
+import { approxLatLng } from '@/lib/geo'
 
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1200&q=80'
@@ -72,13 +73,19 @@ export default function LeafletListingsMap({ listings }: { listings: Listing[] }
   // Only listings with real coordinates can be placed on the map.
   const points = useMemo<GeoListing[]>(
     () =>
-      listings.filter(
-        (l): l is GeoListing =>
-          typeof l.lat === 'number' &&
-          typeof l.lng === 'number' &&
-          Number.isFinite(l.lat) &&
-          Number.isFinite(l.lng)
-      ),
+      listings
+        .filter(
+          (l): l is GeoListing =>
+            typeof l.lat === 'number' &&
+            typeof l.lng === 'number' &&
+            Number.isFinite(l.lat) &&
+            Number.isFinite(l.lng)
+        )
+        // Coarsen coordinates so pins show the neighbourhood, not the exact address.
+        .map((l) => {
+          const c = approxLatLng(l.lat, l.lng)
+          return { ...l, lat: c.lat, lng: c.lng }
+        }),
     [listings]
   )
 

@@ -122,10 +122,10 @@
     "goHome": "Aller à la page d'accueil"
   },
   "chat": {
-    "title": "QuickIn IA",
+    "title": "Discuter avec",
     "poweredBy": "Propulsé par Gemini",
     "welcome": "Bonjour ! Je suis votre assistant QuickIn. Je peux vous aider à trouver le logement idéal, répondre à vos questions sur les annonces ou vous donner des recommandations de voyage. Comment puis-je vous aider aujourd'hui ?",
-    "placeholder": "Posez-moi vos questions...",
+    "placeholder": "Écrire un message…",
     "suggested": {
       "beach": "Trouver des logements en bord de mer",
       "included": "Qu'est-ce qui est inclus dans cette annonce ?",
@@ -136,7 +136,21 @@
     "fallbackError": "Désolé, une erreur est survenue.",
     "ariaOpenChat": "Ouvrir le chat",
     "ariaCloseChat": "Fermer le chat",
-    "ariaSendMessage": "Envoyer le message"
+    "ariaSendMessage": "Envoyer le message",
+    "needsLogin": "Connectez-vous pour discuter avec l'hôte.",
+    "logIn": "Se connecter",
+    "loading": "Chargement…",
+    "empty": "Aucun message — dites bonjour !",
+    "send": "Envoyer",
+    "guardNote": "Pour votre sécurité, gardez les échanges sur QuickIn. Les numéros et liens sont masqués.",
+    "messageHost": "Message à l'hôte",
+    "host": "Hôte",
+    "close": "Fermer",
+    "backToExplore": "Retour à l'exploration",
+    "inboxTitle": "Messages",
+    "noThreads": "Aucune conversation.",
+    "pickThread": "Sélectionnez une conversation.",
+    "asHost": "Hôte"
   },
   "bookingPage": {
     "title": "Confirmer et demander",
@@ -1380,7 +1394,9 @@
       "noNotifications": "Aucune notification",
       "trips": "Voyages",
       "saved": "Favoris",
-      "account": "Compte"
+      "account": "Compte",
+      "messages": "Messages",
+      "contact": "Contact"
     },
     "hero": {
       "title": "Trouvez votre prochain séjour de charme",
@@ -1392,7 +1408,8 @@
       "checkInLabel": "Arrivée",
       "checkOutLabel": "Départ",
       "guestsLabel": "Voyageurs",
-      "clear": "Effacer"
+      "clear": "Effacer",
+      "search": "Rechercher"
     },
     "results": {
       "countFound": "{count, plural, one {# séjour trouvé} other {# séjours trouvés}}",
@@ -1504,7 +1521,14 @@
     },
     "decrease": "Diminuer {label}",
     "increase": "Augmenter {label}",
-    "hostedBy": "Hébergé par"
+    "hostedBy": "Hébergé par",
+    "whereYoullBe": "Où vous serez",
+    "approxLocation": "Emplacement approximatif — l'adresse exacte est communiquée une fois votre réservation confirmée.",
+    "hostType": {
+      "individual": "Particulier",
+      "company": "Entreprise",
+      "brokerage": "Agence"
+    }
   },
   "loginLocal": {
     "subtitle": "Bon retour — connectez-vous pour continuer",
@@ -1910,14 +1934,18 @@
         "bathrooms": "Salles de bain",
         "maxGuests": "Voyageurs max.",
         "propertyType": "Type de logement",
-        "photos": "URL des photos"
+        "photos": "URL des photos",
+        "pinLocation": "Placez l'emplacement sur la carte",
+        "weekendPrice": "Prix du week-end (facultatif)",
+        "weekendDays": "Quels jours sont le week-end ?"
       },
       "placeholders": {
         "title": "Loft ensoleillé au bord du Nil",
         "description": "Qu’est-ce qui rend votre logement spécial ?",
         "location": "Zamalek, Le Caire",
         "country": "Égypte",
-        "photos": "Une URL par ligne, ou séparées par des virgules\nhttps://images.unsplash.com/photo-..."
+        "photos": "Une URL par ligne, ou séparées par des virgules\nhttps://images.unsplash.com/photo-...",
+        "weekendPrice": "ex. 1500"
       },
       "propertyTypes": {
         "apartment": "Appartement",
@@ -1938,8 +1966,26 @@
         "titleRequired": "Veuillez donner un titre à votre annonce.",
         "priceInvalid": "Veuillez saisir un prix par nuit valide.",
         "invalidImageUrl": "Ce lien de photo ne ressemble pas à une URL valide : {url}",
-        "createFailed": "Impossible de créer l’annonce"
-      }
+        "createFailed": "Impossible de créer l’annonce",
+        "tooManyPhotos": "Vous pouvez téléverser jusqu'à {max} photos.",
+        "photoFailed": "Impossible de traiter cette image. Essayez-en une autre."
+      },
+      "pinHint": "Touchez la carte pour placer un repère. Les voyageurs voient une zone approximative, pas l'adresse exacte.",
+      "pinSet": "Placé à {lat}, {lng}. Touchez à nouveau pour déplacer.",
+      "weekdays": {
+        "sun": "Dim",
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mer",
+        "thu": "Jeu",
+        "fri": "Ven",
+        "sat": "Sam"
+      },
+      "photosCta": "Ajouter des photos",
+      "photosProcessing": "Traitement…",
+      "photosCount": "{count} sur {max} photos",
+      "photosCover": "Couverture",
+      "photosRemove": "Supprimer la photo"
     }
   },
   "hostApply": {
@@ -1958,7 +2004,10 @@
       "company": "Société / agence",
       "companyOptional": "Société / agence (facultatif)",
       "notes": "Notes",
-      "notesOptional": "Notes (facultatif)"
+      "notesOptional": "Notes (facultatif)",
+      "hostType": "Êtes-vous un particulier, une entreprise ou une agence ?",
+      "companyName": "Nom de l'entreprise",
+      "brokerageName": "Nom de l'agence"
     },
     "placeholders": {
       "fullName": "Votre nom",
@@ -1988,6 +2037,14 @@
       "title": "Candidature envoyée",
       "body": "Merci pour votre candidature. Notre équipe l’examinera et vous préviendra dès votre approbation.",
       "backToAccount": "Retour au compte"
+    },
+    "hostTypes": {
+      "individual": "Particulier",
+      "company": "Entreprise",
+      "brokerage": "Agence"
     }
+  },
+  "contact": {
+    "whatsappAria": "Contactez-nous sur WhatsApp"
   }
 }

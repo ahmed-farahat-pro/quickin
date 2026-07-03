@@ -6,11 +6,13 @@ import { pool } from './pool'
 const isUuid = (s: string) => /^[0-9a-fA-F-]{36}$/.test(s)
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
 
-/** Accept only well-formed http(s) URLs (keeps garbage/non-image entries out of the DB). */
-const isHttpUrl = (value: unknown): value is string => {
+/** Accept http(s) image URLs or inline base64 image data URLs (device uploads). */
+const isImageSrc = (value: unknown): value is string => {
   if (typeof value !== 'string') return false
+  const v = value.trim()
+  if (/^data:image\/[a-z0-9.+-]+;base64,/i.test(v)) return true
   try {
-    const u = new URL(value.trim())
+    const u = new URL(v)
     return u.protocol === 'http:' || u.protocol === 'https:'
   } catch {
     return false
@@ -29,6 +31,8 @@ export interface Listing {
   location: string | null
   country: string | null
   price_per_night: number
+  weekend_price: number | null
+  weekend_days: number[] | null
   currency: string
   bedrooms: number | null
   beds: number | null
@@ -43,6 +47,8 @@ export interface Listing {
   host_id?: string | null
   host_name?: string | null
   host_avatar?: string | null
+  host_type?: string | null
+  host_company?: string | null
   image_url?: string | null
 }
 
@@ -72,7 +78,9 @@ export interface Booking {
 
 const LISTING_COLS = `
   l.id, l.title, l.description, l.location, l.country,
-  l.price_per_night::float8 AS price_per_night, l.currency,
+  l.price_per_night::float8 AS price_per_night,
+  l.weekend_price::float8 AS weekend_price, l.weekend_days,
+  l.currency,
   l.bedrooms, l.beds, l.bathrooms, l.max_guests, l.property_type,
   l.is_guest_favorite, l.listing_code, l.lat::float8 AS lat, l.lng::float8 AS lng,
   COALESCE(
@@ -120,7 +128,8 @@ export async function getListings(filters: SearchFilters = {}): Promise<Listing[
 export async function getListingById(id: string): Promise<Listing | null> {
   if (!isUuid(id)) return null
   const { rows } = await pool.query(
-    `SELECT ${LISTING_COLS}, l.host_id, u.full_name AS host_name, u.avatar_url AS host_avatar
+    `SELECT ${LISTING_COLS}, l.host_id, u.full_name AS host_name, u.avatar_url AS host_avatar,
+            u.host_type AS host_type, u.company AS host_company
        FROM listings l LEFT JOIN users u ON u.id = l.host_id WHERE l.id = $1`,
     [id]
   )
@@ -192,10 +201,21 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   )
   if (clash.rowCount && clash.rowCount > 0) throw new Error('Those dates are not available')
 
+  // Total = sum over each night in [check_in, check_out). A night whose weekday
+  // (Postgres DOW: 0=Sun … 6=Sat) is in the listing's weekend_days is charged
+  // weekend_price; otherwise price_per_night. Falls back to nights × nightly
+  // when no weekend price is configured.
   const { rows } = await pool.query(
     `WITH ins AS (
        INSERT INTO bookings (listing_id, user_id, check_in, check_out, guests, adults, children, infants, pets, total_price, status)
-       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, ($4::date - $3::date) * l.price_per_night, 'pending'
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9,
+              (SELECT COALESCE(SUM(
+                 CASE WHEN l.weekend_price IS NOT NULL AND l.weekend_days IS NOT NULL
+                           AND EXTRACT(DOW FROM gs)::int = ANY(l.weekend_days)
+                      THEN l.weekend_price ELSE l.price_per_night END
+               ), 0)
+               FROM generate_series($3::date, $4::date - interval '1 day', interval '1 day') AS gs),
+              'pending'
        FROM listings l WHERE l.id = $1
        RETURNING *
      )
@@ -575,16 +595,17 @@ export async function getVerification(userId: string): Promise<VerificationRow> 
   return (rows[0] as VerificationRow) ?? UNVERIFIED
 }
 
-/** Submit ID photos (front + optional back) for review — reuses the user's pending row if one exists. */
+/** Submit ID photos (front + optional back + selfie) for review — reuses the user's pending row if one exists. */
 export async function submitVerification(args: {
   userId: string
   imageData: string
   backImageData?: string | null
+  selfieImageData?: string | null
   idNumber?: string | null
   fullName?: string | null
   source?: string
 }): Promise<VerificationRow> {
-  const { userId, imageData, backImageData = null, idNumber = null, fullName = null, source = 'manual' } = args
+  const { userId, imageData, backImageData = null, selfieImageData = null, idNumber = null, fullName = null, source = 'manual' } = args
   const existing = await pool.query(
     `SELECT id FROM id_verifications WHERE user_id = $1 AND status = 'pending' LIMIT 1`,
     [userId]
@@ -592,17 +613,18 @@ export async function submitVerification(args: {
   if (existing.rows[0]) {
     await pool.query(
       `UPDATE id_verifications
-          SET image_data = $2, back_image_data = $3, id_number = COALESCE($4, id_number),
-              full_name = COALESCE($5, full_name), source = $6,
+          SET image_data = $2, back_image_data = $3, selfie_image_data = $4,
+              id_number = COALESCE($5, id_number),
+              full_name = COALESCE($6, full_name), source = $7,
               submitted_at = now(), reviewed_at = NULL, reviewed_by = NULL, notes = NULL
         WHERE id = $1`,
-      [existing.rows[0].id, imageData, backImageData, idNumber, fullName, source]
+      [existing.rows[0].id, imageData, backImageData, selfieImageData, idNumber, fullName, source]
     )
   } else {
     await pool.query(
-      `INSERT INTO id_verifications (user_id, image_data, back_image_data, id_number, full_name, source)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, imageData, backImageData, idNumber, fullName, source]
+      `INSERT INTO id_verifications (user_id, image_data, back_image_data, selfie_image_data, id_number, full_name, source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [userId, imageData, backImageData, selfieImageData, idNumber, fullName, source]
     )
   }
   return getVerification(userId)
@@ -785,7 +807,7 @@ export interface HostApplication {
 /** Submit (or re-submit) a host application. Does NOT grant host — sets it pending for admin review. */
 export async function submitHostApplication(
   userId: string,
-  f: { full_name?: string; national_id?: string; phone?: string; address?: string; company?: string; notes?: string }
+  f: { full_name?: string; national_id?: string; phone?: string; address?: string; company?: string; notes?: string; host_type?: string }
 ): Promise<{ status: string }> {
   if (!isUuid(userId)) throw new Error('Invalid user')
   if (!f.national_id || !f.phone || !f.address) {
@@ -806,6 +828,11 @@ export async function submitHostApplication(
       vals
     )
   }
+  // Persist the host type + company name on the user so listings can show a
+  // "Company"/"Brokerage" badge (individual/company/brokerage; default individual).
+  const hostType = ['individual', 'company', 'brokerage'].includes(String(f.host_type)) ? f.host_type : 'individual'
+  const company = hostType === 'individual' ? null : (f.company || null)
+  await pool.query(`UPDATE users SET host_type=$2, company=$3 WHERE id=$1`, [userId, hostType, company])
   return { status: 'pending' }
 }
 
@@ -856,9 +883,9 @@ export async function reviewHostApplication(appId: string, action: 'approve' | '
 
 // ---- Admin: ID verification review -----------------------------------------
 
-export async function getPendingVerifications(): Promise<Array<{ id: string; user_id: string; email: string; full_name: string | null; id_number: string | null; status: string; image_data: string; back_image_data: string | null; submitted_at: string }>> {
+export async function getPendingVerifications(): Promise<Array<{ id: string; user_id: string; email: string; full_name: string | null; id_number: string | null; status: string; image_data: string; back_image_data: string | null; selfie_image_data: string | null; submitted_at: string }>> {
   const { rows } = await pool.query(
-    `SELECT v.id, v.user_id, u.email, v.full_name, v.id_number, v.status, v.image_data, v.back_image_data,
+    `SELECT v.id, v.user_id, u.email, v.full_name, v.id_number, v.status, v.image_data, v.back_image_data, v.selfie_image_data,
             to_char(v.submitted_at,'YYYY-MM-DD HH24:MI') AS submitted_at
        FROM id_verifications v JOIN users u ON u.id = v.user_id
       WHERE v.status = 'pending' ORDER BY v.submitted_at ASC`
@@ -1069,7 +1096,11 @@ export interface CreateListingInput {
   description?: string
   location?: string
   country?: string
+  lat?: number
+  lng?: number
   price_per_night: number
+  weekend_price?: number
+  weekend_days?: number[]
   currency?: string
   bedrooms?: number
   beds?: number
@@ -1090,21 +1121,33 @@ export async function createListing(hostId: string, data: CreateListingInput): P
     const n = Math.floor(Number(v))
     return Number.isFinite(n) && n >= 0 ? n : d
   }
+  const fin = (v: unknown): number | null => {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : null
+  }
+  const weekendPrice = fin(data.weekend_price)
+  const weekendDays = Array.isArray(data.weekend_days)
+    ? data.weekend_days.map((d) => Math.floor(Number(d))).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+    : []
   const { rows } = await pool.query(
     `INSERT INTO listings
-       (host_id, title, description, location, country, price_per_night, currency,
+       (host_id, title, description, location, country, lat, lng, price_per_night,
+        weekend_price, weekend_days, currency,
         bedrooms, beds, bathrooms, max_guests, property_type, is_published)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, true)
      RETURNING id`,
     [
       hostId, title, data.description ?? null, data.location ?? null, data.country ?? null,
-      price, data.currency || 'USD',
+      fin(data.lat), fin(data.lng), price,
+      weekendPrice && weekendPrice > 0 ? weekendPrice : null,
+      weekendPrice && weekendPrice > 0 && weekendDays.length ? weekendDays : null,
+      data.currency || 'USD',
       nn(data.bedrooms, 1), nn(data.beds, 1), nn(data.bathrooms, 1), nn(data.max_guests, 2),
       data.property_type ?? null,
     ]
   )
   const newId = rows[0].id as string
-  const images = Array.isArray(data.images) ? data.images.filter(isHttpUrl) : []
+  const images = Array.isArray(data.images) ? data.images.filter(isImageSrc) : []
   for (let i = 0; i < images.length; i++) {
     await pool.query(
       `INSERT INTO listing_images (listing_id, url, "order") VALUES ($1, $2, $3)`,
@@ -1161,6 +1204,11 @@ export interface AdminUserRow {
   is_host: boolean
   email_verified: boolean
   verification_status: string
+  provider: string
+  push_platform: string | null
+  has_push: boolean
+  device_platforms: string | null
+  device_count: number
   created_at: string
   listing_count: number
   booking_count: number
@@ -1177,6 +1225,11 @@ export async function adminListUsers(): Promise<AdminUserRow[]> {
                 WHERE v.user_id = u.id ORDER BY v.submitted_at DESC LIMIT 1),
               'none'
             ) AS verification_status,
+            u.provider,
+            u.push_platform,
+            (u.fcm_token IS NOT NULL OR EXISTS (SELECT 1 FROM device_tokens dt WHERE dt.user_id = u.id)) AS has_push,
+            (SELECT string_agg(DISTINCT dt.platform, ', ') FROM device_tokens dt WHERE dt.user_id = u.id) AS device_platforms,
+            (SELECT COUNT(*) FROM device_tokens dt WHERE dt.user_id = u.id)::int AS device_count,
             to_char(u.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
             (SELECT COUNT(*) FROM listings l WHERE l.host_id = u.id)::int AS listing_count,
             (SELECT COUNT(*) FROM bookings b WHERE b.user_id = u.id)::int AS booking_count
@@ -1185,6 +1238,27 @@ export async function adminListUsers(): Promise<AdminUserRow[]> {
       LIMIT 300`
   )
   return rows as AdminUserRow[]
+}
+
+/** Admin: delete a booking and notify BOTH the guest and the host (in-app + push via the
+ *  notifications fan-out). Used by the /ops Bookings tab. */
+export async function adminDeleteBooking(id: string): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid booking')
+  const { rows } = await pool.query(
+    `SELECT b.user_id, l.host_id, COALESCE(l.title, 'your stay') AS title,
+            'QK-' || upper(substr(b.id::text, 1, 8)) AS code
+       FROM bookings b LEFT JOIN listings l ON l.id = b.listing_id WHERE b.id = $1`,
+    [id]
+  )
+  const bk = rows[0] as { user_id: string; host_id: string | null; title: string; code: string } | undefined
+  if (!bk) throw new Error('Booking not found')
+  await pool.query(`DELETE FROM bookings WHERE id = $1`, [id])
+  if (bk.user_id) {
+    await createNotification(bk.user_id, 'booking', 'Reservation cancelled', `Your reservation ${bk.code} for ${bk.title} was cancelled by QuickIn support.`, '/reservations')
+  }
+  if (bk.host_id && bk.host_id !== bk.user_id) {
+    await createNotification(bk.host_id, 'booking', 'Reservation removed', `Reservation ${bk.code} on ${bk.title} was removed by QuickIn support.`, '/host')
+  }
 }
 
 export interface AdminListingRow {
@@ -1293,4 +1367,134 @@ export async function adminListBookings(): Promise<AdminBookingRow[]> {
       LIMIT 300`
   )
   return rows as AdminBookingRow[]
+}
+
+// ---- Chat (pre-booking inquiry: guest ⇄ host) -------------------------------
+
+/**
+ * Content guard: strip phone numbers, emails and links from a chat message so
+ * guests + hosts keep the conversation (and payments) on-platform. Runs
+ * server-side in postMessage — the client can't bypass it.
+ */
+export function redactContact(text: string): string {
+  let s = String(text)
+  s = s.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, '[hidden]')
+  s = s.replace(/\bhttps?:\/\/\S+/gi, '[hidden]')
+  // Phone-like digit runs: 7+ digits, allowing +, spaces, dashes, parens, dots.
+  s = s.replace(/(\+?\d[\d\s().-]{5,}\d)/g, (m) => (m.replace(/\D/g, '').length >= 7 ? '[hidden]' : m))
+  return s
+}
+
+export interface ConversationSummary {
+  id: string
+  listing_id: string | null
+  listing_title: string | null
+  listing_image: string | null
+  other_name: string | null
+  last_message: string | null
+  last_message_at: string
+  is_host: boolean
+}
+
+export interface ChatMessage {
+  id: string
+  sender_id: string
+  body: string
+  created_at: string
+  mine?: boolean
+}
+
+/** Guest opens (or reuses) a thread with the listing's host. Returns the thread id. */
+export async function getOrCreateConversation(
+  guestId: string,
+  listingId: string
+): Promise<{ id: string; host_id: string; listing_title: string | null }> {
+  if (!isUuid(guestId) || !isUuid(listingId)) throw new Error('Invalid id')
+  const { rows: lr } = await pool.query(
+    `SELECT host_id, title FROM listings WHERE id = $1`,
+    [listingId]
+  )
+  const listing = lr[0] as { host_id: string | null; title: string | null } | undefined
+  if (!listing) throw new Error('Listing not found')
+  if (!listing.host_id || !isUuid(listing.host_id)) throw new Error('This listing has no host to message yet')
+  if (listing.host_id === guestId) throw new Error("You can't message your own listing")
+  const { rows } = await pool.query(
+    `INSERT INTO conversations (listing_id, guest_id, host_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (listing_id, guest_id) DO UPDATE SET listing_id = EXCLUDED.listing_id
+     RETURNING id`,
+    [listingId, guestId, listing.host_id]
+  )
+  return { id: rows[0].id as string, host_id: listing.host_id, listing_title: listing.title }
+}
+
+/** All threads a user is part of (as guest or host), newest activity first. */
+export async function listConversations(userId: string): Promise<ConversationSummary[]> {
+  if (!isUuid(userId)) return []
+  const { rows } = await pool.query(
+    `SELECT c.id, c.listing_id,
+            l.title AS listing_title,
+            (SELECT url FROM listing_images li WHERE li.listing_id = l.id ORDER BY li."order" LIMIT 1) AS listing_image,
+            CASE WHEN c.guest_id = $1 THEN hu.full_name ELSE gu.full_name END AS other_name,
+            (SELECT m.body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+            to_char(c.last_message_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS last_message_at,
+            (c.host_id = $1) AS is_host
+       FROM conversations c
+       LEFT JOIN listings l ON l.id = c.listing_id
+       LEFT JOIN users gu ON gu.id = c.guest_id
+       LEFT JOIN users hu ON hu.id = c.host_id
+      WHERE c.guest_id = $1 OR c.host_id = $1
+      ORDER BY c.last_message_at DESC
+      LIMIT 200`,
+    [userId]
+  )
+  return rows as ConversationSummary[]
+}
+
+/** Assert the user belongs to the conversation; returns the row or null. */
+async function conversationForUser(userId: string, conversationId: string) {
+  const { rows } = await pool.query(
+    `SELECT id, listing_id, guest_id, host_id FROM conversations
+      WHERE id = $1 AND (guest_id = $2 OR host_id = $2)`,
+    [conversationId, userId]
+  )
+  return rows[0] as { id: string; listing_id: string | null; guest_id: string; host_id: string } | undefined
+}
+
+/** Messages in a thread, oldest first. Only members can read. */
+export async function listMessages(userId: string, conversationId: string): Promise<ChatMessage[]> {
+  if (!isUuid(userId) || !isUuid(conversationId)) throw new Error('Invalid id')
+  const convo = await conversationForUser(userId, conversationId)
+  if (!convo) throw new Error('Conversation not found')
+  const { rows } = await pool.query(
+    `SELECT id, sender_id, body,
+            to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+       FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 500`,
+    [conversationId]
+  )
+  return (rows as ChatMessage[]).map((m) => ({ ...m, mine: m.sender_id === userId }))
+}
+
+/** Post a message (contact info redacted). Notifies the other party. */
+export async function postMessage(userId: string, conversationId: string, rawBody: string): Promise<ChatMessage> {
+  if (!isUuid(userId) || !isUuid(conversationId)) throw new Error('Invalid id')
+  const body = redactContact(String(rawBody || '').trim()).slice(0, 2000)
+  if (!body) throw new Error('Message is empty')
+  const convo = await conversationForUser(userId, conversationId)
+  if (!convo) throw new Error('Conversation not found')
+  const { rows } = await pool.query(
+    `WITH ins AS (
+       INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING *
+     ), upd AS (
+       UPDATE conversations SET last_message_at = now() WHERE id = $1
+     )
+     SELECT id, sender_id, body, to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at FROM ins`,
+    [conversationId, userId, body]
+  )
+  const other = convo.guest_id === userId ? convo.host_id : convo.guest_id
+  if (isUuid(other)) {
+    await createNotification(other, 'message', 'New message', body.slice(0, 80), '/messages')
+  }
+  const msg = rows[0] as ChatMessage
+  return { ...msg, mine: true }
 }

@@ -122,10 +122,10 @@
     "goHome": "Go to homepage"
   },
   "chat": {
-    "title": "QuickIn AI",
+    "title": "Chat with",
     "poweredBy": "Powered by Gemini",
     "welcome": "Hi! I'm your QuickIn assistant. I can help you find the perfect place to stay, answer questions about listings, or give travel recommendations. How can I help you today?",
-    "placeholder": "Ask me anything...",
+    "placeholder": "Write a message…",
     "suggested": {
       "beach": "Find beachfront properties",
       "included": "What's included in this listing?",
@@ -136,7 +136,21 @@
     "fallbackError": "Sorry, something went wrong.",
     "ariaOpenChat": "Open chat",
     "ariaCloseChat": "Close chat",
-    "ariaSendMessage": "Send message"
+    "ariaSendMessage": "Send message",
+    "needsLogin": "Please sign in to chat with the host.",
+    "logIn": "Log in",
+    "loading": "Loading…",
+    "empty": "No messages yet — say hello!",
+    "send": "Send",
+    "guardNote": "For your safety, keep chats on QuickIn. Phone numbers and links are hidden.",
+    "messageHost": "Message host",
+    "host": "Host",
+    "close": "Close",
+    "backToExplore": "Back to Explore",
+    "inboxTitle": "Messages",
+    "noThreads": "No conversations yet.",
+    "pickThread": "Select a conversation to read it.",
+    "asHost": "Host"
   },
   "bookingPage": {
     "title": "Confirm and Request",
@@ -1380,7 +1394,9 @@
       "noNotifications": "No notifications yet",
       "trips": "Trips",
       "saved": "Saved",
-      "account": "Account"
+      "account": "Account",
+      "messages": "Messages",
+      "contact": "Contact"
     },
     "hero": {
       "title": "Find your next boutique stay",
@@ -1392,7 +1408,8 @@
       "checkInLabel": "Check-in",
       "checkOutLabel": "Check-out",
       "guestsLabel": "Guests",
-      "clear": "Clear"
+      "clear": "Clear",
+      "search": "Search"
     },
     "results": {
       "countFound": "{count, plural, one {# stay} other {# stays}} found",
@@ -1504,7 +1521,14 @@
     },
     "decrease": "Decrease {label}",
     "increase": "Increase {label}",
-    "hostedBy": "Hosted by"
+    "hostedBy": "Hosted by",
+    "whereYoullBe": "Where you'll be",
+    "approxLocation": "Approximate location — the exact address is shared after your booking is confirmed.",
+    "hostType": {
+      "individual": "Individual",
+      "company": "Company",
+      "brokerage": "Brokerage"
+    }
   },
   "loginLocal": {
     "subtitle": "Welcome back — sign in to continue",
@@ -1910,14 +1934,18 @@
         "bathrooms": "Bathrooms",
         "maxGuests": "Max guests",
         "propertyType": "Property type",
-        "photos": "Photo URLs"
+        "photos": "Photo URLs",
+        "pinLocation": "Pin the location on the map",
+        "weekendPrice": "Weekend price (optional)",
+        "weekendDays": "Which days count as the weekend?"
       },
       "placeholders": {
         "title": "Sunlit loft by the Nile",
         "description": "What makes your place special?",
         "location": "Zamalek, Cairo",
         "country": "Egypt",
-        "photos": "One URL per line, or comma-separated\nhttps://images.unsplash.com/photo-..."
+        "photos": "One URL per line, or comma-separated\nhttps://images.unsplash.com/photo-...",
+        "weekendPrice": "e.g. 1500"
       },
       "propertyTypes": {
         "apartment": "Apartment",
@@ -1938,8 +1966,26 @@
         "titleRequired": "Please give your listing a title.",
         "priceInvalid": "Please enter a valid price per night.",
         "invalidImageUrl": "This photo link doesn’t look like a valid URL: {url}",
-        "createFailed": "Could not create the listing"
-      }
+        "createFailed": "Could not create the listing",
+        "tooManyPhotos": "You can upload up to {max} photos.",
+        "photoFailed": "Couldn't process that image. Try another."
+      },
+      "pinHint": "Tap the map to drop a pin. Guests see an approximate area, not the exact address.",
+      "pinSet": "Pinned at {lat}, {lng}. Tap again to move it.",
+      "weekdays": {
+        "sun": "Sun",
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat"
+      },
+      "photosCta": "Add photos",
+      "photosProcessing": "Processing…",
+      "photosCount": "{count} of {max} photos",
+      "photosCover": "Cover",
+      "photosRemove": "Remove photo"
     }
   },
   "hostApply": {
@@ -1958,7 +2004,10 @@
       "company": "Company / brokerage",
       "companyOptional": "Company / brokerage (optional)",
       "notes": "Notes",
-      "notesOptional": "Notes (optional)"
+      "notesOptional": "Notes (optional)",
+      "hostType": "Are you an individual, company, or brokerage?",
+      "companyName": "Company name",
+      "brokerageName": "Brokerage name"
     },
     "placeholders": {
       "fullName": "Your name",
@@ -1988,6 +2037,14 @@
       "title": "Application submitted",
       "body": "Thanks for applying. Our team will review your application and notify you once you’re approved.",
       "backToAccount": "Back to account"
+    },
+    "hostTypes": {
+      "individual": "Individual",
+      "company": "Company",
+      "brokerage": "Brokerage"
     }
+  },
+  "contact": {
+    "whatsappAria": "Contact us on WhatsApp"
   }
 }

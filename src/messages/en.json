@@ -1410,7 +1410,8 @@
       "checkOutLabel": "Check-out",
       "guestsLabel": "Guests",
       "clear": "Clear",
-      "search": "Search"
+      "search": "Search",
+      "popular": "Popular destinations"
     },
     "results": {
       "countFound": "{count, plural, one {# stay} other {# stays}} found",
@@ -1539,6 +1540,13 @@
       "individual": "Individual",
       "company": "Company",
       "brokerage": "Brokerage"
+    },
+    "gallery": {
+      "close": "Close",
+      "prev": "Previous photo",
+      "next": "Next photo",
+      "counter": "{current} / {total}",
+      "viewPhotos": "View all photos"
     }
   },
   "loginLocal": {
@@ -2018,7 +2026,10 @@
       "notesOptional": "Notes (optional)",
       "hostType": "Are you an individual, company, or brokerage?",
       "companyName": "Company name",
-      "brokerageName": "Brokerage name"
+      "brokerageName": "Brokerage name",
+      "idFront": "Front of ID",
+      "idBack": "Back of ID",
+      "idPhotos": "Verify your identity"
     },
     "placeholders": {
       "fullName": "Your name",
@@ -2035,7 +2046,8 @@
       "nationalIdRequired": "Please enter your national ID.",
       "phoneRequired": "Please enter your phone number.",
       "addressRequired": "Please enter your address.",
-      "submitFailed": "Could not submit your application. Please try again."
+      "submitFailed": "Could not submit your application. Please try again.",
+      "idRequired": "Please add the front and back of your ID."
     },
     "pending": {
       "subtitle": "Your application is being reviewed by our team.",
@@ -2053,7 +2065,10 @@
       "individual": "Individual",
       "company": "Company",
       "brokerage": "Brokerage"
-    }
+    },
+    "idHint": "Upload clear photos of the front and back of your ID. Our team reviews them.",
+    "idChoose": "Choose or take a photo",
+    "idRemove": "Remove"
   },
   "contact": {
     "whatsappAria": "Contact us on WhatsApp"

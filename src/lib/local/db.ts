@@ -1503,3 +1503,60 @@ export async function postMessage(userId: string, conversationId: string, rawBod
   const msg = rows[0] as ChatMessage
   return { ...msg, mine: true }
 }
+
+// ── Place autocomplete ─────────────────────────────────────────────────────
+// Curated, well-known Egyptian destinations shown as "popular" suggestions and
+// merged (deduped, case-insensitive) with the real distinct listing locations.
+const CURATED_PLACES = [
+  'Giza', 'North Coast', 'Sahel', 'El Gouna', 'Cairo', 'Zamalek', 'New Cairo',
+  'Sheikh Zayed', '6th of October', 'Maadi', 'Hurghada', 'Sharm El Sheikh',
+  'Alexandria', 'Marina', 'Ain Sokhna', 'Dahab', 'Luxor', 'Aswan',
+]
+
+/**
+ * Up to 8 place suggestions for the Explore search bar: distinct listing
+ * locations matching `q`, merged (case-insensitive dedupe) with the curated
+ * Egyptian destinations. Empty `q` returns the first slice of the curated list.
+ */
+export async function getPlaceSuggestions(q: string): Promise<string[]> {
+  const query = String(q || '').trim()
+  const seen = new Set<string>()
+  const out: string[] = []
+  const add = (place: string) => {
+    const value = String(place || '').trim()
+    if (!value) return
+    const key = value.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(value)
+  }
+
+  // Filter curated entries by the query (case-insensitive substring).
+  const curated = query
+    ? CURATED_PLACES.filter((p) => p.toLowerCase().includes(query.toLowerCase()))
+    : CURATED_PLACES
+  for (const p of curated) {
+    add(p)
+    if (out.length >= 8) return out.slice(0, 8)
+  }
+
+  // Empty query: just the curated "popular" list — no DB round-trip needed.
+  if (!query) return out.slice(0, 8)
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT location FROM listings
+        WHERE location ILIKE '%' || $1 || '%' AND location IS NOT NULL
+        ORDER BY location LIMIT 8`,
+      [query]
+    )
+    for (const r of rows as { location: string }[]) {
+      add(r.location)
+      if (out.length >= 8) break
+    }
+  } catch (err) {
+    console.error('getPlaceSuggestions query failed:', err)
+  }
+
+  return out.slice(0, 8)
+}

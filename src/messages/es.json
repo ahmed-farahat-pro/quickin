@@ -1410,7 +1410,8 @@
       "checkOutLabel": "Salida",
       "guestsLabel": "Huéspedes",
       "clear": "Borrar",
-      "search": "Buscar"
+      "search": "Buscar",
+      "popular": "Destinos populares"
     },
     "results": {
       "countFound": "{count, plural, one {# alojamiento encontrado} other {# alojamientos encontrados}}",
@@ -1539,6 +1540,13 @@
       "individual": "Particular",
       "company": "Empresa",
       "brokerage": "Agencia"
+    },
+    "gallery": {
+      "close": "Cerrar",
+      "prev": "Foto anterior",
+      "next": "Foto siguiente",
+      "counter": "{current} / {total}",
+      "viewPhotos": "Ver todas las fotos"
     }
   },
   "loginLocal": {
@@ -2018,7 +2026,10 @@
       "notesOptional": "Notas (opcional)",
       "hostType": "¿Eres particular, empresa o agencia?",
       "companyName": "Nombre de la empresa",
-      "brokerageName": "Nombre de la agencia"
+      "brokerageName": "Nombre de la agencia",
+      "idFront": "Anverso del documento",
+      "idBack": "Reverso del documento",
+      "idPhotos": "Verifica tu identidad"
     },
     "placeholders": {
       "fullName": "Tu nombre",
@@ -2035,7 +2046,8 @@
       "nationalIdRequired": "Introduce tu documento de identidad.",
       "phoneRequired": "Introduce tu número de teléfono.",
       "addressRequired": "Introduce tu dirección.",
-      "submitFailed": "No se pudo enviar tu solicitud. Inténtalo de nuevo."
+      "submitFailed": "No se pudo enviar tu solicitud. Inténtalo de nuevo.",
+      "idRequired": "Añade el anverso y el reverso de tu documento."
     },
     "pending": {
       "subtitle": "Nuestro equipo está revisando tu solicitud.",
@@ -2053,7 +2065,10 @@
       "individual": "Particular",
       "company": "Empresa",
       "brokerage": "Agencia"
-    }
+    },
+    "idHint": "Sube fotos nítidas del anverso y el reverso de tu documento. Nuestro equipo las revisa.",
+    "idChoose": "Elegir o tomar una foto",
+    "idRemove": "Quitar"
   },
   "contact": {
     "whatsappAria": "Contáctanos por WhatsApp"

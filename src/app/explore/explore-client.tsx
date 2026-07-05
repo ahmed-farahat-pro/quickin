@@ -138,6 +138,15 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   const [searchError, setSearchError] = useState(false)
   const [view, setView] = useState<View>('list')
 
+  // ── Location autocomplete ("search by place") ────────────────────────────
+  const [placeOpen, setPlaceOpen] = useState(false)
+  const [placeSuggestions, setPlaceSuggestions] = useState<string[]>([])
+  const [placeHighlight, setPlaceHighlight] = useState(-1)
+  const placeBoxRef = useRef<HTMLDivElement | null>(null)
+  const placeAbortRef = useRef<AbortController | null>(null)
+  const placeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const placeBlurRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Airbnb-style: on desktop, collapse the hero copy once the user scrolls past
   // the hero, keeping the search + category bar sticky at the top.
   const [scrolled, setScrolled] = useState(false)
@@ -192,6 +201,96 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   const submitSearch = useCallback(() => {
     runSearch(filters)
   }, [runSearch, filters])
+
+  // ── Location autocomplete behaviour ──────────────────────────────────────
+  // The current query is empty ⇒ we're showing the "popular destinations" list.
+  const placeQueryEmpty = !filters.location.trim()
+
+  const fetchPlaces = useCallback((value: string) => {
+    placeAbortRef.current?.abort()
+    const controller = new AbortController()
+    placeAbortRef.current = controller
+    fetch(`/api/local/places?q=${encodeURIComponent(value.trim())}`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : { places: [] }))
+      .then((data: { places?: string[] }) => {
+        if (controller.signal.aborted) return
+        setPlaceSuggestions(Array.isArray(data.places) ? data.places : [])
+      })
+      .catch((err) => {
+        if ((err as Error)?.name !== 'AbortError') console.error('Place autocomplete failed:', err)
+      })
+  }, [])
+
+  // Debounced fetch whenever the (open) location field changes.
+  const onLocationChange = useCallback((value: string) => {
+    updateFilter({ location: value })
+    setPlaceOpen(true)
+    setPlaceHighlight(-1)
+    if (placeDebounceRef.current) clearTimeout(placeDebounceRef.current)
+    placeDebounceRef.current = setTimeout(() => fetchPlaces(value), 200)
+  }, [updateFilter, fetchPlaces])
+
+  const openPlaces = useCallback(() => {
+    if (placeBlurRef.current) clearTimeout(placeBlurRef.current)
+    setPlaceOpen(true)
+    setPlaceHighlight(-1)
+    fetchPlaces(filters.location)
+  }, [fetchPlaces, filters.location])
+
+  const closePlaces = useCallback(() => {
+    setPlaceOpen(false)
+    setPlaceHighlight(-1)
+  }, [])
+
+  const choosePlace = useCallback((place: string) => {
+    setFilters((prev) => {
+      const next = { ...prev, location: place }
+      runSearch(next)
+      return next
+    })
+    closePlaces()
+  }, [runSearch, closePlaces])
+
+  // Close the dropdown on outside click.
+  useEffect(() => {
+    if (!placeOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (placeBoxRef.current && !placeBoxRef.current.contains(e.target as Node)) closePlaces()
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [placeOpen, closePlaces])
+
+  // Cleanup debounce + in-flight request on unmount.
+  useEffect(() => {
+    return () => {
+      if (placeDebounceRef.current) clearTimeout(placeDebounceRef.current)
+      if (placeBlurRef.current) clearTimeout(placeBlurRef.current)
+      placeAbortRef.current?.abort()
+    }
+  }, [])
+
+  const onLocationKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (!placeOpen) { openPlaces(); return }
+      e.preventDefault()
+      setPlaceHighlight((h) => (placeSuggestions.length ? (h + 1) % placeSuggestions.length : -1))
+    } else if (e.key === 'ArrowUp') {
+      if (!placeOpen) return
+      e.preventDefault()
+      setPlaceHighlight((h) => (placeSuggestions.length ? (h <= 0 ? placeSuggestions.length - 1 : h - 1) : -1))
+    } else if (e.key === 'Enter') {
+      if (placeOpen && placeHighlight >= 0 && placeSuggestions[placeHighlight]) {
+        e.preventDefault()
+        choosePlace(placeSuggestions[placeHighlight])
+      } else {
+        closePlaces()
+        submitSearch()
+      }
+    } else if (e.key === 'Escape') {
+      if (placeOpen) { e.preventDefault(); closePlaces() }
+    }
+  }, [placeOpen, placeSuggestions, placeHighlight, openPlaces, choosePlace, closePlaces, submitSearch])
 
   // Category chips filter instantly (like Airbnb's category bar).
   const selectType = useCallback((type: string) => {
@@ -321,7 +420,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               alignItems: 'end',
             }}
           >
-            <div className="qk-search-location">
+            <div className="qk-search-location" ref={placeBoxRef} style={{ position: 'relative' }}>
               <label htmlFor="location" style={labelStyle}>
                 <MapPin size={13} /> {t('search.locationLabel')}
               </label>
@@ -331,11 +430,87 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
                 name="location"
                 placeholder={t('search.locationPlaceholder')}
                 autoComplete="off"
+                role="combobox"
+                aria-expanded={placeOpen}
+                aria-autocomplete="list"
+                aria-controls="qk-place-listbox"
                 value={filters.location}
-                onChange={(e) => updateFilter({ location: e.target.value })}
-                onKeyDown={(e) => { if (e.key === 'Enter') submitSearch() }}
+                onChange={(e) => onLocationChange(e.target.value)}
+                onFocus={openPlaces}
+                onBlur={() => {
+                  // Delay so a click on a suggestion registers before we close.
+                  if (placeBlurRef.current) clearTimeout(placeBlurRef.current)
+                  placeBlurRef.current = setTimeout(() => closePlaces(), 150)
+                }}
+                onKeyDown={onLocationKeyDown}
                 style={inputStyle}
               />
+              {placeOpen && placeSuggestions.length > 0 && (
+                <ul
+                  id="qk-place-listbox"
+                  role="listbox"
+                  style={{
+                    listStyle: 'none',
+                    margin: '6px 0 0',
+                    padding: 6,
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 60,
+                    background: '#fff',
+                    border: '1px solid rgba(42,34,32,0.10)',
+                    borderRadius: 14,
+                    boxShadow: '0 14px 36px rgba(42,34,32,0.16)',
+                    maxHeight: 320,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {placeQueryEmpty && (
+                    <li
+                      aria-hidden="true"
+                      style={{
+                        padding: '8px 10px 6px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        color: COLORS.muted,
+                      }}
+                    >
+                      {t('search.popular')}
+                    </li>
+                  )}
+                  {placeSuggestions.map((place, i) => (
+                    <li
+                      key={place}
+                      role="option"
+                      aria-selected={i === placeHighlight}
+                      onMouseEnter={() => setPlaceHighlight(i)}
+                      onMouseDown={(e) => {
+                        // Prevent the input's blur from firing before the click.
+                        e.preventDefault()
+                        choosePlace(place)
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 9,
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                        fontFamily: FONT,
+                        color: COLORS.ink,
+                        background: i === placeHighlight ? COLORS.cream : 'transparent',
+                      }}
+                    >
+                      <MapPin size={15} color={COLORS.burgundy} />
+                      <span>{place}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="qk-search-dates" style={{ alignSelf: 'end' }}>
               <DateRangePicker

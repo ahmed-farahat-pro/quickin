@@ -4,9 +4,10 @@
 // POSTs to /api/local/host/apply. This does NOT grant host — on success it shows
 // a calm "submitted, pending review" panel. Mirrors the boutique style + patterns
 // of host/new/new-listing-form.tsx (inline styles, inline validation/errors).
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { fileToCompressedDataUrl } from '@/lib/image'
 
 const C = {
   burgundy: '#5B0F16',
@@ -51,6 +52,25 @@ export function ApplyForm({ initialName }: { initialName: string }) {
   const [notes, setNotes] = useState('')
   const isBusiness = hostType === 'company' || hostType === 'brokerage'
 
+  // ID photos (data URLs) — required so admins can verify the host, same as /verify-id.
+  const [idFront, setIdFront] = useState<string | null>(null)
+  const [idBack, setIdBack] = useState<string | null>(null)
+  const frontInputRef = useRef<HTMLInputElement>(null)
+  const backInputRef = useRef<HTMLInputElement>(null)
+
+  async function onPickId(side: 'front' | 'back', e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file
+    if (!file) return
+    try {
+      const url = await fileToCompressedDataUrl(file)
+      if (side === 'front') setIdFront(url)
+      else setIdBack(url)
+    } catch {
+      setError(t('errors.idRequired'))
+    }
+  }
+
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -69,6 +89,10 @@ export function ApplyForm({ initialName }: { initialName: string }) {
     }
     if (!address.trim()) {
       setError(t('errors.addressRequired'))
+      return
+    }
+    if (!idFront || !idBack) {
+      setError(t('errors.idRequired'))
       return
     }
 
@@ -96,6 +120,25 @@ export function ApplyForm({ initialName }: { initialName: string }) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || t('errors.submitFailed'))
       }
+
+      // Submit the ID photos for admin verification (same store as /verify-id).
+      // Non-blocking: if this fails the application is still considered submitted.
+      try {
+        await fetch('/api/local/verification', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            front: idFront,
+            back: idBack,
+            id_number: nationalId.replace(/\D/g, '') || undefined,
+            full_name: fullName.trim() || undefined,
+          }),
+        })
+      } catch (verr) {
+        console.error('ID verification submit failed', verr)
+      }
+
       setSubmitted(true)
       router.refresh()
     } catch (err) {
@@ -255,6 +298,99 @@ export function ApplyForm({ initialName }: { initialName: string }) {
           autoComplete="street-address"
           required
         />
+      </div>
+
+      <div style={fieldWrap}>
+        <label style={label}>
+          {t('fields.idPhotos')} <span style={{ color: C.burgundy }}>*</span>
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {([
+            { side: 'front' as const, value: idFront, ref: frontInputRef, clear: () => setIdFront(null), text: t('fields.idFront') },
+            { side: 'back' as const, value: idBack, ref: backInputRef, clear: () => setIdBack(null), text: t('fields.idBack') },
+          ]).map(({ side, value, ref, clear, text }) => (
+            <div key={side}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: C.muted, marginBottom: 6 }}>{text}</div>
+              <input
+                ref={ref}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => onPickId(side, e)}
+                style={{ display: 'none' }}
+                aria-label={text}
+              />
+              {value ? (
+                <div style={{ position: 'relative', width: '100%' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={value}
+                    alt={text}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: 14,
+                      border: `1px solid ${C.tan}`,
+                      display: 'block',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={clear}
+                    aria-label={t('idRemove')}
+                    title={t('idRemove')}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      insetInlineEnd: 8,
+                      width: 26,
+                      height: 26,
+                      borderRadius: 999,
+                      border: 'none',
+                      background: 'rgba(42,34,32,0.72)',
+                      color: '#fff',
+                      fontSize: 15,
+                      lineHeight: 1,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => ref.current?.click()}
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    borderRadius: 14,
+                    border: `1px dashed ${C.tan}`,
+                    background: C.cream,
+                    color: C.muted,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    padding: 10,
+                    textAlign: 'center',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {t('idChoose')}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>
+          {t('idHint')}
+        </p>
       </div>
 
       {isBusiness && (

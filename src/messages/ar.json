@@ -1410,7 +1410,8 @@
       "checkOutLabel": "تسجيل المغادرة",
       "guestsLabel": "الضيوف",
       "clear": "مسح",
-      "search": "بحث"
+      "search": "بحث",
+      "popular": "الوجهات الشائعة"
     },
     "results": {
       "countFound": "{count, plural, one {تم العثور على إقامة #} other {تم العثور على # إقامات}}",
@@ -1539,6 +1540,13 @@
       "individual": "فرد",
       "company": "شركة",
       "brokerage": "وساطة عقارية"
+    },
+    "gallery": {
+      "close": "إغلاق",
+      "prev": "الصورة السابقة",
+      "next": "الصورة التالية",
+      "counter": "{current} / {total}",
+      "viewPhotos": "عرض كل الصور"
     }
   },
   "loginLocal": {
@@ -2018,7 +2026,10 @@
       "notesOptional": "ملاحظات (اختياري)",
       "hostType": "هل أنت فرد أم شركة أم وساطة عقارية؟",
       "companyName": "اسم الشركة",
-      "brokerageName": "اسم مكتب الوساطة"
+      "brokerageName": "اسم مكتب الوساطة",
+      "idFront": "مقدمة الهوية",
+      "idBack": "خلفية الهوية",
+      "idPhotos": "تحقّق من هويتك"
     },
     "placeholders": {
       "fullName": "اسمك",
@@ -2035,7 +2046,8 @@
       "nationalIdRequired": "يرجى إدخال الرقم القومي.",
       "phoneRequired": "يرجى إدخال رقم هاتفك.",
       "addressRequired": "يرجى إدخال عنوانك.",
-      "submitFailed": "تعذّر إرسال طلبك. حاول مرة أخرى."
+      "submitFailed": "تعذّر إرسال طلبك. حاول مرة أخرى.",
+      "idRequired": "يرجى إضافة مقدمة وخلفية هويتك."
     },
     "pending": {
       "subtitle": "يقوم فريقنا بمراجعة طلبك.",
@@ -2053,7 +2065,10 @@
       "individual": "فرد",
       "company": "شركة",
       "brokerage": "وساطة عقارية"
-    }
+    },
+    "idHint": "ارفع صورًا واضحة لمقدمة وخلفية هويتك. يقوم فريقنا بمراجعتها.",
+    "idChoose": "اختر أو التقط صورة",
+    "idRemove": "إزالة"
   },
   "contact": {
     "whatsappAria": "تواصل معنا عبر واتساب"

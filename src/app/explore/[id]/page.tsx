@@ -7,7 +7,7 @@ import ReservePanel from './reserve-panel'
 import MessageHostButton from './message-host-button'
 import ListingLocationMap from './listing-location-map-client'
 import WishlistButton from '../wishlist-button'
-import { FallbackImg } from '../explore-client'
+import PhotoGallery from './photo-gallery'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,9 +57,6 @@ export async function generateMetadata({
   }
 }
 
-const FALLBACK_IMG =
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80'
-
 const COLORS = {
   burgundy: '#5B0F16',
   cream: '#F6F1E6',
@@ -104,8 +101,6 @@ export default async function ListingDetailPage({
     : null
 
   const images = listing.listing_images
-  const hero = images[0]?.url || FALLBACK_IMG
-  const thumbs = images.slice(1)
 
   return (
     <main
@@ -150,60 +145,8 @@ export default async function ListingDetailPage({
           {t('backToExplore')}
         </a>
 
-        {/* Hero */}
-        <div
-          style={{
-            width: '100%',
-            aspectRatio: '16 / 9',
-            borderRadius: 24,
-            overflow: 'hidden',
-            background: COLORS.tan,
-            boxShadow: '0 10px 36px rgba(42,34,32,0.12)',
-          }}
-        >
-          <FallbackImg
-            src={hero}
-            alt={listing.title}
-            fallback={FALLBACK_IMG}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-            }}
-          />
-        </div>
-
-        {/* Thumbnail strip */}
-        {thumbs.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 12,
-              overflowX: 'auto',
-              padding: '16px 2px 4px',
-            }}
-          >
-            {thumbs.map((img, i) => (
-              <FallbackImg
-                key={`${img.url}-${i}`}
-                src={img.url}
-                alt={t('photoAlt', { title: listing.title, index: i + 2 })}
-                loading="lazy"
-                fallback={FALLBACK_IMG}
-                style={{
-                  width: 132,
-                  height: 96,
-                  flex: '0 0 auto',
-                  objectFit: 'cover',
-                  borderRadius: 14,
-                  background: COLORS.tan,
-                  boxShadow: '0 3px 12px rgba(42,34,32,0.10)',
-                }}
-              />
-            ))}
-          </div>
-        )}
+        {/* Photos — clickable hero + thumbnail strip opening a lightbox */}
+        <PhotoGallery images={images} title={listing.title} />
 
         {/* Title + location */}
         <div style={{ marginTop: 34 }}>

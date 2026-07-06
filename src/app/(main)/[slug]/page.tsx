@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 import { getLocale } from 'next-intl/server'
 import { DynamicPageRenderer } from '@/components/features/cms/dynamic-page-renderer'
+import { TermsPage } from './terms-content'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -102,7 +103,7 @@ const INFO_PAGES: Record<string, { title: string; body: string[] }> = {
     ],
   },
   terms: {
-    title: 'Terms of Service',
+    title: 'Terms & Conditions',
     body: [
       'Welcome to QuickIn. By using our platform you agree to these terms, which govern how you browse, book, and host stays.',
       'QuickIn provides a marketplace connecting guests and hosts; the booking contract is between the guest and the host. We facilitate secure payments and provide support, but we are not the owner of the listed properties.',
@@ -201,6 +202,10 @@ export default async function CustomPage({ params }: PageProps) {
   if (slug === 'listings') redirect('/explore')
 
   const locale = (await getLocale()) as 'en' | 'ar'
+
+  // Terms & Conditions — the full guest/tenant agreement (Arabic + English),
+  // rendered from the legal source, not the generic info fallback.
+  if (slug === 'terms') return <TermsPage locale={locale} />
 
   // 1. Published CMS page wins when Supabase is configured.
   const supabase = await createClient()

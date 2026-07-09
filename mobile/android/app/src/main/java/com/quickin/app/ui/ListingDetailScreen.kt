@@ -3,6 +3,8 @@ package com.quickin.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.FreeBreakfast
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HotTub
 import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.LocalLaundryService
@@ -84,9 +88,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -138,6 +145,11 @@ fun ListingDetailScreen(
     onOpenListing: (Listing) -> Unit = {},
     /** Opens the host's public profile (reviews + their other listings) from the "Hosted by" row. */
     onOpenHostProfile: () -> Unit = {},
+    /**
+     * Opens the pre-booking chat with this listing's host. Receives the listing id and the resolved
+     * host display name (falls back to "Host"). No-op by default so the param stays non-breaking.
+     */
+    onMessageHost: (listingId: String, hostName: String) -> Unit = { _, _ -> },
     /** Booked + host-blocked spans for this listing; greys out those days in the reserve picker. */
     unavailableRanges: List<com.quickin.app.AvailabilityRange> = emptyList(),
     /**
@@ -249,6 +261,11 @@ fun ListingDetailScreen(
                                 Text(listing.location, color = Muted, fontSize = 14.sp)
                             }
                         }
+                        // Property type (e.g. "Apartment", "Villa") as a small labeled chip near the specs.
+                        val propertyType = listing.propertyType
+                        if (!propertyType.isNullOrBlank()) {
+                            PropertyTypeChip(type = propertyType)
+                        }
                         if (listing.isGuestFavorite) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.Star, null, tint = Gold, modifier = Modifier.height(16.dp))
@@ -266,6 +283,31 @@ fun ListingDetailScreen(
                             hostBadges = hostBadges,
                             onClick = if (!listing.hostId.isNullOrBlank()) onOpenHostProfile else null
                         )
+                    }
+                    // "Message host" — opens the pre-booking chat. Shown only when the listing has a host.
+                    if (!listing.hostName.isNullOrBlank() || !listing.hostId.isNullOrBlank()) {
+                        val messageHostName = listing.hostName?.takeUnless { it.isBlank() } ?: "Host"
+                        OutlinedButton(
+                            onClick = { onMessageHost(listing.id, messageHostName) },
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, Burgundy),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.White,
+                                contentColor = Burgundy
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Message,
+                                contentDescription = null,
+                                tint = Burgundy,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Message host", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        }
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -406,6 +448,27 @@ private fun HostedByRow(
                 tint = Muted,
                 modifier = Modifier.size(24.dp)
             )
+        }
+    }
+}
+
+/**
+ * A small labeled pill showing the listing's property type (e.g. "Apartment", "Villa"), shown near
+ * the title/specs. RTL-safe — a leading home icon then the label follows the layout direction.
+ */
+@Composable
+private fun PropertyTypeChip(type: String) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = Tan.copy(alpha = 0.6f)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Icon(Icons.Filled.Home, contentDescription = null, tint = Burgundy, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(type, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -1070,13 +1133,16 @@ private fun DetailHero(
 ) {
     val urls = listing.sortedImageUrls
     val heroHeight = 320.dp
+    // Tapping a hero photo opens the full-screen, zoomable lightbox (below). Shared pager state so
+    // the lightbox can open on the photo the guest is currently viewing.
+    var lightboxOpen by remember { mutableStateOf(false) }
+    val pagerState = rememberPagerState(pageCount = { urls.size })
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(heroHeight)
     ) {
         if (urls.size > 1) {
-            val pagerState = rememberPagerState(pageCount = { urls.size })
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 // Constrain the page image to the hero box explicitly (fixed height + width +
                 // Crop + clip) so it can never lay out at the photo's intrinsic pixel size and
@@ -1090,6 +1156,7 @@ private fun DetailHero(
                         .height(heroHeight)
                         .clip(RoundedCornerShape(0.dp))
                         .background(Tan)
+                        .clickable { lightboxOpen = true }
                 )
             }
             Surface(
@@ -1109,7 +1176,9 @@ private fun DetailHero(
             KenBurnsImage(
                 url = urls.firstOrNull(),
                 contentDescription = listing.title,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(enabled = urls.isNotEmpty()) { lightboxOpen = true }
             )
         }
         // Legibility gradient (top + bottom) so the overlaid controls always read.
@@ -1153,6 +1222,128 @@ private fun DetailHero(
                 size = 40.dp
             )
         }
+    }
+
+    // Full-screen, zoomable photo lightbox — opens on tapping a hero photo.
+    if (lightboxOpen && urls.isNotEmpty()) {
+        PhotoLightbox(
+            urls = urls,
+            initialIndex = if (urls.size > 1) pagerState.currentPage else 0,
+            onClose = { lightboxOpen = false }
+        )
+    }
+}
+
+/**
+ * A full-screen, dark, zoomable photo lightbox shown over the listing detail when a hero photo is
+ * tapped. The photos live in a swipeable [HorizontalPager] (so paging between them still works);
+ * each page supports pinch-to-zoom + double-tap-to-zoom (clamped ~1x–4x) with drag-to-pan while
+ * zoomed. A close (X) button sits at the top-end and an "n / total" counter at the bottom.
+ */
+@Composable
+private fun PhotoLightbox(
+    urls: List<String>,
+    initialIndex: Int,
+    onClose: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val startPage = initialIndex.coerceIn(0, (urls.size - 1).coerceAtLeast(0))
+        val pagerState = rememberPagerState(initialPage = startPage, pageCount = { urls.size })
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                ZoomablePhoto(url = urls[page])
+            }
+            // Close (X) — frosted circle at the top end, below the status bar (RTL-mirrored).
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(12.dp)
+                    .size(42.dp)
+                    .background(Color.White.copy(alpha = 0.18f), CircleShape)
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.cd_back),
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            // "n / total" counter pinned to the bottom.
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = Color.White.copy(alpha = 0.18f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .statusBarsPadding()
+                    .padding(bottom = 28.dp)
+            ) {
+                Text(
+                    "${pagerState.currentPage + 1} / ${urls.size}",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One pinch/double-tap zoomable photo page inside [PhotoLightbox]. Scale is clamped to ~1x–4x; a
+ * double-tap toggles between fit (1x) and a 2.5x zoom, and while zoomed dragging pans the image.
+ * At 1x the offset is pinned to zero so horizontal swipes fall through to the pager.
+ */
+@Composable
+private fun ZoomablePhoto(url: String) {
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (scale > 1f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                        } else {
+                            scale = 2.5f
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    scale = (scale * zoom).coerceIn(1f, 4f)
+                    offset = if (scale > 1f) offset + pan else Offset.Zero
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        AsyncImage(
+            model = url,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }
+        )
     }
 }
 

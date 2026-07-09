@@ -15,8 +15,8 @@ android {
         applicationId = "com.quickin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         // Google Maps API key for the (optional) Google Maps Explore map. Defaults to "" so the
         // app builds and runs with the osmdroid price-pill fallback when no key is provided.

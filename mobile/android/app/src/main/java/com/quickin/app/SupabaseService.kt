@@ -420,6 +420,7 @@ object SupabaseService {
             hostId = o.optStringOrNull("host_id"),
             hostName = o.optStringOrNull("host_name"),
             region = o.optStringOrNull("region"),
+            propertyType = o.optStringOrNull("property_type"),
             pricePerNight = o.optDouble("price_per_night", 0.0),
             currency = o.optStringOrNull("currency"),
             bedrooms = o.optIntOrNull("bedrooms"),

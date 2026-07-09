@@ -2,6 +2,7 @@ package com.quickin.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,6 +62,12 @@ class ListingsViewModel : ViewModel() {
     // MainApp observes this and opens the detail; null once consumed (or when the fetch failed).
     private val _deepLinkListing = MutableStateFlow<Listing?>(null)
     val deepLinkListing: StateFlow<Listing?> = _deepLinkListing.asStateFlow()
+
+    // Place-autocomplete suggestions for the Explore search location field
+    // (`GET /api/local/places?q=…`). Debounced; cleared when a suggestion is chosen or the query is short.
+    private val _placeSuggestions = MutableStateFlow<List<String>>(emptyList())
+    val placeSuggestions: StateFlow<List<String>> = _placeSuggestions.asStateFlow()
+    private var placeSuggestJob: Job? = null
 
     init {
         load()
@@ -145,6 +152,31 @@ class ListingsViewModel : ViewModel() {
     /** Exits AI search mode and returns the screen to the regular filtered feed. */
     fun clearAiSearch() {
         _aiSearch.value = AiSearchUiState()
+    }
+
+    /**
+     * Fetches place suggestions for the Explore location typeahead (`GET /api/local/places?q=…`),
+     * debounced ~250ms so it fires once the user pauses typing. A short (<2 char) query clears the
+     * list. Best-effort — a failed lookup just yields no suggestions.
+     */
+    fun suggestPlaces(query: String) {
+        val q = query.trim()
+        placeSuggestJob?.cancel()
+        if (q.length < 2) {
+            _placeSuggestions.value = emptyList()
+            return
+        }
+        placeSuggestJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(250)
+            val results = try { PlacesService.suggest(q) } catch (e: Exception) { emptyList() }
+            _placeSuggestions.value = results
+        }
+    }
+
+    /** Clears the place-suggestion dropdown (a suggestion was chosen, or the field lost relevance). */
+    fun clearPlaceSuggestions() {
+        placeSuggestJob?.cancel()
+        _placeSuggestions.value = emptyList()
     }
 
     /** Re-runs the fetch with the current filters (used for Retry). */

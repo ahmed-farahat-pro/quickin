@@ -93,6 +93,7 @@ import com.quickin.app.ui.nightsBetween
 import com.quickin.app.ui.NotificationsScreen
 import com.quickin.app.ui.OtpScreen
 import com.quickin.app.ui.PaymentSheet
+import com.quickin.app.ui.PreBookingChatScreen
 import com.quickin.app.ui.ProfileScreen
 import com.quickin.app.ui.ProfileSettingsScreen
 import com.quickin.app.ui.ProfileSignInCta
@@ -313,6 +314,8 @@ private fun MainApp() {
     val listingsState by listingsViewModel.state.collectAsState()
     // Section 10: natural-language ("Ask AI") search state on the Explore screen.
     val aiSearchState by listingsViewModel.aiSearch.collectAsState()
+    // Place-autocomplete suggestions for the Explore location search field.
+    val placeSuggestionsState by listingsViewModel.placeSuggestions.collectAsState()
     // The "More from this host" rail for whichever listing detail is open.
     val moreFromHostState by listingsViewModel.hostListings.collectAsState()
 
@@ -415,6 +418,9 @@ private fun MainApp() {
     var showProfileSettings by remember { mutableStateOf(false) }
     // Booking whose chat thread (full-screen) is open: (bookingId, title), or null.
     var chatBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    // Pre-booking chat (guest ↔ host) opened from a listing detail's "Message host": (listingId,
+    // hostName), or null. Sits above the listing detail so Back returns to it.
+    var preBookingChat by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Host whose public profile (full-screen) is open: (hostId, fallbackHostName), or null.
     // Opened by tapping the "Hosted by …" row on a listing detail.
     var hostProfile by remember { mutableStateOf<Pair<String, String?>?>(null) }
@@ -662,6 +668,7 @@ private fun MainApp() {
             showForgot = false
             selectedReservationId = null
             chatBooking = null
+            preBookingChat = null
             // Close the host profile too (a public screen, but drop its cached state on logout).
             hostProfile = null
             trustViewModel.clearHostProfile()
@@ -701,7 +708,8 @@ private fun MainApp() {
     val otpOpen = authState.pendingEmail != null && !authState.isAuthenticated
     val forgotOpen = showForgot && !authState.isAuthenticated
     val authOpen = showAuth && !authState.isAuthenticated
-    val anyOverlay = pendingPayment != null || hostProfile != null || selectedListing != null ||
+    val anyOverlay = pendingPayment != null || hostProfile != null || preBookingChat != null ||
+        selectedListing != null ||
         selectedService != null ||
         showMySubscriptions || showProfileSettings || showHostServices || showAiTravel ||
         chatBooking != null || selectedReservationId != null || showHost || showAddListing ||
@@ -717,6 +725,8 @@ private fun MainApp() {
             }
             // The host profile sits above the listing detail — Back returns to that detail.
             hostProfile != null -> { trustViewModel.clearHostProfile(); hostProfile = null }
+            // Pre-booking chat sits above the listing detail — Back returns to that detail.
+            preBookingChat != null -> preBookingChat = null
             selectedListing != null -> { bookingsViewModel.resetReserve(); selectedListing = null }
             selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
             showMySubscriptions -> showMySubscriptions = false
@@ -829,6 +839,20 @@ private fun MainApp() {
         return
     }
 
+    // PRE-BOOKING CHAT (guest ↔ host). Full-screen; opened from a listing detail's "Message host".
+    // Sits above the listing detail (rendered before it) so Back returns to that detail. The screen
+    // handles a signed-out user itself (a "sign in to chat" state), so it isn't auth-gated here.
+    val preChat = preBookingChat
+    if (preChat != null) {
+        PreBookingChatScreen(
+            token = authViewModel.currentToken(),
+            listingId = preChat.first,
+            hostName = preChat.second,
+            onBack = { preBookingChat = null }
+        )
+        return
+    }
+
     val current = selectedListing
     // The detail view is full-screen (no bottom bar); everything else is in the Scaffold.
     if (current != null) {
@@ -898,6 +922,8 @@ private fun MainApp() {
                     hostProfile = hostId to current.hostName
                 }
             },
+            // "Message host" opens the pre-booking chat over this detail (Back returns here).
+            onMessageHost = { id, name -> preBookingChat = id to name },
             // Live availability: greyed days in the guest picker come from the guest state (only
             // when it's this listing's spans); the host manager is gated on owning the listing.
             unavailableRanges = if (availabilityGuestState.listingId == current.id)
@@ -1302,6 +1328,10 @@ private fun MainApp() {
                     aiSearchState = aiSearchState,
                     onAiSearch = listingsViewModel::aiSearch,
                     onClearAiSearch = listingsViewModel::clearAiSearch,
+                    // Place autocomplete for the location search field.
+                    placeSuggestions = placeSuggestionsState,
+                    onPlaceQueryChange = listingsViewModel::suggestPlaces,
+                    onClearPlaceSuggestions = listingsViewModel::clearPlaceSuggestions,
                     contentPadding = padding
                 )
                 // Services: the public bookable-experiences feed. Hosts manage their own services

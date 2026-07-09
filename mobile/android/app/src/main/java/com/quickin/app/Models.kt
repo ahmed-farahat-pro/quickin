@@ -18,6 +18,12 @@ data class Listing(
     val hostName: String? = null,
     /** Curated area the listing belongs to (e.g. "North Coast", "El Gouna"); null when unset. */
     val region: String? = null,
+    /**
+     * The listing's property type (e.g. "Apartment", "Villa", "Chalet", "House"); null when unset.
+     * Parsed from the JSON key "property_type" (see SupabaseService.parseListing). Surfaced as a
+     * small labeled chip near the title on the detail screen.
+     */
+    val propertyType: String? = null,
     val pricePerNight: Double,
     val currency: String?,
     val bedrooms: Int?,

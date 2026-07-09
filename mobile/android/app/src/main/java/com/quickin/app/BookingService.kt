@@ -187,6 +187,59 @@ object BookingService {
             parsePaymentReceipt(JSONObject(text).getJSONObject("receipt"))
         }
 
+    // ---- Instapay bank transfer (manual proof-of-payment) ---------------------
+
+    /**
+     * The transfer destination + notes for the Instapay bank-transfer flow
+     * (`GET /api/local/payment-config`, Bearer): the [instapayHandle] the guest sends money to and
+     * free-text [instructions] to show alongside it.
+     */
+    data class PaymentConfig(
+        val instapayHandle: String,
+        val instructions: String
+    )
+
+    /**
+     * Loads the Instapay transfer destination + instructions to show the guest
+     * (`GET /api/local/payment-config`, Bearer). Throws [HttpError] (401 when not signed in).
+     */
+    suspend fun getPaymentConfig(token: String): PaymentConfig = withContext(Dispatchers.IO) {
+        val text = get(token, "/api/local/payment-config")
+        val o = JSONObject(text)
+        PaymentConfig(
+            instapayHandle = o.optString("instapay_handle"),
+            instructions = o.optString("instructions")
+        )
+    }
+
+    /**
+     * Uploads the guest's Instapay transfer screenshot as proof of payment for [bookingId]
+     * (`POST /api/local/bookings/:id/payment-proof { image, method:"instapay" }`, Bearer).
+     * [imageDataUrl] is a `data:image/jpeg;base64,…` data URL (a raw base64 string is normalized to
+     * one defensively). The booking's `payment_status` flips to "submitted" (awaiting host approval);
+     * re-uploading is allowed. Returns the updated [Booking]. Throws [HttpError] (401 not signed in,
+     * 400 when the screenshot is missing, 403/404 when the booking isn't the caller's).
+     */
+    suspend fun submitPaymentProof(
+        token: String,
+        bookingId: String,
+        imageDataUrl: String
+    ): Booking = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("image", asJpegDataUrl(imageDataUrl))
+            put("method", "instapay")
+        }
+        val text = send("POST", token, "/api/local/bookings/$bookingId/payment-proof", body)
+        // The response may be the bare updated booking or wrapped under a "booking" key.
+        val obj = JSONObject(text)
+        parseBooking(obj.optJSONObject("booking") ?: obj)
+    }
+
+    /** Normalizes a raw base64 JPEG or an existing data URL to a `data:image/jpeg;base64,…` URL. */
+    private fun asJpegDataUrl(image: String): String =
+        if (image.startsWith("data:", ignoreCase = true)) image
+        else "data:image/jpeg;base64,$image"
+
     /**
      * Previews a promo [code] against a [subtotal] WITHOUT applying it
      * (`POST /api/local/promo/validate { code, subtotal }`). Returns a [PromoQuote] describing

@@ -145,6 +145,10 @@ fun ListingsScreen(
     aiSearchState: com.quickin.app.AiSearchUiState = com.quickin.app.AiSearchUiState(),
     onAiSearch: (String) -> Unit = {},
     onClearAiSearch: () -> Unit = {},
+    // ---- Place autocomplete for the location search field ----
+    placeSuggestions: List<String> = emptyList(),
+    onPlaceQueryChange: (String) -> Unit = {},
+    onClearPlaceSuggestions: () -> Unit = {},
     contentPadding: PaddingValues = PaddingValues()
 ) {
     // The discovery-filters bottom sheet (amenities + property type).
@@ -237,7 +241,10 @@ fun ListingsScreen(
                 SearchHeader(
                     query = state.query,
                     onSearch = onSearch,
-                    onClear = onClear
+                    onClear = onClear,
+                    placeSuggestions = placeSuggestions,
+                    onPlaceQueryChange = onPlaceQueryChange,
+                    onClearPlaceSuggestions = onClearPlaceSuggestions
                 )
             }
 
@@ -981,8 +988,12 @@ private fun FiltersSheet(
 private fun SearchHeader(
     query: ListingQuery,
     onSearch: (ListingQuery) -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    placeSuggestions: List<String> = emptyList(),
+    onPlaceQueryChange: (String) -> Unit = {},
+    onClearPlaceSuggestions: () -> Unit = {}
 ) {
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var location by remember(query) { mutableStateOf(query.location ?: "") }
     var checkIn by remember(query) { mutableStateOf(query.checkIn ?: "") }
     var checkOut by remember(query) { mutableStateOf(query.checkOut ?: "") }
@@ -1076,12 +1087,64 @@ private fun SearchHeader(
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    SearchTextField(
-                        value = location,
-                        onValueChange = { location = it },
-                        label = stringResource(R.string.search_where_to),
-                        leadingIcon = Icons.Filled.LocationOn
-                    )
+                    Column {
+                        SearchTextField(
+                            value = location,
+                            onValueChange = {
+                                location = it
+                                // Debounced place-autocomplete lookup as the guest types.
+                                onPlaceQueryChange(it)
+                            },
+                            label = stringResource(R.string.search_where_to),
+                            leadingIcon = Icons.Filled.LocationOn
+                        )
+                        // Typeahead dropdown — tapping a place fills the field and runs the search.
+                        if (placeSuggestions.isNotEmpty()) {
+                            Surface(
+                                color = Color.White,
+                                shape = RoundedCornerShape(14.dp),
+                                shadowElevation = 4.dp,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Tan),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp)
+                            ) {
+                                Column {
+                                    placeSuggestions.take(6).forEach { place ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    location = place
+                                                    onClearPlaceSuggestions()
+                                                    keyboard?.hide()
+                                                    onSearch(
+                                                        ListingQuery(
+                                                            location = place,
+                                                            guests = guests.toIntOrNull()?.takeIf { it > 0 },
+                                                            checkIn = checkIn.ifBlank { null },
+                                                            checkOut = checkOut.ifBlank { null }
+                                                        )
+                                                    )
+                                                    expanded = false
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.LocationOn,
+                                                contentDescription = null,
+                                                tint = Burgundy,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(Modifier.width(10.dp))
+                                            Text(place, color = Ink, fontSize = 15.sp, maxLines = 1)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     DatesRow(
                         checkIn = checkIn,
@@ -1100,6 +1163,7 @@ private fun SearchHeader(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
                             onClick = {
+                                onClearPlaceSuggestions()
                                 onSearch(
                                     ListingQuery(
                                         location = location.trim().ifBlank { null },
@@ -1129,6 +1193,7 @@ private fun SearchHeader(
                                 checkIn = ""
                                 checkOut = ""
                                 guests = ""
+                                onClearPlaceSuggestions()
                                 onClear()
                             },
                             shape = RoundedCornerShape(16.dp),
@@ -1386,6 +1451,24 @@ private fun ListingCard(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(listing.location, color = Muted, fontSize = 14.sp, maxLines = 1)
+                    }
+                }
+                // Small property-type pill (e.g. "Villa", "Chalet") when the listing carries one.
+                val propertyType = listing.propertyType
+                if (!propertyType.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Tan,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text(
+                            propertyType,
+                            color = Ink,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
                 }
                 Row(

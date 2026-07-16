@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
   // (legacy Supabase) parts of the app block the Vercel build of the live
   // local-stack pages. Re-enable these once the legacy code is cleaned up.
   typescript: { ignoreBuildErrors: true },
+  // App Store / Google Play account-deletion URL. The app uses next-intl WITHOUT
+  // URL-path locales (no /[locale] routing — that would also clash with the
+  // existing /[slug] route), so the deletion page lives at /account/delete and we
+  // rewrite the locale-prefixed form (e.g. /en/account/delete) onto it, preserving
+  // the requested URL.
+  async rewrites() {
+    return [
+      { source: '/:locale(en|ar|fr|es)/account/delete', destination: '/account/delete' },
+    ]
+  },
   images: {
     remotePatterns: [
       {

@@ -38,6 +38,34 @@ final class ListingsViewModel: ObservableObject {
     /// state copy from "seed the database" to "no stays match your search".
     @Published var isFiltered = false
 
+    // Place autocomplete (web + Android parity) — suggestions for the location
+    // field from `GET /api/local/places`, refreshed (debounced) as the user types.
+    @Published var placeSuggestions: [String] = []
+    /// Monotonic token so a stale suggestions task can detect it was superseded.
+    private var placeSuggestToken = 0
+
+    /// Debounced place-suggestions refresh for the location search field. Called
+    /// from the header whenever `locationQuery` changes (and when the field gains
+    /// focus with an empty query, which returns the curated popular destinations).
+    func suggestPlaces(debounced: Bool = true) {
+        placeSuggestToken += 1
+        let token = placeSuggestToken
+        let query = locationQuery
+        Task {
+            if debounced { try? await Task.sleep(nanoseconds: 300_000_000) }
+            guard token == placeSuggestToken else { return }
+            let places = await SupabaseService.shared.fetchPlaceSuggestions(query: query)
+            guard token == placeSuggestToken else { return }
+            placeSuggestions = places
+        }
+    }
+
+    /// Hides the suggestion list (on submit / selection / clear).
+    func clearPlaceSuggestions() {
+        placeSuggestToken += 1
+        placeSuggestions = []
+    }
+
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

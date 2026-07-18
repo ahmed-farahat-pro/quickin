@@ -55,6 +55,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
@@ -138,9 +139,10 @@ fun ListingsScreen(
     onOpenProfile: () -> Unit = {},
     unreadCount: Int = 0,
     onOpenNotifications: () -> Unit = {},
+    /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
+    onOpenMessages: () -> Unit = {},
     savedListingIds: Set<String> = emptySet(),
     onToggleSaved: (Listing) -> Unit = {},
-    onOpenAiChat: () -> Unit = {},
     // ---- Natural-language ("Ask AI") search (Section 10) ----
     aiSearchState: com.quickin.app.AiSearchUiState = com.quickin.app.AiSearchUiState(),
     onAiSearch: (String) -> Unit = {},
@@ -168,22 +170,6 @@ fun ListingsScreen(
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
-        floatingActionButton = {
-            // "Ask AI" travel-concierge entry — burgundy circle with an animated
-            // "sun over the sea" mark, bottom-end above the bottom nav.
-            FloatingActionButton(
-                onClick = onOpenAiChat,
-                containerColor = Burgundy,
-                contentColor = Color.White,
-                shape = CircleShape
-            ) {
-                VacationWavesIcon(
-                    size = 28.dp,
-                    contentDescription = stringResource(R.string.cd_ask_ai)
-                )
-            }
-        },
-        floatingActionButtonPosition = FabPosition.End,
         topBar = {
             TopAppBar(
                 title = {
@@ -199,6 +185,14 @@ fun ListingsScreen(
                     if (isAuthenticated) {
                         // Animated profile avatar → opens the Profile tab.
                         ProfileAvatarAction(initials = userInitials, onClick = onOpenProfile)
+                        // Messages inbox (guest ↔ host conversations).
+                        IconButton(onClick = onOpenMessages) {
+                            Icon(
+                                Icons.Filled.ChatBubbleOutline,
+                                contentDescription = stringResource(R.string.cd_messages),
+                                tint = Burgundy
+                            )
+                        }
                         // Notifications bell with an unread badge (signed-in only).
                         NotificationsBell(
                             unreadCount = unreadCount,
@@ -246,27 +240,6 @@ fun ListingsScreen(
                     onPlaceQueryChange = onPlaceQueryChange,
                     onClearPlaceSuggestions = onClearPlaceSuggestions
                 )
-            }
-
-            // Natural-language ("Ask AI") search — collapses with the rest of the chrome.
-            AnimatedVisibility(visible = !collapsed) {
-                NaturalLanguageSearchBar(
-                    state = aiSearchState,
-                    onSearch = onAiSearch,
-                    onClear = onClearAiSearch
-                )
-            }
-
-            if (aiSearchState.active) {
-                // ---- AI search results mode: parsed-filter chips + matched listings ----
-                AiSearchResults(
-                    state = aiSearchState,
-                    onSelect = onSelect,
-                    savedListingIds = savedListingIds,
-                    onToggleSaved = onToggleSaved,
-                    onRetry = { onAiSearch(aiSearchState.query) }
-                )
-                return@Column
             }
 
             // Region chips + sort/filters collapse with the rest of the chrome on

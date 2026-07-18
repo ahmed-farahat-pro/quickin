@@ -42,26 +42,28 @@ object TrustService {
     }
 
     /**
-     * Submits the FRONT and BACK photos of the user's ID for verification — NO OCR; the images are
-     * uploaded over the app's normal HTTPS [Config.API_BASE_URL] for a human to review
-     * (`POST /api/local/verification { front, back, id_number?, full_name? }`).
+     * Submits the FRONT and BACK photos of the user's ID plus a SELFIE for verification — NO OCR;
+     * the images are uploaded over the app's normal HTTPS [Config.API_BASE_URL] for a human to
+     * review (`POST /api/local/verification { front, back, selfie?, id_number?, full_name? }`).
      *
-     * [front] / [back] are `data:image/jpeg;base64,…` data URLs produced off the main thread via
-     * [AvatarImage.loadDownscaledJpegDataUrl] (maxDim 1024); each is normalized to a data URL here
-     * defensively in case a raw base64 string is passed. [idNumber] / [fullName] are optional and
-     * omitted when blank. Returns the resulting state (status flips to "pending"). Throws [HttpError]
-     * (401 not signed in, 400 on validation).
+     * [front] / [back] / [selfie] are `data:image/jpeg;base64,…` data URLs produced off the main
+     * thread via [AvatarImage.loadDownscaledJpegDataUrl] (maxDim 1024); each is normalized to a
+     * data URL here defensively in case a raw base64 string is passed. [idNumber] / [fullName] are
+     * optional and omitted when blank. Returns the resulting state (status flips to "pending").
+     * Throws [HttpError] (401 not signed in, 400 on validation).
      */
     suspend fun submitVerification(
         token: String,
         front: String,
         back: String,
+        selfie: String? = null,
         idNumber: String? = null,
         fullName: String? = null
     ): VerificationState = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("front", asJpegDataUrl(front))
             put("back", asJpegDataUrl(back))
+            if (!selfie.isNullOrBlank()) put("selfie", asJpegDataUrl(selfie))
             if (!idNumber.isNullOrBlank()) put("id_number", idNumber.trim())
             if (!fullName.isNullOrBlank()) put("full_name", fullName.trim())
         }

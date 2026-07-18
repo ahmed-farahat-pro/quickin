@@ -293,6 +293,27 @@
     <string name="pay_confirmed_body">Your payment went through and your reservation is confirmed.</string>
     <string name="pay_processing_title">Payment is processing</string>
     <string name="pay_processing_body">Payment is processing — we\'ll update your reservation shortly.</string>
+    <!-- Instapay bank transfer (replaces Paymob card checkout) -->
+    <string name="instapay_subtitle">Transfer via Instapay, then upload your screenshot.</string>
+    <string name="instapay_amount_to_send">Amount to transfer</string>
+    <string name="instapay_for_nights">for %1$s</string>
+    <string name="instapay_send_to">Send the transfer to</string>
+    <string name="instapay_copy">Copy</string>
+    <string name="instapay_copied">Copied</string>
+    <string name="instapay_loading">Loading transfer details…</string>
+    <string name="instapay_load_error">Couldn\'t load the transfer details. Please try again.</string>
+    <string name="instapay_no_handle">The host hasn\'t set up Instapay yet — please contact them.</string>
+    <string name="instapay_add_screenshot">Add transfer screenshot</string>
+    <string name="instapay_change_screenshot">Change screenshot</string>
+    <string name="instapay_submit">I\'ve paid — submit screenshot</string>
+    <string name="instapay_submitting">Submitting…</string>
+    <string name="instapay_missing_screenshot">Please add your transfer screenshot.</string>
+    <string name="instapay_sign_in">Please sign in to pay by Instapay transfer.</string>
+    <string name="instapay_awaiting_title">Awaiting host approval</string>
+    <string name="instapay_awaiting_body">We\'ve sent your transfer screenshot to the host. Your booking is confirmed once they approve it.</string>
+    <string name="instapay_note">Your booking is confirmed after the host verifies your transfer.</string>
+    <string name="instapay_for_one_night">for 1 night</string>
+    <string name="instapay_under_review">Payment under review — the host is checking your transfer.</string>
 
     <!-- Services -->
     <string name="services_title">Services</string>
@@ -466,7 +487,7 @@
 
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">Verify your identity</string>
-    <string name="trust_verify_intro">Add a verified badge to your profile. Upload the front and back of your government ID — we\'ll review it shortly.</string>
+    <string name="trust_verify_intro">Add a verified badge to your profile. Upload the front and back of your government ID plus a selfie — we\'ll review them shortly.</string>
     <string name="trust_status_unverified">Not verified</string>
     <string name="trust_status_pending">Verification pending</string>
     <string name="trust_status_verified">Identity verified</string>
@@ -571,7 +592,7 @@
     <string name="ai_write_with_ai">Write with AI</string>
     <string name="ai_writing">Writing…</string>
     <string name="add_description">Description</string>
-    <string name="add_basics_hint">Give your place a catchy title and pick the property type, then let AI draft the description. Title is required.</string>
+    <string name="add_basics_hint">Give your place a catchy title and pick the property type, then describe what makes it special. Title is required.</string>
     <!-- Natural-language search (Explore) -->
     <string name="ai_search">Ask AI</string>
     <string name="ai_search_placeholder">Try: beach villa for 6 with a pool under 4000</string>
@@ -624,4 +645,29 @@
     <string name="pricing_month_10">October</string>
     <string name="pricing_month_11">November</string>
     <string name="pricing_month_12">December</string>
+
+    <!-- Messages inbox (guest <-> host conversations) -->
+    <string name="messages_title">Messages</string>
+    <string name="messages_error_title">Couldn\'t load messages</string>
+    <string name="messages_empty_title">No messages yet</string>
+    <string name="messages_empty_body">When you message a host or a guest, the conversation shows up here.</string>
+    <string name="messages_no_messages">No messages yet</string>
+    <string name="messages_host_badge">Host</string>
+    <string name="messages_sign_in_title">Sign in to see your messages</string>
+    <string name="messages_sign_in_body">Your conversations with hosts and guests live here.</string>
+    <string name="profile_messages">Messages</string>
+    <string name="profile_messages_sub">Chat with hosts and guests</string>
+    <string name="cd_messages">Messages</string>
+
+    <!-- Support & legal (Profile tab) -->
+    <string name="profile_support_legal">Support &amp; legal</string>
+    <string name="legal_terms">Terms of Service</string>
+    <string name="legal_privacy">Privacy Policy</string>
+    <string name="legal_about">About QuickIn</string>
+    <string name="legal_contact">Contact us</string>
+
+    <!-- Identity verification: selfie (web parity) -->
+    <string name="trust_selfie_photo">A selfie of you</string>
+    <string name="trust_selfie_hint">Take a clear selfie so we can match it to your ID.</string>
+    <string name="trust_photos_required">Please add your ID front, back and a selfie.</string>
 </resources>

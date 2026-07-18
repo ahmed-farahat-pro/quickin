@@ -242,6 +242,27 @@
     <string name="pay_confirmed_body">Votre paiement a été effectué et votre réservation est confirmée.</string>
     <string name="pay_processing_title">Paiement en cours</string>
     <string name="pay_processing_body">Le paiement est en cours — nous mettrons à jour votre réservation sous peu.</string>
+    <!-- Instapay bank transfer (replaces Paymob card checkout) -->
+    <string name="instapay_subtitle">Effectuez le virement via Instapay, puis téléchargez votre capture d\'écran.</string>
+    <string name="instapay_amount_to_send">Montant à transférer</string>
+    <string name="instapay_for_nights">pour %1$s</string>
+    <string name="instapay_send_to">Envoyez le virement à</string>
+    <string name="instapay_copy">Copier</string>
+    <string name="instapay_copied">Copié</string>
+    <string name="instapay_loading">Chargement des détails du virement…</string>
+    <string name="instapay_load_error">Impossible de charger les détails du virement. Veuillez réessayer.</string>
+    <string name="instapay_no_handle">L\'hôte n\'a pas encore configuré Instapay — veuillez le contacter.</string>
+    <string name="instapay_add_screenshot">Ajouter la capture du virement</string>
+    <string name="instapay_change_screenshot">Changer la capture</string>
+    <string name="instapay_submit">J\'ai payé — envoyer la capture</string>
+    <string name="instapay_submitting">Envoi en cours…</string>
+    <string name="instapay_missing_screenshot">Veuillez ajouter la capture de votre virement.</string>
+    <string name="instapay_sign_in">Veuillez vous connecter pour payer par virement Instapay.</string>
+    <string name="instapay_awaiting_title">En attente de l\'approbation de l\'hôte</string>
+    <string name="instapay_awaiting_body">Nous avons envoyé la capture de votre virement à l\'hôte. Votre réservation sera confirmée dès qu\'il l\'aura approuvée.</string>
+    <string name="instapay_note">Votre réservation est confirmée après que l\'hôte a vérifié votre virement.</string>
+    <string name="instapay_for_one_night">pour 1 nuit</string>
+    <string name="instapay_under_review">Paiement en cours de vérification — l\'hôte vérifie votre virement.</string>
     <string name="services_title">Services</string>
     <string name="services_no_experiences">Pas encore d\'expériences</string>
     <string name="services_check_back">Revenez bientôt pour découvrir des activités.</string>
@@ -378,7 +399,7 @@
     <string name="approval_rejected_note">Votre justificatif de propriété a été refusé. Téléversez-le à nouveau pour soumettre votre annonce à un nouvel examen.</string>
     <string name="approval_doc_resubmitted">Document soumis. Votre annonce est de nouveau en cours d\'examen.</string>
     <string name="trust_verify">Vérifiez votre identité</string>
-    <string name="trust_verify_intro">Ajoutez un badge vérifié à votre profil. Téléchargez le recto et le verso de votre pièce d\'identité officielle — nous les examinerons sous peu.</string>
+    <string name="trust_verify_intro">Ajoutez un badge vérifié à votre profil. Téléchargez le recto et le verso de votre pièce d\'identité officielle ainsi qu\'un selfie — nous les examinerons sous peu.</string>
     <string name="trust_status_unverified">Non vérifié</string>
     <string name="trust_status_pending">Vérification en attente</string>
     <string name="trust_status_verified">Identité vérifiée</string>
@@ -468,7 +489,7 @@
     <string name="ai_write_with_ai">Rédiger avec l\'IA</string>
     <string name="ai_writing">Rédaction…</string>
     <string name="add_description">Description</string>
-    <string name="add_basics_hint">Donnez à votre logement un titre accrocheur et choisissez le type de propriété, puis laissez l\'IA rédiger la description. Le titre est obligatoire.</string>
+    <string name="add_basics_hint">Donnez à votre logement un titre accrocheur et choisissez le type de propriété, puis décrivez ce qui le rend unique. Le titre est obligatoire.</string>
     <string name="ai_search">Demander à l\'IA</string>
     <string name="ai_search_placeholder">Essayez : villa en bord de mer pour 6 avec piscine à moins de 4000</string>
     <string name="ai_searching">Recherche avec l\'IA…</string>
@@ -523,4 +544,29 @@
     <string name="shortcut_reservations_long">Mes réservations</string>
     <string name="shortcut_profile_short">Profil</string>
     <string name="shortcut_profile_long">Mon profil</string>
+
+    <!-- Messages inbox (guest <-> host conversations) -->
+    <string name="messages_title">Messages</string>
+    <string name="messages_error_title">Impossible de charger les messages</string>
+    <string name="messages_empty_title">Aucun message pour l\'instant</string>
+    <string name="messages_empty_body">Lorsque vous écrivez à un hôte ou à un voyageur, la conversation apparaît ici.</string>
+    <string name="messages_no_messages">Aucun message</string>
+    <string name="messages_host_badge">Hôte</string>
+    <string name="messages_sign_in_title">Connectez-vous pour voir vos messages</string>
+    <string name="messages_sign_in_body">Vos conversations avec les hôtes et les voyageurs se trouvent ici.</string>
+    <string name="profile_messages">Messages</string>
+    <string name="profile_messages_sub">Échangez avec hôtes et voyageurs</string>
+    <string name="cd_messages">Messages</string>
+
+    <!-- Support & legal (Profile tab) -->
+    <string name="profile_support_legal">Assistance et mentions légales</string>
+    <string name="legal_terms">Conditions d\'utilisation</string>
+    <string name="legal_privacy">Politique de confidentialité</string>
+    <string name="legal_about">À propos de QuickIn</string>
+    <string name="legal_contact">Contactez-nous</string>
+
+    <!-- Identity verification: selfie (web parity) -->
+    <string name="trust_selfie_photo">Un selfie de vous</string>
+    <string name="trust_selfie_hint">Prenez un selfie net pour que nous puissions le comparer à votre pièce d\'identité.</string>
+    <string name="trust_photos_required">Ajoutez le recto, le verso de votre pièce d\'identité et un selfie.</string>
 </resources>

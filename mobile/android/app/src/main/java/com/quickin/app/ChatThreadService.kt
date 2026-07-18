@@ -19,6 +19,22 @@ data class ChatLine(
 )
 
 /**
+ * One row in the Messages inbox (`GET /api/local/chat`): a guest ↔ host conversation with the
+ * listing it is about, the other party's name, and the latest message. [isHost] is true when the
+ * signed-in user is the host side of the thread (drives the "Host" badge).
+ */
+data class ConversationSummary(
+    val id: String,
+    val listingId: String?,
+    val listingTitle: String?,
+    val listingImage: String?,
+    val otherName: String?,
+    val lastMessage: String?,
+    val lastMessageAt: String,
+    val isHost: Boolean
+)
+
+/**
  * Minimal HTTP client for the pre-booking chat API used from a listing's "Message host" flow.
  * No third-party HTTP/JSON libraries: HttpURLConnection + org.json, all on Dispatchers.IO. The
  * caller supplies the bearer token (read from SharedPreferences "qk_auth" / "token"). Mirrors the
@@ -45,6 +61,32 @@ object ChatThreadService {
         o.optString("conversationId")
             .ifBlank { o.optJSONObject("conversation")?.optString("id").orEmpty() }
             .ifBlank { o.optString("id") }
+    }
+
+    /**
+     * Lists every conversation the signed-in user is part of, as guest or host, newest activity
+     * first (`GET /api/local/chat`). Throws [HttpError] on a non-2xx.
+     */
+    suspend fun listConversations(token: String): List<ConversationSummary> = withContext(Dispatchers.IO) {
+        val text = get(token, "/api/local/chat")
+        val arr = JSONObject(text).optJSONArray("conversations") ?: JSONArray()
+        val result = ArrayList<ConversationSummary>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            result.add(
+                ConversationSummary(
+                    id = o.optString("id"),
+                    listingId = o.optString("listing_id").takeUnless { it.isBlank() || it == "null" },
+                    listingTitle = o.optString("listing_title").takeUnless { it.isBlank() || it == "null" },
+                    listingImage = o.optString("listing_image").takeUnless { it.isBlank() || it == "null" },
+                    otherName = o.optString("other_name").takeUnless { it.isBlank() || it == "null" },
+                    lastMessage = o.optString("last_message").takeUnless { it.isBlank() || it == "null" },
+                    lastMessageAt = o.optString("last_message_at"),
+                    isHost = o.optBoolean("is_host", false)
+                )
+            )
+        }
+        result
     }
 
     /**

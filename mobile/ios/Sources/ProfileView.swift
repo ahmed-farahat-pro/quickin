@@ -5,6 +5,7 @@ struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var currency: CurrencyManager
+    @Environment(\.openURL) private var openURL
     @StateObject private var notifications = NotificationsBadgeModel()
     @StateObject private var header = ProfileHeaderModel()
     /// True while the "Become a host" request is in flight.
@@ -43,9 +44,11 @@ struct ProfileView: View {
                             GuestReviewsAboutMeSection(guestID: auth.user?.id)
                             settingsEntry
                             receiptsEntry
+                            messagesEntry
                             referralEntry
                             languageEntry
                             currencyEntry
+                            legalSection
                             if isHost {
                                 hostEntry
                             } else {
@@ -266,6 +269,76 @@ struct ProfileView: View {
             .qkCard(cornerRadius: 18)
         }
         .buttonStyle(.qkTap)
+    }
+
+    /// Entry into the Messages inbox (guest ⇄ host conversations; web /messages
+    /// parity), wrapped in a NavigationLink that mirrors `settingsEntry`'s look.
+    private var messagesEntry: some View {
+        NavigationLink {
+            MessagesView()
+        } label: {
+            entryLabel(
+                icon: "bubble.left.and.bubble.right.fill",
+                title: loc.t("profile.messages"),
+                subtitle: loc.t("profile.messages.sub")
+            )
+        }
+        .buttonStyle(.qkTap)
+    }
+
+    /// "Support & legal" — the public web pages (Terms / Privacy / About /
+    /// Contact), same links as the site footer, opened in the browser.
+    private var legalSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(loc.t("profile.supportLegal"))
+                .font(.system(.title3, design: .serif).weight(.semibold))
+                .foregroundStyle(Color.qkInk)
+            legalRow(icon: "doc.plaintext.fill", title: loc.t("legal.terms"), path: "/terms")
+            legalRow(icon: "hand.raised.fill", title: loc.t("legal.privacy"), path: "/privacy")
+            legalRow(icon: "info.circle.fill", title: loc.t("legal.about"), path: "/about")
+            legalRow(icon: "envelope.fill", title: loc.t("legal.contact"), path: "/contact")
+        }
+    }
+
+    /// One legal row: opens the site's public page at `path` in the browser.
+    private func legalRow(icon: String, title: String, path: String) -> some View {
+        Button {
+            if let url = URL(string: AppLinks.webBase + path) {
+                openURL(url)
+            }
+        } label: {
+            entryLabel(icon: icon, title: title, subtitle: nil)
+        }
+        .buttonStyle(.qkTap)
+    }
+
+    /// The shared card row used by the messages + legal entries (icon, title,
+    /// optional subtitle, trailing chevron) — mirrors `settingsEntry`'s label.
+    private func entryLabel(icon: String, title: String, subtitle: String?) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(Color.qkBurgundy)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.qkInk)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.forward")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.qkTan4)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .contentShape(Rectangle())
+        .qkCard(cornerRadius: 18)
     }
 
     /// Entry into the app-wide display-currency picker. Shows the active currency

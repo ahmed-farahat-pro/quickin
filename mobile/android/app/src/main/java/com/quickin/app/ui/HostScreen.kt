@@ -139,11 +139,13 @@ private val EGYPT = LatLng(26.8206, 30.8025)
 private const val EGYPT_ZOOM = 5.5f
 
 /**
- * Host-only area (reached from the Profile tab when role == "host"). Three tabs:
+ * Host-only area (reached from the Profile tab when role == "host"). Four tabs:
  *  • Requests — reservation requests across the host's listings, with Confirm / Reject
  *               on pending ones (`GET /api/local/host/bookings`, `PATCH /api/local/bookings/:id`).
  *  • Review guests — past guests the host can rate (`GET/POST /api/local/guest-reviews`).
  *  • Add listing — a form that POSTs `/api/local/listings`.
+ *  • Listings — the host's own listings with approval status, ownership-doc re-upload, and the
+ *               stay-discount / seasonal-pricing editors (matches the web `/host` dashboard).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,6 +153,15 @@ fun HostScreen(
     bookingsState: HostBookingsUiState,
     createState: CreateListingUiState,
     reviewGuestsState: com.quickin.app.ReviewGuestsUiState = com.quickin.app.ReviewGuestsUiState(),
+    listingsState: com.quickin.app.HostListingsUiState = com.quickin.app.HostListingsUiState(),
+    onLoadListings: () -> Unit = {},
+    onOpenListing: (Listing) -> Unit = {},
+    ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
+    onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
+    stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
+    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
+    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
+    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> },
     onBack: (() -> Unit)?,
     onLoadBookings: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -235,6 +246,13 @@ fun HostScreen(
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
+                Tab(
+                    selected = tab == 3,
+                    onClick = { tab = 3 },
+                    text = { Text("Listings", fontWeight = FontWeight.SemiBold) },
+                    selectedContentColor = Burgundy,
+                    unselectedContentColor = Muted
+                )
             }
 
             when (tab) {
@@ -250,7 +268,7 @@ fun HostScreen(
                     onLoad = onLoadReviewableGuests,
                     onSubmit = onSubmitGuestReview
                 )
-                else -> AddListingTab(
+                2 -> AddListingTab(
                     state = createState,
                     onCreate = onCreateListing,
                     onReset = onResetCreate,
@@ -258,6 +276,20 @@ fun HostScreen(
                     onGenerateDescription = onGenerateDescription,
                     onConsumeGeneratedDescription = onConsumeGeneratedDescription,
                     onClearAiWriter = onClearAiWriter
+                )
+                else -> HostListingsScreen(
+                    state = listingsState,
+                    onLoad = onLoadListings,
+                    // The wizard already lives on the "Add listing" tab — jump to it.
+                    onAddListing = { tab = 2 },
+                    onOpenListing = onOpenListing,
+                    ownershipState = ownershipState,
+                    onReuploadDoc = onReuploadDoc,
+                    stayDiscountState = stayDiscountState,
+                    onSaveStayDiscounts = onSaveStayDiscounts,
+                    seasonalPricingState = seasonalPricingState,
+                    onSaveSeasonalPricing = onSaveSeasonalPricing,
+                    embedded = true
                 )
             }
         }
@@ -284,7 +316,10 @@ fun HostListingsScreen(
     onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
     seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
     onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> },
-    contentPadding: PaddingValues = PaddingValues()
+    contentPadding: PaddingValues = PaddingValues(),
+    /** True when rendered inside another screen's Scaffold (e.g. the HostScreen tab) — hides the
+     *  own top app bar so the two aren't stacked. */
+    embedded: Boolean = false
 ) {
     LaunchedEffect(Unit) {
         onLoad()
@@ -293,10 +328,12 @@ fun HostListingsScreen(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
         topBar = {
-            TopAppBar(
-                title = { Text("My listings", color = Ink, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
-            )
+            if (!embedded) {
+                TopAppBar(
+                    title = { Text("My listings", color = Ink, fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -1664,29 +1701,6 @@ private fun StepBasics(
     HostField(title, onTitle, "Title")
     PropertyTypeDropdown(selected = propertyType, onSelected = onPropertyType)
     HostField(description, onDescription, stringResource(com.quickin.app.R.string.add_description), singleLine = false)
-
-    // ---- "Write with AI" — generates a description from the listing's details (Section 10) ----
-    OutlinedButton(
-        onClick = onGenerate,
-        enabled = !aiWriter.isWriting && title.isNotBlank(),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
-        modifier = Modifier.fillMaxWidth().height(48.dp)
-    ) {
-        if (aiWriter.isWriting) {
-            CircularProgressIndicator(color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(stringResource(com.quickin.app.R.string.ai_writing), fontWeight = FontWeight.SemiBold)
-        } else {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(com.quickin.app.R.string.ai_write_with_ai), fontWeight = FontWeight.SemiBold)
-        }
-    }
-    if (aiWriter.error != null) {
-        Text(aiWriter.error, color = ErrorRed, fontSize = 13.sp)
-    }
 
     Text(
         stringResource(com.quickin.app.R.string.add_basics_hint),

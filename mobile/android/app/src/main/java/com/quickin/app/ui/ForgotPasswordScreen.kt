@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -95,6 +96,7 @@ fun ForgotPasswordScreen(
             enabled = !loading,
             modifier = Modifier
                 .align(Alignment.TopStart)
+                .zIndex(1f)  // above the scrollable form Column so the tap isn't swallowed
                 .statusBarsPadding()  // sit BELOW the status bar so the arrow is reliably tappable
                 .padding(8.dp)
         ) {

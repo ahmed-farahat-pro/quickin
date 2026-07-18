@@ -47,7 +47,6 @@
 		75140396ED57334A8B8B215D /* PushManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9FA3A19876C08BF97B6E09 /* PushManager.swift */; };
 		768BC7931BC66D4497C4E35E /* BrandHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A0C7B6FC44BF3B38DEDC5C /* BrandHeader.swift */; };
 		76BBBFA2A5FD02F26E39CFFC /* MySubscriptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7666B3950D4FF4B2CDADBCA8 /* MySubscriptionsView.swift */; };
-		7D26AB15C6A3DB4E9DCB1B3F /* AISearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 923AD8D360A87474A168C71C /* AISearchView.swift */; };
 		7E7C992DA0346D68EC0FEBEA /* QuickInApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 260870CD6CEE7864B907DFDC /* QuickInApp.swift */; };
 		7FA570807B8E74483CF88830 /* ListingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B64B52903D80D34CB25CB57 /* ListingDetailView.swift */; };
 		82FBEC07AF7E988AD70B0786 /* BookingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 506EE15822C05E6365572A9A /* BookingService.swift */; };
@@ -61,22 +60,21 @@
 		9BB6EB10340C33DA709DE0B3 /* AddServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */; };
 		9F9783F15C9D14CC7E640A9E /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1DB343FBE39B4090D683BF /* NotificationsView.swift */; };
 		A35EC116DC87E2117BD0E1B5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = EEA14ADD30B964E88E9ADAAF /* FirebaseMessaging */; };
+		A6806FC4475F5F851FC73243 /* ConversationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06FB6843DC2F72744566032 /* ConversationService.swift */; };
 		A73C074F1B75FF3423F4EE3A /* ProfileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA9DEB1B3F64E19C8E6B115 /* ProfileService.swift */; };
-		A7F1273D52F12AD7DD36A6AC /* AITravelChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 235487B84E788632D3E5D0C8 /* AITravelChatService.swift */; };
 		ABA952F1B033EA9E79761024 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */; };
 		ABBEF04860655DEE7A15C25D /* ProfileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */; };
 		B47459BCF13C767DDBB923AD /* TrustBadgesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0D0162466B929761D78FF /* TrustBadgesView.swift */; };
 		B6DA0E801D4B54FB9C0DB254 /* TrustService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045C8B1A5424C99A5573D531 /* TrustService.swift */; };
 		B6E9C1D73EA3E1503C88E7A6 /* ServiceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 052093126495879CEC4688D0 /* ServiceDetailView.swift */; };
+		B7E4999DD966EECD627373E5 /* ConversationChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C9A6C356422AFE5CA5594A /* ConversationChatView.swift */; };
 		BDBC3E76FF0EF7357D39028B /* LocationPickerMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */; };
 		BEC3B1E8BCFDD35FB16C58F6 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */; };
 		C55487BE6EEAD4C13DC67996 /* DesignKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D587744AA4C862A7D6A42180 /* DesignKit.swift */; };
-		C6F654399673A11A0C716B09 /* AITravelChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48C781C53A1BC070ED11E58D /* AITravelChatView.swift */; };
 		C77A7C8BDE913302E295DF7E /* CancellationPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */; };
 		C88A8FF61C90A899C65299B3 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68956C154CDD6E39CF7573F1 /* AuthService.swift */; };
 		C8B1005EE65879A85C46F29C /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A907C68E4532DF9C4F9917FD /* SplashView.swift */; };
 		CD5AC268E002E6587EE37408 /* IdentityVerificationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D726EF27316C30A43919B02D /* IdentityVerificationCard.swift */; };
-		CEF5E00670280871DB226C5D /* PaymobCheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */; };
 		CF576589D36D565A50F3541D /* SkeletonCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD92513B165FB9A5358CE95D /* SkeletonCard.swift */; };
 		D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */; };
 		D1BA4ADBF9699728C3F86252 /* BiometricEnableSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */; };
@@ -87,6 +85,7 @@
 		E29B72F943F69F30EA7C41EF /* ReservationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F061FB35515C4DB0267C1C79 /* ReservationDetailView.swift */; };
 		E30D3682DF8EF2BC9FE7136A /* LocationSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB97E79A8CE410E8011FA91C /* LocationSearch.swift */; };
 		E6CC7F4B0850E86DAE968FAF /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A879D0F0E245F0DB2DC92017 /* logo.png */; };
+		EFC5C2B603732CAB42E08209 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0A1F4B1652E954203516E6 /* MessagesView.swift */; };
 		F2DFB3F0CE2BCD765021368A /* GuestReviewViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FA3EF2BC72AF13D0892428C /* GuestReviewViews.swift */; };
 		F48B086413F46DA519B46B72 /* NotificationPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95CD96DE36FCFFCFE7DC874 /* NotificationPrimerView.swift */; };
 		F7579C6B8C9C5088AD9F5875 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 648236D0BF8116D765032E82 /* GoogleService-Info.plist */; };
@@ -99,23 +98,21 @@
 		0C67C2658D20492C9EBFE963 /* ReservationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservationsView.swift; sourceTree = "<group>"; };
 		1DA9DEB1B3F64E19C8E6B115 /* ProfileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileService.swift; sourceTree = "<group>"; };
 		2009920185CD3646C275D761 /* ListingsMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsMapView.swift; sourceTree = "<group>"; };
-		235487B84E788632D3E5D0C8 /* AITravelChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITravelChatService.swift; sourceTree = "<group>"; };
 		260870CD6CEE7864B907DFDC /* QuickInApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickInApp.swift; sourceTree = "<group>"; };
 		28C85D0303F9DBD6A8B43955 /* GrowthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrowthViews.swift; sourceTree = "<group>"; };
 		2B64B52903D80D34CB25CB57 /* ListingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingDetailView.swift; sourceTree = "<group>"; };
 		2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPlaceholder.swift; sourceTree = "<group>"; };
 		2E23E5D1A16E3236FC8AAB6A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerMap.swift; sourceTree = "<group>"; };
-		36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymobCheckoutView.swift; sourceTree = "<group>"; };
 		38389AAB5C4E32B05C3A4C56 /* HostDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDashboardView.swift; sourceTree = "<group>"; };
 		38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsViewModel.swift; sourceTree = "<group>"; };
 		3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostTabs.swift; sourceTree = "<group>"; };
 		3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStrengthView.swift; sourceTree = "<group>"; };
 		3EA4843395698B645C141F0A /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
+		3F0A1F4B1652E954203516E6 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
 		3FA3EF2BC72AF13D0892428C /* GuestReviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestReviewViews.swift; sourceTree = "<group>"; };
 		42DF93A288577203F495EEF5 /* PaymentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentSheet.swift; sourceTree = "<group>"; };
 		46777BA5B7CA0FD87BDA49FF /* ServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesView.swift; sourceTree = "<group>"; };
-		48C781C53A1BC070ED11E58D /* AITravelChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITravelChatView.swift; sourceTree = "<group>"; };
 		4CC0D0162466B929761D78FF /* TrustBadgesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustBadgesView.swift; sourceTree = "<group>"; };
 		4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateRangePicker.swift; sourceTree = "<group>"; };
 		4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryPicker.swift; sourceTree = "<group>"; };
@@ -139,7 +136,6 @@
 		86E6F924C0C3C2D119DA208D /* ServiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceService.swift; sourceTree = "<group>"; };
 		8817D5DCCE26F954A93F06E3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8DC9CD43DD80B4E326D6879B /* HostProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostProfileView.swift; sourceTree = "<group>"; };
-		923AD8D360A87474A168C71C /* AISearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISearchView.swift; sourceTree = "<group>"; };
 		92F84FD7E76AA5A28B6D546A /* AvailabilityManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvailabilityManagerView.swift; sourceTree = "<group>"; };
 		94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
 		964FDA2088C992AC5F215AEA /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
@@ -154,7 +150,9 @@
 		B10F92154FB10BCA232F64D2 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
 		B16D2092FE03BE65262EC747 /* CurrencyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyManager.swift; sourceTree = "<group>"; };
 		B59C3A4CC660C1BEDB4F65CA /* SignInCTAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInCTAView.swift; sourceTree = "<group>"; };
+		B8C9A6C356422AFE5CA5594A /* ConversationChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationChatView.swift; sourceTree = "<group>"; };
 		BC9FA3A19876C08BF97B6E09 /* PushManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushManager.swift; sourceTree = "<group>"; };
+		C06FB6843DC2F72744566032 /* ConversationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationService.swift; sourceTree = "<group>"; };
 		C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSettingsView.swift; sourceTree = "<group>"; };
 		CB52C8948744ACE9887DB2B9 /* HostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostService.swift; sourceTree = "<group>"; };
 		CD46225D720A1A95E7745EC1 /* BiometricAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuth.swift; sourceTree = "<group>"; };
@@ -163,7 +161,7 @@
 		DCE1D8CE6B16E466244F0371 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
 		DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationPolicyView.swift; sourceTree = "<group>"; };
-		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E35878300BA49A232F3E7B1B /* QuickIn.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QuickIn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostServicesSection.swift; sourceTree = "<group>"; };
 		E95CD96DE36FCFFCFE7DC874 /* NotificationPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPrimerView.swift; sourceTree = "<group>"; };
 		F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricEnableSheet.swift; sourceTree = "<group>"; };
@@ -195,10 +193,7 @@
 			children = (
 				6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */,
 				7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */,
-				923AD8D360A87474A168C71C /* AISearchView.swift */,
 				73E65A538C06C3E18A4EA36C /* AIService.swift */,
-				235487B84E788632D3E5D0C8 /* AITravelChatService.swift */,
-				48C781C53A1BC070ED11E58D /* AITravelChatView.swift */,
 				60A0CCF74AC12A50E823919B /* Amenities.swift */,
 				564CBB49DCC4FE31D224A240 /* AppNavigation.swift */,
 				869EC528CD5922050D913E0E /* Assets.xcassets */,
@@ -212,6 +207,8 @@
 				DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */,
 				DCE1D8CE6B16E466244F0371 /* ChatView.swift */,
 				F60CD5546CCAB282408048FA /* Config.swift */,
+				B8C9A6C356422AFE5CA5594A /* ConversationChatView.swift */,
+				C06FB6843DC2F72744566032 /* ConversationService.swift */,
 				4EB4175B5C40210386F1E5E1 /* CountryPicker.swift */,
 				B16D2092FE03BE65262EC747 /* CurrencyManager.swift */,
 				4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */,
@@ -235,6 +232,7 @@
 				2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */,
 				FB97E79A8CE410E8011FA91C /* LocationSearch.swift */,
 				A879D0F0E245F0DB2DC92017 /* logo.png */,
+				3F0A1F4B1652E954203516E6 /* MessagesView.swift */,
 				2E23E5D1A16E3236FC8AAB6A /* Models.swift */,
 				A2991D0B8DA1780C812CC70E /* MoneyViews.swift */,
 				7666B3950D4FF4B2CDADBCA8 /* MySubscriptionsView.swift */,
@@ -244,7 +242,6 @@
 				94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */,
 				3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */,
 				42DF93A288577203F495EEF5 /* PaymentSheet.swift */,
-				36DFCF51FDAB533CC0101A53 /* PaymobCheckoutView.swift */,
 				2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */,
 				1DA9DEB1B3F64E19C8E6B115 /* ProfileService.swift */,
 				C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */,
@@ -328,6 +325,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					DC02E54AF286367F814901FD = {
+						DevelopmentTeam = U4NBL42U65;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -373,10 +371,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7D26AB15C6A3DB4E9DCB1B3F /* AISearchView.swift in Sources */,
 				5884F7D73B4E2A02C1B9C7A7 /* AIService.swift in Sources */,
-				A7F1273D52F12AD7DD36A6AC /* AITravelChatService.swift in Sources */,
-				C6F654399673A11A0C716B09 /* AITravelChatView.swift in Sources */,
 				D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */,
 				9BB6EB10340C33DA709DE0B3 /* AddServiceView.swift in Sources */,
 				D88BF05687971D7367071E90 /* Amenities.swift in Sources */,
@@ -391,6 +386,8 @@
 				C77A7C8BDE913302E295DF7E /* CancellationPolicyView.swift in Sources */,
 				D9069263C88E3E5284662497 /* ChatView.swift in Sources */,
 				99F9AB654948C770E2BD4BA7 /* Config.swift in Sources */,
+				B7E4999DD966EECD627373E5 /* ConversationChatView.swift in Sources */,
+				A6806FC4475F5F851FC73243 /* ConversationService.swift in Sources */,
 				07402591A22528FEFB542306 /* CountryPicker.swift in Sources */,
 				88FEABF3EF1A2EC9C8F4E25F /* CurrencyManager.swift in Sources */,
 				957E7380E07B8CC3821D7BEA /* DateRangePicker.swift in Sources */,
@@ -413,6 +410,7 @@
 				72C68D5A5FBF3589DB57BA05 /* Localization.swift in Sources */,
 				BDBC3E76FF0EF7357D39028B /* LocationPickerMap.swift in Sources */,
 				E30D3682DF8EF2BC9FE7136A /* LocationSearch.swift in Sources */,
+				EFC5C2B603732CAB42E08209 /* MessagesView.swift in Sources */,
 				06D69E87A89B701659A8C787 /* Models.swift in Sources */,
 				4C62BB8318BC2FEA77364846 /* MoneyViews.swift in Sources */,
 				76BBBFA2A5FD02F26E39CFFC /* MySubscriptionsView.swift in Sources */,
@@ -422,7 +420,6 @@
 				BEC3B1E8BCFDD35FB16C58F6 /* OTPVerificationView.swift in Sources */,
 				12EA0DED2C6797AC48D1955E /* PasswordStrengthView.swift in Sources */,
 				972B9A14617E75E6981E1577 /* PaymentSheet.swift in Sources */,
-				CEF5E00670280871DB226C5D /* PaymobCheckoutView.swift in Sources */,
 				22D302DB560411F03AE6107C /* PhotoPlaceholder.swift in Sources */,
 				A73C074F1B75FF3423F4EE3A /* ProfileService.swift in Sources */,
 				ABBEF04860655DEE7A15C25D /* ProfileSettingsView.swift in Sources */,
@@ -528,7 +525,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -538,7 +535,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -606,7 +603,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -616,7 +613,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};

@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -114,6 +115,10 @@ fun AuthScreen(
                 enabled = !loading,
                 modifier = Modifier
                     .align(Alignment.TopStart)
+                    // Draw + hit-test ABOVE the full-size scrollable form Column below; without this
+                    // the Column (declared later, .fillMaxSize().verticalScroll) sits on top and
+                    // swallows the tap, so the arrow was visible but not clickable.
+                    .zIndex(1f)
                     .statusBarsPadding()  // sit BELOW the status bar so the arrow is reliably tappable
                     .padding(8.dp)
             ) {

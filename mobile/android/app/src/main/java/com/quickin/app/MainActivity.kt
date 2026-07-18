@@ -76,7 +76,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.ui.AddListingScreen
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
-import com.quickin.app.ui.AiTravelChatScreen
 import com.quickin.app.ui.ChatScreen
 import com.quickin.app.ui.ForgotPasswordScreen
 import com.quickin.app.ui.HostAnalyticsScreen
@@ -91,9 +90,11 @@ import com.quickin.app.ui.MySubscriptionsScreen
 import com.quickin.app.ui.ReceiptsScreen
 import com.quickin.app.ui.nightsBetween
 import com.quickin.app.ui.NotificationsScreen
+import com.quickin.app.ui.MessagesScreen
 import com.quickin.app.ui.OtpScreen
 import com.quickin.app.ui.PaymentSheet
 import com.quickin.app.ui.PreBookingChatScreen
+import com.quickin.app.ui.ConversationChatScreen
 import com.quickin.app.ui.ProfileScreen
 import com.quickin.app.ui.ProfileSettingsScreen
 import com.quickin.app.ui.ProfileSignInCta
@@ -332,6 +333,11 @@ private fun MainApp() {
     // Section 10: AI listing-description writer + host analytics dashboard.
     val aiWriterState by hostViewModel.aiWriter.collectAsState()
     val hostAnalyticsState by hostViewModel.analytics.collectAsState()
+    // Host "My listings" tab (approval status, ownership doc, discounts, seasonal pricing).
+    val hostListingsState by hostViewModel.listings.collectAsState()
+    val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
+    val stayDiscountState by hostViewModel.stayDiscount.collectAsState()
+    val seasonalPricingState by hostViewModel.seasonalPricing.collectAsState()
 
     // Money views (Section 9 — MOCK): host earnings/payouts + guest receipts.
     val moneyViewModel: MoneyViewModel = viewModel()
@@ -348,9 +354,6 @@ private fun MainApp() {
     val chatViewModel: ChatViewModel = viewModel()
     val chatState by chatViewModel.state.collectAsState()
 
-    // AI travel concierge (public endpoint, no auth) — opened from the Explore FAB.
-    val aiTravelViewModel: AiTravelViewModel = viewModel()
-    val aiTravelState by aiTravelViewModel.state.collectAsState()
 
     val notificationsViewModel: NotificationsViewModel = viewModel()
     val notificationsState by notificationsViewModel.state.collectAsState()
@@ -421,13 +424,16 @@ private fun MainApp() {
     // Pre-booking chat (guest ↔ host) opened from a listing detail's "Message host": (listingId,
     // hostName), or null. Sits above the listing detail so Back returns to it.
     var preBookingChat by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Messages inbox (full-screen): all guest ↔ host conversations (web /messages parity).
+    var showMessages by remember { mutableStateOf(false) }
+    // Conversation thread opened from the inbox: (conversationId, otherPartyName), or null.
+    // Sits above the inbox so Back returns to it.
+    var openConversationThread by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Host whose public profile (full-screen) is open: (hostId, fallbackHostName), or null.
     // Opened by tapping the "Hosted by …" row on a listing detail.
     var hostProfile by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // True while the in-app notifications feed (full-screen) is open.
     var showNotifications by remember { mutableStateOf(false) }
-    // True while the AI travel-concierge chat (full-screen) is open.
-    var showAiTravel by remember { mutableStateOf(false) }
     // When true, the Profile/Reservations tab shows the full AuthScreen instead of the CTA.
     var showAuth by remember { mutableStateOf(false) }
     // True while the standalone "Forgot password" route (email → code + new password) is open.
@@ -669,6 +675,9 @@ private fun MainApp() {
             selectedReservationId = null
             chatBooking = null
             preBookingChat = null
+            // Leave the messages inbox + any open conversation thread too.
+            showMessages = false
+            openConversationThread = null
             // Close the host profile too (a public screen, but drop its cached state on logout).
             hostProfile = null
             trustViewModel.clearHostProfile()
@@ -711,8 +720,9 @@ private fun MainApp() {
     val anyOverlay = pendingPayment != null || hostProfile != null || preBookingChat != null ||
         selectedListing != null ||
         selectedService != null ||
-        showMySubscriptions || showProfileSettings || showHostServices || showAiTravel ||
+        showMySubscriptions || showProfileSettings || showHostServices ||
         chatBooking != null || selectedReservationId != null || showHost || showAddListing ||
+        showMessages || openConversationThread != null ||
         showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
         when {
@@ -732,12 +742,14 @@ private fun MainApp() {
             showMySubscriptions -> showMySubscriptions = false
             showProfileSettings -> showProfileSettings = false
             showHostServices -> showHostServices = false
-            showAiTravel -> showAiTravel = false
             chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
             showHost -> showHost = false
             showAnalytics -> showAnalytics = false
+            // A conversation thread sits above the inbox — Back returns to the inbox first.
+            openConversationThread != null -> openConversationThread = null
+            showMessages -> showMessages = false
             showNotifications -> showNotifications = false
             otpOpen -> authViewModel.cancelVerification()
             forgotOpen -> { authViewModel.cancelForgotPassword(); showForgot = false }
@@ -752,7 +764,7 @@ private fun MainApp() {
     val payTarget = pendingPayment
     if (payTarget != null) {
         PaymentSheet(
-            nightly = payTarget.second,
+            total = payTarget.second,
             nights = payTarget.third,
             bookingId = payTarget.first,
             token = authViewModel.currentToken(),
@@ -760,8 +772,9 @@ private fun MainApp() {
             onValidatePromo = { code, subtotal -> bookingsViewModel.validatePromo(code, subtotal) },
             onClearPromo = bookingsViewModel::clearPromo,
             onPaid = {
-                // Paymob checkout finished (paid or processing) — close the sheet, refresh, and open
-                // the reservation. The Trips list + detail re-read the webhook-updated paid state.
+                // Instapay transfer screenshot submitted — close the sheet, refresh, and open the
+                // reservation. The Trips list + detail re-read the "under review" state (and, once
+                // the host approves, "paid").
                 val bookingId = payTarget.first
                 pendingPayment = null
                 bookingsViewModel.resetPayment()
@@ -1053,18 +1066,6 @@ private fun MainApp() {
         return
     }
 
-    // AI travel concierge. Full-screen; opened from the Explore FAB. Public endpoint,
-    // so no auth gate — available to guests and signed-in users alike.
-    if (showAiTravel) {
-        AiTravelChatScreen(
-            state = aiTravelState,
-            onSend = aiTravelViewModel::send,
-            onRetry = aiTravelViewModel::retry,
-            onClose = { showAiTravel = false }
-        )
-        return
-    }
-
     // Per-booking CHAT thread. Full-screen; opened from the reservation detail
     // (guest) or a host request row. Sits above those screens so Back returns to them.
     val chat = chatBooking
@@ -1095,8 +1096,8 @@ private fun MainApp() {
             onOpenMessages = {
                 chatBooking = reservationId to detailState.reservation?.title
             },
-            // Unpaid reservation → "Pay now" opens the same mock payment sheet. Amounts come from
-            // the reservation (nightly derived from its total ÷ nights).
+            // Unpaid reservation → "Pay now" opens the Instapay transfer sheet. The amount to
+            // transfer is the reservation's exact total.
             onPayNow = {
                 val r = detailState.reservation
                 // Defense in depth: the "Pay now" button is already gated on host approval,
@@ -1106,9 +1107,10 @@ private fun MainApp() {
                 val canPay = r != null && r.status.equals("confirmed", ignoreCase = true) && !r.isPaid
                 if (r != null && canPay) {
                     val nights = nightsBetween(r.checkIn, r.checkOut).coerceAtLeast(1)
-                    val nightly = (r.totalPrice / nights).toInt()
                     bookingsViewModel.resetPayment()
-                    pendingPayment = Triple(r.id, nightly, nights)
+                    // Carry the EXACT booking total (the amount to transfer via Instapay).
+                    // A per-night figure would under-report it (integer division truncates).
+                    pendingPayment = Triple(r.id, Math.round(r.totalPrice.toDouble()).toInt(), nights)
                 }
             },
             canReview = reviewsViewModel.canReview(reservationId),
@@ -1121,7 +1123,11 @@ private fun MainApp() {
             isHost = isHost,
             notesSaving = detailState.savingNotes,
             notesError = detailState.notesError,
-            onSaveHostNotes = { notes -> bookingsViewModel.setHostNotes(reservationId, notes) }
+            onSaveHostNotes = { notes -> bookingsViewModel.setHostNotes(reservationId, notes) },
+            // Guest cancellation: quote → confirm → POST, all via the detail state.
+            onRequestCancel = { bookingsViewModel.loadCancellationQuote(reservationId) },
+            onDismissCancel = bookingsViewModel::dismissCancelQuote,
+            onConfirmCancel = { bookingsViewModel.cancelReservation(reservationId) }
         )
         return
     }
@@ -1160,6 +1166,15 @@ private fun MainApp() {
             bookingsState = hostBookingsState,
             createState = createListingState,
             reviewGuestsState = reviewGuestsState,
+            listingsState = hostListingsState,
+            onLoadListings = hostViewModel::loadHostListings,
+            onOpenListing = { listing -> selectedListing = listing },
+            ownershipState = ownershipDocState,
+            onReuploadDoc = { id, doc -> hostViewModel.reuploadOwnershipDoc(id, doc) },
+            stayDiscountState = stayDiscountState,
+            onSaveStayDiscounts = { id, weekly, monthly -> hostViewModel.setStayDiscounts(id, weekly, monthly) },
+            seasonalPricingState = seasonalPricingState,
+            onSaveSeasonalPricing = { id, weekend, monthly -> hostViewModel.setSeasonalPricing(id, weekend, monthly) },
             onBack = { showHost = false },
             onLoadBookings = hostViewModel::loadHostBookings,
             onConfirm = { id -> hostViewModel.act(id, "confirm") },
@@ -1191,6 +1206,29 @@ private fun MainApp() {
         return
     }
 
+    // Conversation THREAD opened from the Messages inbox. Sits above the inbox so Back returns
+    // to the conversation list.
+    val openThread = openConversationThread
+    if (openThread != null && authState.isAuthenticated) {
+        ConversationChatScreen(
+            token = authViewModel.currentToken(),
+            conversationId = openThread.first,
+            title = openThread.second,
+            onBack = { openConversationThread = null }
+        )
+        return
+    }
+
+    // Messages INBOX. Full-screen; opened from the Explore top-bar icon or the Profile row.
+    if (showMessages && authState.isAuthenticated) {
+        MessagesScreen(
+            token = authViewModel.currentToken(),
+            onOpenConversation = { id, title -> openConversationThread = id to title },
+            onBack = { showMessages = false }
+        )
+        return
+    }
+
     // In-app NOTIFICATIONS feed. Full-screen; opened from the Explore top-bar bell.
     // Sits below the deep overlays above (chat / detail / host) so Back returns to Explore.
     if (showNotifications && authState.isAuthenticated) {
@@ -1207,8 +1245,11 @@ private fun MainApp() {
     // Email-OTP verification step (after sign-up or an unverified login). Takes priority
     // over the auth form whenever a verification is pending and we're not yet signed in.
     if (authState.pendingEmail != null && !authState.isAuthenticated) {
-        // Ensure the form is the destination once verification finishes/cancels.
-        showAuth = true
+        // Ensure the form is the destination once verification finishes/cancels. This MUST be a
+        // side-effect, not a bare composition-time write: writing `showAuth` during composition
+        // re-asserted it on every recomposition, which could re-trap the user on the auth screen
+        // after they pressed Back.
+        LaunchedEffect(Unit) { showAuth = true }
         OtpScreen(
             state = authState,
             onVerify = authViewModel::verifyOtp,
@@ -1314,6 +1355,7 @@ private fun MainApp() {
                         notificationsViewModel.load()
                         showNotifications = true
                     },
+                    onOpenMessages = { showMessages = true },
                     savedListingIds = wishlistState.listingIds,
                     onToggleSaved = { listing ->
                         if (authState.isAuthenticated) {
@@ -1323,7 +1365,6 @@ private fun MainApp() {
                             showAuth = true
                         }
                     },
-                    onOpenAiChat = { showAiTravel = true },
                     // Section 10 — natural-language ("Ask AI") search.
                     aiSearchState = aiSearchState,
                     onAiSearch = listingsViewModel::aiSearch,
@@ -1394,7 +1435,9 @@ private fun MainApp() {
                         profile = profileSettingsState.profile,
                         receivedReviews = receivedReviewsState,
                         verificationState = verificationState,
-                        onSubmitVerification = trustViewModel::submitVerification,
+                        onSubmitVerification = { front, back, selfie, idNumber ->
+                            trustViewModel.submitVerification(front, back, selfie, idNumber)
+                        },
                         // Unified account: a non-host taps "Become a host" → POST /host/become →
                         // isHost flips true in place and the host entries appear (no re-login).
                         becomingHost = becomingHost,
@@ -1412,6 +1455,7 @@ private fun MainApp() {
                             profileSettingsViewModel.load()
                             showProfileSettings = true
                         },
+                        onOpenMessages = { showMessages = true },
                         onOpenReceipts = {
                             moneyViewModel.loadReceipts()
                             showReceipts = true

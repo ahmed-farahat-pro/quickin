@@ -517,61 +517,9 @@ private struct BasicsStep: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
 
-        // Description header row with the "Write with AI" action trailing.
-        HStack(alignment: .firstTextBaseline) {
-            FieldLabel("Description")
-            Spacer()
-            writeWithAIButton
-        }
+        FieldLabel("Description")
         WizardTextField("Tell guests what makes your place special…",
                         text: $description, axis: .vertical, lineLimit: 4...8)
-
-        if let writerError {
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(Color.qkBurgundy)
-                Text(writerError)
-                    .font(.footnote)
-                    .foregroundStyle(Color.qkInk)
-                Spacer(minLength: 0)
-            }
-        }
-
-        Text(loc.t("ai.writerHint"))
-            .font(.footnote)
-            .foregroundStyle(Color.qkMuted)
-            .padding(.top, 2)
-    }
-
-    /// "✨ Write with AI" pill. Disabled (greyed) until a title is entered, and
-    /// shows a spinner + "Writing…" while the request is in flight.
-    private var writeWithAIButton: some View {
-        Button(action: onWriteWithAI) {
-            HStack(spacing: 6) {
-                if isWritingDescription {
-                    ProgressView().controlSize(.mini).tint(.qkBurgundy)
-                } else {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                Text(loc.t(isWritingDescription ? "ai.writing" : "ai.writeWithAI"))
-                    .font(.system(size: 12, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(Color.qkBurgundy)
-            .padding(.horizontal, 11)
-            .frame(height: 32)
-            .background(Color.qkTan)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule().strokeBorder(Color.qkBurgundy.opacity(0.18), lineWidth: 1)
-            )
-            .opacity((canWrite && !isWritingDescription) ? 1 : 0.55)
-        }
-        .buttonStyle(.qkTap)
-        .disabled(!canWrite || isWritingDescription)
-        .accessibilityLabel(loc.t("ai.writeWithAI"))
     }
 }
 

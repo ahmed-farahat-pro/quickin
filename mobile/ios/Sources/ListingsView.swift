@@ -8,8 +8,6 @@ struct ListingsView: View {
     @State private var path = NavigationPath()
     @State private var viewMode: ListingsViewMode = .list
     @State private var showingAuth = false
-    @State private var showingAIChat = false
-    @State private var showingAISearch = false
     @State private var showingFilters = false
 
     var onOpenProfile: () -> Void = {}
@@ -43,8 +41,6 @@ struct ListingsView: View {
                             SearchHeader(viewModel: viewModel)
                                 .padding(.horizontal, 16)
                                 .padding(.top, 8)
-                            aiSearchEntry
-                                .padding(.horizontal, 16)
                             RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
                         }
                         .padding(.bottom, 12)
@@ -65,14 +61,6 @@ struct ListingsView: View {
                 }
                 .refreshable { await viewModel.load() }
 
-                // Floating Ask AI button (list mode only)
-                if viewMode == .list {
-                    AskAIButton { showingAIChat = true }
-                        .padding(.trailing, 18)
-                        .padding(.bottom, 16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-
                 // Full-page map overlay — overlays the whole screen when Map is tapped.
                 if viewMode == .map {
                     fullPageMap
@@ -87,16 +75,6 @@ struct ListingsView: View {
         .sheet(isPresented: $showingAuth) {
             AuthView().environmentObject(auth)
         }
-        .sheet(isPresented: $showingAIChat) {
-            AITravelChatView()
-                .environmentObject(loc)
-        }
-        .sheet(isPresented: $showingAISearch) {
-            AISearchView()
-                .environmentObject(loc)
-                .environmentObject(auth)
-                .environmentObject(wishlist)
-        }
         .sheet(isPresented: $showingFilters) {
             FiltersSheet(viewModel: viewModel)
                 .environmentObject(loc)
@@ -106,7 +84,6 @@ struct ListingsView: View {
         }
         .task {
             if UserDefaults.standard.bool(forKey: "uitestAuth") { showingAuth = true }
-            if UserDefaults.standard.bool(forKey: "uitestAIChat") { showingAIChat = true }
             if viewModel.regions.isEmpty { await viewModel.loadRegions() }
             if auth.isAuthenticated { await wishlist.refresh() }
             if UserDefaults.standard.bool(forKey: "uitestMap") { viewMode = .map }
@@ -145,44 +122,6 @@ struct ListingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.qkCream)
         .transition(.opacity)
-    }
-
-    /// "Ask AI" natural-language search entry — a slim outlined pill that opens
-    /// the AI search sheet. RTL-safe (leading/trailing mirror automatically).
-    private var aiSearchEntry: some View {
-        Button {
-            showingAISearch = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color.qkBurgundy)
-                Text(loc.t("ai.aiSearchPlaceholder"))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Color.qkMuted)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(loc.t("ai.aiSearch"))
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color.qkCream)
-                    .padding(.horizontal, 12)
-                    .frame(height: 30)
-                    .background(LinearGradient.qkBurgundyCTA)
-                    .clipShape(Capsule())
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, 6)
-            .frame(height: 48)
-            .background(Color.qkSurface)
-            .clipShape(Capsule(style: .continuous))
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.qkBurgundy.opacity(0.18), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.qkTap)
-        .accessibilityLabel(loc.t("ai.aiSearchTitle"))
     }
 
     /// List / Map segmented control. Tinted burgundy.
@@ -450,6 +389,7 @@ struct SearchHeader: View {
                     .foregroundStyle(Color.qkInk)
                 Spacer()
                 Button {
+                    viewModel.clearPlaceSuggestions()
                     withAnimation(openClose) { searchExpanded = false }
                 } label: {
                     Image(systemName: "chevron.up")
@@ -473,7 +413,13 @@ struct SearchHeader: View {
                     .autocorrectionDisabled()
                     .foregroundStyle(Color.qkInk)
                     .submitLabel(.search)
-                    .onSubmit { runSearch() }
+                    .onSubmit {
+                        viewModel.clearPlaceSuggestions()
+                        runSearch()
+                    }
+                    .onChange(of: viewModel.locationQuery) { _, _ in
+                        viewModel.suggestPlaces()
+                    }
                 if !viewModel.locationQuery.isEmpty {
                     Button {
                         viewModel.locationQuery = ""
@@ -493,6 +439,49 @@ struct SearchHeader: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(Color.qkTan, lineWidth: 1)
             )
+
+            // Place autocomplete (web + Android parity): curated popular destinations
+            // while the field is empty, matching places as the user types.
+            if !viewModel.placeSuggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    if viewModel.locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(loc.t("explore.popularDestinations"))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.qkMuted)
+                            .padding(.horizontal, 14)
+                            .padding(.top, 10)
+                            .padding(.bottom, 2)
+                    }
+                    ForEach(viewModel.placeSuggestions, id: \.self) { place in
+                        Button {
+                            viewModel.locationQuery = place
+                            viewModel.clearPlaceSuggestions()
+                            runSearch()
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(Color.qkBurgundy)
+                                Text(place)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.qkInk)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.bottom, 6)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.qkTan, lineWidth: 1)
+                )
+            }
 
             // Dates — a single tidy row that opens the branded range picker.
             Button {
@@ -592,6 +581,13 @@ struct SearchHeader: View {
         }
         .padding(16)
         .qkCard(cornerRadius: 24, lifts: false)
+        .onAppear {
+            // Open with the curated popular destinations when the location field
+            // is empty (matches the web + Android explore search).
+            if viewModel.locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                viewModel.suggestPlaces(debounced: false)
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -599,6 +595,7 @@ struct SearchHeader: View {
     /// Runs the existing search, then collapses the header so results get the
     /// screen.
     private func runSearch() {
+        viewModel.clearPlaceSuggestions()
         Task { await viewModel.search() }
         withAnimation(openClose) { searchExpanded = false }
     }
@@ -847,26 +844,6 @@ struct ListingCard: View {
             .overlay(Capsule().strokeBorder(Color.qkInk.opacity(0.08), lineWidth: 1))
             .clipShape(Capsule())
             .lineLimit(1)
-    }
-}
-
-/// Floating circular "Ask AI" concierge launcher: a burgundy-gradient disc with
-/// a cream sparkles glyph, a soft drop shadow and the springy `QKPressStyle`.
-/// Sits bottom-trailing on the Explore screen and opens `AITravelChatView`.
-struct AskAIButton: View {
-    @EnvironmentObject private var loc: LocalizationManager
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            QKVacationWavesIcon(size: 30)
-                .frame(width: 58, height: 58)
-                .background(LinearGradient.qkBurgundyCTA)
-                .clipShape(Circle())
-                .overlay(Circle().strokeBorder(Color.qkCream.opacity(0.22), lineWidth: 1))
-        }
-        .buttonStyle(QKPressStyle(shadow: Color.qkBurgundy.opacity(0.38), shadowRadius: 16))
-        .accessibilityLabel(loc.t("ai.button.label"))
     }
 }
 

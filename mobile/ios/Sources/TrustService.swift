@@ -6,7 +6,7 @@ import Foundation
 /// `AuthStore.tokenKey`.
 ///
 ///   GET  {base}/api/local/verification        (Bearer) → { status, verified_at }
-///   POST {base}/api/local/verification        (Bearer) { front, back, id_number? } → { status, … }
+///   POST {base}/api/local/verification        (Bearer) { front, back, selfie?, id_number? } → { status, … }
 ///   POST {base}/api/local/reports             (Bearer) { target_type, target_id, reason, details? }
 ///   GET  {base}/api/local/users/:id           (public)  → PublicProfile
 struct TrustService {
@@ -50,14 +50,15 @@ struct TrustService {
         return try JSONDecoder().decode(VerificationState.self, from: data)
     }
 
-    /// Submit FRONT + BACK ID images for review
-    /// (`POST /api/local/verification` (Bearer) `{ front, back, id_number? }`).
-    /// `front`/`back` are `data:image/jpeg;base64,…` URLs produced by
+    /// Submit FRONT + BACK ID images plus a SELFIE for review
+    /// (`POST /api/local/verification` (Bearer) `{ front, back, selfie?, id_number? }`).
+    /// `front`/`back`/`selfie` are `data:image/jpeg;base64,…` URLs produced by
     /// `QKAvatarImage.makeDataURL`. An optional `idNumber` is forwarded when set.
-    /// The server stores FRONT→image_data, BACK→back_image_data, flips the status
-    /// to "pending", and echoes the new state. HTTPS only (normal `apiBaseURL`).
+    /// The server stores FRONT→image_data, BACK→back_image_data, SELFIE→selfie_image_data,
+    /// flips the status to "pending", and echoes the new state. HTTPS only
+    /// (normal `apiBaseURL`).
     @discardableResult
-    func submitVerification(front: String, back: String, idNumber: String? = nil) async throws -> VerificationState {
+    func submitVerification(front: String, back: String, selfie: String? = nil, idNumber: String? = nil) async throws -> VerificationState {
         guard let token else { throw TrustError.notSignedIn }
 
         let url = URL(string: "\(Config.apiBaseURL)/api/local/verification")!
@@ -67,6 +68,9 @@ struct TrustService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         var body: [String: Any] = ["front": front, "back": back]
+        if let selfie, !selfie.isEmpty {
+            body["selfie"] = selfie
+        }
         if let idNumber = idNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !idNumber.isEmpty {
             body["id_number"] = idNumber
         }

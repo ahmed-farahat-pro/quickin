@@ -171,6 +171,27 @@ struct SupabaseService {
         }
         return try JSONDecoder().decode([RegionFacet].self, from: data)
     }
+
+    /// Place autocomplete for the Explore search bar
+    /// (`GET /api/local/places?q=…` → `{ places: [String] }`). Public — no auth.
+    /// An empty query returns the curated popular destinations. Best-effort:
+    /// returns an empty list on any failure so the search field never breaks.
+    func fetchPlaceSuggestions(query: String) async -> [String] {
+        struct Envelope: Decodable { let places: [String] }
+        var components = URLComponents(string: "\(Config.apiBaseURL)/api/local/places")!
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
+        guard let url = components.url else { return [] }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              let envelope = try? JSONDecoder().decode(Envelope.self, from: data)
+        else { return [] }
+        return envelope.places
+    }
 }
 
 /// Sort order for the Explore listings, mapping 1:1 to the backend `sort=` param.

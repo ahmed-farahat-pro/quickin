@@ -118,6 +118,76 @@ struct BookingService {
         throw BookingError.message(Self.decodeError(data) ?? "Payment failed (\(http.statusCode)).")
     }
 
+    // MARK: - Instapay (manual bank transfer)
+
+    /// Load the Instapay transfer destination shown to the guest at checkout via
+    /// `GET /api/local/payment-config` (Bearer) → `{ instapay_handle, instructions }`.
+    /// The guest sends the transfer to `handle` and follows `instructions`, then
+    /// uploads a screenshot with `submitPaymentProof`. Throws
+    /// `BookingError.notSignedIn` (no token / 401).
+    func getPaymentConfig() async throws -> PaymentConfig {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/payment-config")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            throw BookingError.message(Self.decodeError(data) ?? "Couldn't load the transfer details (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(PaymentConfig.self, from: data)
+    }
+
+    /// Upload the guest's Instapay transfer screenshot as proof of payment for
+    /// `bookingId` via `POST /api/local/bookings/:id/payment-proof`
+    /// `{ image, method: "instapay" }` (Bearer). `imageDataURL` is a
+    /// `data:image/jpeg;base64,…` URL (produced by `QKAvatarImage.makeDataURL`).
+    /// The booking's `payment_status` flips to "submitted" — awaiting the host's
+    /// approval — and re-uploading is allowed (a host-rejected booking reopens).
+    ///
+    /// Throws `BookingError.notSignedIn` (no token / 401) or `BookingError.message`
+    /// carrying the server's `{ error }` for other non-2xx (e.g. 400 missing
+    /// screenshot, 403/404 when the booking isn't the caller's). The updated
+    /// `Booking` is returned best-effort; the caller only needs the 2xx to advance.
+    @discardableResult
+    func submitPaymentProof(bookingId: String, imageDataURL: String) async throws -> Booking? {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(encoded)/payment-proof")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "image": imageDataURL,
+            "method": "instapay",
+        ])
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if (200...299).contains(http.statusCode) {
+            // The response is the updated booking (payment_status "submitted");
+            // decode it best-effort — a bare booking or a `{ booking }` wrapper.
+            if let booking = try? JSONDecoder().decode(Booking.self, from: data) { return booking }
+            struct Wrapped: Decodable { let booking: Booking }
+            return (try? JSONDecoder().decode(Wrapped.self, from: data))?.booking
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        // 400 (missing screenshot) / 403 / 404 / other: surface the server's { error }.
+        throw BookingError.message(Self.decodeError(data) ?? "Couldn't submit your screenshot (\(http.statusCode)).")
+    }
+
     // MARK: - Paymob (hosted checkout)
 
     /// Kick off a Paymob hosted-checkout session for a booking via
@@ -666,6 +736,29 @@ struct PaymobInit: Decodable, Hashable {
 /// `pay-init` (the booking was already settled).
 private struct AlreadyPaidBody: Decodable {
     let already_paid: Bool?
+}
+
+/// The Instapay transfer destination shown to the guest at checkout, from
+/// `GET /api/local/payment-config` → `{ instapay_handle, instructions }`.
+/// `handle` is the Instapay address the guest sends money to; `instructions` is
+/// free-text guidance from the host/admin (may be empty). Admin-editable via
+/// `/api/local/admin/settings/instapay`.
+struct PaymentConfig: Decodable, Hashable {
+    /// The Instapay handle/address the guest transfers to (may be empty if unset).
+    let handle: String
+    /// Free-text transfer instructions to show alongside the handle (may be empty).
+    let instructions: String
+
+    enum CodingKeys: String, CodingKey {
+        case handle = "instapay_handle"
+        case instructions
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        handle = (try c.decodeIfPresent(String.self, forKey: .handle)) ?? ""
+        instructions = (try c.decodeIfPresent(String.self, forKey: .instructions)) ?? ""
+    }
 }
 
 /// The receipt returned by the mock pay endpoint

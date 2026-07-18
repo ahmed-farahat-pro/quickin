@@ -10,8 +10,6 @@ import Foundation
 ///               amenities[], notes } → { description, ai }
 ///   POST {base}/api/local/ai/search               (public)
 ///        body { query } → { filters, listings, ai }
-///
-/// (The conversational concierge stream lives separately in `AITravelChatService`.)
 struct AIService {
     static let shared = AIService()
 
@@ -127,7 +125,7 @@ struct AIService {
 
 /// Errors surfaced by the AI writer + natural-language search. Kept free of
 /// `L.t` lookups (which are `@MainActor`-bound) so the service stays nonisolated,
-/// matching `AITravelChatService` / `HostService`. The view turns each case into
+/// matching `HostService`. The view turns each case into
 /// a localized string via `localizedMessage`.
 enum AIServiceError: LocalizedError {
     /// A generic transport/parse failure.

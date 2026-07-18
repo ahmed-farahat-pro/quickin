@@ -353,6 +353,27 @@ enum Strings {
         "pay.unavailable": "Online payment isn't available right now.",
         "pay.alreadyPaid": "This booking is already paid.",
         "pay.errorTitle": "Payment",
+        // Instapay bank-transfer flow (replaces the card gateway)
+        "instapay.subtitle": "Transfer via Instapay, then upload your screenshot.",
+        "instapay.amountToSend": "Amount to transfer",
+        "instapay.forNights": "for %@ %@",
+        "instapay.sendTo": "Send the transfer to",
+        "instapay.copy": "Copy",
+        "instapay.copied": "Copied",
+        "instapay.loading": "Loading transfer details…",
+        "instapay.loadError": "Couldn't load the transfer details. Please try again.",
+        "instapay.noHandle": "The host hasn't set up Instapay yet — please contact them.",
+        "instapay.addScreenshot": "Add transfer screenshot",
+        "instapay.changeScreenshot": "Change screenshot",
+        "instapay.submit": "I've paid — submit screenshot",
+        "instapay.submitting": "Submitting…",
+        "instapay.missingScreenshot": "Please add your transfer screenshot.",
+        "instapay.signIn": "Please sign in to pay by Instapay transfer.",
+        "instapay.awaitingBody": "We've sent your transfer screenshot to the host. Your booking is confirmed once they approve it.",
+        "instapay.note": "Your booking is confirmed after the host verifies your transfer.",
+        "instapay.uploadError": "Couldn't read that image. Please try another.",
+        "instapay.underReview.title": "Payment under review",
+        "instapay.underReview.subtitle": "The host is checking your transfer. Your booking is confirmed once they approve it.",
 
         // Stay pass (QR + host notes)
         "pass.reservationCode": "Reservation code",
@@ -643,7 +664,7 @@ enum Strings {
 
         // Trust & safety — identity verification
         "trust.verify": "Verify your identity",
-        "trust.verifyIntro": "Add a photo of your ID to earn a verified badge and build trust with hosts and guests.",
+        "trust.verifyIntro": "Add the front and back of your ID plus a selfie to earn a verified badge and build trust with hosts and guests.",
         "trust.uploadId": "Upload ID photo",
         "trust.front": "Front",
         "trust.back": "Back",
@@ -716,6 +737,35 @@ enum Strings {
         "currency.gbp": "British Pound",
         "currency.sar": "Saudi Riyal",
         "currency.aed": "UAE Dirham",
+
+        // Messages inbox + pre-booking chat (web /messages parity)
+        "messages.title": "Messages",
+        "messages.empty.title": "No messages yet",
+        "messages.empty.body": "When you message a host or a guest, the conversation shows up here.",
+        "messages.error": "Couldn't load messages",
+        "messages.noMessages": "No messages yet",
+        "messages.hostBadge": "Host",
+        "chat.loading": "Loading messages…",
+        "chat.noMessages": "No messages yet",
+        "chat.sayHello": "Say hello — start the conversation about this stay.",
+        "chat.placeholder": "Message",
+        "detail.messageHost": "Message host",
+        "profile.messages": "Messages",
+        "profile.messages.sub": "Chat with hosts and guests",
+
+        // Support & legal (Profile tab)
+        "profile.supportLegal": "Support & legal",
+        "legal.terms": "Terms of Service",
+        "legal.privacy": "Privacy Policy",
+        "legal.about": "About QuickIn",
+        "legal.contact": "Contact us",
+
+        // Identity verification: selfie (web parity)
+        "trust.selfie": "A selfie of you",
+        "trust.selfieHint": "Take a clear selfie so we can match it to your ID.",
+
+        // Explore search: place autocomplete
+        "explore.popularDestinations": "Popular destinations",
     ]
 
     static let ar: [String: String] = [
@@ -973,6 +1023,27 @@ enum Strings {
         "pay.unavailable": "الدفع الإلكتروني غير متاح حاليًا.",
         "pay.alreadyPaid": "تم دفع هذا الحجز بالفعل.",
         "pay.errorTitle": "الدفع",
+        // Instapay bank-transfer flow (replaces the card gateway)
+        "instapay.subtitle": "حوّل عبر إنستاباي، ثم ارفع لقطة الشاشة.",
+        "instapay.amountToSend": "المبلغ المطلوب تحويله",
+        "instapay.forNights": "لمدة %@ %@",
+        "instapay.sendTo": "أرسل التحويل إلى",
+        "instapay.copy": "نسخ",
+        "instapay.copied": "تم النسخ",
+        "instapay.loading": "جارٍ تحميل تفاصيل التحويل…",
+        "instapay.loadError": "تعذّر تحميل تفاصيل التحويل. حاول مرة أخرى.",
+        "instapay.noHandle": "لم يقم المضيف بإعداد إنستاباي بعد — يرجى التواصل معه.",
+        "instapay.addScreenshot": "أضف لقطة شاشة التحويل",
+        "instapay.changeScreenshot": "تغيير لقطة الشاشة",
+        "instapay.submit": "لقد دفعت — إرسال لقطة الشاشة",
+        "instapay.submitting": "جارٍ الإرسال…",
+        "instapay.missingScreenshot": "يرجى إضافة لقطة شاشة التحويل.",
+        "instapay.signIn": "يرجى تسجيل الدخول للدفع عبر تحويل إنستاباي.",
+        "instapay.awaitingBody": "لقد أرسلنا لقطة شاشة تحويلك إلى المضيف. سيتم تأكيد حجزك بمجرد موافقته.",
+        "instapay.note": "يتم تأكيد حجزك بعد أن يتحقق المضيف من تحويلك.",
+        "instapay.uploadError": "تعذّر قراءة الصورة. جرّب صورة أخرى.",
+        "instapay.underReview.title": "الدفع قيد المراجعة",
+        "instapay.underReview.subtitle": "يقوم المضيف بمراجعة تحويلك. سيتم تأكيد حجزك بمجرد موافقته.",
 
         // Stay pass (QR + host notes)
         "pass.reservationCode": "رمز الحجز",
@@ -1262,7 +1333,7 @@ enum Strings {
 
         // Trust & safety — identity verification
         "trust.verify": "تحقّق من هويتك",
-        "trust.verifyIntro": "أضِف صورة من بطاقة هويتك للحصول على شارة التحقق وبناء الثقة مع المُضيفين والضيوف.",
+        "trust.verifyIntro": "أضِف صورة الوجه الأمامي والخلفي لبطاقة هويتك مع صورة سيلفي للحصول على شارة التحقق وبناء الثقة مع المُضيفين والضيوف.",
         "trust.uploadId": "رفع صورة الهوية",
         "trust.front": "الوجه الأمامي",
         "trust.back": "الوجه الخلفي",
@@ -1335,6 +1406,35 @@ enum Strings {
         "currency.gbp": "جنيه إسترليني",
         "currency.sar": "ريال سعودي",
         "currency.aed": "درهم إماراتي",
+
+        // Messages inbox + pre-booking chat (web /messages parity)
+        "messages.title": "الرسائل",
+        "messages.empty.title": "لا توجد رسائل بعد",
+        "messages.empty.body": "عندما تراسل مضيفًا أو ضيفًا، ستظهر المحادثة هنا.",
+        "messages.error": "تعذّر تحميل الرسائل",
+        "messages.noMessages": "لا توجد رسائل بعد",
+        "messages.hostBadge": "المضيف",
+        "chat.loading": "جاري تحميل الرسائل…",
+        "chat.noMessages": "لا توجد رسائل بعد",
+        "chat.sayHello": "قُل مرحبًا — ابدأ المحادثة حول هذه الإقامة.",
+        "chat.placeholder": "رسالة",
+        "detail.messageHost": "مراسلة المضيف",
+        "profile.messages": "الرسائل",
+        "profile.messages.sub": "تواصل مع المضيفين والضيوف",
+
+        // Support & legal (Profile tab)
+        "profile.supportLegal": "الدعم والشؤون القانونية",
+        "legal.terms": "شروط الخدمة",
+        "legal.privacy": "سياسة الخصوصية",
+        "legal.about": "عن كويك إن",
+        "legal.contact": "اتصل بنا",
+
+        // Identity verification: selfie (web parity)
+        "trust.selfie": "صورة سيلفي لك",
+        "trust.selfieHint": "التقط صورة سيلفي واضحة حتى نتمكن من مطابقتها مع هويتك.",
+
+        // Explore search: place autocomplete
+        "explore.popularDestinations": "وجهات رائجة",
     ]
 
     /// French (machine-translated, reviewable). LTR.
@@ -1557,6 +1657,27 @@ enum Strings {
         "pay.unavailable": "Le paiement en ligne n'est pas disponible pour le moment.",
         "pay.alreadyPaid": "Cette réservation est déjà payée.",
         "pay.errorTitle": "Paiement",
+        // Instapay bank-transfer flow (replaces the card gateway)
+        "instapay.subtitle": "Effectuez le virement via Instapay, puis téléchargez votre capture d'écran.",
+        "instapay.amountToSend": "Montant à transférer",
+        "instapay.forNights": "pour %@ %@",
+        "instapay.sendTo": "Envoyez le virement à",
+        "instapay.copy": "Copier",
+        "instapay.copied": "Copié",
+        "instapay.loading": "Chargement des détails du virement…",
+        "instapay.loadError": "Impossible de charger les détails du virement. Veuillez réessayer.",
+        "instapay.noHandle": "L'hôte n'a pas encore configuré Instapay — veuillez le contacter.",
+        "instapay.addScreenshot": "Ajouter la capture du virement",
+        "instapay.changeScreenshot": "Changer la capture",
+        "instapay.submit": "J'ai payé — envoyer la capture",
+        "instapay.submitting": "Envoi en cours…",
+        "instapay.missingScreenshot": "Veuillez ajouter la capture de votre virement.",
+        "instapay.signIn": "Veuillez vous connecter pour payer par virement Instapay.",
+        "instapay.awaitingBody": "Nous avons envoyé la capture de votre virement à l'hôte. Votre réservation sera confirmée dès qu'il l'aura approuvée.",
+        "instapay.note": "Votre réservation est confirmée après que l'hôte a vérifié votre virement.",
+        "instapay.uploadError": "Impossible de lire cette image. Veuillez en essayer une autre.",
+        "instapay.underReview.title": "Paiement en cours de vérification",
+        "instapay.underReview.subtitle": "L'hôte vérifie votre virement. Votre réservation sera confirmée dès qu'il l'aura approuvée.",
         "pass.reservationCode": "Code de réservation",
         "pass.scanOrTap": "Scannez ou appuyez pour ouvrir votre pass séjour",
         "pass.fromHost": "De la part de votre hôte",
@@ -1804,7 +1925,7 @@ enum Strings {
         "share.reservation.titleFallback": "Ma réservation — QuickIn",
         "share.reservation.message": "Voici ma réservation QuickIn.",
         "trust.verify": "Vérifiez votre identité",
-        "trust.verifyIntro": "Ajoutez une photo de votre pièce d'identité pour obtenir un badge vérifié et instaurer la confiance avec les hôtes et les voyageurs.",
+        "trust.verifyIntro": "Ajoutez le recto et le verso de votre pièce d'identité ainsi qu'un selfie pour obtenir un badge vérifié et instaurer la confiance avec les hôtes et les voyageurs.",
         "trust.uploadId": "Téléverser une photo de la pièce d'identité",
         "trust.front": "Recto",
         "trust.back": "Verso",
@@ -1869,6 +1990,35 @@ enum Strings {
         "currency.gbp": "Livre sterling",
         "currency.sar": "Riyal saoudien",
         "currency.aed": "Dirham des Émirats arabes unis",
+
+        // Messages inbox + pre-booking chat (web /messages parity)
+        "messages.title": "Messages",
+        "messages.empty.title": "Aucun message pour l'instant",
+        "messages.empty.body": "Lorsque vous écrivez à un hôte ou à un voyageur, la conversation apparaît ici.",
+        "messages.error": "Impossible de charger les messages",
+        "messages.noMessages": "Aucun message",
+        "messages.hostBadge": "Hôte",
+        "chat.loading": "Chargement des messages…",
+        "chat.noMessages": "Aucun message pour l'instant",
+        "chat.sayHello": "Dites bonjour — lancez la conversation sur ce séjour.",
+        "chat.placeholder": "Message",
+        "detail.messageHost": "Contacter l'hôte",
+        "profile.messages": "Messages",
+        "profile.messages.sub": "Échangez avec hôtes et voyageurs",
+
+        // Support & legal (Profile tab)
+        "profile.supportLegal": "Assistance et mentions légales",
+        "legal.terms": "Conditions d'utilisation",
+        "legal.privacy": "Politique de confidentialité",
+        "legal.about": "À propos de QuickIn",
+        "legal.contact": "Contactez-nous",
+
+        // Identity verification: selfie (web parity)
+        "trust.selfie": "Un selfie de vous",
+        "trust.selfieHint": "Prenez un selfie net pour que nous puissions le comparer à votre pièce d'identité.",
+
+        // Explore search: place autocomplete
+        "explore.popularDestinations": "Destinations populaires",
     ]
 
     /// Spanish (machine-translated, reviewable). LTR.
@@ -2091,6 +2241,27 @@ enum Strings {
         "pay.unavailable": "El pago en línea no está disponible en este momento.",
         "pay.alreadyPaid": "Esta reserva ya está pagada.",
         "pay.errorTitle": "Pago",
+        // Instapay bank-transfer flow (replaces the card gateway)
+        "instapay.subtitle": "Transfiere por Instapay y luego sube tu captura de pantalla.",
+        "instapay.amountToSend": "Importe a transferir",
+        "instapay.forNights": "por %@ %@",
+        "instapay.sendTo": "Envía la transferencia a",
+        "instapay.copy": "Copiar",
+        "instapay.copied": "Copiado",
+        "instapay.loading": "Cargando los datos de la transferencia…",
+        "instapay.loadError": "No se pudieron cargar los datos de la transferencia. Inténtalo de nuevo.",
+        "instapay.noHandle": "El anfitrión aún no ha configurado Instapay; ponte en contacto con él.",
+        "instapay.addScreenshot": "Añadir captura de la transferencia",
+        "instapay.changeScreenshot": "Cambiar captura",
+        "instapay.submit": "Ya pagué — enviar captura",
+        "instapay.submitting": "Enviando…",
+        "instapay.missingScreenshot": "Añade la captura de tu transferencia.",
+        "instapay.signIn": "Inicia sesión para pagar por transferencia Instapay.",
+        "instapay.awaitingBody": "Hemos enviado la captura de tu transferencia al anfitrión. Tu reserva se confirmará en cuanto la apruebe.",
+        "instapay.note": "Tu reserva se confirma después de que el anfitrión verifique tu transferencia.",
+        "instapay.uploadError": "No se pudo leer la imagen. Prueba con otra.",
+        "instapay.underReview.title": "Pago en revisión",
+        "instapay.underReview.subtitle": "El anfitrión está verificando tu transferencia. Tu reserva se confirmará en cuanto la apruebe.",
         "pass.reservationCode": "Código de reserva",
         "pass.scanOrTap": "Escanee o toque para abrir su pase de estancia",
         "pass.fromHost": "De su anfitrión",
@@ -2338,7 +2509,7 @@ enum Strings {
         "share.reservation.titleFallback": "Mi reserva — QuickIn",
         "share.reservation.message": "Esta es mi reserva de QuickIn.",
         "trust.verify": "Verifique su identidad",
-        "trust.verifyIntro": "Añada una foto de su documento de identidad para obtener una insignia de verificación y generar confianza con anfitriones y huéspedes.",
+        "trust.verifyIntro": "Añada el anverso y el reverso de su documento de identidad junto con un selfie para obtener una insignia de verificación y generar confianza con anfitriones y huéspedes.",
         "trust.uploadId": "Subir foto del documento de identidad",
         "trust.front": "Anverso",
         "trust.back": "Reverso",
@@ -2403,5 +2574,34 @@ enum Strings {
         "currency.gbp": "Libra esterlina",
         "currency.sar": "Riyal saudí",
         "currency.aed": "Dírham de los EAU",
+
+        // Messages inbox + pre-booking chat (web /messages parity)
+        "messages.title": "Mensajes",
+        "messages.empty.title": "Aún no hay mensajes",
+        "messages.empty.body": "Cuando escribas a un anfitrión o a un huésped, la conversación aparecerá aquí.",
+        "messages.error": "No se pudieron cargar los mensajes",
+        "messages.noMessages": "Sin mensajes",
+        "messages.hostBadge": "Anfitrión",
+        "chat.loading": "Cargando mensajes…",
+        "chat.noMessages": "Aún no hay mensajes",
+        "chat.sayHello": "Saluda — empieza la conversación sobre este alojamiento.",
+        "chat.placeholder": "Mensaje",
+        "detail.messageHost": "Enviar mensaje al anfitrión",
+        "profile.messages": "Mensajes",
+        "profile.messages.sub": "Chatea con anfitriones y huéspedes",
+
+        // Support & legal (Profile tab)
+        "profile.supportLegal": "Soporte y legal",
+        "legal.terms": "Términos de servicio",
+        "legal.privacy": "Política de privacidad",
+        "legal.about": "Acerca de QuickIn",
+        "legal.contact": "Contáctanos",
+
+        // Identity verification: selfie (web parity)
+        "trust.selfie": "Un selfie tuyo",
+        "trust.selfieHint": "Tómate un selfie claro para que podamos compararlo con tu ID.",
+
+        // Explore search: place autocomplete
+        "explore.popularDestinations": "Destinos populares",
     ]
 }

@@ -72,28 +72,30 @@ private val ReportRed = Color(0xFFB3261E)
 
 /**
  * Identity-verification card for the Profile tab — NO OCR. Shows the user's current status with a
- * colored status pill; for "unverified"/"rejected" it lets the user pick OR capture a FRONT photo
- * and a BACK photo of their ID (Photo Picker, ImageOnly), shows thumbnails, optionally enter their
- * ID number, then submits both over HTTPS via [onSubmit] (front, back, idNumber?). The
- * "pending"/"verified" states show a read-only note. RTL-safe — rows lay out start→end.
+ * colored status pill; for "unverified"/"rejected" it lets the user pick OR capture a FRONT photo,
+ * a BACK photo of their ID and a SELFIE (Photo Picker, ImageOnly), shows thumbnails, optionally
+ * enter their ID number, then submits all three over HTTPS via [onSubmit] (front, back, selfie,
+ * idNumber?) — matching the web verification flow. The "pending"/"verified" states show a
+ * read-only note. RTL-safe — rows lay out start→end.
  */
 @Composable
 fun VerificationCard(
     state: VerificationUiState,
-    onSubmit: (front: android.net.Uri, back: android.net.Uri, idNumber: String?) -> Unit,
+    onSubmit: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val status = state.status.lowercase()
     val canSubmit = status == "unverified" || status == "rejected"
 
-    // Picked FRONT / BACK photo URIs (Photo Picker — no storage permission needed) + optional id no.
+    // Picked FRONT / BACK / SELFIE photo URIs (Photo Picker — no storage permission needed) + id no.
     var frontUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var backUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var selfieUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var idNumber by remember { mutableStateOf("") }
 
     // Clear the staged photos once a submission succeeds (status leaves the submittable states).
     androidx.compose.runtime.LaunchedEffect(status) {
-        if (!canSubmit) { frontUri = null; backUri = null; idNumber = "" }
+        if (!canSubmit) { frontUri = null; backUri = null; selfieUri = null; idNumber = "" }
     }
 
     val pickFront = rememberLauncherForActivityResult(
@@ -102,6 +104,9 @@ fun VerificationCard(
     val pickBack = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> if (uri != null) backUri = uri }
+    val pickSelfie = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) selfieUri = uri }
 
     BoutiqueCard(modifier = modifier.fillMaxWidth(), shadow = 6.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -178,6 +183,28 @@ fun VerificationCard(
                 }
 
                 Spacer(Modifier.height(12.dp))
+                // Selfie row (web parity): the reviewer matches the face against the ID photos.
+                IdPhotoSlot(
+                    label = stringResource(R.string.trust_selfie_photo),
+                    uri = selfieUri,
+                    enabled = !state.isSubmitting,
+                    onPick = {
+                        pickSelfie.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (selfieUri == null) {
+                    Text(
+                        stringResource(R.string.trust_selfie_hint),
+                        color = Muted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = idNumber,
                     onValueChange = { idNumber = it },
@@ -209,12 +236,13 @@ fun VerificationCard(
             if (canSubmit) {
                 val front = frontUri
                 val back = backUri
-                val ready = front != null && back != null && !state.isSubmitting
+                val selfie = selfieUri
+                val ready = front != null && back != null && selfie != null && !state.isSubmitting
                 Spacer(Modifier.height(16.dp))
                 GradientButton(
                     onClick = {
-                        if (front != null && back != null) {
-                            onSubmit(front, back, idNumber.trim().ifBlank { null })
+                        if (front != null && back != null && selfie != null) {
+                            onSubmit(front, back, selfie, idNumber.trim().ifBlank { null })
                         }
                     },
                     enabled = ready,

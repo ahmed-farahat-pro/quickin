@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,7 +53,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.quickin.app.BookingStatus
+import com.quickin.app.CancellationPolicy
+import com.quickin.app.CancellationQuote
 import com.quickin.app.R
 import com.quickin.app.Qr
 import com.quickin.app.Reservation
@@ -62,6 +67,7 @@ import com.quickin.app.shareText
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
+import com.quickin.app.ui.theme.GoldDeep
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
@@ -94,7 +100,13 @@ fun ReservationDetailScreen(
     /** Error from the last host-notes save, or null. */
     notesError: String? = null,
     /** Host-only: persists the edited notes (`PATCH …/bookings/:id {host_notes}`). */
-    onSaveHostNotes: (notes: String) -> Unit = {}
+    onSaveHostNotes: (notes: String) -> Unit = {},
+    /** Guest cancellation: opens the refund-quote confirm dialog (`GET …/bookings/:id/cancel`). */
+    onRequestCancel: () -> Unit = {},
+    /** Dismisses the cancel confirm dialog without cancelling. */
+    onDismissCancel: () -> Unit = {},
+    /** Confirms the cancellation (`POST …/bookings/:id/cancel`). */
+    onConfirmCancel: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Scaffold(
@@ -162,7 +174,14 @@ fun ReservationDetailScreen(
                     isHost = isHost,
                     notesSaving = notesSaving,
                     notesError = notesError,
-                    onSaveHostNotes = onSaveHostNotes
+                    onSaveHostNotes = onSaveHostNotes,
+                    cancelQuote = state.cancelQuote,
+                    loadingQuote = state.loadingQuote,
+                    cancelling = state.cancelling,
+                    cancelError = state.cancelError,
+                    onRequestCancel = onRequestCancel,
+                    onDismissCancel = onDismissCancel,
+                    onConfirmCancel = onConfirmCancel
                 )
             }
         }
@@ -182,7 +201,14 @@ private fun ReservationCardContent(
     isHost: Boolean = false,
     notesSaving: Boolean = false,
     notesError: String? = null,
-    onSaveHostNotes: (notes: String) -> Unit = {}
+    onSaveHostNotes: (notes: String) -> Unit = {},
+    cancelQuote: CancellationQuote? = null,
+    loadingQuote: Boolean = false,
+    cancelling: Boolean = false,
+    cancelError: String? = null,
+    onRequestCancel: () -> Unit = {},
+    onDismissCancel: () -> Unit = {},
+    onConfirmCancel: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     // Public stay-pass URL the QR encodes and the card opens on tap.
@@ -214,6 +240,17 @@ private fun ReservationCardContent(
     }
     LaunchedEffect(canReview) {
         if (!canReview) showReviewDialog = false
+    }
+
+    // Guest cancellation: the quote is fetched first (no mutation), then confirmed here.
+    if (cancelQuote != null) {
+        CancelReservationDialog(
+            quote = cancelQuote,
+            cancelling = cancelling,
+            error = cancelError,
+            onConfirm = onConfirmCancel,
+            onDismiss = onDismissCancel
+        )
     }
 
     Column(
@@ -320,7 +357,9 @@ private fun ReservationCardContent(
         // by the backend. This is the primary CTA here, so it pulses.
         val isApproved = reservation.status.equals("confirmed", ignoreCase = true)
         val isAwaitingApproval = reservation.status.equals("pending", ignoreCase = true)
-        if (onPayNow != null && isApproved && !reservation.isPaid) {
+        // The guest already uploaded a transfer screenshot; the host is verifying it.
+        val isUnderReview = reservation.paymentStatus.equals("submitted", ignoreCase = true)
+        if (onPayNow != null && isApproved && !reservation.isPaid && !isUnderReview) {
             GradientButton(
                 onClick = onPayNow,
                 radius = 18.dp,
@@ -331,6 +370,32 @@ private fun ReservationCardContent(
                 Icon(Icons.Filled.CreditCard, null, tint = Color.White, modifier = Modifier.height(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.pay_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        } else if (isUnderReview && !reservation.isPaid) {
+            // Transfer screenshot submitted — the host is checking it. No pay button (avoids a
+            // duplicate transfer); the status flips to "paid" once the host approves.
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Cream,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Filled.HourglassEmpty, null, tint = GoldDeep, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.instapay_under_review),
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         } else if (isAwaitingApproval && !reservation.isPaid) {
             // Pending request — no pay button yet; surface a hint that the host must approve first.
@@ -386,6 +451,149 @@ private fun ReservationCardContent(
                 Icon(Icons.Filled.StarBorder, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.review_leave), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+
+        // Guests can cancel a pending/confirmed stay. Tapping fetches the refund quote first
+        // (GET …/cancel, no mutation); the dialog above confirms the destructive POST.
+        if (reservation.isCancellable) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = onRequestCancel,
+                enabled = !loadingQuote && !cancelling,
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                if (loadingQuote) {
+                    CircularProgressIndicator(color = ErrorRed, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                } else {
+                    Text(stringResource(R.string.cancel_reservation), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                }
+            }
+            // Quote fetch failed (e.g. no longer cancellable) — surface it inline under the button.
+            if (cancelError != null && cancelQuote == null) {
+                Text(
+                    cancelError,
+                    color = ErrorRed,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Confirm-cancellation dialog: shows the resolved policy, days until check-in and the refund
+ * breakdown from [quote] before the guest commits to the (destructive) cancel POST.
+ */
+@Composable
+private fun CancelReservationDialog(
+    quote: CancellationQuote,
+    cancelling: Boolean,
+    error: String?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = { if (!cancelling) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    stringResource(R.string.cancel_reservation),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Ink
+                )
+                Spacer(Modifier.height(14.dp))
+
+                // Refund summary card: policy + countdown, then the refund line itself.
+                Surface(shape = RoundedCornerShape(16.dp), color = Cream, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.cancel_refund_quote),
+                            color = Ink,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            stringResource(
+                                R.string.cancel_refund_days,
+                                quote.daysUntilCheckIn,
+                                stringResource(CancellationPolicy.from(quote.policy).labelRes)
+                            ),
+                            color = Muted,
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        if (quote.refundPercent > 0) {
+                            Text(
+                                stringResource(
+                                    R.string.cancel_refund_amount,
+                                    quote.refundAmountText,
+                                    quote.totalText,
+                                    quote.refundPercent
+                                ),
+                                color = Burgundy,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        } else {
+                            Text(
+                                stringResource(R.string.cancel_no_refund),
+                                color = ErrorRed,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                if (error != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(error, color = ErrorRed, fontSize = 13.sp)
+                }
+
+                Spacer(Modifier.height(18.dp))
+                GradientButton(
+                    onClick = onConfirm,
+                    enabled = !cancelling,
+                    radius = 16.dp,
+                    height = 48.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (cancelling) {
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                    } else {
+                        Text(
+                            stringResource(R.string.cancel_confirm),
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !cancelling,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.cancel_keep), color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
             }
         }
     }

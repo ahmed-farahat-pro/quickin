@@ -82,21 +82,78 @@ fun PreBookingChatScreen(
         SignInToChat(hostName = hostName, onBack = onBack)
         return
     }
+    ChatThreadScreen(
+        token = token,
+        stateKey = listingId,
+        title = hostName.ifBlank { "Host" },
+        subtitle = "Ask about this stay",
+        bubbleName = hostName,
+        emptyContent = { EmptyPreChat(hostName = hostName) },
+        resolveConversationId = { ChatThreadService.openConversation(token, listingId) },
+        onBack = onBack
+    )
+}
 
+/**
+ * A conversation thread opened from the Messages INBOX — the conversation already exists, so no
+ * `openConversation` round-trip: the screen lists [conversationId]'s messages directly. Shares
+ * the bubble/poll/send machinery with [PreBookingChatScreen] via [ChatThreadScreen].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConversationChatScreen(
+    token: String?,
+    conversationId: String,
+    title: String,
+    onBack: () -> Unit
+) {
+    if (token == null) {
+        SignInToChat(hostName = title, onBack = onBack)
+        return
+    }
+    ChatThreadScreen(
+        token = token,
+        stateKey = conversationId,
+        title = title.ifBlank { "Conversation" },
+        subtitle = null,
+        bubbleName = title,
+        emptyContent = { EmptyPreChat(hostName = title) },
+        resolveConversationId = { conversationId },
+        onBack = onBack
+    )
+}
+
+/**
+ * Shared guest ↔ host thread UI: resolves the conversation id once via [resolveConversationId]
+ * (keyed on [stateKey]), polls messages every ~4s, and sends new lines. [bubbleName] labels the
+ * other party's bubbles; [emptyContent] renders when the thread has no messages yet.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatThreadScreen(
+    token: String,
+    stateKey: String,
+    title: String,
+    subtitle: String?,
+    bubbleName: String,
+    emptyContent: @Composable () -> Unit,
+    resolveConversationId: suspend () -> String,
+    onBack: () -> Unit
+) {
     val scope = rememberCoroutineScope()
-    var conversationId by remember(listingId) { mutableStateOf<String?>(null) }
-    var messages by remember(listingId) { mutableStateOf<List<ChatLine>>(emptyList()) }
-    var isLoading by remember(listingId) { mutableStateOf(true) }
-    var error by remember(listingId) { mutableStateOf<String?>(null) }
-    var draft by remember(listingId) { mutableStateOf("") }
+    var conversationId by remember(stateKey) { mutableStateOf<String?>(null) }
+    var messages by remember(stateKey) { mutableStateOf<List<ChatLine>>(emptyList()) }
+    var isLoading by remember(stateKey) { mutableStateOf(true) }
+    var error by remember(stateKey) { mutableStateOf<String?>(null) }
+    var draft by remember(stateKey) { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
 
     // Open (or reuse) the conversation, then load its first page of messages.
-    LaunchedEffect(token, listingId) {
+    LaunchedEffect(token, stateKey) {
         isLoading = true
         error = null
         try {
-            val cid = ChatThreadService.openConversation(token, listingId)
+            val cid = resolveConversationId()
             if (cid.isNotBlank()) {
                 conversationId = cid
                 messages = ChatThreadService.listMessages(token, cid)
@@ -156,12 +213,14 @@ fun PreBookingChatScreen(
                 title = {
                     Column {
                         Text(
-                            hostName.ifBlank { "Host" },
+                            title,
                             color = Ink,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1
                         )
-                        Text("Ask about this stay", color = Muted, fontSize = 12.sp, maxLines = 1)
+                        if (subtitle != null) {
+                            Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1)
+                        }
                     }
                 },
                 navigationIcon = {
@@ -188,7 +247,7 @@ fun PreBookingChatScreen(
                     ) {
                         CircularProgressIndicator(color = Burgundy)
                     }
-                    messages.isEmpty() -> EmptyPreChat(hostName = hostName)
+                    messages.isEmpty() -> emptyContent()
                     else -> LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -196,7 +255,7 @@ fun PreBookingChatScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(messages, key = { it.id }) { line ->
-                            PreChatBubble(line = line, hostName = hostName)
+                            PreChatBubble(line = line, hostName = bubbleName)
                         }
                     }
                 }

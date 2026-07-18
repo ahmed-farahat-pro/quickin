@@ -143,7 +143,7 @@ class ListingsViewModel : ViewModel() {
                     active = true,
                     isSearching = false,
                     query = q,
-                    error = e.message ?: "AI search isn't available right now."
+                    error = humanNetworkError(e)
                 )
             }
         }
@@ -276,7 +276,7 @@ class ListingsViewModel : ViewModel() {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     listings = emptyList(),
-                    error = e.message ?: "Something went wrong."
+                    error = humanNetworkError(e)
                 )
             }
         }

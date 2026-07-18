@@ -242,6 +242,27 @@
     <string name="pay_confirmed_body">Tu pago se realizó y tu reserva está confirmada.</string>
     <string name="pay_processing_title">Procesando el pago</string>
     <string name="pay_processing_body">El pago se está procesando: actualizaremos tu reserva en breve.</string>
+    <!-- Instapay bank transfer (replaces Paymob card checkout) -->
+    <string name="instapay_subtitle">Transfiere por Instapay y luego sube tu captura de pantalla.</string>
+    <string name="instapay_amount_to_send">Importe a transferir</string>
+    <string name="instapay_for_nights">por %1$s</string>
+    <string name="instapay_send_to">Envía la transferencia a</string>
+    <string name="instapay_copy">Copiar</string>
+    <string name="instapay_copied">Copiado</string>
+    <string name="instapay_loading">Cargando los datos de la transferencia…</string>
+    <string name="instapay_load_error">No se pudieron cargar los datos de la transferencia. Inténtalo de nuevo.</string>
+    <string name="instapay_no_handle">El anfitrión aún no ha configurado Instapay; ponte en contacto con él.</string>
+    <string name="instapay_add_screenshot">Añadir captura de la transferencia</string>
+    <string name="instapay_change_screenshot">Cambiar captura</string>
+    <string name="instapay_submit">Ya pagué — enviar captura</string>
+    <string name="instapay_submitting">Enviando…</string>
+    <string name="instapay_missing_screenshot">Añade la captura de tu transferencia.</string>
+    <string name="instapay_sign_in">Inicia sesión para pagar por transferencia Instapay.</string>
+    <string name="instapay_awaiting_title">Esperando la aprobación del anfitrión</string>
+    <string name="instapay_awaiting_body">Hemos enviado la captura de tu transferencia al anfitrión. Tu reserva se confirmará en cuanto la apruebe.</string>
+    <string name="instapay_note">Tu reserva se confirma después de que el anfitrión verifique tu transferencia.</string>
+    <string name="instapay_for_one_night">por 1 noche</string>
+    <string name="instapay_under_review">Pago en revisión — el anfitrión está verificando tu transferencia.</string>
     <string name="services_title">Servicios</string>
     <string name="services_no_experiences">Aún no hay experiencias</string>
     <string name="services_check_back">Vuelva pronto para descubrir actividades.</string>
@@ -378,7 +399,7 @@
     <string name="approval_rejected_note">Su documento de propiedad fue rechazado. Vuelva a subirlo para enviar su anuncio a revisión de nuevo.</string>
     <string name="approval_doc_resubmitted">Documento enviado. Su anuncio está de nuevo en revisión.</string>
     <string name="trust_verify">Verifique su identidad</string>
-    <string name="trust_verify_intro">Añada una insignia verificada a su perfil. Suba el anverso y el reverso de su documento de identidad oficial — los revisaremos en breve.</string>
+    <string name="trust_verify_intro">Añada una insignia verificada a su perfil. Suba el anverso y el reverso de su documento de identidad oficial junto con un selfie — los revisaremos en breve.</string>
     <string name="trust_status_unverified">Sin verificar</string>
     <string name="trust_status_pending">Verificación pendiente</string>
     <string name="trust_status_verified">Identidad verificada</string>
@@ -468,7 +489,7 @@
     <string name="ai_write_with_ai">Escribir con IA</string>
     <string name="ai_writing">Escribiendo…</string>
     <string name="add_description">Descripción</string>
-    <string name="add_basics_hint">Ponle a tu alojamiento un título atractivo y elige el tipo de propiedad, luego deja que la IA redacte la descripción. El título es obligatorio.</string>
+    <string name="add_basics_hint">Ponle a tu alojamiento un título atractivo y elige el tipo de propiedad, luego describe lo que lo hace especial. El título es obligatorio.</string>
     <string name="ai_search">Preguntar a la IA</string>
     <string name="ai_search_placeholder">Prueba: villa en la playa para 6 con piscina por menos de 4000</string>
     <string name="ai_searching">Buscando con IA…</string>
@@ -523,4 +544,29 @@
     <string name="shortcut_reservations_long">Mis reservas</string>
     <string name="shortcut_profile_short">Perfil</string>
     <string name="shortcut_profile_long">Mi perfil</string>
+
+    <!-- Messages inbox (guest <-> host conversations) -->
+    <string name="messages_title">Mensajes</string>
+    <string name="messages_error_title">No se pudieron cargar los mensajes</string>
+    <string name="messages_empty_title">Aún no hay mensajes</string>
+    <string name="messages_empty_body">Cuando escribas a un anfitrión o a un huésped, la conversación aparecerá aquí.</string>
+    <string name="messages_no_messages">Sin mensajes</string>
+    <string name="messages_host_badge">Anfitrión</string>
+    <string name="messages_sign_in_title">Inicia sesión para ver tus mensajes</string>
+    <string name="messages_sign_in_body">Tus conversaciones con anfitriones y huéspedes están aquí.</string>
+    <string name="profile_messages">Mensajes</string>
+    <string name="profile_messages_sub">Chatea con anfitriones y huéspedes</string>
+    <string name="cd_messages">Mensajes</string>
+
+    <!-- Support & legal (Profile tab) -->
+    <string name="profile_support_legal">Soporte y legal</string>
+    <string name="legal_terms">Términos de servicio</string>
+    <string name="legal_privacy">Política de privacidad</string>
+    <string name="legal_about">Acerca de QuickIn</string>
+    <string name="legal_contact">Contáctanos</string>
+
+    <!-- Identity verification: selfie (web parity) -->
+    <string name="trust_selfie_photo">Un selfie tuyo</string>
+    <string name="trust_selfie_hint">Tómate un selfie claro para que podamos compararlo con tu ID.</string>
+    <string name="trust_photos_required">Añade el frente y el reverso de tu ID y un selfie.</string>
 </resources>

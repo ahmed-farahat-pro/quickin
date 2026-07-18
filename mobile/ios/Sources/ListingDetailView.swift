@@ -24,6 +24,10 @@ struct ListingDetailView: View {
     // through the existing auth sheet first).
     @State private var showingReport = false
 
+    // "Message host" — pushes the pre-booking guest ⇄ host conversation
+    // (requires sign-in; otherwise routes through the existing auth sheet first).
+    @State private var showMessageHost = false
+
     // Reserve inputs
     @State private var checkIn = Calendar.current.startOfDay(for: Date())
     @State private var checkOut = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()
@@ -103,6 +107,9 @@ struct ListingDetailView: View {
                         if hasHost {
                             Divider()
                             hostRow
+                            if !isOwnListing {
+                                messageHostRow
+                            }
                         }
                         Divider()
                         reportRow
@@ -153,6 +160,10 @@ struct ListingDetailView: View {
         // it resolves no matter which stack presented this detail screen.
         .navigationDestination(for: HostProfileTarget.self) { target in
             HostProfileView(hostID: target.hostID, initialName: target.name)
+        }
+        // "Message host" pushes the pre-booking guest ⇄ host conversation (web parity).
+        .navigationDestination(isPresented: $showMessageHost) {
+            MessageHostView(listingID: listing.id, hostName: hostName.isEmpty ? nil : hostName)
         }
         .safeAreaInset(edge: .bottom) { bookingBar }
         .sheet(isPresented: $showingDatePicker) {
@@ -522,6 +533,39 @@ struct ListingDetailView: View {
         guard let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !hostID.isEmpty else { return nil }
         return HostProfileTarget(hostID: hostID, name: hostName.isEmpty ? nil : hostName)
+    }
+
+    /// True when the signed-in user IS this listing's host — the "Message host"
+    /// row is hidden (the backend also rejects messaging your own listing).
+    private var isOwnListing: Bool {
+        guard let uid = auth.user?.id, let hostID = listing.hostId else { return false }
+        return uid == hostID
+    }
+
+    /// "Message host" — opens (or reuses) the pre-booking guest ⇄ host conversation,
+    /// mirroring the web listing's message-host drawer. Sign-in gated like the report flow.
+    private var messageHostRow: some View {
+        Button {
+            if auth.isAuthenticated {
+                showMessageHost = true
+            } else {
+                showingAuth = true
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .accessibilityLabel(loc.t("detail.messageHost"))
+                    .font(.system(size: 14, weight: .semibold))
+                Text(loc.t("detail.messageHost"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .underline()
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc.t("detail.messageHost"))
     }
 
     /// Trust chips for the host. Prefers the full badge set from the public

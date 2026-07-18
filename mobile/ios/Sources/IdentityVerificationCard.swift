@@ -6,7 +6,10 @@ import UIKit
 
 /// Thin `UIImagePickerController` wrapper for capturing a single photo with the
 /// camera. Used by the ID-verification flow when the user taps "Take photo".
+/// The selfie slot defaults to the FRONT camera (matching the web's
+/// `capture="user"`).
 private struct IDCameraPicker: UIViewControllerRepresentable {
+    var useFrontCamera: Bool = false
     var onImage: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -15,6 +18,10 @@ private struct IDCameraPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
+        if useFrontCamera,
+           UIImagePickerController.isCameraDeviceAvailable(.front) {
+            picker.cameraDevice = .front
+        }
         picker.allowsEditing = false
         picker.delegate = context.coordinator
         return picker
@@ -38,25 +45,27 @@ private struct IDCameraPicker: UIViewControllerRepresentable {
 
 // MARK: - Which side is being captured
 
-enum IDSide { case front, back }
+enum IDSide { case front, back, selfie }
 
 // MARK: - View model
 
 /// Loads + submits the signed-in user's identity verification. Reads the current
 /// status from `GET /api/local/verification`; the user picks/captures a FRONT and
-/// a BACK photo of their ID, which are downscaled + JPEG-encoded (≤1280px) into
-/// `data:` URLs and POSTed together to `/api/local/verification` over HTTPS,
-/// flipping the status to "pending". No OCR anywhere. Fails silently on load (the
-/// card just shows "unverified" when offline / signed out).
+/// a BACK photo of their ID plus a SELFIE (web parity), which are downscaled +
+/// JPEG-encoded (≤1280px) into `data:` URLs and POSTed together to
+/// `/api/local/verification` over HTTPS, flipping the status to "pending". No OCR
+/// anywhere. Fails silently on load (the card just shows "unverified" when
+/// offline / signed out).
 @MainActor
 final class IdentityVerificationModel: ObservableObject {
     @Published var status: VerificationStatus = .unverified
     @Published var hasLoaded = false
     @Published var isLoading = false
 
-    /// Staged photos awaiting submission. Both are required to submit.
+    /// Staged photos awaiting submission. All three are required to submit.
     @Published var frontImage: UIImage?
     @Published var backImage: UIImage?
+    @Published var selfieImage: UIImage?
     /// Optional ID number the user may type in (sent as `id_number` when present).
     @Published var idNumber = ""
 
@@ -64,7 +73,7 @@ final class IdentityVerificationModel: ObservableObject {
     @Published var isSubmitting = false
     @Published var errorMessage: String?
 
-    var canSubmit: Bool { frontImage != nil && backImage != nil && !isSubmitting }
+    var canSubmit: Bool { frontImage != nil && backImage != nil && selfieImage != nil && !isSubmitting }
 
     func refresh() async {
         isLoading = true
@@ -82,6 +91,7 @@ final class IdentityVerificationModel: ObservableObject {
         errorMessage = nil
         frontImage = nil
         backImage = nil
+        selfieImage = nil
         idNumber = ""
     }
 
@@ -105,20 +115,22 @@ final class IdentityVerificationModel: ObservableObject {
 
     func set(_ image: UIImage, side: IDSide) {
         switch side {
-        case .front: frontImage = image
-        case .back:  backImage = image
+        case .front:  frontImage = image
+        case .back:   backImage = image
+        case .selfie: selfieImage = image
         }
     }
 
-    /// Encode both staged photos to `data:` URLs and POST them together.
+    /// Encode the staged photos to `data:` URLs and POST them together.
     func submit() async {
-        guard let front = frontImage, let back = backImage else { return }
+        guard let front = frontImage, let back = backImage, let selfie = selfieImage else { return }
         errorMessage = nil
         isSubmitting = true
         defer { isSubmitting = false }
         guard
             let frontURL = QKAvatarImage.makeDataURL(from: front, maxDimension: 1280, quality: 0.8),
-            let backURL = QKAvatarImage.makeDataURL(from: back, maxDimension: 1280, quality: 0.8)
+            let backURL = QKAvatarImage.makeDataURL(from: back, maxDimension: 1280, quality: 0.8),
+            let selfieURL = QKAvatarImage.makeDataURL(from: selfie, maxDimension: 1280, quality: 0.8)
         else {
             errorMessage = L.t("trust.uploadError")
             return
@@ -127,12 +139,14 @@ final class IdentityVerificationModel: ObservableObject {
             let state = try await TrustService.shared.submitVerification(
                 front: frontURL,
                 back: backURL,
+                selfie: selfieURL,
                 idNumber: idNumber
             )
             status = state.status
             // Clear staged photos once accepted.
             frontImage = nil
             backImage = nil
+            selfieImage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -150,6 +164,7 @@ struct IdentityVerificationCard: View {
 
     @State private var frontPickerItem: PhotosPickerItem?
     @State private var backPickerItem: PhotosPickerItem?
+    @State private var selfiePickerItem: PhotosPickerItem?
     @State private var cameraSide: IDSide?
 
     var body: some View {
@@ -178,6 +193,19 @@ struct IdentityVerificationCard: View {
                     )
                 }
 
+                // Selfie (web parity): the reviewer matches the face against the ID.
+                photoSlot(
+                    title: loc.t("trust.selfie"),
+                    image: model.selfieImage,
+                    pickerItem: $selfiePickerItem,
+                    side: .selfie
+                )
+                if model.selfieImage == nil {
+                    Text(loc.t("trust.selfieHint"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+
                 // Optional ID-number field (kept from the prior flow).
                 idNumberField
 
@@ -203,6 +231,7 @@ struct IdentityVerificationCard: View {
             model.reset()
             frontPickerItem = nil
             backPickerItem = nil
+            selfiePickerItem = nil
             Task { await model.refresh() }
         }
         .onChange(of: frontPickerItem) { _, item in
@@ -211,8 +240,11 @@ struct IdentityVerificationCard: View {
         .onChange(of: backPickerItem) { _, item in
             Task { await model.loadPicked(item, side: .back) }
         }
+        .onChange(of: selfiePickerItem) { _, item in
+            Task { await model.loadPicked(item, side: .selfie) }
+        }
         .fullScreenCover(item: $cameraSide) { side in
-            IDCameraPicker { image in model.set(image, side: side) }
+            IDCameraPicker(useFrontCamera: side == .selfie) { image in model.set(image, side: side) }
                 .ignoresSafeArea()
         }
     }
@@ -276,7 +308,7 @@ struct IdentityVerificationCard: View {
                         .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 } else {
-                    Image(systemName: "creditcard")
+                    Image(systemName: side == .selfie ? "person.crop.circle" : "creditcard")
                         .font(.system(size: 26, weight: .light))
                         .foregroundStyle(Color.qkBurgundy.opacity(0.5))
                 }
@@ -407,5 +439,11 @@ struct IdentityVerificationCard: View {
 
 // `fullScreenCover(item:)` needs an Identifiable item.
 extension IDSide: Identifiable {
-    var id: Int { self == .front ? 0 : 1 }
+    var id: Int {
+        switch self {
+        case .front: return 0
+        case .back: return 1
+        case .selfie: return 2
+        }
+    }
 }

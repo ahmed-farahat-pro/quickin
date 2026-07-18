@@ -106,6 +106,8 @@ struct HostDashboardView: View {
                     }
                     requestsSection
                     reviewGuestsCard
+                    analyticsCard
+                    earningsCard
                     listingsSection
 
                     Divider()
@@ -247,6 +249,76 @@ struct HostDashboardView: View {
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Color.qkInk)
                     Text(L.t("reviews.reviewGuests.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.qkTan4)
+            }
+            .padding(15)
+            .contentShape(Rectangle())
+            .qkCard(cornerRadius: 18)
+        }
+        .buttonStyle(.qkTap)
+    }
+
+    // MARK: - Analytics & earnings
+
+    /// Entry into the host analytics dashboard (revenue, bookings, conversion,
+    /// monthly trend). Same card look as `reviewGuestsCard`.
+    private var analyticsCard: some View {
+        NavigationLink {
+            HostAnalyticsView()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 44, height: 44)
+                    .background(Color.qkTan)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t("analytics.title"))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.qkInk)
+                    Text(L.t("analytics.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.qkTan4)
+            }
+            .padding(15)
+            .contentShape(Rectangle())
+            .qkCard(cornerRadius: 18)
+        }
+        .buttonStyle(.qkTap)
+    }
+
+    /// Entry into the host earnings & payouts surface. Same card look as
+    /// `reviewGuestsCard`.
+    private var earningsCard: some View {
+        NavigationLink {
+            HostEarningsView()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "banknote.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 44, height: 44)
+                    .background(Color.qkTan)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t("money.earnings"))
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.qkInk)
+                    Text(L.t("money.earnings.subtitle"))
                         .font(.caption)
                         .foregroundStyle(Color.qkMuted)
                         .lineLimit(2)

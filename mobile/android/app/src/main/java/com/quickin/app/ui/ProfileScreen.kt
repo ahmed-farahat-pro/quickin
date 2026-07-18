@@ -26,8 +26,13 @@ import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Payments
@@ -94,8 +99,8 @@ fun ProfileScreen(
     receivedReviews: com.quickin.app.ReceivedReviewsUiState = com.quickin.app.ReceivedReviewsUiState(),
     /** Identity-verification state for the "Verify your identity" card. */
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
-    /** Submits the picked FRONT + BACK ID photos (and an optional id number) for verification. */
-    onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, idNumber: String?) -> Unit = { _, _, _ -> },
+    /** Submits the picked FRONT + BACK ID photos + SELFIE (and an optional id number). */
+    onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit = { _, _, _, _ -> },
     /** True while a "Become a host" promotion is in flight (drives the button spinner). */
     becomingHost: Boolean = false,
     /** Promotes this account to a host in-app (POST /api/local/host/become). */
@@ -104,6 +109,8 @@ fun ProfileScreen(
     onOpenMySubscriptions: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
+    onOpenMessages: () -> Unit = {},
     /** Opens the guest's itemized receipts list (Section 9 — money views). */
     onOpenReceipts: () -> Unit = {},
     /** Opens the host's earnings & payouts screen (Section 9 — money views, host only). */
@@ -258,6 +265,14 @@ fun ProfileScreen(
             subtitle = stringResource(R.string.money_receipts_sub),
             onClick = onOpenReceipts
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        // "Messages" — the guest ↔ host conversation inbox (web /messages parity).
+        SettingsRow(
+            icon = Icons.Filled.ChatBubbleOutline,
+            title = stringResource(R.string.profile_messages),
+            subtitle = stringResource(R.string.profile_messages_sub),
+            onClick = onOpenMessages
+        )
 
         // Currency section — multi-currency display switcher (Section 9 — money views).
         Spacer(modifier = Modifier.height(24.dp))
@@ -309,6 +324,11 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(24.dp))
         SectionHeader(stringResource(R.string.profile_language), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
         LanguagePicker()
+
+        // Support & legal — the public web pages, same links as the site footer.
+        Spacer(modifier = Modifier.height(24.dp))
+        SectionHeader(stringResource(R.string.profile_support_legal), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+        LegalLinks()
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -899,5 +919,46 @@ private fun initialsOf(name: String): String {
         parts.isEmpty() -> "?"
         parts.size == 1 -> parts[0].take(1).uppercase(Locale.getDefault())
         else -> (parts[0].take(1) + parts.last().take(1)).uppercase(Locale.getDefault())
+    }
+}
+
+/**
+ * The "Support & legal" rows — Terms / Privacy / About / Contact, opened in the browser from the
+ * public website (same pages the site footer links to). Web parity for the app's Profile tab.
+ */
+@Composable
+private fun LegalLinks() {
+    val context = LocalContext.current
+    val open: (String) -> Unit = { path ->
+        runCatching {
+            context.startActivity(
+                android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(com.quickin.app.Config.SHARE_WEB_BASE_URL + path)
+                )
+            )
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingsRow(
+            icon = Icons.Filled.Description,
+            title = stringResource(R.string.legal_terms),
+            onClick = { open("/terms") }
+        )
+        SettingsRow(
+            icon = Icons.Filled.PrivacyTip,
+            title = stringResource(R.string.legal_privacy),
+            onClick = { open("/privacy") }
+        )
+        SettingsRow(
+            icon = Icons.Filled.Info,
+            title = stringResource(R.string.legal_about),
+            onClick = { open("/about") }
+        )
+        SettingsRow(
+            icon = Icons.Filled.MailOutline,
+            title = stringResource(R.string.legal_contact),
+            onClick = { open("/contact") }
+        )
     }
 }

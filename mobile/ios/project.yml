@@ -67,6 +67,12 @@ targets:
           UIColorName: ""
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # QuickIn is a portrait-first design. Now that the app is Universal (iPhone + iPad),
+        # Apple requires an iPad app to EITHER support all four orientations (for Split View
+        # multitasking) OR declare it requires the full screen. We opt out of iPad multitasking
+        # so we can stay portrait-only — this clears the "Invalid bundle … UISupportedInterface
+        # Orientations … to support iPad multitasking" upload error.
+        UIRequiresFullScreen: true
         # Required purpose string: the GoogleMaps SDK references location APIs, so
         # Apple (ITMS-90683) requires this even though we only show pins, not the
         # user's location. Shown if/when location is ever requested.
@@ -88,7 +94,7 @@ targets:
         MARKETING_VERSION: "1.0.0"
         # Build 3 was rejected for the missing location string; next upload is build 4.
         CURRENT_PROJECT_VERSION: "4"
-        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.quickin.ahmed
         CODE_SIGN_ENTITLEMENTS: QuickIn.entitlements

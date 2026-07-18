@@ -150,10 +150,11 @@ struct ReservationDetailView: View {
         .sheet(isPresented: $showingPayment) {
             PaymentSheet(
                 bookingID: viewModel.bookingID,
-                nightly: paymentNightly,
-                nights: paymentNights
-            ) { _ in
-                // Paid + confirmed server-side → reload to refresh status/QR.
+                nights: paymentNights,
+                total: paymentTotal
+            ) {
+                // Transfer screenshot submitted → reload so the status reflects
+                // "under review" (and, once the host approves, "paid").
                 Task { await viewModel.load() }
             }
             .environmentObject(loc)
@@ -184,12 +185,11 @@ struct ReservationDetailView: View {
         return max(days, 1)
     }
 
-    /// Per-night price derived from the stored total ÷ nights. The mock pay
-    /// endpoint recomputes the authoritative receipt; this is only for the
-    /// pre-payment preview.
-    private var paymentNightly: Int {
-        guard let total = viewModel.detail?.totalPrice else { return 0 }
-        return Int((total / Double(paymentNights)).rounded())
+    /// The booking total in EGP the guest transfers via Instapay, from the stored
+    /// `total_price`. Shown as the "amount to transfer" on the payment sheet; the
+    /// host verifies the uploaded screenshot before confirming.
+    private var paymentTotal: Int {
+        Int((viewModel.detail?.totalPrice ?? 0).rounded())
     }
 
     /// "{stay} — QuickIn" for the share subject; falls back to a generic title
@@ -316,12 +316,17 @@ struct ReservationDetailView: View {
     /// Payment area. The new flow pays *after* approval: the guest can only pay
     /// once the host has confirmed the booking (the backend rejects paying a
     /// pending booking). So we branch on the status:
-    ///   • `.confirmed` & unpaid → the "Pay now" card (opens `PaymentSheet`).
+    ///   • `.confirmed` & unpaid & not-yet-submitted → the "Pay now" card (opens
+    ///     `PaymentSheet` for the Instapay transfer).
+    ///   • payment `submitted`   → a "Payment under review" hint (the guest already
+    ///     uploaded their transfer screenshot; the host is verifying it).
     ///   • `.pending`            → an "Awaiting host approval" hint, no Pay.
     ///   • anything else / paid  → nothing.
     @ViewBuilder
     private func payNowCard(_ detail: ReservationDetail) -> some View {
-        if detail.bookingStatus == .confirmed && !detail.isPaid {
+        // The guest has uploaded a transfer screenshot; awaiting the host's check.
+        let underReview = (detail.paymentStatus ?? "").lowercased() == "submitted"
+        if detail.bookingStatus == .confirmed && !detail.isPaid && !underReview {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     Image(systemName: "creditcard.fill")
@@ -352,6 +357,24 @@ struct ReservationDetailView: View {
                     )
                 }
                 .buttonStyle(QKPressStyle())
+            }
+            .padding(16)
+            .qkCard()
+        } else if underReview {
+            HStack(spacing: 12) {
+                Image(systemName: "hourglass")
+                    .font(.title3)
+                    .foregroundStyle(Color.qkGoldDeep)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(loc.t("instapay.underReview.title"))
+                        .font(.headline)
+                        .foregroundStyle(Color.qkInk)
+                    Text(loc.t("instapay.underReview.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                }
+                Spacer(minLength: 8)
             }
             .padding(16)
             .qkCard()

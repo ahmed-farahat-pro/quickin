@@ -286,6 +286,27 @@
     <string name="pay_confirmed_body">تمت عملية الدفع وتم تأكيد حجزك.</string>
     <string name="pay_processing_title">جارٍ معالجة الدفع</string>
     <string name="pay_processing_body">جارٍ معالجة الدفع — سنحدّث حجزك قريبًا.</string>
+    <!-- Instapay bank transfer (replaces Paymob card checkout) -->
+    <string name="instapay_subtitle">حوّل عبر إنستاباي، ثم ارفع لقطة الشاشة.</string>
+    <string name="instapay_amount_to_send">المبلغ المطلوب تحويله</string>
+    <string name="instapay_for_nights">لمدة %1$s</string>
+    <string name="instapay_send_to">أرسل التحويل إلى</string>
+    <string name="instapay_copy">نسخ</string>
+    <string name="instapay_copied">تم النسخ</string>
+    <string name="instapay_loading">جارٍ تحميل تفاصيل التحويل…</string>
+    <string name="instapay_load_error">تعذّر تحميل تفاصيل التحويل. حاول مرة أخرى.</string>
+    <string name="instapay_no_handle">لم يقم المضيف بإعداد إنستاباي بعد — يرجى التواصل معه.</string>
+    <string name="instapay_add_screenshot">أضف لقطة شاشة التحويل</string>
+    <string name="instapay_change_screenshot">تغيير لقطة الشاشة</string>
+    <string name="instapay_submit">لقد دفعت — إرسال لقطة الشاشة</string>
+    <string name="instapay_submitting">جارٍ الإرسال…</string>
+    <string name="instapay_missing_screenshot">يرجى إضافة لقطة شاشة التحويل.</string>
+    <string name="instapay_sign_in">يرجى تسجيل الدخول للدفع عبر تحويل إنستاباي.</string>
+    <string name="instapay_awaiting_title">في انتظار موافقة المضيف</string>
+    <string name="instapay_awaiting_body">لقد أرسلنا لقطة شاشة تحويلك إلى المضيف. سيتم تأكيد حجزك بمجرد موافقته.</string>
+    <string name="instapay_note">يتم تأكيد حجزك بعد أن يتحقق المضيف من تحويلك.</string>
+    <string name="instapay_for_one_night">لليلة واحدة</string>
+    <string name="instapay_under_review">الدفع قيد المراجعة — يقوم المضيف بمراجعة تحويلك.</string>
 
     <!-- Services -->
     <string name="services_title">الخدمات</string>
@@ -461,7 +482,7 @@
 
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">وثّق هويتك</string>
-    <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة الوجه الأمامي والخلفي لهويتك الرسمية وسنراجعها قريبًا.</string>
+    <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة الوجه الأمامي والخلفي لهويتك الرسمية مع صورة سيلفي وسنراجعها قريبًا.</string>
     <string name="trust_status_unverified">غير موثّق</string>
     <string name="trust_status_pending">قيد المراجعة</string>
     <string name="trust_status_verified">تم توثيق الهوية</string>
@@ -566,7 +587,7 @@
     <string name="ai_write_with_ai">اكتب بالذكاء الاصطناعي</string>
     <string name="ai_writing">جارٍ الكتابة…</string>
     <string name="add_description">الوصف</string>
-    <string name="add_basics_hint">امنح مكانك عنوانًا جذابًا واختر نوع العقار، ثم دع الذكاء الاصطناعي يكتب الوصف. العنوان مطلوب.</string>
+    <string name="add_basics_hint">امنح مكانك عنوانًا جذابًا واختر نوع العقار، ثم صِف ما يميّزه. العنوان مطلوب.</string>
     <!-- البحث باللغة الطبيعية (استكشاف) -->
     <string name="ai_search">اسأل الذكاء الاصطناعي</string>
     <string name="ai_search_placeholder">جرّب: فيلا على البحر لـ 6 أشخاص بمسبح بأقل من 4000</string>
@@ -625,4 +646,29 @@
     <string name="shortcut_reservations_long">حجوزاتي</string>
     <string name="shortcut_profile_short">الملف الشخصي</string>
     <string name="shortcut_profile_long">ملفي الشخصي</string>
+
+    <!-- Messages inbox (guest <-> host conversations) -->
+    <string name="messages_title">الرسائل</string>
+    <string name="messages_error_title">تعذّر تحميل الرسائل</string>
+    <string name="messages_empty_title">لا توجد رسائل بعد</string>
+    <string name="messages_empty_body">عندما تراسل مضيفًا أو ضيفًا، ستظهر المحادثة هنا.</string>
+    <string name="messages_no_messages">لا توجد رسائل بعد</string>
+    <string name="messages_host_badge">المضيف</string>
+    <string name="messages_sign_in_title">سجّل الدخول لرؤية رسائلك</string>
+    <string name="messages_sign_in_body">محادثاتك مع المضيفين والضيوف توجد هنا.</string>
+    <string name="profile_messages">الرسائل</string>
+    <string name="profile_messages_sub">تواصل مع المضيفين والضيوف</string>
+    <string name="cd_messages">الرسائل</string>
+
+    <!-- Support & legal (Profile tab) -->
+    <string name="profile_support_legal">الدعم والشؤون القانونية</string>
+    <string name="legal_terms">شروط الخدمة</string>
+    <string name="legal_privacy">سياسة الخصوصية</string>
+    <string name="legal_about">عن كويك إن</string>
+    <string name="legal_contact">اتصل بنا</string>
+
+    <!-- Identity verification: selfie (web parity) -->
+    <string name="trust_selfie_photo">صورة سيلفي لك</string>
+    <string name="trust_selfie_hint">التقط صورة سيلفي واضحة حتى نتمكن من مطابقتها مع هويتك.</string>
+    <string name="trust_photos_required">يرجى إضافة صورة الهوية الأمامية والخلفية وصورة سيلفي.</string>
 </resources>

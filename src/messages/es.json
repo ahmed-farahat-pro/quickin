@@ -1395,7 +1395,7 @@
       "markAllRead": "Marcar todo como leído",
       "noNotifications": "Sin notificaciones",
       "trips": "Viajes",
-      "saved": "Guardados",
+      "saved": "Mis favoritos",
       "account": "Cuenta",
       "messages": "Mensajes",
       "contact": "Contacto"
@@ -1476,6 +1476,13 @@
     },
     "categories": {
       "all": "Todo"
+    },
+    "sort": {
+      "label": "Ordenar",
+      "recommended": "Recomendado",
+      "priceLow": "Precio: de menor a mayor",
+      "priceHigh": "Precio: de mayor a menor",
+      "newest": "Más reciente"
     }
   },
   "listingPage": {
@@ -1549,6 +1556,12 @@
       "next": "Foto siguiente",
       "counter": "{current} / {total}",
       "viewPhotos": "Ver todas las fotos"
+    },
+    "owner": {
+      "badge": "Este es tu anuncio",
+      "hint": "No puedes reservar ni contactar tu propio alojamiento.",
+      "edit": "Editar anuncio",
+      "manage": "Ver reservas entrantes"
     }
   },
   "loginLocal": {
@@ -1645,7 +1658,7 @@
   },
   "reservationsLocal": {
     "meta": {
-      "title": "Mis reservas",
+      "title": "Mis viajes",
       "description": "Consulta y gestiona tus próximas estancias en QuickIn. Todas tus reservas de alojamientos boutique en un solo lugar.",
       "ogTitle": "Mis reservas | QuickIn",
       "ogDescription": "Consulta y gestiona tus próximas estancias en QuickIn."
@@ -1656,11 +1669,11 @@
       "subtitle": "Tus próximas estancias aparecerán aquí cuando inicies sesión.",
       "logIn": "Iniciar sesión"
     },
-    "listTitle": "Reservas de {name}",
+    "listTitle": "Mis viajes",
     "noneYet": "Aún no hay reservas.",
     "countBooked": "{count, plural, one {# estancia reservada.} other {# estancias reservadas.}}",
     "emptyState": "Todavía no has reservado ninguna estancia.",
-    "browseStays": "Explorar estancias",
+    "browseStays": "Buscar alojamiento",
     "guestsCount": "{count, plural, one {# huésped} other {# huéspedes}}",
     "total": "total",
     "status": {
@@ -1833,8 +1846,8 @@
     },
     "verifyIdCta": "Verifica tu identidad",
     "links": {
-      "reservations": "Tus reservas",
-      "saved": "Estancias guardadas",
+      "reservations": "Mis viajes",
+      "saved": "Mis favoritos",
       "verification": "Verificación de identidad",
       "hosting": "Alojamiento"
     },
@@ -1869,11 +1882,11 @@
   },
   "savedPage": {
     "meta": {
-      "title": "Guardados · QuickIn",
+      "title": "Mis favoritos · QuickIn",
       "description": "Tus estancias boutique guardadas en QuickIn."
     },
     "backToExplore": "Volver a explorar",
-    "title": "Estancias guardadas",
+    "title": "Mis favoritos",
     "noneYet": "Aún no has guardado ninguna estancia.",
     "countSaved": "{count, plural, one {# estancia guardada.} other {# estancias guardadas.}}",
     "emptyHint": "Toca el corazón en cualquier estancia para guardarla para más tarde.",
@@ -1912,7 +1925,11 @@
       "createListing": "Crear un anuncio",
       "view": "Ver",
       "edit": "Editar",
-      "emptyHint": "Publica tu primer espacio para empezar a recibir huéspedes."
+      "emptyHint": "Publica tu primer espacio para empezar a recibir huéspedes.",
+      "tabs": {
+        "listings": "Mis anuncios",
+        "reservations": "Reservas entrantes"
+      }
     },
     "reservations": {
       "heading": "Reservas entrantes",
@@ -2008,7 +2025,9 @@
       "photosProcessing": "Procesando…",
       "photosCount": "{count} de {max} fotos",
       "photosCover": "Portada",
-      "photosRemove": "Eliminar foto"
+      "photosRemove": "Eliminar foto",
+      "locating": "Buscando en el mapa…",
+      "geocodeFail": "No se encontró el lugar — toca el mapa para ubicarlo."
     }
   },
   "hostApply": {

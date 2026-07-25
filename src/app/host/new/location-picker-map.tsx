@@ -3,8 +3,8 @@
 // Minimal Leaflet pin picker for the create-listing form. Host clicks (or drags
 // the pin) to set the listing's coordinates; we report lat/lng up to the form.
 // Client-only (imported via next/dynamic { ssr: false }) — Leaflet reads window.
-import { useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { useEffect, useMemo } from 'react'
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -31,6 +31,18 @@ function ClickCapture({ onPick }: { onPick: (lat: number, lng: number) => void }
   return null
 }
 
+// Recenter when lat/lng change (a geocode result or programmatic set). The
+// MapContainer `center`/`zoom` props are mount-only, so this bridges updates.
+function Recenter({ lat, lng }: { lat: number | null; lng: number | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      map.setView([lat, lng], 14)
+    }
+  }, [lat, lng, map])
+  return null
+}
+
 export default function LocationPickerMap({
   lat,
   lng,
@@ -49,7 +61,7 @@ export default function LocationPickerMap({
   return (
     <MapContainer
       center={center}
-      zoom={hasPin ? 13 : 5}
+      zoom={hasPin ? 14 : 10}
       scrollWheelZoom={false}
       style={{ height: 260, width: '100%', borderRadius: 14 }}
     >
@@ -58,6 +70,7 @@ export default function LocationPickerMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <ClickCapture onPick={onChange} />
+      <Recenter lat={lat} lng={lng} />
       {hasPin && (
         <Marker
           position={[lat as number, lng as number]}

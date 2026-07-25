@@ -9,6 +9,7 @@ import { MobileMenu } from './mobile-menu'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { getListings, getWishlistIds } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { Heart } from 'lucide-react'
 import ExploreClient from './explore-client'
 
 export const dynamic = 'force-dynamic'
@@ -168,6 +169,15 @@ export default async function ExplorePage({
           <nav className="qk-nav-desktop">
             <NotificationsBell />
             <LocaleSwitcher className="font-semibold text-[color:var(--qk-ink,#3a2a23)]" />
+            {firstName && (
+              <a
+                href="/saved"
+                aria-label={t('nav.saved')}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#2A2220] transition-colors hover:bg-black/5"
+              >
+                <Heart className="h-5 w-5" />
+              </a>
+            )}
             {isHost ? (
               <>
                 {/* A host is also a guest — give them a one-tap "Add listing"
@@ -271,6 +281,15 @@ export default async function ExplorePage({
           {/* Right side (mobile <820px): bell + hamburger that slides out the rest */}
           <div className="qk-header-mobile">
             <NotificationsBell />
+            {firstName && (
+              <a
+                href="/saved"
+                aria-label={t('nav.saved')}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#2A2220] transition-colors hover:bg-black/5"
+              >
+                <Heart className="h-5 w-5" />
+              </a>
+            )}
             <MobileMenu firstName={firstName} isHost={isHost} />
           </div>
         </div>

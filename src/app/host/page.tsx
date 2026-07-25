@@ -9,6 +9,7 @@ import { getHostListings, getHostApplication, type Listing } from '@/lib/local/d
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
+import { HostTabs } from './host-tabs'
 import { BecomeHostButton } from '../account/account-forms'
 
 export const dynamic = 'force-dynamic'
@@ -300,115 +301,109 @@ function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pendin
 async function HostDashboard({ userId, firstName, t }: { userId: string; firstName: string; t: T }) {
   const listings = await getHostListings(userId)
 
+  const emptyState = (
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 22,
+        border: `1px solid rgba(42,34,32,0.06)`,
+        boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+        padding: '44px 24px',
+        textAlign: 'center',
+        color: COLORS.muted,
+      }}
+    >
+      <p style={{ margin: '0 0 18px', fontSize: 15 }}>
+        {t('dashboard.emptyHint')}
+      </p>
+      <a
+        href="/host/new"
+        style={{
+          display: 'inline-block',
+          color: '#fff',
+          background: COLORS.burgundy,
+          textDecoration: 'none',
+          fontWeight: 700,
+          padding: '11px 24px',
+          borderRadius: 999,
+        }}
+      >
+        {t('dashboard.createListing')}
+      </a>
+    </div>
+  )
+
+  const listingsGrid = (
+    <div
+      className="qk-host-grid"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: 18,
+      }}
+    >
+      {listings.map((l) => (
+        <ListingCard key={l.id} listing={l} perNight={t('perNight')} viewLabel={t('dashboard.view')} editLabel={t('dashboard.edit')} />
+      ))}
+    </div>
+  )
+
   return (
     <>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          gap: 16,
-          marginBottom: 28,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              margin: '0 0 6px',
-              fontFamily: '"Playfair Display", Georgia, serif',
-              fontSize: 'clamp(26px, 4vw, 34px)',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              color: COLORS.burgundy,
-            }}
-          >
-            {t('dashboard.greeting', { name: firstName })}
-          </h1>
-          <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
-            {listings.length === 0
-              ? t('dashboard.noListings')
-              : t('dashboard.countPublished', { count: listings.length })}
-          </p>
-        </div>
-        <a
-          href="/host/new"
+      <div style={{ marginBottom: 22 }}>
+        <h1
           style={{
-            color: '#fff',
-            background: COLORS.burgundy,
-            textDecoration: 'none',
+            margin: '0 0 6px',
+            fontFamily: '"Playfair Display", Georgia, serif',
+            fontSize: 'clamp(26px, 4vw, 34px)',
             fontWeight: 700,
-            padding: '12px 24px',
-            borderRadius: 999,
-            fontSize: 14.5,
-            whiteSpace: 'nowrap',
+            letterSpacing: '-0.02em',
+            color: COLORS.burgundy,
           }}
         >
-          + {t('dashboard.createListing')}
-        </a>
+          {t('dashboard.greeting', { name: firstName })}
+        </h1>
+        <p style={{ margin: 0, fontSize: 15, color: COLORS.muted }}>
+          {listings.length === 0
+            ? t('dashboard.noListings')
+            : t('dashboard.countPublished', { count: listings.length })}
+        </p>
       </div>
 
-      {/* Listings */}
-      {listings.length === 0 ? (
-        <div
-          style={{
-            background: '#fff',
-            borderRadius: 22,
-            border: `1px solid rgba(42,34,32,0.06)`,
-            boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
-            padding: '44px 24px',
-            textAlign: 'center',
-            color: COLORS.muted,
-            marginBottom: 40,
-          }}
-        >
-          <p style={{ margin: '0 0 18px', fontSize: 15 }}>
-            {t('dashboard.emptyHint')}
-          </p>
-          <a
-            href="/host/new"
-            style={{
-              display: 'inline-block',
-              color: '#fff',
-              background: COLORS.burgundy,
-              textDecoration: 'none',
-              fontWeight: 700,
-              padding: '11px 24px',
-              borderRadius: 999,
-            }}
-          >
-            {t('dashboard.createListing')}
-          </a>
-        </div>
-      ) : (
-        <div
-          className="qk-host-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 18,
-            marginBottom: 44,
-          }}
-        >
-          {listings.map((l) => (
-            <ListingCard key={l.id} listing={l} perNight={t('perNight')} viewLabel={t('dashboard.view')} editLabel={t('dashboard.edit')} />
-          ))}
-        </div>
-      )}
+      {/* My Listings | Incoming Reservations tabs (client toggle, server slots) */}
+      <HostTabs
+        listingsLabel={t('dashboard.tabs.listings')}
+        reservationsLabel={t('dashboard.tabs.reservations')}
+        listings={listings.length === 0 ? emptyState : listingsGrid}
+        reservations={<HostReservations />}
+      />
 
-      {/* Incoming reservations (client component fetches /api/local/host/bookings) */}
-      <h2
+      {/* Floating "Create listing" shortcut — offset above the WhatsApp FAB (bottom:22). */}
+      <a
+        href="/host/new"
+        aria-label={t('dashboard.createListing')}
         style={{
-          margin: '0 0 16px',
-          fontFamily: '"Playfair Display", Georgia, serif',
-          fontSize: 'clamp(22px, 3.4vw, 28px)',
+          position: 'fixed',
+          bottom: 90,
+          insetInlineEnd: 22,
+          zIndex: 900,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          background: COLORS.burgundy,
+          color: '#fff',
+          textDecoration: 'none',
           fontWeight: 700,
-          color: COLORS.burgundy,
+          fontSize: 14.5,
+          padding: '13px 20px',
+          borderRadius: 999,
+          boxShadow: '0 8px 24px rgba(91,15,22,0.34)',
+          whiteSpace: 'nowrap',
         }}
       >
-        {t('reservations.heading')}
-      </h2>
-      <HostReservations />
+        <span aria-hidden style={{ fontSize: 18, lineHeight: 1 }}>+</span>
+        {t('dashboard.createListing')}
+      </a>
     </>
   )
 }

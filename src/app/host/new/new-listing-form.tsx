@@ -51,6 +51,22 @@ const fieldWrap: React.CSSProperties = { marginBottom: 18 }
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
+// Egypt-first. `code` is the ISO country code used to scope map geocoding.
+const COUNTRIES: { name: string; code: string }[] = [
+  { name: 'Egypt', code: 'eg' },
+  { name: 'Saudi Arabia', code: 'sa' },
+  { name: 'United Arab Emirates', code: 'ae' },
+  { name: 'Kuwait', code: 'kw' },
+  { name: 'Qatar', code: 'qa' },
+  { name: 'Bahrain', code: 'bh' },
+  { name: 'Oman', code: 'om' },
+  { name: 'Jordan', code: 'jo' },
+  { name: 'Lebanon', code: 'lb' },
+  { name: 'Morocco', code: 'ma' },
+]
+
+const CURRENCIES = ['EGP', 'USD', 'EUR', 'SAR', 'AED', 'GBP'] as const
+
 export function NewListingForm() {
   const router = useRouter()
   const t = useTranslations('hostPage.create')
@@ -61,9 +77,10 @@ export function NewListingForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
-  const [country, setCountry] = useState('')
+  const [country, setCountry] = useState('Egypt')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
+  const [geo, setGeo] = useState<'idle' | 'locating' | 'fail'>('idle')
   const [price, setPrice] = useState('')
   const [weekendPrice, setWeekendPrice] = useState('')
   const [weekendDays, setWeekendDays] = useState<number[]>(DEFAULT_WEEKEND_DAYS)
@@ -79,6 +96,32 @@ export function NewListingForm() {
 
   function toggleWeekendDay(day: number) {
     setWeekendDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
+  }
+
+  // Forward-geocode the typed location (scoped to the chosen country) so the map
+  // recenters + drops a pin there. The host can still tap/drag to fine-tune.
+  async function geocodeLocation() {
+    const q = location.trim()
+    if (!q) return
+    setGeo('locating')
+    try {
+      const code = COUNTRIES.find((c) => c.name === country)?.code
+      const cc = code ? `&countrycodes=${code}` : ''
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1${cc}&q=${encodeURIComponent(q)}`
+      )
+      const data = await res.json()
+      const hit = Array.isArray(data) ? data[0] : null
+      if (hit?.lat && hit?.lon) {
+        setLat(Number(hit.lat))
+        setLng(Number(hit.lon))
+        setGeo('idle')
+      } else {
+        setGeo('fail')
+      }
+    } catch {
+      setGeo('fail')
+    }
   }
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -223,19 +266,23 @@ export function NewListingForm() {
             id="location"
             style={input}
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
+            onChange={(e) => { setLocation(e.target.value); setGeo('idle') }}
+            onBlur={geocodeLocation}
             placeholder={t('placeholders.location')}
           />
         </div>
         <div>
           <label style={label} htmlFor="country">{t('fields.country')}</label>
-          <input
+          <select
             id="country"
             style={input}
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            placeholder={t('placeholders.country')}
-          />
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.name}>{c.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -243,8 +290,12 @@ export function NewListingForm() {
       <div style={fieldWrap}>
         <label style={label}>{t('fields.pinLocation')}</label>
         <LocationPickerMap lat={lat} lng={lng} onChange={(la, ln) => { setLat(la); setLng(ln) }} />
-        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>
-          {lat != null && lng != null
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: geo === 'fail' ? C.burgundy : C.muted }}>
+          {geo === 'locating'
+            ? t('locating')
+            : geo === 'fail'
+            ? t('geocodeFail')
+            : lat != null && lng != null
             ? t('pinSet', { lat: lat.toFixed(4), lng: lng.toFixed(4) })
             : t('pinHint')}
         </p>
@@ -267,14 +318,16 @@ export function NewListingForm() {
         </div>
         <div>
           <label style={label} htmlFor="currency">{t('fields.currency')}</label>
-          <input
+          <select
             id="currency"
             style={input}
             value={currency}
-            onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-            placeholder="EGP"
-            maxLength={6}
-          />
+            onChange={(e) => setCurrency(e.target.value)}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
       </div>
 

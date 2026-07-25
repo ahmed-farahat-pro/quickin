@@ -58,6 +58,7 @@ export interface SearchFilters {
   checkIn?: string
   checkOut?: string
   type?: string
+  sortBy?: string
 }
 
 export interface Booking {
@@ -121,10 +122,19 @@ export async function getListings(filters: SearchFilters = {}): Promise<Listing[
     )`)
   }
 
+  // Whitelisted sort orders → safe to interpolate (never accept raw sort text).
+  const ORDER_BY: Record<string, string> = {
+    recommended: 'l.is_guest_favorite DESC, l.created_at DESC',
+    price_asc: 'l.price_per_night ASC, l.created_at DESC',
+    price_desc: 'l.price_per_night DESC, l.created_at DESC',
+    newest: 'l.created_at DESC',
+  }
+  const orderBy = ORDER_BY[filters.sortBy ?? 'recommended'] ?? ORDER_BY.recommended
+
   const { rows } = await pool.query(
     `SELECT ${LISTING_COLS} FROM listings l
      WHERE ${where.join(' AND ')}
-     ORDER BY l.is_guest_favorite DESC, l.created_at DESC`,
+     ORDER BY ${orderBy}`,
     params
   )
   return rows as Listing[]
@@ -1146,7 +1156,7 @@ export async function createListing(hostId: string, data: CreateListingInput): P
       fin(data.lat), fin(data.lng), price,
       weekendPrice && weekendPrice > 0 ? weekendPrice : null,
       weekendPrice && weekendPrice > 0 && weekendDays.length ? weekendDays : null,
-      data.currency || 'USD',
+      data.currency || 'EGP',
       nn(data.bedrooms, 1), nn(data.beds, 1), nn(data.bathrooms, 1), nn(data.max_guests, 2),
       data.property_type ?? null,
     ]

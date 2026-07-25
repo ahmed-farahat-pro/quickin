@@ -107,11 +107,12 @@ interface Filters {
   checkOut: string
   guests: string
   type: string
+  sort: string
 }
 
 interface Props {
   initialListings: Listing[]
-  initialFilters: Filters
+  initialFilters: Omit<Filters, 'sort'>
   // Listing ids the signed-in user has already saved (seeds the heart state).
   savedIds?: string[]
 }
@@ -123,16 +124,17 @@ function buildQuery(f: Filters): string {
   if (f.checkOut) params.set('checkOut', f.checkOut)
   if (f.guests.trim()) params.set('guests', f.guests.trim())
   if (f.type.trim()) params.set('type', f.type.trim())
+  if (f.sort && f.sort !== 'recommended') params.set('sort', f.sort)
   return params.toString()
 }
 
-const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '', type: '' }
+const EMPTY: Filters = { location: '', checkIn: '', checkOut: '', guests: '', type: '', sort: 'recommended' }
 
 export default function ExploreClient({ initialListings, initialFilters, savedIds }: Props) {
   const t = useTranslations('explorePage')
   const tp = useTranslations('hostPage.create.propertyTypes')
   const savedSet = useMemo(() => new Set(savedIds ?? []), [savedIds])
-  const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [filters, setFilters] = useState<Filters>({ ...initialFilters, sort: 'recommended' })
   const [listings, setListings] = useState<Listing[]>(initialListings)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState(false)
@@ -159,7 +161,7 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
 
   // Tracks the query string that produced `listings`, so we can skip the very
   // first fetch (the server already rendered that exact result set).
-  const lastQueryRef = useRef<string>(buildQuery(initialFilters))
+  const lastQueryRef = useRef<string>(buildQuery({ ...initialFilters, sort: 'recommended' }))
   const abortRef = useRef<AbortController | null>(null)
 
   const runSearch = useCallback(async (f: Filters) => {
@@ -296,6 +298,14 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
   const selectType = useCallback((type: string) => {
     setFilters((prev) => {
       const next = { ...prev, type }
+      runSearch(next)
+      return next
+    })
+  }, [runSearch])
+
+  const selectSort = useCallback((sort: string) => {
+    setFilters((prev) => {
+      const next = { ...prev, sort }
       runSearch(next)
       return next
     })
@@ -606,13 +616,38 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               )}
             </div>
 
-            <div
-              role="tablist"
-              aria-label={t('view.toggleLabel')}
-              style={{ display: 'inline-flex', background: COLORS.tan, borderRadius: 999, padding: 4, gap: 4 }}
-            >
-              <ToggleButton label={t('view.list')} active={view === 'list'} onClick={() => setView('list')} />
-              <ToggleButton label={t('view.map')} active={view === 'map'} onClick={() => setView('map')} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <select
+                aria-label={t('sort.label')}
+                value={filters.sort}
+                onChange={(e) => selectSort(e.target.value)}
+                style={{
+                  fontFamily: FONT,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: COLORS.ink,
+                  background: '#fff',
+                  border: '1px solid rgba(42,34,32,0.14)',
+                  borderRadius: 999,
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="recommended">{t('sort.recommended')}</option>
+                <option value="price_asc">{t('sort.priceLow')}</option>
+                <option value="price_desc">{t('sort.priceHigh')}</option>
+                <option value="newest">{t('sort.newest')}</option>
+              </select>
+
+              <div
+                role="tablist"
+                aria-label={t('view.toggleLabel')}
+                style={{ display: 'inline-flex', background: COLORS.tan, borderRadius: 999, padding: 4, gap: 4 }}
+              >
+                <ToggleButton label={t('view.list')} active={view === 'list'} onClick={() => setView('list')} />
+                <ToggleButton label={t('view.map')} active={view === 'map'} onClick={() => setView('map')} />
+              </div>
             </div>
           </div>
 

@@ -31,6 +31,7 @@ export async function GET(req: Request) {
       checkIn: url.searchParams.get('checkIn') || undefined,
       checkOut: url.searchParams.get('checkOut') || undefined,
       type: url.searchParams.get('type') || undefined,
+      sortBy: url.searchParams.get('sort') || undefined,
     })
     return NextResponse.json(listings, {
       headers: {

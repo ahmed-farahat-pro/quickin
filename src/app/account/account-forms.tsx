@@ -123,18 +123,15 @@ function sectionTitle(text: string) {
 export function AccountForms({
   userId,
   initialName,
-  initialAvatar,
 }: {
   userId: string
   initialName: string
-  initialAvatar: string
 }) {
   const router = useRouter()
   const t = useTranslations('accountPage')
 
   // ---- Profile form -----------------------------------------------------
   const [fullName, setFullName] = useState(initialName)
-  const [avatarUrl, setAvatarUrl] = useState(initialAvatar)
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
 
@@ -149,7 +146,6 @@ export function AccountForms({
         credentials: 'same-origin',
         body: JSON.stringify({
           full_name: fullName.trim(),
-          avatar_url: avatarUrl.trim(),
         }),
       })
       if (res.status === 401) {
@@ -239,21 +235,6 @@ export function AccountForms({
             onChange={(e) => setFullName(e.target.value)}
             placeholder={t('profile.fullNamePlaceholder')}
             autoComplete="name"
-            style={inputStyle}
-          />
-        </div>
-
-        <div style={{ marginBottom: 4 }}>
-          <label htmlFor="acct-avatar" style={labelStyle}>
-            {t('profile.avatarUrl')}
-          </label>
-          <input
-            id="acct-avatar"
-            type="url"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://…"
-            autoComplete="off"
             style={inputStyle}
           />
         </div>

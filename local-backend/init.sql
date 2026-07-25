@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS listings (
   price_per_night   numeric NOT NULL,
   weekend_price     numeric,                           -- optional per-night price on weekend_days
   weekend_days      smallint[],                        -- which days are "weekend" (0=Sun … 6=Sat)
-  currency          text DEFAULT 'USD',
+  currency          text DEFAULT 'EGP',
   bedrooms          int DEFAULT 1,
   beds              int DEFAULT 1,
   bathrooms         int DEFAULT 1,

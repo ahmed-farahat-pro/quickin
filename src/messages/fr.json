@@ -1395,7 +1395,7 @@
       "markAllRead": "Tout marquer comme lu",
       "noNotifications": "Aucune notification",
       "trips": "Voyages",
-      "saved": "Favoris",
+      "saved": "Mes favoris",
       "account": "Compte",
       "messages": "Messages",
       "contact": "Contact"
@@ -1476,6 +1476,13 @@
     },
     "categories": {
       "all": "Tout"
+    },
+    "sort": {
+      "label": "Trier",
+      "recommended": "Recommandé",
+      "priceLow": "Prix : croissant",
+      "priceHigh": "Prix : décroissant",
+      "newest": "Plus récent"
     }
   },
   "listingPage": {
@@ -1549,6 +1556,12 @@
       "next": "Photo suivante",
       "counter": "{current} / {total}",
       "viewPhotos": "Voir toutes les photos"
+    },
+    "owner": {
+      "badge": "Ceci est votre annonce",
+      "hint": "Vous ne pouvez pas réserver ni contacter votre propre logement.",
+      "edit": "Modifier l'annonce",
+      "manage": "Voir les réservations entrantes"
     }
   },
   "loginLocal": {
@@ -1645,7 +1658,7 @@
   },
   "reservationsLocal": {
     "meta": {
-      "title": "Mes réservations",
+      "title": "Mes voyages",
       "description": "Consultez et gérez vos prochains séjours QuickIn. Toutes vos réservations de logements de charme au même endroit.",
       "ogTitle": "Mes réservations | QuickIn",
       "ogDescription": "Consultez et gérez vos prochains séjours QuickIn."
@@ -1656,11 +1669,11 @@
       "subtitle": "Vos prochains séjours s'afficheront ici une fois connecté.",
       "logIn": "Se connecter"
     },
-    "listTitle": "Réservations de {name}",
+    "listTitle": "Mes voyages",
     "noneYet": "Aucune réservation pour le moment.",
     "countBooked": "{count, plural, one {# séjour réservé.} other {# séjours réservés.}}",
     "emptyState": "Vous n'avez encore réservé aucun séjour.",
-    "browseStays": "Parcourir les séjours",
+    "browseStays": "Trouver un logement",
     "guestsCount": "{count, plural, one {# voyageur} other {# voyageurs}}",
     "total": "total",
     "status": {
@@ -1833,8 +1846,8 @@
     },
     "verifyIdCta": "Vérifier votre identité",
     "links": {
-      "reservations": "Vos réservations",
-      "saved": "Séjours enregistrés",
+      "reservations": "Mes voyages",
+      "saved": "Mes favoris",
       "verification": "Vérification d’identité",
       "hosting": "Hébergement"
     },
@@ -1869,11 +1882,11 @@
   },
   "savedPage": {
     "meta": {
-      "title": "Favoris · QuickIn",
+      "title": "Mes favoris · QuickIn",
       "description": "Vos séjours boutique enregistrés sur QuickIn."
     },
     "backToExplore": "Retour à l’exploration",
-    "title": "Séjours enregistrés",
+    "title": "Mes favoris",
     "noneYet": "Vous n’avez encore enregistré aucun séjour.",
     "countSaved": "{count, plural, one {# séjour enregistré.} other {# séjours enregistrés.}}",
     "emptyHint": "Touchez le cœur sur un séjour pour l’enregistrer pour plus tard.",
@@ -1912,7 +1925,11 @@
       "createListing": "Créer une annonce",
       "view": "Voir",
       "edit": "Modifier",
-      "emptyHint": "Publiez votre premier espace pour commencer à accueillir des voyageurs."
+      "emptyHint": "Publiez votre premier espace pour commencer à accueillir des voyageurs.",
+      "tabs": {
+        "listings": "Mes annonces",
+        "reservations": "Réservations entrantes"
+      }
     },
     "reservations": {
       "heading": "Réservations entrantes",
@@ -2008,7 +2025,9 @@
       "photosProcessing": "Traitement…",
       "photosCount": "{count} sur {max} photos",
       "photosCover": "Couverture",
-      "photosRemove": "Supprimer la photo"
+      "photosRemove": "Supprimer la photo",
+      "locating": "Localisation sur la carte…",
+      "geocodeFail": "Lieu introuvable — touchez la carte pour le définir."
     }
   },
   "hostApply": {

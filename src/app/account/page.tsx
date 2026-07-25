@@ -345,7 +345,6 @@ export default async function AccountPage() {
         <AccountForms
           userId={user.id}
           initialName={user.full_name ?? ''}
-          initialAvatar={user.avatar_url ?? ''}
         />
 
         {/* Quick links to the rest of the account surface */}

@@ -1,8 +1,10 @@
 // Local listing detail (no Supabase, no auth) — boutique stay view.
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { getListingById, getListingReviews } from '@/lib/local/db'
+import { getListingById, getListingReviews, getWishlistIds } from '@/lib/local/db'
+import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import ReservePanel from './reserve-panel'
 import MessageHostButton from './message-host-button'
 import ListingLocationMap from './listing-location-map-client'
@@ -93,6 +95,16 @@ export default async function ListingDetailPage({
   const t = await getTranslations('listingPage')
   const listing = await getListingById(id)
   if (!listing) notFound()
+
+  // Resolve the viewer: the owner gets an ownership view (no self-booking /
+  // self-messaging) and the heart reflects their saved state.
+  const token = (await cookies()).get('qk_token')?.value
+  const claims = token ? verifyToken(token) : null
+  const me = claims?.email ? await getUserRowByEmail(claims.email).catch(() => null) : null
+  const isOwner = !!me && me.id === listing.host_id
+  const isSaved = me
+    ? (await getWishlistIds(me.id).catch(() => [] as string[])).includes(listing.id)
+    : false
 
   // A reviews failure must never crash the stay page — fall back to none.
   const reviews = await getListingReviews(listing.id).catch(() => [])
@@ -189,7 +201,7 @@ export default async function ListingDetailPage({
               {listing.title}
             </h1>
             <span style={{ flex: '0 0 auto', marginTop: 6 }}>
-              <WishlistButton listingId={listing.id} />
+              <WishlistButton listingId={listing.id} initialSaved={isSaved} />
             </span>
           </div>
           <p style={{ margin: '10px 0 0', fontSize: 16, color: COLORS.muted }}>
@@ -274,12 +286,30 @@ export default async function ListingDetailPage({
             </div>
           )}
 
-          {/* Contact the host before booking */}
-          {listing.host_id && (
+          {/* Owner sees an ownership badge; everyone else can message the host. */}
+          {isOwner ? (
+            <div style={{ marginTop: 14 }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  background: COLORS.tan,
+                  color: COLORS.burgundy,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  padding: '7px 14px',
+                  borderRadius: 999,
+                }}
+              >
+                ★ {t('owner.badge')}
+              </span>
+            </div>
+          ) : listing.host_id ? (
             <div style={{ marginTop: 14 }}>
               <MessageHostButton listingId={listing.id} hostName={listing.host_company?.trim() || listing.host_name || ''} />
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Two-column: details + price card */}
@@ -393,14 +423,56 @@ export default async function ListingDetailPage({
               top: 24,
             }}
           >
-            <ReservePanel
-              listingId={listing.id}
-              pricePerNight={listing.price_per_night}
-              weekendPrice={listing.weekend_price}
-              weekendDays={listing.weekend_days}
-              currency={listing.currency}
-              maxGuests={listing.max_guests}
-            />
+            {isOwner ? (
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: COLORS.burgundy }}>
+                  {t('owner.badge')}
+                </h2>
+                <p style={{ margin: '0 0 18px', fontSize: 14, color: COLORS.muted, lineHeight: 1.5 }}>
+                  {t('owner.hint')}
+                </p>
+                <a
+                  href={`/host/${listing.id}/edit`}
+                  style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    color: '#fff',
+                    background: COLORS.burgundy,
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                    fontSize: 15,
+                    padding: '12px 16px',
+                    borderRadius: 14,
+                  }}
+                >
+                  {t('owner.edit')}
+                </a>
+                <a
+                  href="/host"
+                  style={{
+                    display: 'block',
+                    textAlign: 'center',
+                    color: COLORS.burgundy,
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    padding: '11px 16px',
+                    marginTop: 10,
+                  }}
+                >
+                  {t('owner.manage')} →
+                </a>
+              </div>
+            ) : (
+              <ReservePanel
+                listingId={listing.id}
+                pricePerNight={listing.price_per_night}
+                weekendPrice={listing.weekend_price}
+                weekendDays={listing.weekend_days}
+                currency={listing.currency}
+                maxGuests={listing.max_guests}
+              />
+            )}
             {listing.listing_code && (
               <div
                 style={{

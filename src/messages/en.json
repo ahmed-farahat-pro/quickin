@@ -1395,7 +1395,7 @@
       "markAllRead": "Mark all read",
       "noNotifications": "No notifications yet",
       "trips": "Trips",
-      "saved": "Saved",
+      "saved": "My Favorites",
       "account": "Account",
       "messages": "Messages",
       "contact": "Contact"
@@ -1476,6 +1476,13 @@
     },
     "categories": {
       "all": "All"
+    },
+    "sort": {
+      "label": "Sort",
+      "recommended": "Recommended",
+      "priceLow": "Price: low to high",
+      "priceHigh": "Price: high to low",
+      "newest": "Newest"
     }
   },
   "listingPage": {
@@ -1549,6 +1556,12 @@
       "next": "Next photo",
       "counter": "{current} / {total}",
       "viewPhotos": "View all photos"
+    },
+    "owner": {
+      "badge": "This is your listing",
+      "hint": "You can't book or message your own place.",
+      "edit": "Edit listing",
+      "manage": "View incoming reservations"
     }
   },
   "loginLocal": {
@@ -1702,7 +1715,7 @@
   },
   "reservationsLocal": {
     "meta": {
-      "title": "My reservations",
+      "title": "My trips",
       "description": "View and manage your upcoming QuickIn stays. Your boutique-rental bookings, all in one place.",
       "ogTitle": "My reservations | QuickIn",
       "ogDescription": "View and manage your upcoming QuickIn stays."
@@ -1713,11 +1726,11 @@
       "subtitle": "Your upcoming stays will appear here once you log in.",
       "logIn": "Log in"
     },
-    "listTitle": "{name}'s reservations",
+    "listTitle": "My trips",
     "noneYet": "No reservations yet.",
     "countBooked": "{count, plural, one {# stay booked.} other {# stays booked.}}",
     "emptyState": "You haven't booked any stays yet.",
-    "browseStays": "Browse stays",
+    "browseStays": "Find a stay",
     "guestsCount": "{count, plural, one {# guest} other {# guests}}",
     "total": "total",
     "status": {
@@ -1833,8 +1846,8 @@
     },
     "verifyIdCta": "Verify your ID",
     "links": {
-      "reservations": "Your reservations",
-      "saved": "Saved stays",
+      "reservations": "My trips",
+      "saved": "My favorites",
       "verification": "Identity verification",
       "hosting": "Hosting"
     },
@@ -1869,11 +1882,11 @@
   },
   "savedPage": {
     "meta": {
-      "title": "Saved · QuickIn",
+      "title": "My Favorites · QuickIn",
       "description": "Your saved boutique stays on QuickIn."
     },
     "backToExplore": "Back to Explore",
-    "title": "Saved stays",
+    "title": "My favorites",
     "noneYet": "You haven’t saved any stays yet.",
     "countSaved": "{count, plural, one {# saved stay.} other {# saved stays.}}",
     "emptyHint": "Tap the heart on any stay to save it for later.",
@@ -1912,7 +1925,11 @@
       "createListing": "Create a listing",
       "view": "View",
       "edit": "Edit",
-      "emptyHint": "List your first space to start welcoming guests."
+      "emptyHint": "List your first space to start welcoming guests.",
+      "tabs": {
+        "listings": "My Listings",
+        "reservations": "Incoming Reservations"
+      }
     },
     "reservations": {
       "heading": "Incoming reservations",
@@ -2008,7 +2025,9 @@
       "photosProcessing": "Processing…",
       "photosCount": "{count} of {max} photos",
       "photosCover": "Cover",
-      "photosRemove": "Remove photo"
+      "photosRemove": "Remove photo",
+      "locating": "Finding on map…",
+      "geocodeFail": "Couldn't find that place — tap the map to set it."
     }
   },
   "hostApply": {

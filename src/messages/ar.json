@@ -1395,7 +1395,7 @@
       "markAllRead": "تعليم الكل كمقروء",
       "noNotifications": "لا توجد إشعارات بعد",
       "trips": "الرحلات",
-      "saved": "المحفوظات",
+      "saved": "مفضّلاتي",
       "account": "الحساب",
       "messages": "الرسائل",
       "contact": "اتصل بنا"
@@ -1476,6 +1476,13 @@
     },
     "categories": {
       "all": "الكل"
+    },
+    "sort": {
+      "label": "ترتيب",
+      "recommended": "موصى به",
+      "priceLow": "السعر: من الأقل للأعلى",
+      "priceHigh": "السعر: من الأعلى للأقل",
+      "newest": "الأحدث"
     }
   },
   "listingPage": {
@@ -1549,6 +1556,12 @@
       "next": "الصورة التالية",
       "counter": "{current} / {total}",
       "viewPhotos": "عرض كل الصور"
+    },
+    "owner": {
+      "badge": "هذا إعلانك",
+      "hint": "لا يمكنك حجز أو مراسلة مكانك.",
+      "edit": "تعديل الإعلان",
+      "manage": "عرض الحجوزات الواردة"
     }
   },
   "loginLocal": {
@@ -1645,7 +1658,7 @@
   },
   "reservationsLocal": {
     "meta": {
-      "title": "حجوزاتي",
+      "title": "رحلاتي",
       "description": "اعرض حجوزات إقامتك القادمة على QuickIn وأدِرها. كل حجوزات الإقامات البوتيكية في مكان واحد.",
       "ogTitle": "حجوزاتي | QuickIn",
       "ogDescription": "اعرض حجوزات إقامتك القادمة على QuickIn وأدِرها."
@@ -1656,11 +1669,11 @@
       "subtitle": "ستظهر إقاماتك القادمة هنا بمجرد تسجيل الدخول.",
       "logIn": "تسجيل الدخول"
     },
-    "listTitle": "حجوزات {name}",
+    "listTitle": "رحلاتي",
     "noneYet": "لا توجد حجوزات حتى الآن.",
     "countBooked": "{count, plural, one {تم حجز إقامة واحدة.} other {تم حجز # إقامات.}}",
     "emptyState": "لم تحجز أي إقامة حتى الآن.",
-    "browseStays": "تصفّح الإقامات",
+    "browseStays": "ابحث عن إقامة",
     "guestsCount": "{count, plural, one {ضيف واحد} other {# ضيوف}}",
     "total": "الإجمالي",
     "status": {
@@ -1833,8 +1846,8 @@
     },
     "verifyIdCta": "وثّق هويتك",
     "links": {
-      "reservations": "حجوزاتك",
-      "saved": "الإقامات المحفوظة",
+      "reservations": "رحلاتي",
+      "saved": "مفضّلاتي",
       "verification": "التحقق من الهوية",
       "hosting": "الاستضافة"
     },
@@ -1869,11 +1882,11 @@
   },
   "savedPage": {
     "meta": {
-      "title": "المحفوظات · QuickIn",
+      "title": "مفضّلاتي · QuickIn",
       "description": "إقاماتك البوتيكية المحفوظة على QuickIn."
     },
     "backToExplore": "العودة إلى الاستكشاف",
-    "title": "الإقامات المحفوظة",
+    "title": "مفضّلاتي",
     "noneYet": "لم تحفظ أي إقامة بعد.",
     "countSaved": "{count, plural, zero {لا إقامات محفوظة.} one {إقامة محفوظة واحدة.} two {إقامتان محفوظتان.} few {# إقامات محفوظة.} many {# إقامة محفوظة.} other {# إقامة محفوظة.}}",
     "emptyHint": "اضغط على القلب في أي إقامة لحفظها لوقت لاحق.",
@@ -1912,7 +1925,11 @@
       "createListing": "إنشاء قائمة",
       "view": "عرض",
       "edit": "تعديل",
-      "emptyHint": "أدرج مساحتك الأولى لتبدأ في استقبال الضيوف."
+      "emptyHint": "أدرج مساحتك الأولى لتبدأ في استقبال الضيوف.",
+      "tabs": {
+        "listings": "إعلاناتي",
+        "reservations": "الحجوزات الواردة"
+      }
     },
     "reservations": {
       "heading": "الحجوزات الواردة",
@@ -2008,7 +2025,9 @@
       "photosProcessing": "جارٍ المعالجة…",
       "photosCount": "{count} من {max} صور",
       "photosCover": "الغلاف",
-      "photosRemove": "حذف الصورة"
+      "photosRemove": "حذف الصورة",
+      "locating": "جارٍ التحديد على الخريطة…",
+      "geocodeFail": "تعذّر العثور على المكان — اضغط على الخريطة لتحديده."
     }
   },
   "hostApply": {

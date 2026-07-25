@@ -174,6 +174,13 @@ export default function OpsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [keyError, setKeyError] = useState<string | null>(null)
 
+  // App download links (admin-editable; surfaced by the web "download the app" bar).
+  const [appIos, setAppIos] = useState('')
+  const [appAndroid, setAppAndroid] = useState('')
+  const [linksLoaded, setLinksLoaded] = useState(false)
+  const [savingLinks, setSavingLinks] = useState(false)
+  const [linksMsg, setLinksMsg] = useState<string | null>(null)
+
   // Restore a previously-saved key on first mount.
   useEffect(() => {
     try {
@@ -300,6 +307,22 @@ export default function OpsPage() {
     if (!loaded[tab] && !loading[tab]) void loadSection(tab, adminKey)
   }, [adminKey, tab, loaded, loading, loadSection])
 
+  // Load the app download links once the console is unlocked.
+  useEffect(() => {
+    if (!adminKey || linksLoaded) return
+    let cancelled = false
+    void (async () => {
+      const json = await adminGet<{ ios?: string | null; android?: string | null }>(adminKey, 'app-links')
+      if (cancelled || !json || json === 'forbidden') return
+      setAppIos(json.ios ?? '')
+      setAppAndroid(json.android ?? '')
+      setLinksLoaded(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [adminKey, linksLoaded, adminGet])
+
   const refresh = () => {
     if (adminKey) void loadSection(tab, adminKey)
   }
@@ -359,6 +382,14 @@ export default function OpsPage() {
     } catch {
       return false
     }
+  }
+
+  const saveLinks = async () => {
+    setSavingLinks(true)
+    setLinksMsg(null)
+    const ok = await post('app-links', { ios: appIos.trim(), android: appAndroid.trim() })
+    setSavingLinks(false)
+    setLinksMsg(ok ? 'Saved — the phone download bar updates on the next page load.' : 'Could not save. Please retry.')
   }
 
   // ---- users actions ----
@@ -487,6 +518,17 @@ export default function OpsPage() {
     border: `1px solid ${BURGUNDY}`,
   }
   const labelStyle: React.CSSProperties = { fontSize: 12, color: MUTED, marginBottom: 2 }
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: `1px solid ${TAN}`,
+    borderRadius: 12,
+    padding: '9px 12px',
+    fontSize: 14,
+    color: INK,
+    background: '#fff',
+    outline: 'none',
+  }
   const thStyle: React.CSSProperties = {
     textAlign: 'left',
     fontSize: 12,
@@ -634,6 +676,40 @@ export default function OpsPage() {
             </button>
           </div>
         </header>
+
+        {/* App download links — surfaced by the mobile "download the app" bar. */}
+        <section style={{ ...cardStyle, marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: BURGUNDY }}>App download links</h2>
+          <p style={{ margin: '4px 0 14px', fontSize: 13, color: MUTED }}>
+            Shown on phones as a “Get the app” bar. Leave a field empty to show “coming soon” for that platform.
+          </p>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Google Play (Android) URL</label>
+              <input
+                value={appAndroid}
+                onChange={(e) => setAppAndroid(e.target.value)}
+                placeholder="https://play.google.com/store/apps/details?id=…"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>App Store (iOS) URL</label>
+              <input
+                value={appIos}
+                onChange={(e) => setAppIos(e.target.value)}
+                placeholder="https://apps.apple.com/app/… (leave empty until iOS is live)"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+            <button onClick={saveLinks} disabled={savingLinks} style={approveBtn}>
+              {savingLinks ? 'Saving…' : 'Save links'}
+            </button>
+            {linksMsg ? <span style={{ fontSize: 13, color: MUTED }}>{linksMsg}</span> : null}
+          </div>
+        </section>
 
         {/* Tabs */}
         <nav

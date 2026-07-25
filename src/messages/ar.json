@@ -2113,5 +2113,14 @@
     "reviewFor": "عن {title}",
     "guest": "ضيف",
     "viewProfile": "عرض الملف"
+  },
+  "appBanner": {
+    "title": "حمّل تطبيق QuickIn",
+    "subtitle": "حجز أسرع من هاتفك",
+    "appStore": "App Store",
+    "googlePlay": "Google Play",
+    "iosSoon": "تطبيق iOS — قريبًا",
+    "androidSoon": "تطبيق أندرويد — قريبًا",
+    "dismiss": "إغلاق"
   }
 }

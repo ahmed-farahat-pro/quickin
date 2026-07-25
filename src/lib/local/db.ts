@@ -1657,3 +1657,49 @@ export async function getPlaceSuggestions(q: string): Promise<string[]> {
 
   return out.slice(0, 8)
 }
+
+// ---- App settings: mobile download links (admin-editable via /ops) ----------
+
+export interface AppLinks {
+  ios: string | null
+  android: string | null
+}
+
+/** The mobile app store links surfaced by the web "download the app" bar.
+ *  Returns nulls when nothing is configured yet (or the table doesn't exist),
+ *  so the public banner endpoint never errors. */
+export async function getAppLinks(): Promise<AppLinks> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT key, value FROM app_settings WHERE key IN ('app_ios_url', 'app_android_url')`
+    )
+    const norm = (v: unknown): string | null => {
+      const s = String(v ?? '').trim()
+      return s || null
+    }
+    const map = new Map(rows.map((r) => [r.key as string, r.value as string | null]))
+    return { ios: norm(map.get('app_ios_url')), android: norm(map.get('app_android_url')) }
+  } catch {
+    // Table not created yet → treat as "no links configured".
+    return { ios: null, android: null }
+  }
+}
+
+/** Persist the app store links (admin only). Creates the settings table on
+ *  first use so no separate migration is needed. Pass null to clear a link. */
+export async function setAppLinks(ios: string | null, android: string | null): Promise<void> {
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS app_settings (
+       key text PRIMARY KEY, value text, updated_at timestamptz DEFAULT now()
+     )`
+  )
+  const upsert = async (key: string, value: string | null) => {
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [key, value]
+    )
+  }
+  await upsert('app_ios_url', ios)
+  await upsert('app_android_url', android)
+}

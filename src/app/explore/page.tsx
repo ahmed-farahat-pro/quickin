@@ -11,6 +11,7 @@ import { getListings, getWishlistIds } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { Heart } from 'lucide-react'
 import ExploreClient from './explore-client'
+import AppDownloadBar from './app-download-bar'
 
 export const dynamic = 'force-dynamic'
 
@@ -417,6 +418,9 @@ export default async function ExplorePage({
           </div>
         </div>
       </footer>
+
+      {/* Phone-only "download the app" bar (links managed from /ops). */}
+      <AppDownloadBar />
     </main>
   )
 }

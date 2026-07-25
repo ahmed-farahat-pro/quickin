@@ -2113,5 +2113,14 @@
     "reviewFor": "Pour {title}",
     "guest": "Voyageur",
     "viewProfile": "Voir le profil"
+  },
+  "appBanner": {
+    "title": "Obtenez l'app QuickIn",
+    "subtitle": "Réservez plus vite sur mobile",
+    "appStore": "App Store",
+    "googlePlay": "Google Play",
+    "iosSoon": "App iOS — bientôt",
+    "androidSoon": "App Android — bientôt",
+    "dismiss": "Fermer"
   }
 }

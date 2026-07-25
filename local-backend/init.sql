@@ -262,3 +262,12 @@ BEGIN
   END LOOP;
   RAISE NOTICE 'seeded % listings', array_length(rows_arr,1);
 END $$;
+
+-- Key-value app settings (admin-editable via /ops). Currently holds the mobile
+-- app download links (app_ios_url / app_android_url) surfaced by the web
+-- "download the app" bar on phones.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        text PRIMARY KEY,
+  value      text,
+  updated_at timestamptz DEFAULT now()
+);

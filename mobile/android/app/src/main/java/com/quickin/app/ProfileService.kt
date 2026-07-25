@@ -18,8 +18,6 @@ data class Profile(
     val phone: String = "",
     /** Free-text "about me" blurb. Blank when unset server-side. */
     val bio: String = "",
-    /** The country the user is from (English display name). Blank when unset server-side. */
-    val country: String = "",
     /**
      * Avatar image source: an `http(s)` URL or an inline `data:image/...;base64,…` data URL
      * (Coil's [coil.compose.AsyncImage] decodes both). Null when the user has no photo.
@@ -64,8 +62,7 @@ object ProfileService {
         idDocument: String,
         phone: String,
         bio: String,
-        avatarUrl: String?,
-        country: String
+        avatarUrl: String?
     ): Profile = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("full_name", fullName.trim())
@@ -74,7 +71,6 @@ object ProfileService {
             put("phone", phone.trim())
             put("bio", bio.trim())
             if (avatarUrl != null) put("avatar_url", avatarUrl) else put("avatar_url", JSONObject.NULL)
-            put("country", country.trim())
         }
         val text = send("PATCH", token, "/api/local/profile", body)
         parseProfile(JSONObject(text))
@@ -168,10 +164,9 @@ object ProfileService {
             age = ageValue,
             idDocument = idDoc,
             // optString returns the literal "null" for a JSON null, so guard with isNull
-            // first — otherwise an unset phone/bio/country renders as the text "null".
+            // first — otherwise an unset phone/bio renders as the text "null".
             phone = if (o.isNull("phone")) "" else o.optString("phone"),
             bio = if (o.isNull("bio")) "" else o.optString("bio"),
-            country = if (o.isNull("country")) "" else o.optString("country"),
             avatarUrl = avatar,
             verificationStatus = o.optString("verification_status").ifBlank { "unverified" }
         )

@@ -79,7 +79,7 @@ private val ErrorRed = Color(0xFFB3261E)
 fun AuthScreen(
     state: AuthUiState,
     onLogin: (email: String, password: String) -> Unit,
-    onSignup: (name: String, email: String, password: String, referralCode: String?, country: String?) -> Unit,
+    onSignup: (name: String, email: String, password: String, referralCode: String?) -> Unit,
     onGoogleLaunch: (nonce: String, state: String) -> Unit,
     onGoogleNotConfigured: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -98,9 +98,6 @@ fun AuthScreen(
     var password by remember { mutableStateOf("") }
     // Optional referral code (sign-up only); forwarded to verify-otp to credit the referrer.
     var referralCode by remember { mutableStateOf("") }
-    // Optional "country you're from" (sign-up only); the selected English display name is sent with
-    // the sign-up request. Blank until the user picks one in the searchable CountrySelector dialog.
-    var country by remember { mutableStateOf("") }
 
     val loading = state.isLoading
 
@@ -166,16 +163,6 @@ fun AuthScreen(
                     value = name,
                     onValueChange = { name = it },
                     label = stringResource(R.string.auth_full_name),
-                    enabled = !loading
-                )
-                Spacer(Modifier.height(14.dp))
-
-                // "Country you're from" — searchable single-select; the chosen English display name
-                // is sent with the sign-up request (Egypt is offered first as the market default).
-                CountrySelector(
-                    value = country,
-                    onSelect = { country = it },
-                    label = stringResource(R.string.signup_country),
                     enabled = !loading
                 )
                 Spacer(Modifier.height(14.dp))
@@ -247,7 +234,7 @@ fun AuthScreen(
             val canSubmit = !loading && (!isSignUp || passwordMeetsMin(password))
             GradientButton(
                 onClick = {
-                    if (isSignUp) onSignup(name, email, password, referralCode.ifBlank { null }, country.ifBlank { null })
+                    if (isSignUp) onSignup(name, email, password, referralCode.ifBlank { null })
                     else onLogin(email, password)
                 },
                 enabled = canSubmit,

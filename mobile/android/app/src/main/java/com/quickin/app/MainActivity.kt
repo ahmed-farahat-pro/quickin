@@ -1030,8 +1030,8 @@ private fun MainApp() {
             state = profileSettingsState,
             onBack = { showProfileSettings = false },
             onLoad = profileSettingsViewModel::load,
-            onSave = { fullName, age, idDocument, phone, bio, avatarUrl, country ->
-                profileSettingsViewModel.save(fullName, age, idDocument, phone, bio, avatarUrl, country)
+            onSave = { fullName, age, idDocument, phone, bio, avatarUrl ->
+                profileSettingsViewModel.save(fullName, age, idDocument, phone, bio, avatarUrl)
             },
             onSavedAck = profileSettingsViewModel::acknowledgeSaved,
             onChangePassword = { current, next ->
@@ -1283,8 +1283,8 @@ private fun MainApp() {
             // Unified account: one account per person, no "sign in/register as host". The backend
             // returns the account's is_host flag, and a user becomes a host in-app from their profile.
             onLogin = { email, password -> authViewModel.login(email, password) },
-            onSignup = { name, email, password, referralCode, country ->
-                authViewModel.signup(name, email, password, referralCode, country)
+            onSignup = { name, email, password, referralCode ->
+                authViewModel.signup(name, email, password, referralCode)
             },
             onGoogleLaunch = { _, _ ->
                 val ctx = activity ?: return@AuthScreen

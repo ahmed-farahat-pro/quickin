@@ -75,23 +75,19 @@ object AuthService {
 
     /**
      * Registers a new account. One account per person — there is NO host registration; a new user
-     * always signs up as a normal account and can later become a host in-app. An optional [country]
-     * (the user's English country display name; see [com.quickin.app.ui.Countries]) is included in
-     * the body when present and ignored when blank.
+     * always signs up as a normal account and can later become a host in-app.
      * On success the backend emails an OTP and returns `{pending:true}` with NO token,
      * so this always yields [AuthOutcome.NeedsVerification].
      */
     suspend fun signup(
         name: String,
         email: String,
-        password: String,
-        country: String? = null
+        password: String
     ): AuthOutcome = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("email", email)
             put("password", password)
             put("full_name", name)
-            if (!country.isNullOrBlank()) put("country", country.trim())
         }
         val (code, text) = request("/api/auth/signup", body)
         if (code !in 200..299) {

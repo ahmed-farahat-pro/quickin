@@ -110,19 +110,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * Registers a normal account and moves to OTP verification — there is no host registration; a
      * user can become a host in-app later. An optional [referralCode] is remembered (not sent yet)
      * and forwarded to `verify-otp` once the user confirms the emailed code, so a valid referrer
-     * gets credited. An optional [country] (the user's English country display name) is sent with
-     * the sign-up request itself.
+     * gets credited.
      */
     fun signup(
         name: String,
         email: String,
         password: String,
-        referralCode: String? = null,
-        country: String? = null
+        referralCode: String? = null
     ) {
         pendingReferralCode = referralCode?.trim()?.takeUnless { it.isBlank() }
-        val signupCountry = country?.trim()?.takeUnless { it.isBlank() }
-        runOutcome { AuthService.signup(name.trim(), email.trim(), password, signupCountry) }
+        runOutcome { AuthService.signup(name.trim(), email.trim(), password) }
     }
 
     // ---- Become a host (unified account) --------------------------------------

@@ -11,8 +11,6 @@ final class ProfileSettingsViewModel: ObservableObject {
     @Published var idDocument = ""
     @Published var phone = ""
     @Published var bio = ""
-    /// Country the user is from — the English display name (matching the web).
-    @Published var country = ""
     /// Current avatar as a `data:`/`http` URL string (nil → initials fallback).
     @Published var avatarURL: String?
 
@@ -66,7 +64,6 @@ final class ProfileSettingsViewModel: ObservableObject {
         idDocument = ""
         phone = ""
         bio = ""
-        country = ""
         avatarURL = nil
         currentPassword = ""
         newPassword = ""
@@ -90,7 +87,6 @@ final class ProfileSettingsViewModel: ObservableObject {
                 idDocument: idDocument.trimmingCharacters(in: .whitespacesAndNewlines),
                 phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
                 bio: bio.trimmingCharacters(in: .whitespacesAndNewlines),
-                country: country.trimmingCharacters(in: .whitespacesAndNewlines),
                 avatarURL: avatarURL
             )
             apply(updated)
@@ -148,7 +144,6 @@ final class ProfileSettingsViewModel: ObservableObject {
         idDocument = profile.idDocument ?? ""
         phone = profile.phone ?? ""
         bio = profile.bio ?? ""
-        country = profile.country ?? ""
         avatarURL = profile.avatarURL
     }
 }
@@ -270,12 +265,6 @@ struct ProfileSettingsView: View {
                 text: $viewModel.phone,
                 contentType: .telephoneNumber,
                 keyboard: .phonePad
-            )
-            Divider()
-            CountryPickerField(
-                selection: $viewModel.country,
-                title: loc.t("settings.country"),
-                systemImage: "globe"
             )
             Divider()
             bioField

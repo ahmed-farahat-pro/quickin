@@ -267,24 +267,17 @@ final class AuthStore: ObservableObject {
     /// the backend emails a one-time code and returns `{ pending: true }` with
     /// **no** token, so this returns `.needsVerification(email:)` to drive the
     /// OTP screen.
-    ///
-    /// `country` (optional) is the English display name of the country the user
-    /// is from, forwarded as `country` in the signup body to match the web
-    /// (which stores English country names). Blank/whitespace is omitted.
     @discardableResult
-    func signup(name: String, email: String, password: String, country: String? = nil) async -> AuthOutcome {
+    func signup(name: String, email: String, password: String) async -> AuthOutcome {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
-        var body = [
+        let body = [
             "email": email,
             "password": password,
             "full_name": name,
         ]
-        if let country = country?.trimmingCharacters(in: .whitespacesAndNewlines), !country.isEmpty {
-            body["country"] = country
-        }
         let result = await send(path: "/api/auth/signup", body: body)
 
         switch result {

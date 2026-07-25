@@ -107,7 +107,9 @@ struct ListingDetailView: View {
                         if hasHost {
                             Divider()
                             hostRow
-                            if !isOwnListing {
+                            if isOwnListing {
+                                ownerBanner
+                            } else {
                                 messageHostRow
                             }
                         }
@@ -912,11 +914,29 @@ struct ListingDetailView: View {
         .font(.subheadline)
     }
 
+    // Shown in place of guest actions when the signed-in user owns this listing.
+    private var ownerBanner: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(loc.t("detail.ownListing"))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Color.qkBurgundy)
+            Text(loc.t("detail.ownListingHint"))
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.qkBurgundy.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private var reservePanel: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(loc.t("detail.reserveStay"))
-                .font(.title3).fontWeight(.semibold)
-                .foregroundStyle(Color.qkInk)
+            if !isOwnListing {
+                Text(loc.t("detail.reserveStay"))
+                    .font(.title3).fontWeight(.semibold)
+                    .foregroundStyle(Color.qkInk)
+            }
 
             // Host-only: manage this listing's blocked dates. Shown when the
             // signed-in account owns the listing.
@@ -924,6 +944,7 @@ struct ListingDetailView: View {
                 manageAvailabilityButton
             }
 
+            if !isOwnListing {
             VStack(spacing: 10) {
                 // Branded date-range row → opens the QuickIn calendar sheet
                 // (premium replacement for two plain DatePickers).
@@ -999,12 +1020,15 @@ struct ListingDetailView: View {
             }
             .buttonStyle(QKPressStyle())
             .disabled(isReserving)
+            }
         }
         .padding(18)
         .qkCard(lifts: false)
     }
 
+    @ViewBuilder
     private var bookingBar: some View {
+        if !isOwnListing {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
@@ -1048,6 +1072,7 @@ struct ListingDetailView: View {
         .padding(.bottom, 14)
         .background(.regularMaterial)
         .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.qkInk.opacity(0.08)), alignment: .top)
+        }
     }
 
     /// One labelled +/- row used by the guest breakdown (adults/children/infants/pets).

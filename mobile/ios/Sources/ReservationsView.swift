@@ -69,7 +69,7 @@ struct ReservationsView: View {
                 VStack(spacing: 0) {
                     QKBrandHeader(
                         eyebrow: loc.t("reservations.eyebrow"),
-                        title: loc.t("reservations.title"),
+                        title: loc.t("reservations.myTrips"),
                         subtitle: loc.t("reservations.subtitle")
                     ) {
                         QKHeaderIconButton(
@@ -261,7 +261,7 @@ struct ReservationsSignInCTA: View {
                 VStack(spacing: 0) {
                     QKBrandHeader(
                         eyebrow: loc.t("reservations.eyebrow"),
-                        title: loc.t("reservations.title"),
+                        title: loc.t("reservations.myTrips"),
                         subtitle: loc.t("reservations.subtitle")
                     )
 

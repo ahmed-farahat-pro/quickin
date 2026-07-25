@@ -104,7 +104,7 @@ enum Strings {
         // Tabs — guest
         "tab.explore": "Explore",
         "tab.services": "Services",
-        "tab.wishlist": "Wishlist",
+        "tab.wishlist": "Favorites",
         "notif.prompt.title": "Turn on notifications",
         "notif.prompt.body": "Get instant updates on your bookings, host messages, and new stays.",
         "notif.prompt.allow": "Allow notifications",
@@ -294,6 +294,8 @@ enum Strings {
         "detail.about": "About this place",
         "detail.offers": "What this place offers",
         "detail.reserveStay": "Reserve your stay",
+        "detail.ownListing": "This is your listing",
+        "detail.ownListingHint": "You can't book or message your own place.",
         "detail.dates": "Dates",
         "detail.reserve": "Reserve",
         "detail.signInToReserve": "Sign in to reserve",
@@ -419,7 +421,7 @@ enum Strings {
         "reviews.noGuestReviews": "No reviews from hosts yet. They'll appear here after your stays.",
 
         // Saved / wishlist
-        "saved.title": "Saved",
+        "saved.title": "My Favorites",
         "saved.subtitle": "Your favorite stays & experiences.",
         "saved.stays": "STAYS",
         "saved.services": "EXPERIENCES",
@@ -450,6 +452,7 @@ enum Strings {
 
         // Reservations
         "reservations.title": "Reservations",
+        "reservations.myTrips": "My trips",
         "reservations.mySubscriptions": "My subscriptions",
         "reservations.mySubscriptions.subtitle": "Track the experiences you've requested.",
         "reservations.empty.title": "No reservations yet",
@@ -964,6 +967,8 @@ enum Strings {
         "detail.about": "عن هذا المكان",
         "detail.offers": "ما يوفّره هذا المكان",
         "detail.reserveStay": "احجز إقامتك",
+        "detail.ownListing": "هذا إعلانك",
+        "detail.ownListingHint": "لا يمكنك حجز أو مراسلة مكانك.",
         "detail.dates": "التواريخ",
         "detail.reserve": "احجز",
         "detail.signInToReserve": "سجّل الدخول للحجز",
@@ -1089,7 +1094,7 @@ enum Strings {
         "reviews.noGuestReviews": "لا توجد تقييمات من المضيفين بعد. ستظهر هنا بعد إقاماتك.",
 
         // Saved / wishlist
-        "saved.title": "المحفوظات",
+        "saved.title": "مفضّلاتي",
         "saved.subtitle": "إقاماتك وتجاربك المفضّلة.",
         "saved.stays": "الإقامات",
         "saved.services": "التجارب",
@@ -1120,6 +1125,7 @@ enum Strings {
 
         // Reservations
         "reservations.title": "الحجوزات",
+        "reservations.myTrips": "رحلاتي",
         "reservations.mySubscriptions": "اشتراكاتي",
         "reservations.mySubscriptions.subtitle": "تابع التجارب التي طلبتها.",
         "reservations.empty.title": "لا توجد حجوزات بعد",
@@ -1605,6 +1611,8 @@ enum Strings {
         "detail.about": "À propos de ce logement",
         "detail.offers": "Ce que propose ce logement",
         "detail.reserveStay": "Réservez votre séjour",
+        "detail.ownListing": "Ceci est votre annonce",
+        "detail.ownListingHint": "Vous ne pouvez pas réserver ni contacter votre propre logement.",
         "detail.dates": "Dates",
         "detail.reserve": "Réserver",
         "detail.signInToReserve": "Connectez-vous pour réserver",
@@ -1715,7 +1723,7 @@ enum Strings {
         "reviews.aboutYou": "Avis vous concernant",
         "reviews.guestRating": "Note du voyageur",
         "reviews.noGuestReviews": "Aucun avis d'hôtes pour le moment. Ils apparaîtront ici après vos séjours.",
-        "saved.title": "Enregistrés",
+        "saved.title": "Mes favoris",
         "saved.subtitle": "Vos séjours et expériences favoris.",
         "saved.stays": "SÉJOURS",
         "saved.services": "EXPÉRIENCES",
@@ -1740,6 +1748,7 @@ enum Strings {
         "services.empty.nothing": "Rien à afficher pour le moment",
         "services.empty.nothingMsg": "Aucune expérience à afficher pour le moment.",
         "reservations.title": "Réservations",
+        "reservations.myTrips": "Mes voyages",
         "reservations.mySubscriptions": "Mes abonnements",
         "reservations.mySubscriptions.subtitle": "Suivez les expériences que vous avez demandées.",
         "reservations.empty.title": "Aucune réservation pour le moment",
@@ -2189,6 +2198,8 @@ enum Strings {
         "detail.about": "Acerca de este alojamiento",
         "detail.offers": "Lo que ofrece este alojamiento",
         "detail.reserveStay": "Reserve su estancia",
+        "detail.ownListing": "Este es tu anuncio",
+        "detail.ownListingHint": "No puedes reservar ni contactar tu propio alojamiento.",
         "detail.dates": "Fechas",
         "detail.reserve": "Reservar",
         "detail.signInToReserve": "Inicie sesión para reservar",
@@ -2299,7 +2310,7 @@ enum Strings {
         "reviews.aboutYou": "Reseñas sobre usted",
         "reviews.guestRating": "Valoración del huésped",
         "reviews.noGuestReviews": "Aún no hay reseñas de anfitriones. Aparecerán aquí después de sus estancias.",
-        "saved.title": "Guardados",
+        "saved.title": "Mis favoritos",
         "saved.subtitle": "Sus alojamientos y experiencias favoritos.",
         "saved.stays": "ALOJAMIENTOS",
         "saved.services": "EXPERIENCIAS",
@@ -2324,6 +2335,7 @@ enum Strings {
         "services.empty.nothing": "Aún no hay nada que mostrar",
         "services.empty.nothingMsg": "Aún no hay experiencias que mostrar.",
         "reservations.title": "Reservas",
+        "reservations.myTrips": "Mis viajes",
         "reservations.mySubscriptions": "Mis suscripciones",
         "reservations.mySubscriptions.subtitle": "Haga seguimiento de las experiencias que ha solicitado.",
         "reservations.empty.title": "Aún no hay reservas",

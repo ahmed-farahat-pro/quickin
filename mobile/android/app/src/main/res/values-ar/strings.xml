@@ -237,6 +237,8 @@
     <string name="detail_select_dates">اختر تواريخك</string>
     <string name="detail_nights">%1$s × %2$d ليلة</string>
     <string name="detail_reserve">احجز</string>
+    <string name="detail_own_listing">هذا إعلانك</string>
+    <string name="detail_own_listing_hint">لا يمكنك حجز أو مراسلة مكانك.</string>
     <string name="detail_sign_in_to_reserve">سجّل الدخول للحجز</string>
     <string name="detail_request_sent">تم إرسال الطلب</string>
     <string name="detail_waiting_host_stay">في انتظار تأكيد المضيف لإقامتك في %1$s.</string>
@@ -323,7 +325,7 @@
     <string name="services_price">السعر</string>
 
     <!-- Reservations (guest "Trips") -->
-    <string name="reservations_title">حجوزاتي</string>
+    <string name="reservations_title">رحلاتي</string>
     <string name="reservations_sign_in_title">سجّل الدخول لعرض حجوزاتك</string>
     <string name="reservations_sign_in_subtitle">ستظهر إقاماتك المحجوزة هنا.</string>
     <string name="reservations_load_error">تعذّر تحميل الحجوزات</string>
@@ -399,9 +401,9 @@
     <string name="reviews_no_guest_reviews">لا توجد تقييمات من المضيفين بعد.</string>
 
     <!-- Wishlist / Saved -->
-    <string name="profile_saved">المحفوظات</string>
-    <string name="profile_saved_sub">إقاماتك وتجاربك المحفوظة</string>
-    <string name="wishlist_title">المحفوظات</string>
+    <string name="profile_saved">مفضّلاتي</string>
+    <string name="profile_saved_sub">إقاماتك وتجاربك المفضّلة</string>
+    <string name="wishlist_title">مفضّلاتي</string>
     <string name="wishlist_eyebrow">قائمة رغباتك</string>
     <string name="wishlist_stays">الإقامات المحفوظة</string>
     <string name="wishlist_experiences">التجارب المحفوظة</string>

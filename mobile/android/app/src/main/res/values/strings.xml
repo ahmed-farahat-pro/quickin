@@ -5,7 +5,7 @@
     <!-- Bottom navigation tabs (guest) -->
     <string name="tab_explore">Explore</string>
     <string name="tab_services">Services</string>
-    <string name="tab_wishlist">Wishlist</string>
+    <string name="tab_wishlist">Favorites</string>
     <string name="tab_trips">Trips</string>
     <string name="tab_profile">Profile</string>
     <!-- App shortcuts (launcher long-press / Assistant) -->
@@ -244,6 +244,8 @@
     <string name="detail_select_dates">Select your dates</string>
     <string name="detail_nights">%1$s × %2$d night(s)</string>
     <string name="detail_reserve">Reserve</string>
+    <string name="detail_own_listing">This is your listing</string>
+    <string name="detail_own_listing_hint">You can\'t book or message your own place.</string>
     <string name="detail_sign_in_to_reserve">Sign in to reserve</string>
     <string name="detail_request_sent">Request sent</string>
     <string name="detail_waiting_host_stay">Waiting for the host to confirm your stay at %1$s.</string>
@@ -330,7 +332,7 @@
     <string name="services_price">Price</string>
 
     <!-- Reservations (guest "Trips") -->
-    <string name="reservations_title">My Reservations</string>
+    <string name="reservations_title">My trips</string>
     <string name="reservations_sign_in_title">Sign in to see your reservations</string>
     <string name="reservations_sign_in_subtitle">Your booked stays will show up here.</string>
     <string name="reservations_load_error">Couldn\'t load reservations</string>
@@ -404,9 +406,9 @@
     <string name="reviews_no_guest_reviews">No reviews from hosts yet.</string>
 
     <!-- Wishlist / Saved -->
-    <string name="profile_saved">Saved</string>
-    <string name="profile_saved_sub">Your saved stays &amp; experiences</string>
-    <string name="wishlist_title">Saved</string>
+    <string name="profile_saved">My Favorites</string>
+    <string name="profile_saved_sub">Your favorite stays &amp; experiences</string>
+    <string name="wishlist_title">My Favorites</string>
     <string name="wishlist_eyebrow">Your wishlist</string>
     <string name="wishlist_stays">Saved stays</string>
     <string name="wishlist_experiences">Saved experiences</string>

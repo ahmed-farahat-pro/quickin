@@ -1440,7 +1440,7 @@ private fun AddListingTab(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("") }
+    var country by remember { mutableStateOf("Egypt") }
     var price by remember { mutableStateOf("") }
     // Length-of-stay discounts (% off), default "0" (none). Sent on create.
     var weeklyDiscount by remember { mutableStateOf("0") }

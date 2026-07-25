@@ -284,8 +284,21 @@ fun ListingDetailScreen(
                             onClick = if (!listing.hostId.isNullOrBlank()) onOpenHostProfile else null
                         )
                     }
-                    // "Message host" — opens the pre-booking chat. Shown only when the listing has a host.
-                    if (!listing.hostName.isNullOrBlank() || !listing.hostId.isNullOrBlank()) {
+                    // Owner sees a clear "this is your listing" banner instead of guest actions.
+                    if (isOwnHost) {
+                        Surface(
+                            color = Tan,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(stringResource(R.string.detail_own_listing), color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(stringResource(R.string.detail_own_listing_hint), color = Muted, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                    // "Message host" — opens the pre-booking chat. Hidden on your own listing.
+                    if ((!listing.hostName.isNullOrBlank() || !listing.hostId.isNullOrBlank()) && !isOwnHost) {
                         val messageHostName = listing.hostName?.takeUnless { it.isBlank() } ?: "Host"
                         OutlinedButton(
                             onClick = { onMessageHost(listing.id, messageHostName) },
@@ -790,6 +803,8 @@ private fun ReservePanel(
                 SeasonalRatesNote()
             }
 
+            // Guests can't book their own place — the booking form is only for non-owners.
+            if (!isOwnHost) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DateTapField(
                     label = stringResource(R.string.detail_check_in),
@@ -927,6 +942,7 @@ private fun ReservePanel(
                     }
                 }
             }
+            } // end !isOwnHost booking form
 
             // Host of this listing: a calendar manager to block / unblock date ranges. Opening
             // it loads the listing's current spans (booked read-only + blocked removable).

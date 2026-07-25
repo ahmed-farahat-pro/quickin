@@ -200,6 +200,8 @@
     <string name="detail_select_dates">Seleccione sus fechas</string>
     <string name="detail_nights">%1$s × %2$d noche(s)</string>
     <string name="detail_reserve">Reservar</string>
+    <string name="detail_own_listing">Este es tu anuncio</string>
+    <string name="detail_own_listing_hint">No puedes reservar ni contactar tu propio alojamiento.</string>
     <string name="detail_sign_in_to_reserve">Inicie sesión para reservar</string>
     <string name="detail_request_sent">Solicitud enviada</string>
     <string name="detail_waiting_host_stay">Esperando a que el anfitrión confirme su estancia en %1$s.</string>
@@ -275,7 +277,7 @@
     <string name="services_sign_in_to_subscribe">Inicie sesión para suscribirse</string>
     <string name="services_waiting_host_booking">Esperando a que el anfitrión confirme su reserva de %1$s.</string>
     <string name="services_price">Precio</string>
-    <string name="reservations_title">Mis reservas</string>
+    <string name="reservations_title">Mis viajes</string>
     <string name="reservations_sign_in_title">Inicie sesión para ver sus reservas</string>
     <string name="reservations_sign_in_subtitle">Sus estancias reservadas aparecerán aquí.</string>
     <string name="reservations_load_error">No se pudieron cargar las reservas</string>
@@ -328,9 +330,9 @@
     <string name="reviews_about_you">Reseñas sobre usted</string>
     <string name="reviews_guest_rating">%1$s · %2$d reseñas</string>
     <string name="reviews_no_guest_reviews">Aún no hay reseñas de anfitriones.</string>
-    <string name="profile_saved">Guardados</string>
-    <string name="profile_saved_sub">Sus alojamientos &amp;amp; experiencias guardados</string>
-    <string name="wishlist_title">Guardados</string>
+    <string name="profile_saved">Mis favoritos</string>
+    <string name="profile_saved_sub">Tus alojamientos y experiencias favoritos</string>
+    <string name="wishlist_title">Mis favoritos</string>
     <string name="wishlist_eyebrow">Su lista de deseos</string>
     <string name="wishlist_stays">Alojamientos guardados</string>
     <string name="wishlist_experiences">Experiencias guardadas</string>

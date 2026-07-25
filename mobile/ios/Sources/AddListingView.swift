@@ -33,7 +33,7 @@ struct AddListingView: View {
     @State private var title = ""
     @State private var description = ""
     @State private var location = ""
-    @State private var country = ""
+    @State private var country = "Egypt"
     @State private var priceText = ""
     @State private var imageURL = ""
 
@@ -604,9 +604,7 @@ private struct LocationStep: View {
         WizardTextField("City", text: $location)
             .textInputAutocapitalization(.words)
 
-        FieldLabel("Country")
-        WizardTextField("Country", text: $country)
-            .textInputAutocapitalization(.words)
+        CountryPickerField(selection: $country, title: "Country")
 
         Text("Pick a region, then drag the pin to fine-tune the exact spot. A region and a pin are both required to continue.")
             .font(.footnote)

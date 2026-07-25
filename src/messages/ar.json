@@ -1384,6 +1384,8 @@
     "logoAlt": "QuickIn",
     "nav": {
       "becomeHost": "كن مضيفًا",
+      "hosting": "الاستضافة",
+      "addListing": "إضافة قائمة",
       "greeting": "أهلًا، {name}",
       "logout": "تسجيل الخروج",
       "login": "تسجيل الدخول",

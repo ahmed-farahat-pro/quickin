@@ -1384,6 +1384,8 @@
     "logoAlt": "QuickIn",
     "nav": {
       "becomeHost": "Conviértete en anfitrión",
+      "hosting": "Anfitrión",
+      "addListing": "Añadir anuncio",
       "greeting": "Hola, {name}",
       "logout": "Cerrar sesión",
       "login": "Iniciar sesión",

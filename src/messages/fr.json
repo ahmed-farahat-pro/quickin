@@ -1384,6 +1384,8 @@
     "logoAlt": "QuickIn",
     "nav": {
       "becomeHost": "Devenir hôte",
+      "hosting": "Espace hôte",
+      "addListing": "Ajouter une annonce",
       "greeting": "Bonjour, {name}",
       "logout": "Déconnexion",
       "login": "Connexion",

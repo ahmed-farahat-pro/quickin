@@ -1384,6 +1384,8 @@
     "logoAlt": "QuickIn",
     "nav": {
       "becomeHost": "Become a host",
+      "hosting": "Hosting",
+      "addListing": "Add listing",
       "greeting": "Hi, {name}",
       "logout": "Logout",
       "login": "Log in",

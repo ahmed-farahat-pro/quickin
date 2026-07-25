@@ -93,6 +93,7 @@ export default async function ListingDetailPage({
 }) {
   const { id } = await params
   const t = await getTranslations('listingPage')
+  const tHost = await getTranslations('hostProfile')
   const listing = await getListingById(id)
   if (!listing) notFound()
 
@@ -136,6 +137,8 @@ export default async function ListingDetailPage({
             top: auto !important;
           }
         }
+        .qk-host-card { transition: box-shadow .2s ease, transform .2s ease; }
+        .qk-host-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(42,34,32,0.12); }
       `}</style>
 
       <div style={{ maxWidth: 1040, margin: '0 auto', padding: '28px 24px 72px' }}>
@@ -209,9 +212,11 @@ export default async function ListingDetailPage({
             {listing.property_type ? ` · ${listing.property_type}` : ''}
           </p>
 
-          {/* Host card — shown when the listing resolves an owner. */}
+          {/* Host card — click through to the host's public profile (all their stays + reviews). */}
           {listing.host_name && (
-            <div
+            <a
+              href={`/hosts/${listing.host_id}`}
+              className="qk-host-card"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -223,6 +228,9 @@ export default async function ListingDetailPage({
                 borderRadius: 16,
                 boxShadow: '0 4px 16px rgba(42,34,32,0.06)',
                 width: 'fit-content',
+                textDecoration: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
               }}
             >
               {listing.host_avatar ? (
@@ -283,7 +291,18 @@ export default async function ListingDetailPage({
                   )}
                 </div>
               </div>
-            </div>
+              <span
+                style={{
+                  marginInlineStart: 8,
+                  color: COLORS.burgundy,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tHost('viewProfile')} →
+              </span>
+            </a>
           )}
 
           {/* Owner sees an ownership badge; everyone else can message the host. */}

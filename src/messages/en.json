@@ -2095,5 +2095,23 @@
   },
   "contact": {
     "whatsappAria": "Contact us on WhatsApp"
+  },
+  "hostProfile": {
+    "meta": {
+      "title": "{name} · Host · QuickIn",
+      "fallback": "Host · QuickIn"
+    },
+    "backToExplore": "Back to explore",
+    "hostedBy": "Host",
+    "verified": "Verified",
+    "memberSince": "Member since {year}",
+    "reviews": "{count, plural, one {# review} other {# reviews}}",
+    "stays": "{count, plural, one {# stay} other {# stays}}",
+    "guestReviews": "Guest reviews",
+    "noListings": "This host has no stays yet.",
+    "perNight": "per night",
+    "reviewFor": "For {title}",
+    "guest": "Guest",
+    "viewProfile": "View profile"
   }
 }

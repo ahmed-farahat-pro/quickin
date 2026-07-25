@@ -2095,5 +2095,23 @@
   },
   "contact": {
     "whatsappAria": "Contáctanos por WhatsApp"
+  },
+  "hostProfile": {
+    "meta": {
+      "title": "{name} · Anfitrión · QuickIn",
+      "fallback": "Anfitrión · QuickIn"
+    },
+    "backToExplore": "Volver a explorar",
+    "hostedBy": "Anfitrión",
+    "verified": "Verificado",
+    "memberSince": "Miembro desde {year}",
+    "reviews": "{count, plural, one {# reseña} other {# reseñas}}",
+    "stays": "{count, plural, one {# alojamiento} other {# alojamientos}}",
+    "guestReviews": "Reseñas de huéspedes",
+    "noListings": "Este anfitrión aún no tiene alojamientos.",
+    "perNight": "por noche",
+    "reviewFor": "Para {title}",
+    "guest": "Huésped",
+    "viewProfile": "Ver perfil"
   }
 }

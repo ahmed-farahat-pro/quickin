@@ -1024,6 +1024,7 @@ export interface HostListingCard {
   title: string
   location: string | null
   price_per_night: number
+  currency: string
   image_url: string | null
   rating: number | null          // average of this listing's review ratings
   rating_count: number
@@ -1059,6 +1060,7 @@ export async function getHostProfile(hostId: string): Promise<HostProfile | null
   const [{ rows: lrows }, { rows: rvrows }] = await Promise.all([
     pool.query(
       `SELECT l.id, l.title, l.location, l.price_per_night::float8 AS price_per_night,
+              COALESCE(l.currency, 'EGP') AS currency,
               (SELECT url FROM listing_images li WHERE li.listing_id = l.id
                 ORDER BY li."order" LIMIT 1) AS image_url,
               agg.avg_rating::float8 AS rating,

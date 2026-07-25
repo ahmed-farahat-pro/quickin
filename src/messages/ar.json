@@ -2095,5 +2095,23 @@
   },
   "contact": {
     "whatsappAria": "تواصل معنا عبر واتساب"
+  },
+  "hostProfile": {
+    "meta": {
+      "title": "{name} · مضيف · QuickIn",
+      "fallback": "مضيف · QuickIn"
+    },
+    "backToExplore": "العودة إلى الاستكشاف",
+    "hostedBy": "المضيف",
+    "verified": "موثّق",
+    "memberSince": "عضو منذ {year}",
+    "reviews": "{count, plural, one {تقييم واحد} other {# تقييمات}}",
+    "stays": "{count, plural, one {إقامة واحدة} other {# إقامات}}",
+    "guestReviews": "تقييمات الضيوف",
+    "noListings": "لا توجد إقامات لهذا المضيف بعد.",
+    "perNight": "لليلة",
+    "reviewFor": "عن {title}",
+    "guest": "ضيف",
+    "viewProfile": "عرض الملف"
   }
 }

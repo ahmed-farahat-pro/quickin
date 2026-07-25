@@ -1982,7 +1982,7 @@
       "placeholders": {
         "title": "Loft soleado junto al Nilo",
         "description": "¿Qué hace especial tu lugar?",
-        "location": "Zamalek, El Cairo",
+        "location": "Busca una ciudad, zona o dirección",
         "country": "Egipto",
         "photos": "Una URL por línea, o separadas por comas\nhttps://images.unsplash.com/photo-...",
         "weekendPrice": "p. ej. 1500"
@@ -2011,6 +2011,7 @@
         "photoFailed": "No se pudo procesar la imagen. Prueba con otra."
       },
       "pinHint": "Toca el mapa para colocar un pin. Los huéspedes ven una zona aproximada, no la dirección exacta.",
+      "searchHint": "Busca una ciudad, zona o dirección y elige un resultado para fijarlo en el mapa; luego arrastra el pin para ajustarlo.",
       "pinSet": "Marcado en {lat}, {lng}. Toca de nuevo para moverlo.",
       "weekdays": {
         "sun": "Dom",

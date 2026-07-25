@@ -1982,7 +1982,7 @@
       "placeholders": {
         "title": "Sunlit loft by the Nile",
         "description": "What makes your place special?",
-        "location": "Zamalek, Cairo",
+        "location": "Search a city, area or address",
         "country": "Egypt",
         "photos": "One URL per line, or comma-separated\nhttps://images.unsplash.com/photo-...",
         "weekendPrice": "e.g. 1500"
@@ -2011,6 +2011,7 @@
         "photoFailed": "Couldn't process that image. Try another."
       },
       "pinHint": "Tap the map to drop a pin. Guests see an approximate area, not the exact address.",
+      "searchHint": "Search a city, area or address and pick a result to pin it on the map — then drag the pin to fine-tune.",
       "pinSet": "Pinned at {lat}, {lng}. Tap again to move it.",
       "weekdays": {
         "sun": "Sun",

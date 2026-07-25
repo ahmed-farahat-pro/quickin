@@ -4,7 +4,7 @@
 // is taken from the signed-in caller server-side) and on success navigates to
 // /host. Location is set with a map pin; photos are uploaded from the device
 // (camera or library) and sent as compressed base64 data URLs.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
@@ -67,6 +67,43 @@ const COUNTRIES: { name: string; code: string }[] = [
 
 const CURRENCIES = ['EGP', 'USD', 'EUR', 'SAR', 'AED', 'GBP'] as const
 
+interface PlaceHit {
+  label: string // full display name (secondary line)
+  short: string // concise "place, city" (primary line + what we store)
+  lat: number
+  lon: number
+}
+
+// A concise "place, city" label from a Nominatim (jsonv2 + addressdetails) result.
+function placeShort(d: { name?: string; display_name?: string; address?: Record<string, string> }): string {
+  const a = d.address || {}
+  const primary =
+    d.name ||
+    a.suburb || a.neighbourhood || a.city_district ||
+    a.city || a.town || a.village ||
+    String(d.display_name || '').split(',')[0]
+  const city = a.city || a.town || a.village || a.state
+  if (primary && city && primary !== city) return `${primary}, ${city}`
+  return (primary || String(d.display_name || '').split(',').slice(0, 2).join(', ')).trim()
+}
+
+const dropdownStyle: React.CSSProperties = {
+  listStyle: 'none',
+  margin: '4px 0 0',
+  padding: 4,
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  right: 0,
+  zIndex: 50,
+  background: '#fff',
+  border: `1px solid ${C.tan}`,
+  borderRadius: 12,
+  boxShadow: '0 12px 30px rgba(42,34,32,0.14)',
+  maxHeight: 260,
+  overflowY: 'auto',
+}
+
 export function NewListingForm() {
   const router = useRouter()
   const t = useTranslations('hostPage.create')
@@ -81,6 +118,11 @@ export function NewListingForm() {
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [geo, setGeo] = useState<'idle' | 'locating' | 'fail'>('idle')
+  const [placeResults, setPlaceResults] = useState<PlaceHit[]>([])
+  const [placeOpen, setPlaceOpen] = useState(false)
+  const placeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const placeAbortRef = useRef<AbortController | null>(null)
+  const placeBlurRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [price, setPrice] = useState('')
   const [weekendPrice, setWeekendPrice] = useState('')
   const [weekendDays, setWeekendDays] = useState<number[]>(DEFAULT_WEEKEND_DAYS)
@@ -123,6 +165,66 @@ export function NewListingForm() {
       setGeo('fail')
     }
   }
+
+  // Live place search (multiple results, scoped to the chosen country) so the
+  // host can search a city/area and pick the right spot to pin — even when they
+  // are physically somewhere else. Picking a result recenters the map + pins it.
+  function runPlaceSearch(query: string) {
+    placeAbortRef.current?.abort()
+    const q = query.trim()
+    if (q.length < 2) {
+      setPlaceResults([])
+      return
+    }
+    const controller = new AbortController()
+    placeAbortRef.current = controller
+    const code = COUNTRIES.find((c) => c.name === country)?.code
+    const cc = code ? `&countrycodes=${code}` : ''
+    fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6${cc}&q=${encodeURIComponent(q)}`,
+      { signal: controller.signal },
+    )
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (controller.signal.aborted) return
+        const arr = (Array.isArray(data) ? data : []) as Array<{
+          display_name?: string; name?: string; lat?: string; lon?: string; address?: Record<string, string>
+        }>
+        const hits: PlaceHit[] = arr
+          .map((d) => ({ label: String(d.display_name || ''), short: placeShort(d), lat: Number(d.lat), lon: Number(d.lon) }))
+          .filter((h) => Number.isFinite(h.lat) && Number.isFinite(h.lon) && !!h.label)
+        setPlaceResults(hits)
+      })
+      .catch((err) => {
+        if ((err as Error)?.name !== 'AbortError') setPlaceResults([])
+      })
+  }
+
+  function onLocationChange(value: string) {
+    setLocation(value)
+    setGeo('idle')
+    setPlaceOpen(true)
+    if (placeDebounceRef.current) clearTimeout(placeDebounceRef.current)
+    placeDebounceRef.current = setTimeout(() => runPlaceSearch(value), 300)
+  }
+
+  function pickPlace(h: PlaceHit) {
+    setLocation(h.short || h.label)
+    setLat(h.lat)
+    setLng(h.lon)
+    setGeo('idle')
+    setPlaceResults([])
+    setPlaceOpen(false)
+  }
+
+  // Clean up the debounce + in-flight search on unmount.
+  useEffect(() => {
+    return () => {
+      if (placeDebounceRef.current) clearTimeout(placeDebounceRef.current)
+      if (placeBlurRef.current) clearTimeout(placeBlurRef.current)
+      placeAbortRef.current?.abort()
+    }
+  }, [])
 
   async function onPickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -260,16 +362,52 @@ export function NewListingForm() {
       </div>
 
       <div className="qk-new-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, ...fieldWrap }}>
-        <div>
+        <div style={{ position: 'relative' }}>
           <label style={label} htmlFor="location">{t('fields.location')}</label>
           <input
             id="location"
             style={input}
             value={location}
-            onChange={(e) => { setLocation(e.target.value); setGeo('idle') }}
-            onBlur={geocodeLocation}
+            onChange={(e) => onLocationChange(e.target.value)}
+            onFocus={() => { if (location.trim().length >= 2) { setPlaceOpen(true); runPlaceSearch(location) } }}
+            onBlur={() => {
+              if (placeBlurRef.current) clearTimeout(placeBlurRef.current)
+              placeBlurRef.current = setTimeout(() => setPlaceOpen(false), 150)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (placeResults[0]) pickPlace(placeResults[0])
+                else geocodeLocation()
+              } else if (e.key === 'Escape') {
+                setPlaceOpen(false)
+              }
+            }}
             placeholder={t('placeholders.location')}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={placeOpen}
           />
+          {placeOpen && placeResults.length > 0 && (
+            <ul style={dropdownStyle}>
+              {placeResults.map((h, i) => (
+                <li
+                  key={`${h.lat},${h.lon},${i}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    pickPlace(h)
+                  }}
+                  style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: C.ink }}>{h.short}</div>
+                  <div style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {h.label}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: C.muted }}>{t('searchHint')}</p>
         </div>
         <div>
           <label style={label} htmlFor="country">{t('fields.country')}</label>

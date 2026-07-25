@@ -1982,7 +1982,7 @@
       "placeholders": {
         "title": "Loft ensoleillé au bord du Nil",
         "description": "Qu’est-ce qui rend votre logement spécial ?",
-        "location": "Zamalek, Le Caire",
+        "location": "Rechercher une ville, un quartier ou une adresse",
         "country": "Égypte",
         "photos": "Une URL par ligne, ou séparées par des virgules\nhttps://images.unsplash.com/photo-...",
         "weekendPrice": "ex. 1500"
@@ -2011,6 +2011,7 @@
         "photoFailed": "Impossible de traiter cette image. Essayez-en une autre."
       },
       "pinHint": "Touchez la carte pour placer un repère. Les voyageurs voient une zone approximative, pas l'adresse exacte.",
+      "searchHint": "Recherchez une ville, un quartier ou une adresse, puis choisissez un résultat pour le placer sur la carte — glissez ensuite le repère pour l’ajuster.",
       "pinSet": "Placé à {lat}, {lng}. Touchez à nouveau pour déplacer.",
       "weekdays": {
         "sun": "Dim",

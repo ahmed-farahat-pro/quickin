@@ -384,7 +384,7 @@ async function HostDashboard({ userId, firstName, t }: { userId: string; firstNa
           }}
         >
           {listings.map((l) => (
-            <ListingCard key={l.id} listing={l} perNight={t('perNight')} />
+            <ListingCard key={l.id} listing={l} perNight={t('perNight')} viewLabel={t('dashboard.view')} editLabel={t('dashboard.edit')} />
           ))}
         </div>
       )}
@@ -406,7 +406,7 @@ async function HostDashboard({ userId, firstName, t }: { userId: string; firstNa
   )
 }
 
-function ListingCard({ listing, perNight }: { listing: Listing; perNight: string }) {
+function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Listing; perNight: string; viewLabel: string; editLabel: string }) {
   const img =
     listing.image_url ||
     listing.listing_images?.[0]?.url ||
@@ -446,6 +446,41 @@ function ListingCard({ listing, perNight }: { listing: Listing; perNight: string
           {priceLabel}
           <span style={{ color: COLORS.muted, fontWeight: 500 }}> {perNight}</span>
         </p>
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <a
+            href={`/explore/${listing.id}`}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              textDecoration: 'none',
+              color: COLORS.burgundy,
+              background: COLORS.cream,
+              border: `1px solid ${COLORS.tan}`,
+              borderRadius: 999,
+              padding: '9px 12px',
+              fontSize: 13.5,
+              fontWeight: 700,
+            }}
+          >
+            {viewLabel}
+          </a>
+          <a
+            href={`/host/${listing.id}/edit`}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              textDecoration: 'none',
+              color: '#fff',
+              background: COLORS.burgundy,
+              borderRadius: 999,
+              padding: '9px 12px',
+              fontSize: 13.5,
+              fontWeight: 700,
+            }}
+          >
+            {editLabel}
+          </a>
+        </div>
       </div>
     </article>
   )

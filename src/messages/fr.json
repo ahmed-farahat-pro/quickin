@@ -1908,6 +1908,8 @@
       "noListings": "Vous n’avez encore aucune annonce.",
       "countPublished": "{count, plural, one {# annonce publiée.} other {# annonces publiées.}}",
       "createListing": "Créer une annonce",
+      "view": "Voir",
+      "edit": "Modifier",
       "emptyHint": "Publiez votre premier espace pour commencer à accueillir des voyageurs."
     },
     "reservations": {

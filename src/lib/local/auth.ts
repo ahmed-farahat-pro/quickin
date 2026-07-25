@@ -213,6 +213,10 @@ export function publicUser(row: {
 /** Promote the current account to a host (idempotent). One account, no re-register. */
 export async function becomeHost(userId: string): Promise<void> {
   await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [userId])
+  // Keep the legacy `role` flag in sync so the mobile backend (which reads role)
+  // also recognizes this host. The column is absent on a frontend-only dev DB, so
+  // this is best-effort and must never fail the promotion.
+  try { await pool.query(`UPDATE users SET role = 'host' WHERE id = $1`, [userId]) } catch { /* role column not present */ }
 }
 
 /** Shared-secret check for the local-stack admin (host-application + ID review).

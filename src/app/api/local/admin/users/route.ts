@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { isAdminKey } from '@/lib/local/auth'
-import { adminListUsers, adminActivateUser, adminDeleteUser } from '@/lib/local/db'
+import { adminListUsers, adminActivateUser, adminDeleteUser, adminSetHost } from '@/lib/local/db'
 
 // Admin (key-gated): GET ?key=  → newest-first users with verification + counts.
 //                    POST ?key= { id, action:'activate'|'delete' } → verify / delete user.
@@ -24,10 +24,13 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null)
     const id = body?.id
     const action = body?.action
-    if (!id || (action !== 'activate' && action !== 'delete')) {
-      return NextResponse.json({ error: "id and action:'activate'|'delete' required" }, { status: 400, headers: CORS })
+    const allowed = ['activate', 'delete', 'make-host', 'remove-host']
+    if (!id || !allowed.includes(action)) {
+      return NextResponse.json({ error: "id and action:'activate'|'delete'|'make-host'|'remove-host' required" }, { status: 400, headers: CORS })
     }
     if (action === 'delete') await adminDeleteUser(id)
+    else if (action === 'make-host') await adminSetHost(id, true)
+    else if (action === 'remove-host') await adminSetHost(id, false)
     else await adminActivateUser(id)
     return NextResponse.json({ ok: true }, { headers: CORS })
   } catch (err) {

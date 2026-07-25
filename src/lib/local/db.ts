@@ -1164,6 +1164,76 @@ export async function createListing(hostId: string, data: CreateListingInput): P
   return listing
 }
 
+/** Host edit: update the core fields of a listing the caller OWNS. Ownership is
+ *  enforced in SQL (`host_id = $2`), so a non-owner's update matches no row and
+ *  returns null (the route maps that to 404). Only the provided fields change;
+ *  photos/location-pin editing is out of scope here. Returns the fresh listing. */
+export async function updateListing(
+  id: string,
+  hostId: string,
+  data: {
+    title?: string
+    description?: string | null
+    location?: string | null
+    country?: string | null
+    price_per_night?: number | string
+    weekend_price?: number | string | null
+    currency?: string
+    bedrooms?: number | string
+    beds?: number | string
+    bathrooms?: number | string
+    max_guests?: number | string
+    property_type?: string | null
+  }
+): Promise<Listing | null> {
+  if (!isUuid(id) || !isUuid(hostId)) return null
+
+  const sets: string[] = []
+  const vals: unknown[] = [id, hostId]
+  const put = (col: string, val: unknown) => { vals.push(val); sets.push(`${col} = $${vals.length}`) }
+  const intAtLeast = (v: unknown, min: number) => {
+    const n = Math.floor(Number(v))
+    return Number.isFinite(n) && n >= min ? n : min
+  }
+
+  if (data.title !== undefined) {
+    const title = String(data.title).trim()
+    if (!title) throw new Error('Title is required')
+    put('title', title)
+  }
+  if (data.description !== undefined) put('description', data.description?.toString().trim() || null)
+  if (data.location !== undefined) put('location', data.location?.toString().trim() || null)
+  if (data.country !== undefined) put('country', data.country?.toString().trim() || null)
+  if (data.price_per_night !== undefined) {
+    const price = Number(data.price_per_night)
+    if (!Number.isFinite(price) || price <= 0) throw new Error('Price must be greater than 0')
+    put('price_per_night', price)
+  }
+  if (data.weekend_price !== undefined) {
+    const wp = Number(data.weekend_price)
+    put('weekend_price', Number.isFinite(wp) && wp > 0 ? wp : null)
+  }
+  if (data.currency !== undefined) put('currency', String(data.currency).trim() || 'USD')
+  if (data.bedrooms !== undefined) put('bedrooms', intAtLeast(data.bedrooms, 0))
+  if (data.beds !== undefined) put('beds', intAtLeast(data.beds, 1))
+  if (data.bathrooms !== undefined) put('bathrooms', intAtLeast(data.bathrooms, 1))
+  if (data.max_guests !== undefined) put('max_guests', intAtLeast(data.max_guests, 1))
+  if (data.property_type !== undefined) put('property_type', data.property_type?.toString() || null)
+
+  // Nothing to change → just confirm ownership and echo the current row.
+  if (!sets.length) {
+    const owned = await pool.query(`SELECT id FROM listings WHERE id = $1 AND host_id = $2`, [id, hostId])
+    return owned.rows[0] ? getListingById(id) : null
+  }
+
+  const { rows } = await pool.query(
+    `UPDATE listings SET ${sets.join(', ')} WHERE id = $1 AND host_id = $2 RETURNING id`,
+    vals
+  )
+  if (!rows[0]) return null // not found or not owned by this host
+  return getListingById(id)
+}
+
 // ---- Admin: full ops dashboard (key-gated) ----------------------------------
 
 export interface AdminStats {
@@ -1315,6 +1385,21 @@ export async function adminActivateUser(id: string): Promise<void> {
   if (!isUuid(id)) throw new Error('Invalid user')
   await pool.query(`UPDATE users SET email_verified = true WHERE id = $1`, [id])
   await createNotification(id, 'account', 'Account activated', 'Your email was verified by our team — you can use your account normally now.', '/account')
+}
+
+/** Admin: directly set (or clear) a user's host role. Unified account — a host is
+ *  also a guest, so this only flips `is_host` (and keeps the legacy `role` in sync
+ *  for the mobile backend). Notifies the user when they gain hosting. Note: the
+ *  mobile apps cache is_host at login and only re-read it on a fresh sign-in, so a
+ *  user promoted here sees host surfaces after signing out and back in. */
+export async function adminSetHost(id: string, makeHost: boolean): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid user')
+  await pool.query(`UPDATE users SET is_host = $2 WHERE id = $1`, [id, makeHost])
+  // Legacy role column: absent on some dev DBs, so best-effort.
+  try { await pool.query(`UPDATE users SET role = $2 WHERE id = $1`, [id, makeHost ? 'host' : 'guest']) } catch { /* role column not present */ }
+  if (makeHost) {
+    await createNotification(id, 'host', 'You are now a host!', 'Your account was upgraded to host — sign out and back in to start listing your space.', '/host')
+  }
 }
 
 /** Admin: permanently delete a user and everything they own. Most child rows cascade,

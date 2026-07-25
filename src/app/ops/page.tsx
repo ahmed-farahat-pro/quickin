@@ -387,6 +387,20 @@ export default function OpsPage() {
     }
   }
 
+  // Directly flip a user's host role (unified account — a host is also a guest).
+  // Removing host asks first, since it revokes their ability to list.
+  const setHost = async (u: AdminUser, makeHost: boolean) => {
+    if (!makeHost && !window.confirm(`Remove host from ${u.email}? Their existing listings stay but they can no longer create new ones.`)) return
+    setBusyId(u.id)
+    const ok = await post('users', { id: u.id, action: makeHost ? 'make-host' : 'remove-host' })
+    setBusyId(null)
+    if (ok) {
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, is_host: makeHost } : x)))
+    } else {
+      setSectionError('users', 'Could not update the host role. Please retry.')
+    }
+  }
+
   // ---- listings actions ----
   const togglePublish = async (l: AdminListing) => {
     setBusyId(l.id)
@@ -748,9 +762,18 @@ export default function OpsPage() {
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{u.full_name || '—'}</td>
                       <td style={tdStyle}>{u.email}</td>
                       <td style={tdStyle}>
-                        {u.is_host
-                          ? badge('Host', BURGUNDY, '#fff')
-                          : badge('Guest', TAN, MUTED)}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {u.is_host
+                            ? badge('Host', BURGUNDY, '#fff')
+                            : badge('Guest', TAN, MUTED)}
+                          <button
+                            style={u.is_host ? dangerBtn : approveBtn}
+                            disabled={busyId === u.id}
+                            onClick={() => setHost(u, !u.is_host)}
+                          >
+                            {busyId === u.id ? 'Working…' : u.is_host ? 'Remove host' : 'Make host'}
+                          </button>
+                        </div>
                       </td>
                       <td style={tdStyle}>
                         <div

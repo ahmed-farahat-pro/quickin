@@ -4,12 +4,12 @@
 // the 'use client' component below.
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { getHostListings, getHostApplication, type Listing } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
-import { HostTabs } from './host-tabs'
+import { HostTabs, HostListingsFilter, type HostListingStatus } from './host-tabs'
 import { BecomeHostButton } from '../account/account-forms'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +38,28 @@ const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 
 const FALLBACK_IMG =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80'
+
+/** Legacy rows have no approval_status — treat anything unknown as published. */
+function listingStatus(listing: Listing): HostListingStatus {
+  return listing.approval_status === 'pending' || listing.approval_status === 'rejected'
+    ? listing.approval_status
+    : 'approved'
+}
+
+/**
+ * "Listed 27 Jul 2026" in the active locale. Returns null when created_at is
+ * missing or unparseable so the card simply omits the line.
+ */
+function formatListedOn(
+  t: T,
+  fmt: Intl.DateTimeFormat,
+  createdAt: string | null | undefined
+): string | null {
+  if (!createdAt) return null
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return null
+  return t('dashboard.listedOn', { date: fmt.format(date) })
+}
 
 async function getCurrentUser(): Promise<{ id: string; firstName: string; is_host: boolean } | null> {
   const token = (await cookies()).get('qk_token')?.value
@@ -300,6 +322,16 @@ function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pendin
 /** Signed-in dashboard: listings grid + a "Create a listing" CTA + incoming reservations. */
 async function HostDashboard({ userId, firstName, t }: { userId: string; firstName: string; t: T }) {
   const listings = await getHostListings(userId)
+  const locale = await getLocale()
+  const dateFmt = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+
+  const cardLabels: CardLabels = {
+    perNight: t('perNight'),
+    view: t('dashboard.view'),
+    edit: t('dashboard.edit'),
+    badgePending: t('dashboard.badge.pending'),
+    badgeRejected: t('dashboard.badge.rejected'),
+  }
 
   const emptyState = (
     <div
@@ -333,19 +365,33 @@ async function HostDashboard({ userId, firstName, t }: { userId: string; firstNa
     </div>
   )
 
+  // Cards stay server-rendered; the client filter below only picks which of
+  // these slots to mount for the active status.
   const listingsGrid = (
-    <div
-      className="qk-host-grid"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: 18,
+    <HostListingsFilter
+      items={listings.map((l) => {
+        const status = listingStatus(l)
+        return {
+          id: l.id,
+          status,
+          card: (
+            <ListingCard
+              listing={l}
+              status={status}
+              listedLabel={formatListedOn(t, dateFmt, l.created_at)}
+              labels={cardLabels}
+            />
+          ),
+        }
+      })}
+      labels={{
+        all: t('dashboard.filters.all'),
+        approved: t('dashboard.filters.published'),
+        pending: t('dashboard.filters.pending'),
+        rejected: t('dashboard.filters.rejected'),
       }}
-    >
-      {listings.map((l) => (
-        <ListingCard key={l.id} listing={l} perNight={t('perNight')} viewLabel={t('dashboard.view')} editLabel={t('dashboard.edit')} />
-      ))}
-    </div>
+      emptyLabel={t('dashboard.emptyFiltered')}
+    />
   )
 
   return (
@@ -408,7 +454,26 @@ async function HostDashboard({ userId, firstName, t }: { userId: string; firstNa
   )
 }
 
-function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Listing; perNight: string; viewLabel: string; editLabel: string }) {
+type CardLabels = {
+  perNight: string
+  view: string
+  edit: string
+  badgePending: string
+  badgeRejected: string
+}
+
+function ListingCard({
+  listing,
+  status,
+  listedLabel,
+  labels,
+}: {
+  listing: Listing
+  status: HostListingStatus
+  /** Pre-formatted "Listed 27 Jul 2026", or null when the date is unknown. */
+  listedLabel: string | null
+  labels: CardLabels
+}) {
   const img =
     listing.image_url ||
     listing.listing_images?.[0]?.url ||
@@ -436,7 +501,7 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
       <a
         href={editHref}
         className="qk-host-card-open"
-        aria-label={`${editLabel}: ${listing.title}`}
+        aria-label={`${labels.edit}: ${listing.title}`}
         style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
       >
         <div className="qk-host-listing-img" style={{ position: 'relative', width: '100%', height: 160, background: COLORS.tan, overflow: 'hidden' }}>
@@ -445,21 +510,21 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
             alt={listing.title}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
-          {(listing.approval_status === 'pending' || listing.approval_status === 'rejected') && (
+          {status !== 'approved' && (
             <span
               style={{
                 position: 'absolute',
                 top: 10,
-                left: 10,
+                insetInlineStart: 10,
                 padding: '4px 10px',
                 borderRadius: 999,
                 fontSize: 11.5,
                 fontWeight: 700,
                 color: '#fff',
-                background: listing.approval_status === 'pending' ? 'rgba(138,109,27,0.95)' : 'rgba(138,43,35,0.95)',
+                background: status === 'pending' ? 'rgba(138,109,27,0.95)' : 'rgba(138,43,35,0.95)',
               }}
             >
-              {listing.approval_status === 'pending' ? 'Under review' : 'Rejected'}
+              {status === 'pending' ? labels.badgePending : labels.badgeRejected}
             </span>
           )}
         </div>
@@ -474,8 +539,13 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
           )}
           <p style={{ margin: '10px 0 0', fontSize: 14.5, color: COLORS.burgundy, fontWeight: 700 }}>
             {priceLabel}
-            <span style={{ color: COLORS.muted, fontWeight: 500 }}> {perNight}</span>
+            <span style={{ color: COLORS.muted, fontWeight: 500 }}> {labels.perNight}</span>
           </p>
+          {listedLabel && (
+            <p style={{ margin: '8px 0 0', fontSize: 12.5, color: COLORS.muted }}>
+              {listedLabel}
+            </p>
+          )}
         </div>
       </a>
       <div style={{ display: 'flex', gap: 10, padding: '12px 16px 16px' }}>
@@ -494,7 +564,7 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
             fontWeight: 700,
           }}
         >
-          {viewLabel}
+          {labels.view}
         </a>
         <a
           href={editHref}
@@ -510,7 +580,7 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
             fontWeight: 700,
           }}
         >
-          {editLabel}
+          {labels.edit}
         </a>
       </div>
     </article>

@@ -12,6 +12,7 @@ import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { Heart } from 'lucide-react'
 import ExploreClient from './explore-client'
 import AppDownloadBar from './app-download-bar'
+import AddListingFab from './add-listing-fab'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,22 +39,47 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-// Read the qk_token cookie and resolve the signed-in user's first name + saved
-// listing ids (both null/empty when signed out). One DB round-trip for the user
-// row, then a second for the wishlist when signed in.
-async function getCurrentUser(): Promise<{ firstName: string | null; savedIds: string[]; isHost: boolean }> {
+/** Initials for the header avatar — same rule as the mobile apps' `avatarInitials`:
+ *  first + last word of the display name (or of the email's local part), uppercased. */
+function initialsFrom(source: string): string {
+  const parts = source.trim().split(/[\s._-]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase()
+  return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase()
+}
+
+interface Viewer {
+  firstName: string | null
+  initials: string
+  avatarUrl: string | null
+  savedIds: string[]
+  isHost: boolean
+}
+
+const SIGNED_OUT: Viewer = { firstName: null, initials: '?', avatarUrl: null, savedIds: [], isHost: false }
+
+// Read the qk_token cookie and resolve the signed-in user's first name, avatar
+// (photo url + initials) and saved listing ids (all null/empty when signed out).
+// One DB round-trip for the user row, then a second for the wishlist when signed in.
+async function getCurrentUser(): Promise<Viewer> {
   const token = (await cookies()).get('qk_token')?.value
-  if (!token) return { firstName: null, savedIds: [], isHost: false }
+  if (!token) return SIGNED_OUT
   const claims = verifyToken(token)
-  if (!claims?.email) return { firstName: null, savedIds: [], isHost: false }
+  if (!claims?.email) return SIGNED_OUT
   try {
     const row = await getUserRowByEmail(claims.email)
     const name = row?.full_name?.trim() || claims.email.split('@')[0]
     const firstName = name ? name.split(' ')[0] : null
     const savedIds = row?.id ? await getWishlistIds(row.id).catch(() => []) : []
-    return { firstName, savedIds, isHost: !!row?.is_host }
+    return {
+      firstName,
+      initials: initialsFrom(name || claims.email),
+      avatarUrl: row?.avatar_url?.trim() || null,
+      savedIds,
+      isHost: !!row?.is_host,
+    }
   } catch {
-    return { firstName: null, savedIds: [], isHost: false }
+    return SIGNED_OUT
   }
 }
 
@@ -102,7 +128,10 @@ export default async function ExplorePage({
     }),
     getCurrentUser(),
   ])
-  const { firstName, savedIds, isHost } = currentUser
+  const { firstName, initials, avatarUrl, savedIds, isHost } = currentUser
+  // The avatar carries the greeting ("Hi, {name}") as its label so the crowded
+  // header doesn't need a separate text link to /account.
+  const accountLabel = firstName ? t('nav.greeting', { name: firstName }) : t('nav.account')
 
   return (
     <main
@@ -180,33 +209,14 @@ export default async function ExplorePage({
               </a>
             )}
             {isHost ? (
-              <>
-                {/* A host is also a guest — give them a one-tap "Add listing"
-                    right from the home page, plus a link to manage/edit them. */}
-                <a
-                  href="/host"
-                  style={{ color: COLORS.ink, textDecoration: 'none', fontWeight: 600 }}
-                >
-                  {t('nav.hosting')}
-                </a>
-                <a
-                  href="/host/new"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    color: '#fff',
-                    background: COLORS.burgundy,
-                    textDecoration: 'none',
-                    fontWeight: 700,
-                    padding: '9px 18px',
-                    borderRadius: 999,
-                  }}
-                >
-                  <span aria-hidden style={{ fontSize: 17, lineHeight: 1, marginTop: -1 }}>+</span>
-                  {t('nav.addListing')}
-                </a>
-              </>
+              // A host is also a guest — this links to the hosting dashboard;
+              // "Add listing" now lives in the floating action button (bottom-end).
+              <a
+                href="/host"
+                style={{ color: COLORS.ink, textDecoration: 'none', fontWeight: 600 }}
+              >
+                {t('nav.hosting')}
+              </a>
             ) : (
               <a
                 href="/host"
@@ -233,12 +243,9 @@ export default async function ExplorePage({
                 >
                   {t('nav.saved')}
                 </a>
-                <a
-                  href="/account"
-                  style={{ color: COLORS.ink, textDecoration: 'none', fontWeight: 600 }}
-                >
-                  {t('nav.greeting', { name: firstName })}
-                </a>
+                {/* Profile avatar → /account, matching the mobile apps' top bar.
+                    Its label is the "Hi, {name}" greeting the text link used to show. */}
+                <ProfileAvatar initials={initials} avatarUrl={avatarUrl} label={accountLabel} />
                 <a
                   href="/api/auth/logout"
                   style={{
@@ -279,7 +286,7 @@ export default async function ExplorePage({
             )}
           </nav>
 
-          {/* Right side (mobile <820px): bell + hamburger that slides out the rest */}
+          {/* Right side (mobile <820px): bell + avatar + hamburger that slides out the rest */}
           <div className="qk-header-mobile">
             <NotificationsBell />
             {firstName && (
@@ -290,6 +297,17 @@ export default async function ExplorePage({
               >
                 <Heart className="h-5 w-5" />
               </a>
+            )}
+            {firstName && (
+              <ProfileAvatar
+                initials={initials}
+                avatarUrl={avatarUrl}
+                label={accountLabel}
+                size={34}
+                // The neighbouring icon buttons are 40px with built-in padding;
+                // the bare circle needs a little breathing room in the 2px gap.
+                marginInline={5}
+              />
             )}
             <MobileMenu firstName={firstName} isHost={isHost} />
           </div>
@@ -421,7 +439,69 @@ export default async function ExplorePage({
 
       {/* Phone-only "download the app" bar (links managed from /ops). */}
       <AppDownloadBar />
+
+      {/* Hosts get "Add listing" as a floating button on the bottom-end corner
+          (the WhatsApp FAB sits on the bottom-start corner). Same host gate the
+          top-nav pill used to have. */}
+      {isHost && <AddListingFab href="/host/new" label={t('nav.addListing')} />}
     </main>
+  )
+}
+
+/** Circular account avatar for the header — the user's photo when they have one,
+ *  otherwise their initials on the app's gold gradient (Gold → GoldSoft, white
+ *  bold initials) inside a soft burgundy ring. Mirrors the mobile apps' top bar. */
+function ProfileAvatar({
+  initials,
+  avatarUrl,
+  label,
+  size = 36,
+  marginInline = 0,
+}: {
+  initials: string
+  avatarUrl: string | null
+  label: string
+  size?: number
+  marginInline?: number
+}) {
+  return (
+    <a
+      href="/account"
+      title={label}
+      aria-label={label}
+      style={{
+        display: 'inline-flex',
+        flex: '0 0 auto',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size,
+        height: size,
+        marginInline,
+        borderRadius: 999,
+        overflow: 'hidden',
+        background: avatarUrl ? COLORS.tan : 'linear-gradient(135deg, #B07A2A 0%, #D8A55A 100%)',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: Math.round(size * 0.38),
+        lineHeight: 1,
+        letterSpacing: 0.3,
+        textDecoration: 'none',
+        boxShadow: `0 0 0 2px rgba(91,15,22,0.18)`,
+      }}
+    >
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- avatar_url may be an inline data: URL
+        <img
+          src={avatarUrl}
+          alt=""
+          width={size}
+          height={size}
+          style={{ width: size, height: size, objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <span aria-hidden>{initials}</span>
+      )}
+    </a>
   )
 }
 

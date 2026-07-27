@@ -99,6 +99,19 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
 }
 
+// Shared pill geometry so the sort pills and the List/Map segmented toggle line
+// up as one system (the segmented track adds its own 4px padding on each side).
+const PILL_HEIGHT = 38
+
+// Sort options rendered as rounded pills (mirrors the mobile app's explore row).
+// `value` is the API contract: /api/local/listings?sort=…
+const SORT_OPTIONS = [
+  { value: 'recommended', labelKey: 'sort.recommended' },
+  { value: 'price_asc', labelKey: 'sort.priceLow' },
+  { value: 'price_desc', labelKey: 'sort.priceHigh' },
+  { value: 'newest', labelKey: 'sort.newest' },
+] as const
+
 type View = 'list' | 'map'
 
 interface Filters {
@@ -351,6 +364,21 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
         .qk-cat { transition: color .16s ease, border-color .16s ease, opacity .16s ease; opacity: .7; }
         .qk-cat:hover { opacity: 1; }
         .qk-cat[data-on="true"] { opacity: 1; }
+
+        /* Sort / view pill rows — scroll sideways on narrow screens instead of
+           wrapping, with the scrollbar hidden (same trick as the category bar). */
+        .qk-pillrow { scrollbar-width: none; -ms-overflow-style: none; }
+        .qk-pillrow::-webkit-scrollbar { display: none; }
+        /* Inline styles win over classes, so hover needs !important here. */
+        .qk-pill[data-on="false"]:hover { background: #FBF8F2 !important; border-color: rgba(91,15,22,0.30) !important; }
+        .qk-seg[data-on="false"]:hover { color: #5B0F16 !important; }
+        .qk-pill:focus-visible, .qk-seg:focus-visible { outline: 2px solid #5B0F16; outline-offset: 2px; }
+
+        @media (max-width: 620px) {
+          /* Give the controls their own full-width line: sort pills lead (and
+             scroll), the List/Map toggle stays pinned to the trailing edge. */
+          .qk-status-controls { width: 100%; justify-content: space-between !important; }
+        }
 
         /* Card hover life. */
         .qk-card { transition: transform .22s ease, box-shadow .22s ease; will-change: transform; }
@@ -616,34 +644,51 @@ export default function ExploreClient({ initialListings, initialFilters, savedId
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <select
+            <div
+              className="qk-status-controls"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0 }}
+            >
+              {/* Sort — rounded pills (matches the mobile app), not a native
+                  <select>. Shrinks and scrolls sideways when space is tight. */}
+              <div
+                className="qk-pillrow"
+                role="group"
                 aria-label={t('sort.label')}
-                value={filters.sort}
-                onChange={(e) => selectSort(e.target.value)}
                 style={{
-                  fontFamily: FONT,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: COLORS.ink,
-                  background: '#fff',
-                  border: '1px solid rgba(42,34,32,0.14)',
-                  borderRadius: 999,
-                  padding: '8px 14px',
-                  cursor: 'pointer',
-                  outline: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'nowrap',
+                  overflowX: 'auto',
+                  flex: '0 1 auto',
+                  minWidth: 0,
                 }}
               >
-                <option value="recommended">{t('sort.recommended')}</option>
-                <option value="price_asc">{t('sort.priceLow')}</option>
-                <option value="price_desc">{t('sort.priceHigh')}</option>
-                <option value="newest">{t('sort.newest')}</option>
-              </select>
+                {SORT_OPTIONS.map((option) => (
+                  <ToggleButton
+                    key={option.value}
+                    variant="pill"
+                    label={t(option.labelKey)}
+                    active={filters.sort === option.value}
+                    onClick={() => selectSort(option.value)}
+                  />
+                ))}
+              </div>
 
               <div
                 role="tablist"
                 aria-label={t('view.toggleLabel')}
-                style={{ display: 'inline-flex', background: COLORS.tan, borderRadius: 999, padding: 4, gap: 4 }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: COLORS.tan,
+                  borderRadius: 999,
+                  padding: 4,
+                  gap: 4,
+                  flex: '0 0 auto',
+                  height: PILL_HEIGHT,
+                  boxSizing: 'border-box',
+                }}
               >
                 <ToggleButton label={t('view.list')} active={view === 'list'} onClick={() => setView('list')} />
                 <ToggleButton label={t('view.map')} active={view === 'map'} onClick={() => setView('map')} />
@@ -856,25 +901,50 @@ function ListingCard({
   )
 }
 
-function ToggleButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+// The one pill used by every toggle in the status row, so sort and List/Map
+// share a single set of states (active = burgundy fill + white text).
+//   'segment' — sits inside the tan segmented track (List/Map), no border.
+//   'pill'    — standalone pill: white fill + tan border when unselected.
+function ToggleButton({
+  label, active, onClick, variant = 'segment',
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+  variant?: 'segment' | 'pill'
+}) {
+  const isPill = variant === 'pill'
+  // A lone pill is a toggle button, not a tab — `role="tab"` is only valid
+  // inside the List/Map tablist.
+  const a11y: React.ButtonHTMLAttributes<HTMLButtonElement> = isPill
+    ? { 'aria-pressed': active }
+    : { role: 'tab', 'aria-selected': active }
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      {...a11y}
       onClick={onClick}
+      data-on={active ? 'true' : 'false'}
+      className={isPill ? 'qk-pill' : 'qk-seg'}
       style={{
         appearance: 'none',
-        border: 'none',
+        border: isPill ? `1px solid ${active ? COLORS.burgundy : COLORS.tan}` : 'none',
         cursor: 'pointer',
         fontFamily: FONT,
         fontSize: 14,
         fontWeight: 600,
-        padding: '8px 20px',
+        whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        flex: '0 0 auto',
+        height: isPill ? PILL_HEIGHT : PILL_HEIGHT - 8,
+        padding: isPill ? '0 16px' : '0 20px',
         borderRadius: 999,
         color: active ? '#fff' : COLORS.ink,
-        background: active ? COLORS.burgundy : 'transparent',
-        transition: 'background 0.15s ease, color 0.15s ease',
+        background: active ? COLORS.burgundy : isPill ? '#fff' : 'transparent',
+        transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease',
       }}
     >
       {label}

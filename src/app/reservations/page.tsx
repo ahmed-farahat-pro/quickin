@@ -41,7 +41,14 @@ const COLORS = {
 
 const FONT = '"DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif'
 
-async function getCurrentUser(): Promise<{ id: string; firstName: string } | null> {
+// Resolve the viewer from the qk_token cookie. `isHost` mirrors the pattern used
+// on /explore — it drives the "your places' requests live over on /host"
+// cross-link, so hosts aren't left wondering why reservations show up twice.
+async function getCurrentUser(): Promise<{
+  id: string
+  firstName: string
+  isHost: boolean
+} | null> {
   const token = (await cookies()).get('qk_token')?.value
   if (!token) return null
   const claims = verifyToken(token)
@@ -50,7 +57,7 @@ async function getCurrentUser(): Promise<{ id: string; firstName: string } | nul
     const row = await getUserRowByEmail(claims.email)
     if (!row) return null
     const name = row.full_name?.trim() || row.email.split('@')[0]
-    return { id: row.id, firstName: name.split(' ')[0] }
+    return { id: row.id, firstName: name.split(' ')[0], isHost: !!row.is_host }
   } catch {
     return null
   }
@@ -193,7 +200,11 @@ export default async function ReservationsPage() {
             </a>
           </div>
         ) : (
-          <ReservationsList userId={user.id} firstName={user.firstName} />
+          <ReservationsList
+            userId={user.id}
+            firstName={user.firstName}
+            isHost={user.isHost}
+          />
         )}
       </section>
     </main>
@@ -203,12 +214,15 @@ export default async function ReservationsPage() {
 async function ReservationsList({
   userId,
   firstName,
+  isHost,
 }: {
   userId: string
   firstName: string
+  isHost: boolean
 }) {
   const bookings = await getUserBookings(userId)
   const t = await getTranslations('reservationsLocal')
+  const tHost = await getTranslations('hostPage.dashboard')
   const bcp47 = localeToBcp47((await getLocale()) as Locale)
 
   return (
@@ -225,11 +239,52 @@ async function ReservationsList({
       >
         {t('listTitle', { name: firstName })}
       </h1>
-      <p style={{ margin: '0 0 28px', fontSize: 15, color: COLORS.muted }}>
+      {/* Says out loud what this page is: the guest side. Hosts see the
+          companion note below pointing at the host side. */}
+      <p style={{ margin: '0 0 4px', fontSize: 15, color: COLORS.muted }}>
+        {t('tripsHint')}
+      </p>
+      <p style={{ margin: '0 0 20px', fontSize: 15, color: COLORS.muted }}>
         {bookings.length === 0
           ? t('noneYet')
           : t('countBooked', { count: bookings.length })}
       </p>
+
+      {/* Hosts see reservations in two places — here (stays they booked) and on
+          /host (requests for their listings). Name the other one so the split is
+          obvious rather than confusing. Guests never see this. */}
+      {isHost && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'baseline',
+            gap: '2px 8px',
+            margin: '0 0 26px',
+            padding: '11px 15px',
+            background: COLORS.tan,
+            border: '1px solid rgba(91,15,22,0.10)',
+            borderRadius: 14,
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: COLORS.muted,
+          }}
+        >
+          <a
+            href="/host"
+            style={{
+              color: COLORS.burgundy,
+              fontWeight: 700,
+              textDecoration: 'underline',
+              textUnderlineOffset: 3,
+            }}
+          >
+            {tHost('tabs.reservations')}
+          </a>
+          <span aria-hidden>—</span>
+          <span>{tHost('reservationsHint')}</span>
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div

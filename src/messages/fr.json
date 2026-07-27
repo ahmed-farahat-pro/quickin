@@ -1480,8 +1480,8 @@
     "sort": {
       "label": "Trier",
       "recommended": "Recommandé",
-      "priceLow": "Prix : croissant",
-      "priceHigh": "Prix : décroissant",
+      "priceLow": "Prix ↑",
+      "priceHigh": "Prix ↓",
       "newest": "Plus récent"
     }
   },

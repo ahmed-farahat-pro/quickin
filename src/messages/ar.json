@@ -1480,8 +1480,8 @@
     "sort": {
       "label": "ترتيب",
       "recommended": "موصى به",
-      "priceLow": "السعر: من الأقل للأعلى",
-      "priceHigh": "السعر: من الأعلى للأقل",
+      "priceLow": "السعر ↑",
+      "priceHigh": "السعر ↓",
       "newest": "الأحدث"
     }
   },

@@ -13,6 +13,10 @@ export const metadata = {
   description: 'Pick-up and drop-off locations for QuickIn services',
 }
 
+// The shared (main) header renders the signed-in viewer from the per-request
+// `qk_token` cookie, so this page must be rendered per request, never prerendered.
+export const dynamic = 'force-dynamic'
+
 export default function ServicesPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">

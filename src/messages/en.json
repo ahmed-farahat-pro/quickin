@@ -1758,7 +1758,8 @@
     "errors": {
       "cancelFailed": "Could not cancel",
       "reviewFailed": "Could not submit review"
-    }
+    },
+    "tripsHint": "Stays you've booked as a guest."
   },
   "signupLocal": {
     "subtitle": "Create your account to start exploring",
@@ -1929,7 +1930,21 @@
       "tabs": {
         "listings": "My Listings",
         "reservations": "Incoming Reservations"
-      }
+      },
+      "listedOn": "Listed {date}",
+      "filters": {
+        "all": "All",
+        "published": "Published",
+        "pending": "Under review",
+        "rejected": "Rejected"
+      },
+      "emptyFiltered": "No listings match this filter.",
+      "badge": {
+        "pending": "Under review",
+        "rejected": "Rejected"
+      },
+      "listingsHint": "The places you host.",
+      "reservationsHint": "Booking requests from guests for your places."
     },
     "reservations": {
       "heading": "Incoming reservations",

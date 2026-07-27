@@ -45,6 +45,7 @@ export interface Listing {
   lng: number | null
   listing_images: ListingImage[]
   approval_status?: string | null
+  created_at?: string | null
   host_id?: string | null
   host_name?: string | null
   host_avatar?: string | null
@@ -87,6 +88,7 @@ const LISTING_COLS = `
   l.bedrooms, l.beds, l.bathrooms, l.max_guests, l.property_type,
   l.is_guest_favorite, l.listing_code, l.lat::float8 AS lat, l.lng::float8 AS lng,
   COALESCE(l.approval_status, 'approved') AS approval_status,
+  to_char(l.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
   COALESCE(
     (SELECT json_agg(json_build_object('url', li.url, 'order', li."order") ORDER BY li."order")
      FROM listing_images li WHERE li.listing_id = l.id), '[]'
@@ -1205,6 +1207,10 @@ export async function updateListing(
     bathrooms?: number | string
     max_guests?: number | string
     property_type?: string | null
+    lat?: number | string | null
+    lng?: number | string | null
+    weekend_days?: unknown
+    images?: unknown
   }
 ): Promise<Listing | null> {
   if (!isUuid(id) || !isUuid(hostId)) return null
@@ -1240,11 +1246,44 @@ export async function updateListing(
   if (data.bathrooms !== undefined) put('bathrooms', intAtLeast(data.bathrooms, 1))
   if (data.max_guests !== undefined) put('max_guests', intAtLeast(data.max_guests, 1))
   if (data.property_type !== undefined) put('property_type', data.property_type?.toString() || null)
+  // Map pin — the edit form has the same place-search + pin picker as create.
+  if (data.lat !== undefined) {
+    const n = Number(data.lat)
+    put('lat', Number.isFinite(n) ? n : null)
+  }
+  if (data.lng !== undefined) {
+    const n = Number(data.lng)
+    put('lng', Number.isFinite(n) ? n : null)
+  }
+  if (data.weekend_days !== undefined) {
+    const days = Array.isArray(data.weekend_days)
+      ? data.weekend_days
+          .map((d) => Math.floor(Number(d)))
+          .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+      : []
+    put('weekend_days', days.length ? days : null)
+  }
+
+  // Photos: when `images` is supplied the edit form owns the full set (add /
+  // remove / reorder), so replace the rows wholesale. Order = array order, so
+  // the first entry stays the cover. Omitting `images` leaves photos untouched.
+  const replaceImages = data.images !== undefined
+  const nextImages = replaceImages
+    ? (Array.isArray(data.images) ? data.images.filter(isImageSrc) : [])
+    : null
 
   // Nothing to change → just confirm ownership and echo the current row.
-  if (!sets.length) {
+  if (!sets.length && !replaceImages) {
     const owned = await pool.query(`SELECT id FROM listings WHERE id = $1 AND host_id = $2`, [id, hostId])
     return owned.rows[0] ? getListingById(id) : null
+  }
+
+  // Only photos changed → still verify ownership before touching listing_images.
+  if (!sets.length && replaceImages) {
+    const owned = await pool.query(`SELECT id FROM listings WHERE id = $1 AND host_id = $2`, [id, hostId])
+    if (!owned.rows[0]) return null
+    await replaceListingImages(id, nextImages ?? [])
+    return getListingById(id)
   }
 
   const { rows } = await pool.query(
@@ -1252,7 +1291,23 @@ export async function updateListing(
     vals
   )
   if (!rows[0]) return null // not found or not owned by this host
+  if (replaceImages) await replaceListingImages(id, nextImages ?? [])
   return getListingById(id)
+}
+
+/**
+ * Replace a listing's photos with `images` (already validated by isImageSrc).
+ * Array order becomes the stored "order", so images[0] is the cover. Used by the
+ * edit flow, which owns the whole set once the host touches photos.
+ */
+async function replaceListingImages(listingId: string, images: string[]): Promise<void> {
+  await pool.query(`DELETE FROM listing_images WHERE listing_id = $1`, [listingId])
+  for (let i = 0; i < images.length; i++) {
+    await pool.query(
+      `INSERT INTO listing_images (listing_id, url, "order") VALUES ($1, $2, $3)`,
+      [listingId, images[i].trim(), i]
+    )
+  }
 }
 
 // ---- Admin: full ops dashboard (key-gated) ----------------------------------

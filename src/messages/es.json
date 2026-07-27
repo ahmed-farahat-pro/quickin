@@ -1701,7 +1701,8 @@
     "errors": {
       "cancelFailed": "No se pudo cancelar",
       "reviewFailed": "No se pudo enviar la reseña"
-    }
+    },
+    "tripsHint": "Las estancias que has reservado como huésped."
   },
   "verifyIdPage": {
     "meta": {
@@ -1929,7 +1930,21 @@
       "tabs": {
         "listings": "Mis anuncios",
         "reservations": "Reservas entrantes"
-      }
+      },
+      "listedOn": "Publicado el {date}",
+      "filters": {
+        "all": "Todos",
+        "published": "Publicados",
+        "pending": "En revisión",
+        "rejected": "Rechazados"
+      },
+      "emptyFiltered": "Ningún anuncio coincide con este filtro.",
+      "badge": {
+        "pending": "En revisión",
+        "rejected": "Rechazado"
+      },
+      "listingsHint": "Los alojamientos que gestionas.",
+      "reservationsHint": "Solicitudes de reserva de huéspedes para tus alojamientos."
     },
     "reservations": {
       "heading": "Reservas entrantes",

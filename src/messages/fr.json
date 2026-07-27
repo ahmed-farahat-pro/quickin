@@ -1701,7 +1701,8 @@
     "errors": {
       "cancelFailed": "Annulation impossible",
       "reviewFailed": "Impossible d'envoyer l'avis"
-    }
+    },
+    "tripsHint": "Les séjours que vous avez réservés en tant que voyageur."
   },
   "verifyIdPage": {
     "meta": {
@@ -1929,7 +1930,21 @@
       "tabs": {
         "listings": "Mes annonces",
         "reservations": "Réservations entrantes"
-      }
+      },
+      "listedOn": "Publié le {date}",
+      "filters": {
+        "all": "Toutes",
+        "published": "Publiées",
+        "pending": "En cours d’examen",
+        "rejected": "Refusées"
+      },
+      "emptyFiltered": "Aucune annonce ne correspond à ce filtre.",
+      "badge": {
+        "pending": "En cours d’examen",
+        "rejected": "Refusée"
+      },
+      "listingsHint": "Les logements que vous hébergez.",
+      "reservationsHint": "Demandes de réservation des voyageurs pour vos logements."
     },
     "reservations": {
       "heading": "Réservations entrantes",

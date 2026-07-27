@@ -1701,7 +1701,8 @@
     "errors": {
       "cancelFailed": "تعذّر الإلغاء",
       "reviewFailed": "تعذّر إرسال التقييم"
-    }
+    },
+    "tripsHint": "الإقامات التي حجزتها كضيف."
   },
   "verifyIdPage": {
     "meta": {
@@ -1929,7 +1930,21 @@
       "tabs": {
         "listings": "إعلاناتي",
         "reservations": "الحجوزات الواردة"
-      }
+      },
+      "listedOn": "أُضيف في {date}",
+      "filters": {
+        "all": "الكل",
+        "published": "منشور",
+        "pending": "قيد المراجعة",
+        "rejected": "مرفوض"
+      },
+      "emptyFiltered": "لا توجد إعلانات تطابق هذا التصفية.",
+      "badge": {
+        "pending": "قيد المراجعة",
+        "rejected": "مرفوض"
+      },
+      "listingsHint": "الأماكن التي تستضيفها.",
+      "reservationsHint": "طلبات الحجز من الضيوف لأماكنك."
     },
     "reservations": {
       "heading": "الحجوزات الواردة",

@@ -330,10 +330,9 @@ private fun MapSelectionCard(
         ) {
             val thumbUrl = listing.sortedImageUrls.firstOrNull()
             if (thumbUrl != null) {
-                AsyncImage(
-                    model = thumbUrl,
+                DataUrlAwareImage(
+                    url = thumbUrl,
                     contentDescription = listing.title,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(72.dp)
                         .background(Tan, RoundedCornerShape(16.dp))

@@ -265,10 +265,9 @@ private fun ReservationCard(
             ) {
                 val imageUrl = booking.imageUrl
                 if (imageUrl != null) {
-                    AsyncImage(
-                        model = imageUrl,
+                    DataUrlAwareImage(
+                        url = imageUrl,
                         contentDescription = booking.title,
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize().background(Tan)
                     )
                 } else {

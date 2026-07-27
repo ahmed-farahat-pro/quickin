@@ -79,6 +79,8 @@ import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
 import com.quickin.app.ui.theme.TanWarm
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Shared boutique design primitives so every QuickIn screen reads as one cohesive,
@@ -205,8 +207,29 @@ fun KenBurnsImage(
         ),
         label = "kenburnsScale"
     )
+    // Device-uploaded photos arrive as base64 `data:` URLs, which Coil can't fetch — decode those to
+    // a Bitmap off the main thread (re-decoding only when the url changes). Stays null for http(s)/
+    // null urls, so those fall through to Coil / the placeholder exactly as before.
+    var dataBitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(url) {
+        dataBitmap = if (AvatarImage.isDataUrl(url)) {
+            withContext(Dispatchers.IO) { AvatarImage.decodeDataUrlToBitmap(url) }
+        } else null
+    }
     Box(modifier = modifier.clip(RoundedCornerShape(0.dp))) {
-        if (url != null) {
+        val bmp = dataBitmap
+        if (bmp != null) {
+            // Decoded data: URL — same Ken Burns scale applied to the Bitmap.
+            Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(scale)
+                    .background(Tan)
+            )
+        } else if (url != null && !AvatarImage.isDataUrl(url)) {
             AsyncImage(
                 model = url,
                 contentDescription = contentDescription,
@@ -221,6 +244,52 @@ fun KenBurnsImage(
         } else {
             PhotoPlaceholder(modifier = Modifier.fillMaxSize(), iconSize = 56.dp)
         }
+    }
+}
+
+/**
+ * Renders a listing image URL correctly whether it's a remote `http(s)` URL or an inline
+ * `data:image/...;base64,…` data URL. Device-uploaded listing photos are stored as base64 data URLs,
+ * which Coil 2.7.0 can't fetch, so those are decoded to a [android.graphics.Bitmap] off the main
+ * thread (reusing [AvatarImage.decodeDataUrlToBitmap]) and drawn with an [Image]; `http(s)` URLs keep
+ * going through Coil's [AsyncImage]. While a data URL is decoding — or if it can't be decoded — a
+ * [PhotoPlaceholder] fills the box. The image is always cropped to fill; size / clip / click come
+ * from [modifier]. Mirrors the decode recipe used by avatars ([ProfileAvatar]) and review photos
+ * ([ReviewPhotoThumbnail]).
+ */
+@Composable
+fun DataUrlAwareImage(
+    url: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier
+) {
+    if (AvatarImage.isDataUrl(url)) {
+        // Decode the data URL off the main thread; re-decode only when the URL changes.
+        var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+        LaunchedEffect(url) {
+            bitmap = withContext(Dispatchers.IO) { AvatarImage.decodeDataUrlToBitmap(url) }
+        }
+        val bmp = bitmap
+        Box(modifier = modifier) {
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                // Graceful placeholder while decoding / on failure.
+                PhotoPlaceholder(modifier = Modifier.fillMaxSize())
+            }
+        }
+    } else {
+        AsyncImage(
+            model = url,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
     }
 }
 

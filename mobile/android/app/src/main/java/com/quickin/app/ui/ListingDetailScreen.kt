@@ -1,6 +1,7 @@
 package com.quickin.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -91,6 +92,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -106,6 +108,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.quickin.app.AvatarImage
 import com.quickin.app.Booking
 import com.quickin.app.R
 import com.quickin.app.Listing
@@ -124,6 +127,8 @@ import com.quickin.app.ui.theme.GoldDeep
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val ErrorRed = Color(0xFFB3261E)
 
@@ -1162,11 +1167,11 @@ private fun DetailHero(
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 // Constrain the page image to the hero box explicitly (fixed height + width +
                 // Crop + clip) so it can never lay out at the photo's intrinsic pixel size and
-                // stretch the screen — the responsiveness fix.
-                AsyncImage(
-                    model = urls[page],
+                // stretch the screen — the responsiveness fix. DataUrlAwareImage handles both
+                // http(s) photos (Coil) and device-uploaded base64 `data:` photos (decoded).
+                DataUrlAwareImage(
+                    url = urls[page],
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(heroHeight)
@@ -1347,19 +1352,39 @@ private fun ZoomablePhoto(url: String) {
             },
         contentAlignment = Alignment.Center
     ) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                }
-        )
+        // Zoom/pan is applied via graphicsLayer to whichever image we draw (Fit scale preserved).
+        val imageModifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = offset.x
+                translationY = offset.y
+            }
+        if (AvatarImage.isDataUrl(url)) {
+            // Device-uploaded photos are base64 `data:` URLs Coil can't fetch — decode off the main
+            // thread and render, keeping the same Fit scale + zoom/pan transform.
+            var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+            LaunchedEffect(url) {
+                bitmap = withContext(Dispatchers.IO) { AvatarImage.decodeDataUrlToBitmap(url) }
+            }
+            val bmp = bitmap
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = imageModifier
+                )
+            }
+        } else {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = imageModifier
+            )
+        }
     }
 }
 

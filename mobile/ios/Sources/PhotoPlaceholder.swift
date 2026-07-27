@@ -48,9 +48,21 @@ struct ListingImageView: View {
         return URL(string: url)
     }
 
+    // Device-uploaded photos arrive as `data:image/…;base64,…` URLs. SwiftUI's
+    // AsyncImage can't fetch a `data:` URI, so decode it to a UIImage up front
+    // (reusing the avatar decoder) — otherwise host uploads render blank.
+    private var dataURLImage: UIImage? {
+        QKAvatarImage.decodeDataURL(url)
+    }
+
     var body: some View {
         Group {
-            if let resolvedURL {
+            if let dataURLImage {
+                Image(uiImage: dataURLImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let resolvedURL {
                 AsyncImage(url: resolvedURL) { phase in
                     switch phase {
                     case .success(let image):

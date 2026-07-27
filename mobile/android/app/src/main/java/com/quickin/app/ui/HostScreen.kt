@@ -453,10 +453,10 @@ private fun HostListingCard(
                 val imageUrl = listing.sortedImageUrls.firstOrNull()
                 Surface(shape = RoundedCornerShape(14.dp), color = Tan, modifier = Modifier.size(72.dp)) {
                     if (imageUrl != null) {
-                        coil.compose.AsyncImage(
-                            model = imageUrl,
+                        // Handles both http(s) photos (Coil) and device-uploaded base64 `data:` photos.
+                        DataUrlAwareImage(
+                            url = imageUrl,
                             contentDescription = listing.title,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
                         )
                     } else {

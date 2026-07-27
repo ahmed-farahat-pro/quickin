@@ -225,10 +225,9 @@ private fun ConversationRow(convo: ConversationSummary, onClick: () -> Unit) {
                 modifier = Modifier.size(56.dp)
             ) {
                 if (convo.listingImage != null) {
-                    AsyncImage(
-                        model = convo.listingImage,
+                    DataUrlAwareImage(
+                        url = convo.listingImage,
                         contentDescription = convo.listingTitle,
-                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(14.dp))

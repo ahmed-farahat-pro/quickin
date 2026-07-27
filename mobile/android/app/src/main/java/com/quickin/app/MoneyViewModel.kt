@@ -61,7 +61,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _earnings.value = HostEarningsUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load your earnings."
+                    error = humanError(e, "Could not load your earnings.")
                 )
             }
         }
@@ -81,7 +81,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _receipts.value = ReceiptsUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load your receipts."
+                    error = humanError(e, "Could not load your receipts.")
                 )
             }
         }

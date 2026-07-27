@@ -104,7 +104,7 @@ class ReviewsViewModel(application: Application) : AndroidViewModel(application)
                 _listingReviews.value = ListingReviewsUiState(
                     isLoading = false,
                     loadedListingId = listingId,
-                    error = e.message ?: "Could not load reviews."
+                    error = humanError(e, "Could not load reviews.")
                 )
             }
         }
@@ -158,7 +158,7 @@ class ReviewsViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 _submit.value = _submit.value.copy(
                     submitting = false,
-                    error = e.message ?: "Could not submit your review."
+                    error = humanError(e, "Could not submit your review.")
                 )
             }
         }
@@ -182,7 +182,7 @@ class ReviewsViewModel(application: Application) : AndroidViewModel(application)
                 _reviewGuests.value = _reviewGuests.value.copy(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load your guests."
+                    error = humanError(e, "Could not load your guests.")
                 )
             }
         }
@@ -206,7 +206,7 @@ class ReviewsViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {
                 _reviewGuests.value = _reviewGuests.value.copy(
                     actingOn = null,
-                    error = e.message ?: "Could not submit your review."
+                    error = humanError(e, "Could not submit your review.")
                 )
             }
         }
@@ -233,7 +233,7 @@ class ReviewsViewModel(application: Application) : AndroidViewModel(application)
                 _receivedReviews.value = ReceivedReviewsUiState(
                     isLoading = false,
                     loadedGuestId = guestId,
-                    error = e.message ?: "Could not load reviews."
+                    error = humanError(e, "Could not load reviews.")
                 )
             }
         }

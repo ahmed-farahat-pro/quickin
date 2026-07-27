@@ -138,7 +138,7 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 _services.value = ServicesUiState(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load services."
+                    error = humanError(e, "Could not load services.")
                 )
             }
         }
@@ -172,10 +172,10 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 if (e.code == 401) {
                     _subscribe.value = SubscribeUiState(needsSignIn = true)
                 } else {
-                    _subscribe.value = SubscribeUiState(error = e.message ?: "Could not subscribe.")
+                    _subscribe.value = SubscribeUiState(error = humanError(e, "Could not subscribe."))
                 }
             } catch (e: Exception) {
-                _subscribe.value = SubscribeUiState(error = e.message ?: "Could not subscribe.")
+                _subscribe.value = SubscribeUiState(error = humanError(e, "Could not subscribe."))
             }
         }
     }
@@ -207,7 +207,7 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 _mySubs.value = MySubscriptionsUiState(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load your subscriptions."
+                    error = humanError(e, "Could not load your subscriptions.")
                 )
             }
         }
@@ -239,7 +239,7 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _host.value = HostServicesUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load your services."
+                    error = humanError(e, "Could not load your services.")
                 )
             }
         }
@@ -265,7 +265,7 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _host.value = _host.value.copy(
                     actingOn = null,
-                    error = e.message ?: "Couldn't update the request."
+                    error = humanError(e, "Couldn't update the request.")
                 )
             }
         }
@@ -311,7 +311,7 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 // Refresh the host services list so the new one shows up.
                 loadHost()
             } catch (e: Exception) {
-                _create.value = CreateServiceUiState(error = e.message ?: "Couldn't publish the service.")
+                _create.value = CreateServiceUiState(error = humanError(e, "Couldn't publish the service."))
             }
         }
     }

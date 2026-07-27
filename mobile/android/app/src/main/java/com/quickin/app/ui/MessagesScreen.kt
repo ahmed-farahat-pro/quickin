@@ -1,5 +1,7 @@
 package com.quickin.app.ui
 
+import com.quickin.app.humanError
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -94,7 +96,7 @@ fun MessagesScreen(
         try {
             conversations = ChatThreadService.listConversations(token)
         } catch (e: Exception) {
-            error = e.message ?: "Couldn't load your messages."
+            error = humanError(e, "Couldn't load your messages.")
         } finally {
             isLoading = false
         }

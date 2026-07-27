@@ -91,7 +91,7 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
                 _state.value = _state.value.copy(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load saved items."
+                    error = humanError(e, "Could not load saved items.")
                 )
             }
         }

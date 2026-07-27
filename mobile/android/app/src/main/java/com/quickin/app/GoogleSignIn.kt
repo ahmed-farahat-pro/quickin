@@ -47,7 +47,7 @@ object GoogleSignIn {
         } catch (e: ApiException) {
             Pair(null, "Google sign-in failed (code ${e.statusCode})")
         } catch (e: Exception) {
-            Pair(null, e.message ?: "Google sign-in failed")
+            Pair(null, humanError(e, "Google sign-in failed"))
         }
     }
 

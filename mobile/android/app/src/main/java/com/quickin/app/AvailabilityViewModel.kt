@@ -107,7 +107,7 @@ class AvailabilityViewModel(application: Application) : AndroidViewModel(applica
             } catch (e: Exception) {
                 _host.value = HostAvailabilityUiState(
                     listingId = listingId,
-                    error = e.message ?: "Could not load availability."
+                    error = humanError(e, "Could not load availability.")
                 )
             }
         }
@@ -137,7 +137,7 @@ class AvailabilityViewModel(application: Application) : AndroidViewModel(applica
             } catch (e: Exception) {
                 _host.value = _host.value.copy(
                     isAdding = false,
-                    error = e.message ?: "Could not block those dates."
+                    error = humanError(e, "Could not block those dates.")
                 )
             }
         }
@@ -162,7 +162,7 @@ class AvailabilityViewModel(application: Application) : AndroidViewModel(applica
             } catch (e: Exception) {
                 _host.value = _host.value.copy(
                     removingId = null,
-                    error = e.message ?: "Could not remove that block."
+                    error = humanError(e, "Could not remove that block.")
                 )
             }
         }

@@ -1,5 +1,7 @@
 package com.quickin.app.ui
 
+import com.quickin.app.humanError
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -395,11 +397,11 @@ private fun InstapayPayBody(
                         401 -> context.getString(R.string.instapay_sign_in)
                         // 400 can be a missing screenshot, "too large", or "already paid" — prefer
                         // the server's message, falling back to the missing-screenshot copy.
-                        400 -> e.message ?: context.getString(R.string.instapay_missing_screenshot)
-                        else -> e.message ?: context.getString(R.string.instapay_load_error)
+                        400 -> humanError(e, context.getString(R.string.instapay_missing_screenshot))
+                        else -> humanError(e, context.getString(R.string.instapay_load_error))
                     }
                 } catch (e: Exception) {
-                    submitError = e.message ?: context.getString(R.string.instapay_load_error)
+                    submitError = humanError(e, context.getString(R.string.instapay_load_error))
                 } finally {
                     submitting = false
                 }

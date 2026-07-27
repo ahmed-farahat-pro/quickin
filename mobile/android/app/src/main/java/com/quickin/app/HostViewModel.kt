@@ -174,7 +174,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _listings.value = HostListingsUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load your listings."
+                    error = humanError(e, "Could not load your listings.")
                 )
             }
         }
@@ -196,7 +196,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _bookings.value = HostBookingsUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load reservation requests."
+                    error = humanError(e, "Could not load reservation requests.")
                 )
             }
         }
@@ -222,7 +222,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _bookings.value = _bookings.value.copy(
                     actingOn = null,
-                    error = e.message ?: "Couldn't update the reservation."
+                    error = humanError(e, "Couldn't update the reservation.")
                 )
             }
         }
@@ -304,7 +304,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     loaded = true
                 )
             } catch (e: Exception) {
-                _create.value = CreateListingUiState(error = e.message ?: "Couldn't publish the listing.")
+                _create.value = CreateListingUiState(error = humanError(e, "Couldn't publish the listing."))
             }
         }
     }
@@ -344,7 +344,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _policy.value = CancellationPolicyUiState(
                     listingId = listingId,
-                    error = e.message ?: "Couldn't update the cancellation policy."
+                    error = humanError(e, "Couldn't update the cancellation policy.")
                 )
             }
         }
@@ -388,7 +388,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _stayDiscount.value = StayDiscountUiState(
                     listingId = listingId,
-                    error = e.message ?: "Couldn't update the discounts."
+                    error = humanError(e, "Couldn't update the discounts.")
                 )
             }
         }
@@ -434,7 +434,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _seasonalPricing.value = SeasonalPricingUiState(
                     listingId = listingId,
-                    error = e.message ?: "Couldn't update the pricing."
+                    error = humanError(e, "Couldn't update the pricing.")
                 )
             }
         }
@@ -477,7 +477,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _ownershipDoc.value = OwnershipDocUiState(
                     listingId = listingId,
-                    error = e.message ?: "Couldn't submit the document."
+                    error = humanError(e, "Couldn't submit the document.")
                 )
             }
         }
@@ -535,7 +535,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     _aiWriter.value = AiWriterUiState(generated = description)
                 }
             } catch (e: Exception) {
-                _aiWriter.value = AiWriterUiState(error = e.message ?: "Couldn't write the description.")
+                _aiWriter.value = AiWriterUiState(error = humanError(e, "Couldn't write the description."))
             }
         }
     }
@@ -568,7 +568,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _analytics.value = HostAnalyticsUiState(
                     loaded = true,
-                    error = e.message ?: "Could not load your analytics."
+                    error = humanError(e, "Could not load your analytics.")
                 )
             }
         }

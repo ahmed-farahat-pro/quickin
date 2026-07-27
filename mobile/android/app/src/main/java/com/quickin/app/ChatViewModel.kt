@@ -93,7 +93,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (initial) {
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        error = e.message ?: "Couldn't load messages."
+                        error = humanError(e, "Couldn't load messages.")
                     )
                 }
             }
@@ -120,7 +120,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (_state.value.bookingId != bookingId) return@launch
                 _state.value = _state.value.copy(
                     isSending = false,
-                    error = e.message ?: "Couldn't send the message."
+                    error = humanError(e, "Couldn't send the message.")
                 )
             }
         }

@@ -130,7 +130,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                 _reservations.value = ReservationsUiState(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load reservations."
+                    error = humanError(e, "Could not load reservations.")
                 )
             }
         }
@@ -173,10 +173,10 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                 if (e.code == 401) {
                     _reserve.value = ReserveUiState(needsSignIn = true)
                 } else {
-                    _reserve.value = ReserveUiState(error = e.message ?: "Could not reserve.")
+                    _reserve.value = ReserveUiState(error = humanError(e, "Could not reserve."))
                 }
             } catch (e: Exception) {
-                _reserve.value = ReserveUiState(error = e.message ?: "Could not reserve.")
+                _reserve.value = ReserveUiState(error = humanError(e, "Could not reserve."))
             }
         }
     }
@@ -210,7 +210,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _payment.value = _payment.value.copy(
                     isPaying = false,
-                    error = e.message ?: "Payment failed. Please try again."
+                    error = humanError(e, "Payment failed. Please try again.")
                 )
             }
         }
@@ -245,7 +245,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                     promo = PromoQuote(
                         valid = false,
                         code = trimmed,
-                        message = e.message ?: "Couldn't validate that code."
+                        message = humanError(e, "Couldn't validate that code.")
                     )
                 )
             }
@@ -280,7 +280,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _referrals.value = ReferralUiState(
                     loaded = true,
-                    error = e.message ?: "Couldn't load your referrals."
+                    error = humanError(e, "Couldn't load your referrals.")
                 )
             }
         }
@@ -304,7 +304,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                 _detail.value = ReservationDetailUiState(reservation = reservation)
             } catch (e: Exception) {
                 _detail.value = ReservationDetailUiState(
-                    error = e.message ?: "Could not load this reservation."
+                    error = humanError(e, "Could not load this reservation.")
                 )
             }
         }
@@ -339,7 +339,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _detail.value = _detail.value.copy(
                     savingNotes = false,
-                    notesError = e.message ?: "Could not save your notes."
+                    notesError = humanError(e, "Could not save your notes.")
                 )
             }
         }
@@ -366,7 +366,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _detail.value = _detail.value.copy(
                     loadingQuote = false,
-                    cancelError = e.message ?: "Couldn't load the refund details."
+                    cancelError = humanError(e, "Couldn't load the refund details.")
                 )
             }
         }
@@ -407,7 +407,7 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
             } catch (e: Exception) {
                 _detail.value = _detail.value.copy(
                     cancelling = false,
-                    cancelError = e.message ?: "Couldn't cancel this reservation."
+                    cancelError = humanError(e, "Couldn't cancel this reservation.")
                 )
             }
         }

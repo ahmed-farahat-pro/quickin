@@ -62,7 +62,7 @@ class NotificationsViewModel(application: Application) : AndroidViewModel(applic
                 _state.value = _state.value.copy(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Could not load notifications."
+                    error = humanError(e, "Could not load notifications.")
                 )
             }
         }

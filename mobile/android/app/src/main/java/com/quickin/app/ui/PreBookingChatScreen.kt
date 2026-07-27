@@ -1,5 +1,7 @@
 package com.quickin.app.ui
 
+import com.quickin.app.humanError
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -161,7 +163,7 @@ private fun ChatThreadScreen(
                 error = "Couldn't start this conversation."
             }
         } catch (e: Exception) {
-            error = e.message ?: "Couldn't start this conversation."
+            error = humanError(e, "Couldn't start this conversation.")
         } finally {
             isLoading = false
         }
@@ -199,7 +201,7 @@ private fun ChatThreadScreen(
                 draft = ""
             } catch (e: Exception) {
                 // Keep the typed text so a rejected message (e.g. a phone number) isn't lost.
-                error = e.message ?: "Couldn't send your message."
+                error = humanError(e, "Couldn't send your message.")
             } finally {
                 isSending = false
             }

@@ -149,7 +149,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     .apply()
                 _state.value = _state.value.copy(isHost = result.isHost, role = result.role)
             } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message ?: "Couldn't become a host.")
+                _state.value = _state.value.copy(error = humanError(e, "Couldn't become a host."))
             } finally {
                 _becomingHost.value = false
             }
@@ -185,7 +185,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 logout()
                 onDeleted()
             } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message ?: "Couldn't delete your account.")
+                _state.value = _state.value.copy(error = humanError(e, "Couldn't delete your account."))
             } finally {
                 _deletingAccount.value = false
             }
@@ -212,7 +212,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Couldn't resend the code."
+                    error = humanError(e, "Couldn't resend the code.")
                 )
             }
         }
@@ -265,7 +265,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _forgot.value = _forgot.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Couldn't send the reset code."
+                    error = humanError(e, "Couldn't send the reset code.")
                 )
             }
         }
@@ -288,7 +288,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _forgot.value = _forgot.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Couldn't reset your password."
+                    error = humanError(e, "Couldn't reset your password.")
                 )
             }
         }
@@ -383,7 +383,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Something went wrong."
+                    error = humanError(e, "Something went wrong.")
                 )
             }
         }
@@ -403,7 +403,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Something went wrong."
+                    error = humanError(e, "Something went wrong.")
                 )
             }
         }

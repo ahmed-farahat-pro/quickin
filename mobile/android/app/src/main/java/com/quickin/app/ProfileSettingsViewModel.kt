@@ -65,7 +65,7 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                 _state.value = _state.value.copy(
                     isLoading = false,
                     loaded = true,
-                    error = e.message ?: "Couldn't load your profile."
+                    error = humanError(e, "Couldn't load your profile.")
                 )
             }
         }
@@ -103,7 +103,7 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isSaving = false,
-                    error = e.message ?: "Couldn't save your profile."
+                    error = humanError(e, "Couldn't save your profile.")
                 )
             }
         }
@@ -174,7 +174,7 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isChangingPassword = false,
-                    passwordError = e.message ?: "Couldn't change your password."
+                    passwordError = humanError(e, "Couldn't change your password.")
                 )
             }
         }

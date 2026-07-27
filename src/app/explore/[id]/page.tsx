@@ -103,6 +103,9 @@ export default async function ListingDetailPage({
   const claims = token ? verifyToken(token) : null
   const me = claims?.email ? await getUserRowByEmail(claims.email).catch(() => null) : null
   const isOwner = !!me && me.id === listing.host_id
+  // A pending / rejected listing (under moderation) is not public — only its owner
+  // can open it by direct link. Everyone else gets a 404, same as a hidden listing.
+  if (listing.approval_status && listing.approval_status !== 'approved' && !isOwner) notFound()
   const isSaved = me
     ? (await getWishlistIds(me.id).catch(() => [] as string[])).includes(listing.id)
     : false

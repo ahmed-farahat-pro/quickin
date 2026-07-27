@@ -44,6 +44,7 @@ export interface Listing {
   lat: number | null
   lng: number | null
   listing_images: ListingImage[]
+  approval_status?: string | null
   host_id?: string | null
   host_name?: string | null
   host_avatar?: string | null
@@ -85,6 +86,7 @@ const LISTING_COLS = `
   l.currency,
   l.bedrooms, l.beds, l.bathrooms, l.max_guests, l.property_type,
   l.is_guest_favorite, l.listing_code, l.lat::float8 AS lat, l.lng::float8 AS lng,
+  COALESCE(l.approval_status, 'approved') AS approval_status,
   COALESCE(
     (SELECT json_agg(json_build_object('url', li.url, 'order', li."order") ORDER BY li."order")
      FROM listing_images li WHERE li.listing_id = l.id), '[]'
@@ -92,7 +94,11 @@ const LISTING_COLS = `
 `
 
 export async function getListings(filters: SearchFilters = {}): Promise<Listing[]> {
-  const where: string[] = ['l.is_published = true']
+  // Only publicly-visible, admin-approved listings appear in search. New listings
+  // are created pending (approval_status='pending', is_published=false) and stay
+  // hidden until an admin approves them. Existing rows have NULL approval_status,
+  // which COALESCEs to 'approved' so they remain visible (grandfathered).
+  const where: string[] = ["l.is_published = true", "COALESCE(l.approval_status, 'approved') = 'approved'"]
   const params: unknown[] = []
 
   if (filters.location && filters.location.trim()) {
@@ -1147,11 +1153,14 @@ export async function createListing(hostId: string, data: CreateListingInput): P
     ? data.weekend_days.map((d) => Math.floor(Number(d))).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
     : []
   const { rows } = await pool.query(
+    // New listings enter moderation: not published + approval_status 'pending'.
+    // An admin approves them in /ops, which flips is_published=true and notifies
+    // the host. Until then they never appear in public search (see getListings).
     `INSERT INTO listings
        (host_id, title, description, location, country, lat, lng, price_per_night,
         weekend_price, weekend_days, currency,
-        bedrooms, beds, bathrooms, max_guests, property_type, is_published)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, true)
+        bedrooms, beds, bathrooms, max_guests, property_type, is_published, approval_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, false, 'pending')
      RETURNING id`,
     [
       hostId, title, data.description ?? null, data.location ?? null, data.country ?? null,
@@ -1355,6 +1364,7 @@ export interface AdminListingRow {
   currency: string
   price_per_night: number
   is_published: boolean
+  approval_status: string
   host_id: string | null
   host_name: string | null
   created_at: string
@@ -1367,6 +1377,7 @@ export async function adminListListings(): Promise<AdminListingRow[]> {
   const { rows } = await pool.query(
     `SELECT l.id, l.title, l.location, COALESCE(l.currency, 'USD') AS currency,
             l.price_per_night::float8 AS price_per_night, l.is_published,
+            COALESCE(l.approval_status, 'approved') AS approval_status,
             l.host_id, u.full_name AS host_name,
             to_char(l.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
             (SELECT COUNT(*) FROM bookings b WHERE b.listing_id = l.id)::int AS booking_count,
@@ -1384,6 +1395,43 @@ export async function adminListListings(): Promise<AdminListingRow[]> {
 export async function adminSetListingPublished(id: string, published: boolean): Promise<void> {
   if (!isUuid(id)) throw new Error('Invalid listing')
   await pool.query(`UPDATE listings SET is_published = $2 WHERE id = $1`, [id, published])
+}
+
+/**
+ * Admin moderation decision on a pending listing. Approving flips approval_status
+ * to 'approved' AND publishes it (so it appears in search); rejecting sets
+ * 'rejected' and keeps it unpublished. Either way the host gets a notification —
+ * which surfaces on both web and mobile (shared notifications table). Mirrors
+ * reviewHostApplication.
+ */
+export async function adminSetListingApproval(
+  id: string,
+  action: 'approve' | 'reject',
+  note?: string | null,
+): Promise<void> {
+  if (!isUuid(id)) throw new Error('Invalid listing')
+  const status = action === 'approve' ? 'approved' : 'rejected'
+  const { rows } = await pool.query(
+    `UPDATE listings SET approval_status = $2, is_published = $3 WHERE id = $1
+     RETURNING host_id, title`,
+    [id, status, action === 'approve'],
+  )
+  const row = rows[0] as { host_id: string | null; title: string | null } | undefined
+  if (!row) throw new Error('Listing not found')
+  if (!row.host_id) return
+  const title = row.title || 'Your listing'
+  if (action === 'approve') {
+    await createNotification(
+      row.host_id, 'listing', 'Listing approved 🎉',
+      `"${title}" was approved and is now live — guests can find and book it.`, '/host',
+    )
+  } else {
+    await createNotification(
+      row.host_id, 'listing', 'Listing needs changes',
+      note ? `"${title}" wasn't approved: ${note}` : `"${title}" wasn't approved this time. Please review it and resubmit.`,
+      '/host',
+    )
+  }
 }
 
 /** Delete a listing (FK cascades remove its images / bookings / reviews). */

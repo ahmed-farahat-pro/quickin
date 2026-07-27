@@ -439,12 +439,29 @@ function ListingCard({ listing, perNight, viewLabel, editLabel }: { listing: Lis
         aria-label={`${editLabel}: ${listing.title}`}
         style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
       >
-        <div className="qk-host-listing-img" style={{ width: '100%', height: 160, background: COLORS.tan, overflow: 'hidden' }}>
+        <div className="qk-host-listing-img" style={{ position: 'relative', width: '100%', height: 160, background: COLORS.tan, overflow: 'hidden' }}>
           <img
             src={img}
             alt={listing.title}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
+          {(listing.approval_status === 'pending' || listing.approval_status === 'rejected') && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 10,
+                left: 10,
+                padding: '4px 10px',
+                borderRadius: 999,
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: '#fff',
+                background: listing.approval_status === 'pending' ? 'rgba(138,109,27,0.95)' : 'rgba(138,43,35,0.95)',
+              }}
+            >
+              {listing.approval_status === 'pending' ? 'Under review' : 'Rejected'}
+            </span>
+          )}
         </div>
         <div style={{ padding: '14px 16px 2px' }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: COLORS.ink, transition: 'color .16s ease' }}>

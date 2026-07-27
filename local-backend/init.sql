@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS listings (
   property_type     text,
   is_guest_favorite boolean DEFAULT false,
   is_published      boolean DEFAULT true,
+  approval_status   text DEFAULT 'pending',              -- moderation: 'pending' | 'approved' | 'rejected'. New listings start pending; an admin approves in /ops (flips is_published + notifies the host). NULL/legacy rows treated as approved.
   listing_code      text,
   lat               double precision,
   lng               double precision,
@@ -248,12 +249,12 @@ BEGIN
   FOR i IN 1 .. array_length(rows_arr,1) LOOP
     INSERT INTO listings (title, description, location, country, price_per_night, currency,
                           bedrooms, beds, bathrooms, max_guests, property_type,
-                          is_guest_favorite, listing_code, lat, lng)
+                          is_guest_favorite, listing_code, lat, lng, approval_status)
     VALUES (rows_arr[i][1], rows_arr[i][2], rows_arr[i][3], rows_arr[i][4],
             rows_arr[i][5]::numeric, rows_arr[i][6],
             rows_arr[i][7]::int, rows_arr[i][8]::int, rows_arr[i][9]::int, rows_arr[i][10]::int,
             rows_arr[i][11], rows_arr[i][12]::boolean, rows_arr[i][13],
-            rows_arr[i][14]::float8, rows_arr[i][15]::float8)
+            rows_arr[i][14]::float8, rows_arr[i][15]::float8, 'approved')
     RETURNING id INTO v_id;
     FOR j IN 1 .. array_length(img_sets,2) LOOP
       INSERT INTO listing_images (listing_id, url, "order")

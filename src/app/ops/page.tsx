@@ -62,6 +62,7 @@ type AdminListing = {
   currency: string
   price_per_night: number
   is_published: boolean
+  approval_status: string
   host_id: string | null
   host_name: string | null
   created_at: string
@@ -456,6 +457,29 @@ export default function OpsPage() {
       setListings((prev) => prev.filter((x) => x.id !== l.id))
     } else {
       setSectionError('listings', 'Could not delete the listing. Please retry.')
+    }
+  }
+
+  // Approve / reject a pending (under-review) listing. Approving publishes it and
+  // notifies the host; rejecting keeps it unpublished with an optional note.
+  const decideListing = async (l: AdminListing, action: 'approve' | 'reject') => {
+    let note: string | null = null
+    if (action === 'reject') {
+      note = window.prompt('Optional note for the host (what to fix):') ?? null
+    }
+    setBusyId(l.id)
+    const ok = await post('listings', { id: l.id, action, note })
+    setBusyId(null)
+    if (ok) {
+      setListings((prev) =>
+        prev.map((x) =>
+          x.id === l.id
+            ? { ...x, approval_status: action === 'approve' ? 'approved' : 'rejected', is_published: action === 'approve' }
+            : x,
+        ),
+      )
+    } else {
+      setSectionError('listings', 'Could not update the listing. Please retry.')
     }
   }
 
@@ -954,7 +978,11 @@ export default function OpsPage() {
                       }}
                     >
                       <span style={{ fontSize: 16, fontWeight: 700, color: INK }}>{l.title}</span>
-                      {l.is_published
+                      {l.approval_status === 'pending'
+                        ? badge('Under review', '#FBECC9', '#8A6D1B')
+                        : l.approval_status === 'rejected'
+                        ? badge('Rejected', '#F6D9D6', '#8A2B23')
+                        : l.is_published
                         ? badge('Published', '#E2F0E9', GREEN)
                         : badge('Hidden', TAN, MUTED)}
                     </div>
@@ -979,6 +1007,24 @@ export default function OpsPage() {
                       alignItems: 'center',
                     }}
                   >
+                    {l.approval_status === 'pending' && (
+                      <>
+                        <button
+                          style={{ ...outlineBtn, borderColor: GREEN, color: GREEN, fontWeight: 700 }}
+                          disabled={busyId === l.id}
+                          onClick={() => decideListing(l, 'approve')}
+                        >
+                          {busyId === l.id ? 'Working…' : 'Approve'}
+                        </button>
+                        <button
+                          style={dangerBtn}
+                          disabled={busyId === l.id}
+                          onClick={() => decideListing(l, 'reject')}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
                     <button
                       style={outlineBtn}
                       disabled={busyId === l.id}

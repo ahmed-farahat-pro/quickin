@@ -9,7 +9,7 @@ import { MobileMenu } from './mobile-menu'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { getListings, getWishlistIds } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
-import { Heart } from 'lucide-react'
+import { Heart, MessageCircle } from 'lucide-react'
 import ExploreClient from './explore-client'
 import AppDownloadBar from './app-download-bar'
 import AddListingFab from './add-listing-fab'
@@ -199,6 +199,18 @@ export default async function ExplorePage({
           <nav className="qk-nav-desktop">
             <NotificationsBell />
             <LocaleSwitcher className="font-semibold text-[color:var(--qk-ink,#3a2a23)]" />
+            {firstName && (
+              // Messages inbox — the mobile apps surface chat as a top-level
+              // icon, so the web header carries the same affordance rather than
+              // burying it in the hamburger menu.
+              <a
+                href="/messages"
+                aria-label={t('nav.messages')}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#2A2220] transition-colors hover:bg-black/5"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </a>
+            )}
             {firstName && (
               <a
                 href="/saved"

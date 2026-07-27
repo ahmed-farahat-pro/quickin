@@ -1141,10 +1141,10 @@ private fun MainApp() {
                 hostViewModel.resetCreate()
                 showAddListing = false
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
-                    maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
+                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
                     weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
                 )
             },
@@ -1187,10 +1187,10 @@ private fun MainApp() {
             onSubmitGuestReview = { bookingId, rating, comment ->
                 reviewsViewModel.submitGuestReview(bookingId, rating, comment)
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
-                    maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
+                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
                     weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
                 )
             },

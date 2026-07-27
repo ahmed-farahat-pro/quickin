@@ -221,6 +221,14 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Become a host — surfaced at the very top for non-hosts so it's the first thing they see
+        // (unified account: this flips to a host in-app, no separate login) instead of being buried
+        // below the settings sections.
+        if (!isHost) {
+            BecomeHostCard(loading = becomingHost, onBecomeHost = onBecomeHost)
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
         // "Reviews about you" — the reviews this user has received from hosts (two-way reviews).
         ReviewsAboutYouSection(receivedReviews)
 
@@ -279,14 +287,11 @@ fun ProfileScreen(
         SectionHeader(stringResource(R.string.money_currency), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
         CurrencyPicker()
 
-        // Hosting section. Unified account: a non-host sees a "Become a host" card that flips the
-        // account to a host in-app (no separate login); a host sees the management entries.
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-        if (!isHost) {
-            BecomeHostCard(loading = becomingHost, onBecomeHost = onBecomeHost)
-        }
+        // Hosting section — host management entries. The non-host "Become a host" card now lives at
+        // the top of the profile (above), so this whole section only renders for a host.
         if (isHost) {
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
             SettingsRow(
                 icon = Icons.Filled.AddHome,
                 title = stringResource(R.string.profile_host_dashboard),

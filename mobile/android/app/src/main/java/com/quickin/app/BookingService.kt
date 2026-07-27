@@ -586,7 +586,7 @@ object BookingService {
         bathrooms: Int,
         maxGuests: Int,
         propertyType: String,
-        imageUrl: String?,
+        images: List<String>,
         amenities: List<String> = emptyList(),
         lat: Double? = null,
         lng: Double? = null,
@@ -617,9 +617,9 @@ object BookingService {
                 put("lat", lat)
                 put("lng", lng)
             }
-            val images = JSONArray()
-            if (!imageUrl.isNullOrBlank()) images.put(imageUrl.trim())
-            put("images", images)
+            // Listing photos: an array of strings, each a data:image/jpeg;base64 data URL (from the
+            // device picker) or an http(s) URL. The first is the cover. Blank entries are dropped.
+            put("images", JSONArray().apply { images.forEach { if (it.isNotBlank()) put(it) } })
             // Selected amenity labels (e.g. "WiFi", "Pool"); always sent (possibly empty).
             val amenityArr = JSONArray()
             amenities.forEach { amenityArr.put(it) }

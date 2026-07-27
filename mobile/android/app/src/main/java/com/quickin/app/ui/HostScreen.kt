@@ -26,7 +26,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,11 +38,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.ExpandLess
@@ -172,7 +176,7 @@ fun HostScreen(
     onCreateListing: (
         title: String, description: String, location: String, country: String,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
-        bathrooms: String, propertyType: String, imageUrl: String,
+        bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
@@ -1005,7 +1009,7 @@ fun AddListingScreen(
     onCreateListing: (
         title: String, description: String, location: String, country: String,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
-        bathrooms: String, propertyType: String, imageUrl: String,
+        bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
@@ -1374,13 +1378,16 @@ private val AMENITY_OPTIONS = listOf(
 
 private const val TOTAL_STEPS = 4
 
+/** Max device photos a host can attach to a new listing (the first is the cover). */
+private const val MAX_LISTING_PHOTOS = 10
+
 @Composable
 private fun AddListingTab(
     state: CreateListingUiState,
     onCreate: (
         title: String, description: String, location: String, country: String,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
-        bathrooms: String, propertyType: String, imageUrl: String,
+        bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
@@ -1454,7 +1461,10 @@ private fun AddListingTab(
     var beds by remember { mutableStateOf("1") }
     var bathrooms by remember { mutableStateOf("1") }
     var propertyType by remember { mutableStateOf(PROPERTY_TYPES.first()) }
-    var imageUrl by remember { mutableStateOf("") }
+    // Listing photos picked from the device, encoded as data:image/jpeg data URLs (in pick order).
+    // The first is the cover. Optional — a listing can be published with no photos (matches the web).
+    val photos = remember { mutableStateListOf<String>() }
+    var encodingPhotos by remember { mutableStateOf(false) }
     // Selected amenity labels (Step 3 chips). Order-preserving set of AMENITY_OPTIONS.
     val selectedAmenities = remember { mutableStateListOf<String>() }
     // Host-set cancellation policy (Step 3). Defaults to "moderate".
@@ -1494,6 +1504,25 @@ private fun AddListingTab(
                 }
                 if (dataUrl != null) ownershipDoc = dataUrl
                 processingDoc = false
+            }
+        }
+    }
+    // Listing-photo picker (multi-select): convert each picked image to a downscaled JPEG data URL
+    // off the main thread (maxDim 1024), then append respecting the MAX_LISTING_PHOTOS cap.
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(MAX_LISTING_PHOTOS)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            encodingPhotos = true
+            scope.launch {
+                val remaining = (MAX_LISTING_PHOTOS - photos.size).coerceAtLeast(0)
+                val encoded = withContext(Dispatchers.IO) {
+                    uris.take(remaining).mapNotNull { uri ->
+                        AvatarImage.loadDownscaledJpegDataUrl(context, uri, AvatarImage.MAX_REVIEW_DIM)
+                    }
+                }
+                photos.addAll(encoded)
+                encodingPhotos = false
             }
         }
     }
@@ -1567,7 +1596,14 @@ private fun AddListingTab(
                         onMonthlyPrice = { month, value ->
                             if (value.isBlank()) monthlyPrices.remove(key = month) else monthlyPrices[month] = value
                         },
-                        imageUrl = imageUrl, onImageUrl = { imageUrl = it },
+                        photos = photos,
+                        encodingPhotos = encodingPhotos,
+                        onAddPhotos = {
+                            photoPicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        onRemovePhoto = { index -> if (index in photos.indices) photos.removeAt(index) },
                         selectedAmenities = selectedAmenities,
                         onToggleAmenity = { amenity ->
                             if (selectedAmenities.contains(amenity)) selectedAmenities.remove(amenity)
@@ -1627,7 +1663,7 @@ private fun AddListingTab(
                         if (isLast) {
                             onCreate(
                                 title, description, location, country, price,
-                                maxGuests, bedrooms, beds, bathrooms, propertyType, imageUrl,
+                                maxGuests, bedrooms, beds, bathrooms, propertyType, photos.toList(),
                                 selectedAmenities.toList(),
                                 pickedLatLng?.latitude, pickedLatLng?.longitude, region,
                                 cancellationPolicy, ownershipDoc,
@@ -1838,7 +1874,8 @@ private fun StepDetails(
     monthlyDiscount: String, onMonthlyDiscount: (String) -> Unit,
     weekendPrice: String, onWeekendPrice: (String) -> Unit,
     monthlyPrices: Map<String, String>, onMonthlyPrice: (month: String, value: String) -> Unit,
-    imageUrl: String, onImageUrl: (String) -> Unit,
+    photos: List<String>, encodingPhotos: Boolean,
+    onAddPhotos: () -> Unit, onRemovePhoto: (Int) -> Unit,
     selectedAmenities: List<String>, onToggleAmenity: (String) -> Unit,
     cancellationPolicy: String, onCancellationPolicy: (String) -> Unit,
     ownershipDoc: String?, processingDoc: Boolean, onPickDoc: () -> Unit
@@ -1908,7 +1945,14 @@ private fun StepDetails(
         onMonthlyPrice = onMonthlyPrice
     )
 
-    HostField(imageUrl, onImageUrl, "Image URL (optional)", keyboardType = KeyboardType.Uri)
+    // Listing photos — a device multi-photo picker (the first photo is the cover). Optional.
+    ListingPhotoPicker(
+        photos = photos,
+        encoding = encodingPhotos,
+        enabled = photos.size < MAX_LISTING_PHOTOS,
+        onAdd = onAddPhotos,
+        onRemove = onRemovePhoto
+    )
 
     // Amenities multi-select — tap chips to toggle. Sent to the backend as `amenities`.
     Text("Amenities", fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
@@ -1959,6 +2003,109 @@ private fun StepDetails(
     )
 
     Text("Price per night is required.", color = Muted, fontSize = 13.sp)
+}
+
+/**
+ * The add-listing photo attach control: an "Add photos" outlined button (disabled at the
+ * [MAX_LISTING_PHOTOS] cap) plus a horizontal row of staged thumbnails, each with a remove (×)
+ * chip; the first photo carries a small "Cover" badge. Mirrors the review dialog's photo picker
+ * ([ReviewPhotoThumbnail] renders the `data:` URL thumbnails, which Coil can't fetch directly).
+ * Photos are optional, so nothing here gates advancing the wizard.
+ */
+@Composable
+private fun ListingPhotoPicker(
+    photos: List<String>,
+    encoding: Boolean,
+    enabled: Boolean,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            "Photos",
+            fontWeight = FontWeight.SemiBold,
+            color = Ink,
+            fontSize = 15.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Text(
+            "Add up to $MAX_LISTING_PHOTOS photos. The first one is your cover photo.",
+            color = Muted,
+            fontSize = 13.sp
+        )
+        OutlinedButton(
+            onClick = onAdd,
+            enabled = enabled,
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Tan),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.White,
+                contentColor = Burgundy
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            if (encoding) {
+                CircularProgressIndicator(color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            } else {
+                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Add photos", fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (photos.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                itemsIndexed(photos) { index, url ->
+                    Box {
+                        ReviewPhotoThumbnail(
+                            url = url,
+                            size = 84.dp,
+                            modifier = Modifier.padding(top = 6.dp, end = 6.dp)
+                        )
+                        // "Cover" badge on the first (cover) photo.
+                        if (index == 0) {
+                            Surface(
+                                color = Burgundy.copy(alpha = 0.92f),
+                                shape = RoundedCornerShape(7.dp),
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(start = 4.dp, bottom = 4.dp)
+                            ) {
+                                Text(
+                                    "Cover",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        // Remove (×) chip pinned to the top-end corner.
+                        Surface(
+                            color = Ink.copy(alpha = 0.72f),
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(24.dp)
+                                .clickable { onRemove(index) }
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Remove photo",
+                                tint = Color.White,
+                                modifier = Modifier.padding(4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**

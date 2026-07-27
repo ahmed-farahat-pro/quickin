@@ -444,7 +444,10 @@ object SupabaseService {
             monthlyDiscount = o.optInt("monthly_discount", 0),
             // Seasonal/variable pricing: weekend nightly rate (null when unset) + per-month overrides.
             weekendPrice = o.optDoubleOrNull("weekend_price"),
-            monthlyPrices = monthlyPrices
+            monthlyPrices = monthlyPrices,
+            // When the listing was created (ISO-8601); absent on feeds that don't select the
+            // column → null, and the "Listed …" line on the host card simply doesn't render.
+            createdAt = o.optStringOrNull("created_at")
         )
     }
 }

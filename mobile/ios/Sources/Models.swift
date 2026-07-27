@@ -78,6 +78,10 @@ struct Listing: Codable, Identifiable, Hashable {
     /// object keyed by month "1".."12" → nightly EGP. Only the months the host
     /// filled in are present. Defaults to empty `[:]` when the backend omits it.
     let monthlyPrices: [String: Double]
+    /// ISO-8601 timestamp the listing was created, from the `created_at` column.
+    /// `nil` when the backend omits it (older responses). Drives the
+    /// "Listed 27 Jul 2026" line on the host's own listing rows.
+    let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, location, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
@@ -96,6 +100,7 @@ struct Listing: Codable, Identifiable, Hashable {
         case monthlyDiscount = "monthly_discount"
         case weekendPrice = "weekend_price"
         case monthlyPrices = "monthly_prices"
+        case createdAt = "created_at"
     }
 
     init(from decoder: Decoder) throws {
@@ -133,6 +138,7 @@ struct Listing: Codable, Identifiable, Hashable {
         // Per-month seasonal rates: keep only positive nightly values keyed "1".."12".
         monthlyPrices = (try c.decodeIfPresent([String: Double].self, forKey: .monthlyPrices) ?? [:])
             .filter { $0.value > 0 }
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
     }
 
     /// `true` once the place has at least one review backing a rating.
@@ -165,6 +171,37 @@ struct Listing: Codable, Identifiable, Hashable {
             .sorted { ($0.order ?? 0) < ($1.order ?? 0) }
             .map { $0.url }
     }
+
+    /// "27 Jul 2026" style creation date, parsed from the ISO-8601 `created_at`.
+    /// Empty when the timestamp is missing or unparseable — callers then render
+    /// no "Listed …" line at all rather than a placeholder.
+    var listedDateText: String {
+        guard let createdAt, let date = Listing.parseDate(createdAt) else { return "" }
+        return Listing.listedFormatter.string(from: date)
+    }
+
+    /// Parse an ISO-8601 timestamp, tolerating both with- and without-fractional
+    /// seconds (Postgres `timestamptz` serializes either way), plus a bare
+    /// `yyyy-MM-dd` date.
+    private static func parseDate(_ raw: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFraction.date(from: raw) { return d }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let d = plain.date(from: raw) { return d }
+        let dateOnly = DateFormatter()
+        dateOnly.locale = Locale(identifier: "en_US_POSIX")
+        dateOnly.dateFormat = "yyyy-MM-dd"
+        return dateOnly.date(from: raw)
+    }
+
+    private static let listedFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = .current
+        f.dateFormat = "d MMM yyyy"
+        return f
+    }()
 
     var currencySymbol: String { "EGP " }
 

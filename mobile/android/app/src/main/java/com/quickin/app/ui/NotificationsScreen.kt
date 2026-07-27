@@ -50,15 +50,21 @@ import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
 import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * In-app NOTIFICATIONS feed. Full-screen overlay (no bottom bar). Each row shows a
  * leading burgundy unread dot when the item is unread, a bold [AppNotification.title],
- * an optional muted body, and a relative time ("2h ago") parsed from the ISO-8601
- * `created_at`. Tapping a row marks it read (then reloads); the top bar carries a back
- * arrow and a "Mark all read" action.
+ * an optional muted body, and — right-aligned on the title row — the item's age
+ * ("2h ago", "3 Jul") derived from the ISO-8601 `created_at` by [relativeTime].
+ * Tapping a row marks it read (then reloads); the top bar carries a back arrow and a
+ * "Mark all read" action.
  *
  * The app draws edge-to-edge, so the top bar uses [Modifier.statusBarsPadding] to clear
  * the status bar.
@@ -187,12 +193,18 @@ private fun NotificationRow(notif: AppNotification, onClick: () -> Unit) {
                         fontSize = 15.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        relativeTime(notif.createdAt),
-                        color = Muted,
-                        fontSize = 12.sp
-                    )
+                    // Age of the notification, right-aligned on the title row. Blank
+                    // (and skipped entirely) when there's no usable timestamp.
+                    val time = relativeTime(notif.createdAt)
+                    if (time.isNotBlank()) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            time,
+                            color = Muted,
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
+                    }
                 }
                 if (!notif.body.isNullOrBlank()) {
                     Text(
@@ -255,36 +267,51 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 /**
- * Renders an ISO-8601 timestamp as a short relative label ("just now", "2h ago",
- * "3d ago"). Falls back to the raw string if it can't be parsed.
+ * Renders an ISO-8601 timestamp as a short age label:
+ *
+ *   under a minute -> "Just now"    under an hour -> "5m ago"
+ *   under a day    -> "2h ago"      under a week  -> "3d ago"
+ *   a week or more -> "3 Jul" (plus the year, "3 Jul 2025", when it isn't this year)
+ *
+ * Returns "" for a missing or unparseable timestamp so the row renders no time at all
+ * rather than a raw string.
  */
-private fun relativeTime(iso: String): String {
-    if (iso.isBlank()) return ""
-    val then = parseInstantOrNull(iso) ?: return iso
-    val now = OffsetDateTime.now()
-    val seconds = Duration.between(then, now).seconds
-    // Guard against small clock skew (server slightly ahead of device).
-    val s = if (seconds < 0) 0 else seconds
+private fun relativeTime(iso: String?): String {
+    val then = parseInstantOrNull(iso) ?: return ""
+    // Clamped so small clock skew (server slightly ahead of the device) still reads "Just now".
+    val seconds = Duration.between(then, OffsetDateTime.now()).seconds.coerceAtLeast(0)
     return when {
-        s < 60 -> "just now"
-        s < 3_600 -> "${s / 60}m ago"
-        s < 86_400 -> "${s / 3_600}h ago"
-        s < 604_800 -> "${s / 86_400}d ago"
-        else -> "${s / 604_800}w ago"
+        seconds < 60 -> "Just now"
+        seconds < 3_600 -> "${seconds / 60}m ago"
+        seconds < 86_400 -> "${seconds / 3_600}h ago"
+        seconds < 604_800 -> "${seconds / 86_400}d ago"
+        else -> absoluteDate(then)
     }
+}
+
+/**
+ * "3 Jul" for a date in the current year, "3 Jul 2025" otherwise — in the device's
+ * time zone, with English month names to match the rest of the app's date labels.
+ */
+private fun absoluteDate(then: OffsetDateTime): String {
+    val date = then.atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+    val pattern = if (date.year == LocalDate.now().year) "d MMM" else "d MMM yyyy"
+    return date.format(DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH))
 }
 
 /**
  * Parses common ISO-8601 shapes the API may emit: an offset/Z timestamp
  * (`2026-06-13T10:00:00Z`) or a bare local timestamp (`2026-06-13T10:00:00`,
- * assumed UTC). Returns null on anything unparseable.
+ * assumed UTC). Returns null for null/blank input and anything unparseable.
  */
-private fun parseInstantOrNull(iso: String): OffsetDateTime? {
-    runCatching { return OffsetDateTime.parse(iso) }
+private fun parseInstantOrNull(iso: String?): OffsetDateTime? {
+    val text = iso?.trim().orEmpty()
+    if (text.isEmpty()) return null
+    runCatching { return OffsetDateTime.parse(text) }
     runCatching {
-        return java.time.LocalDateTime
-            .parse(iso, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            .atOffset(java.time.ZoneOffset.UTC)
+        return LocalDateTime
+            .parse(text, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            .atOffset(ZoneOffset.UTC)
     }
     return null
 }

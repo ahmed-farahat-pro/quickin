@@ -83,7 +83,14 @@ data class Listing(
      * at that month's rate (weekend rate still wins over it). The authoritative quote endpoint
      * resolves the exact total; this just surfaces that seasonal pricing exists.
      */
-    val monthlyPrices: Map<String, Double> = emptyMap()
+    val monthlyPrices: Map<String, Double> = emptyMap(),
+    /**
+     * ISO-8601 timestamp the listing was created, e.g. "2026-07-27T10:28:00Z" (parsed from
+     * "created_at"); null when the backend omits the column. Surfaced as the muted
+     * "Listed 27 Jul 2026" line on the host's own listing cards, so a host can tell at a glance
+     * when a place went up (and how long a pending one has been waiting).
+     */
+    val createdAt: String? = null
 ) {
     /**
      * Photo URLs sorted by their order. Empty when the listing has no photos — callers
@@ -659,8 +666,10 @@ data class ServiceRequest(
 /**
  * An in-app notification (from `GET /api/local/notifications`). The feed shows an
  * unread dot when [read] is false, the [title]/[body], and a relative time derived
- * from [createdAt] (ISO-8601). [link] is an optional in-app deep link the row could
- * route to (currently unused by the Android feed — tapping just marks it read).
+ * from [createdAt] — an ISO-8601 timestamp such as `2026-07-27T10:28:00Z`, null when
+ * the API omits it (the row then simply shows no time). [link] is an optional in-app
+ * deep link the row could route to (currently unused by the Android feed — tapping
+ * just marks it read).
  */
 data class AppNotification(
     val id: String,
@@ -669,7 +678,7 @@ data class AppNotification(
     val body: String?,
     val link: String?,
     val read: Boolean,
-    val createdAt: String
+    val createdAt: String?
 )
 
 /**

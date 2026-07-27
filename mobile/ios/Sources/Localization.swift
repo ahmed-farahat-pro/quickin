@@ -440,6 +440,12 @@ enum Strings {
         "profile.subtitle": "Profile, settings & language.",
         "saved.eyebrow": "Your collection",
         "notifications.title": "Notifications",
+        // Compact relative timestamps on the notification rows.
+        // %@ = the count; keep the unit short so it fits beside the title.
+        "time.justNow": "Just now",
+        "time.minutesAgo": "%@m ago",
+        "time.hoursAgo": "%@h ago",
+        "time.daysAgo": "%@d ago",
 
         // Services
         "services.title": "Services",
@@ -541,6 +547,13 @@ enum Strings {
         "host.action.reject": "Reject",
         "host.message": "Message",
         "host.status.live": "Live",
+        // %@ = "27 Jul 2026"
+        "host.listing.listedOn": "Listed %@",
+        // Host listings status filter
+        "host.filter.published": "Published",
+        "host.filter.empty.published": "No published listings.",
+        "host.filter.empty.underReview": "No listings under review.",
+        "host.filter.empty.rejected": "No rejected listings.",
 
         // Listing approval queue + ownership document
         "approval.pending": "Pending review",
@@ -1120,6 +1133,10 @@ enum Strings {
         "profile.subtitle": "الملف الشخصي والإعدادات واللغة.",
         "saved.eyebrow": "مجموعتك",
         "notifications.title": "الإشعارات",
+        "time.justNow": "الآن",
+        "time.minutesAgo": "قبل %@ د",
+        "time.hoursAgo": "قبل %@ س",
+        "time.daysAgo": "قبل %@ ي",
 
         // Services
         "services.title": "الخدمات",
@@ -1220,6 +1237,11 @@ enum Strings {
         "host.action.reject": "رفض",
         "host.message": "مراسلة",
         "host.status.live": "منشور",
+        "host.listing.listedOn": "تم الإدراج في %@",
+        "host.filter.published": "منشور",
+        "host.filter.empty.published": "لا توجد إعلانات منشورة.",
+        "host.filter.empty.underReview": "لا توجد إعلانات قيد المراجعة.",
+        "host.filter.empty.rejected": "لا توجد إعلانات مرفوضة.",
 
         // Listing approval queue + ownership document
         "approval.pending": "قيد المراجعة",
@@ -1754,6 +1776,10 @@ enum Strings {
         "profile.subtitle": "Profil, paramètres et langue.",
         "saved.eyebrow": "Votre collection",
         "notifications.title": "Notifications",
+        "time.justNow": "À l'instant",
+        "time.minutesAgo": "il y a %@ min",
+        "time.hoursAgo": "il y a %@ h",
+        "time.daysAgo": "il y a %@ j",
         "services.title": "Services",
         "services.eyebrow": "Côte Nord · Égypte",
         "services.subtitle": "Ajoutez des expériences à votre séjour — sur l'eau, dans le sable, à votre table.",
@@ -1840,6 +1866,11 @@ enum Strings {
         "host.action.reject": "Refuser",
         "host.message": "Message",
         "host.status.live": "En ligne",
+        "host.listing.listedOn": "Publiée le %@",
+        "host.filter.published": "Publié",
+        "host.filter.empty.published": "Aucune annonce publiée.",
+        "host.filter.empty.underReview": "Aucune annonce en cours d'examen.",
+        "host.filter.empty.rejected": "Aucune annonce refusée.",
         "approval.pending": "En cours d'examen",
         "approval.approved": "Approuvé",
         "approval.rejected": "Refusé",
@@ -2348,6 +2379,10 @@ enum Strings {
         "profile.subtitle": "Perfil, ajustes e idioma.",
         "saved.eyebrow": "Su colección",
         "notifications.title": "Notificaciones",
+        "time.justNow": "Ahora mismo",
+        "time.minutesAgo": "hace %@ min",
+        "time.hoursAgo": "hace %@ h",
+        "time.daysAgo": "hace %@ d",
         "services.title": "Servicios",
         "services.eyebrow": "Costa Norte · Egipto",
         "services.subtitle": "Añada experiencias a su estancia: en el agua, en la arena, en su mesa.",
@@ -2434,6 +2469,11 @@ enum Strings {
         "host.action.reject": "Rechazar",
         "host.message": "Mensaje",
         "host.status.live": "Publicado",
+        "host.listing.listedOn": "Publicado el %@",
+        "host.filter.published": "Publicado",
+        "host.filter.empty.published": "No hay anuncios publicados.",
+        "host.filter.empty.underReview": "No hay anuncios en revisión.",
+        "host.filter.empty.rejected": "No hay anuncios rechazados.",
         "approval.pending": "En revisión",
         "approval.approved": "Aprobado",
         "approval.rejected": "Rechazado",

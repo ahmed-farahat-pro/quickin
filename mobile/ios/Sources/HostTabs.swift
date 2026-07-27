@@ -18,6 +18,8 @@ struct HostListingsTab: View {
     @EnvironmentObject private var loc: LocalizationManager
     @StateObject private var viewModel = HostDashboardViewModel()
     @State private var showingAddListing = false
+    /// Which moderation state the list is narrowed to (client-side, instant).
+    @State private var listingFilter: HostListingFilter = .all
 
     var body: some View {
         NavigationStack {
@@ -77,10 +79,20 @@ struct HostListingsTab: View {
                     if viewModel.listings.isEmpty {
                         HostEmptyHint(icon: "house", text: loc.t("host.listings.empty"))
                     } else {
-                        ForEach(viewModel.listings) { listing in
-                            HostListingRow(listing: listing, onResubmitted: {
-                                Task { await viewModel.load() }
-                            })
+                        HostListingFilterBar(selection: $listingFilter, listings: viewModel.listings)
+
+                        if filteredListings.isEmpty {
+                            Text(listingFilter.emptyMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.qkMuted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 4)
+                        } else {
+                            ForEach(filteredListings) { listing in
+                                HostListingRow(listing: listing, onResubmitted: {
+                                    Task { await viewModel.load() }
+                                })
+                            }
                         }
                     }
                 }
@@ -90,6 +102,11 @@ struct HostListingsTab: View {
             }
             .refreshable { await viewModel.load() }
         }
+    }
+
+    /// The host's listings narrowed to the selected status chip.
+    private var filteredListings: [Listing] {
+        viewModel.listings.filter { listingFilter.matches($0.approval) }
     }
 
     private var addListingCard: some View {

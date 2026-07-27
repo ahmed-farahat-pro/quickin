@@ -59,6 +59,9 @@ final class HostDashboardViewModel: ObservableObject {
 struct HostDashboardView: View {
     @StateObject private var viewModel = HostDashboardViewModel()
     @State private var showingAddListing = false
+    /// Which moderation state the "Your listings" section is narrowed to.
+    /// Client-side over the already-loaded rows, so switching is instant.
+    @State private var listingFilter: HostListingFilter = .all
 
     var body: some View {
         ZStack {
@@ -346,13 +349,30 @@ struct HostDashboardView: View {
             if viewModel.listings.isEmpty {
                 emptyHint(icon: "house", text: "You haven't published a listing yet. Tap “Add a listing” to get started.")
             } else {
-                ForEach(viewModel.listings) { listing in
-                    HostListingRow(listing: listing, onResubmitted: {
-                        Task { await viewModel.load() }
-                    })
+                HostListingFilterBar(selection: $listingFilter, listings: viewModel.listings)
+
+                if filteredListings.isEmpty {
+                    // A filter that selects nothing gets its own short line rather
+                    // than the generic "you haven't published anything" hint.
+                    Text(listingFilter.emptyMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.qkMuted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(filteredListings) { listing in
+                        HostListingRow(listing: listing, onResubmitted: {
+                            Task { await viewModel.load() }
+                        })
+                    }
                 }
             }
         }
+    }
+
+    /// The host's listings narrowed to the selected status chip.
+    private var filteredListings: [Listing] {
+        viewModel.listings.filter { listingFilter.matches($0.approval) }
     }
 
     private func emptyHint(icon: String, text: String) -> some View {
@@ -482,6 +502,95 @@ struct HostRequestCard: View {
     }
 }
 
+// MARK: - Host listing status filter
+
+/// The status filter above the host's own listings: All · Published · Pending
+/// review · Rejected. Maps onto the listing's `approval_status`; legacy / missing
+/// values decode as `.approved`, so they land under "Published".
+enum HostListingFilter: String, CaseIterable, Identifiable, Equatable {
+    case all
+    case published
+    case underReview
+    case rejected
+
+    var id: String { rawValue }
+
+    /// Short chip label. Reuses the badge wording the rows already show, so the
+    /// chip and the row badge always read the same.
+    @MainActor
+    var label: String {
+        switch self {
+        case .all:         return L.t("explore.region.all")
+        case .published:   return L.t("host.filter.published")
+        case .underReview: return L.t("approval.pending")
+        case .rejected:    return L.t("approval.rejected")
+        }
+    }
+
+    /// `true` when a listing in `status` belongs under this chip.
+    func matches(_ status: ApprovalStatus) -> Bool {
+        switch self {
+        case .all:         return true
+        case .published:   return status == .approved
+        case .underReview: return status == .pending
+        case .rejected:    return status == .rejected
+        }
+    }
+
+    /// Muted line shown when this chip selects no rows at all.
+    @MainActor
+    var emptyMessage: String {
+        switch self {
+        case .all:         return L.t("host.listings.empty")
+        case .published:   return L.t("host.filter.empty.published")
+        case .underReview: return L.t("host.filter.empty.underReview")
+        case .rejected:    return L.t("host.filter.empty.rejected")
+        }
+    }
+}
+
+/// Horizontal chip row that filters the host's listings by moderation state.
+/// Built from the shared `QKChip` (selected fills burgundy with cream text,
+/// unselected is a white pill with a hairline border) so it matches the Explore
+/// screen's region chips exactly. Observes `LocalizationManager` so the labels
+/// re-render on a language switch.
+struct HostListingFilterBar: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Binding var selection: HostListingFilter
+    /// The rows being filtered — used only to badge each chip with its count.
+    let listings: [Listing]
+
+    /// Explicit init: the `private` environment object would otherwise make the
+    /// synthesized memberwise initializer private (unusable from other files).
+    init(selection: Binding<HostListingFilter>, listings: [Listing]) {
+        _selection = selection
+        self.listings = listings
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(HostListingFilter.allCases) { filter in
+                    QKChip(
+                        title: filter.label,
+                        count: count(for: filter),
+                        isSelected: selection == filter,
+                        action: { selection = filter }
+                    )
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    /// Row count for one chip — `nil` on "All" so it renders bare, mirroring the
+    /// Explore region chips.
+    private func count(for filter: HostListingFilter) -> Int? {
+        guard filter != .all else { return nil }
+        return listings.filter { filter.matches($0.approval) }.count
+    }
+}
+
 /// A compact row for one of the host's own listings — thumbnail, an approval
 /// status badge (Pending review / Approved / Rejected), title, location, gold ★
 /// and burgundy price. When the listing is pending or rejected, a
@@ -535,6 +644,15 @@ struct HostListingRow: View {
                             .font(.system(size: 13, weight: .heavy))
                             .foregroundStyle(Color.qkBurgundy)
                         QKListingRating(listing: listing, size: 12)
+                    }
+                    // "Listed 27 Jul 2026" — hidden entirely when the backend
+                    // omits `created_at` or the timestamp doesn't parse.
+                    if !listing.listedDateText.isEmpty {
+                        Text(loc.t("host.listing.listedOn")
+                            .replacingOccurrences(of: "%@", with: listing.listedDateText))
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.qkMuted)
+                            .lineLimit(1)
                     }
                 }
                 Spacer(minLength: 0)

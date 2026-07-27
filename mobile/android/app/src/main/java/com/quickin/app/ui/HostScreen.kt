@@ -134,6 +134,11 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val ErrorRed = Color(0xFFB3261E)
 private val SuccessGreen = Color(0xFF2E7D32)
@@ -328,6 +333,11 @@ fun HostListingsScreen(
     LaunchedEffect(Unit) {
         onLoad()
     }
+    // Moderation-status filter over the host's own listings (All by default).
+    var filter by remember { mutableStateOf(HostListingFilter.All) }
+    val visibleListings = remember(state.listings, filter) {
+        state.listings.filter { filter.matches(it) }
+    }
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
@@ -359,6 +369,11 @@ fun HostListingsScreen(
                 Text("Add a listing", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
 
+            // Status filter — only worth showing once the host actually has listings.
+            if (state.listings.isNotEmpty()) {
+                HostListingFilterRow(selected = filter, onSelect = { filter = it })
+            }
+
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 when {
                     state.isLoading && state.listings.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -383,12 +398,21 @@ fun HostListingsScreen(
                         Text("No listings yet", fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
                         Text("Tap \"Add a listing\" above to publish your first place.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
                     }
+                    // The host has listings, just none in the selected status — keep it short so it
+                    // reads as "nothing here right now", not "you have no listings".
+                    visibleListings.isEmpty() -> Text(
+                        filter.emptyMessage,
+                        color = Muted,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
+                    )
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(state.listings) { listing ->
+                        items(visibleListings) { listing ->
                             HostListingCard(
                                 listing = listing,
                                 onClick = { onOpenListing(listing) },
@@ -408,10 +432,93 @@ fun HostListingsScreen(
 }
 
 /**
- * A compact card for one of the host's own listings (title, location, price) plus its moderation
- * [ApprovalBadge]. For a pending or rejected listing the card explains the status and offers a
- * "Re-upload ownership document" action that PATCHes `/api/local/listings/:id {ownership_doc}` and
- * re-queues the listing to review.
+ * The moderation-status filter above the host's own listings. "Under review" is the host-facing
+ * wording for [ListingApproval.Pending] (a listing waiting on staff approval, not yet public).
+ * Legacy listings with no `approval_status` parse as [ListingApproval.Approved], so they read as
+ * "Published" rather than disappearing behind a filter.
+ *
+ * Labels are hardcoded English to match the rest of the host area (localization is a follow-up).
+ */
+private enum class HostListingFilter(val label: String) {
+    All("All"),
+    Published("Published"),
+    UnderReview("Under review"),
+    Rejected("Rejected");
+
+    /** True when [listing] belongs in this filter. */
+    fun matches(listing: Listing): Boolean = when (this) {
+        All -> true
+        Published -> listing.approval == ListingApproval.Approved
+        UnderReview -> listing.approval == ListingApproval.Pending
+        Rejected -> listing.approval == ListingApproval.Rejected
+    }
+
+    /** Short muted note shown when the host has listings but none in this status. */
+    val emptyMessage: String
+        get() = when (this) {
+            All -> "No listings to show."
+            Published -> "No published listings."
+            UnderReview -> "No listings under review."
+            Rejected -> "No rejected listings."
+        }
+}
+
+/**
+ * Horizontal chip row of [HostListingFilter]s above the host's listings (All · Published ·
+ * Under review · Rejected). Mirrors the explore screen's sort/region chip row — the selected chip
+ * is filled Burgundy, the rest are outlined Tan over white.
+ */
+@Composable
+private fun HostListingFilterRow(
+    selected: HostListingFilter,
+    onSelect: (HostListingFilter) -> Unit
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    ) {
+        items(HostListingFilter.entries) { option ->
+            HostFilterChip(
+                label = option.label,
+                selected = selected == option,
+                onClick = { onSelect(option) }
+            )
+        }
+    }
+}
+
+/**
+ * A pill-shaped filter chip: filled Burgundy/white when selected, outlined Tan over white
+ * otherwise. Mirrors `FilterChipPill` in ListingsScreen.kt (which is file-private there).
+ */
+@Composable
+private fun HostFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = if (selected) Burgundy else Color.White,
+        contentColor = if (selected) Color.White else Ink,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Burgundy else Tan),
+        shadowElevation = if (selected) 2.dp else 0.dp
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
+    }
+}
+
+/**
+ * A compact card for one of the host's own listings (title, location, listed date, price) plus its
+ * moderation [ApprovalBadge]. For a pending or rejected listing the card explains the status and
+ * offers a "Re-upload ownership document" action that PATCHes `/api/local/listings/:id
+ * {ownership_doc}` and re-queues the listing to review.
  */
 @Composable
 private fun HostListingCard(
@@ -482,6 +589,16 @@ private fun HostListingCard(
                             Icon(Icons.Filled.LocationOn, null, tint = Muted, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(listing.location, color = Muted, fontSize = 13.sp, maxLines = 1)
+                        }
+                    }
+                    // When the place was listed — omitted entirely when the backend didn't send
+                    // created_at (or it can't be parsed).
+                    val listedDate = remember(listing.createdAt) { formatListedDate(listing.createdAt) }
+                    if (listedDate != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                            Icon(Icons.Filled.DateRange, null, tint = Muted, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Listed $listedDate", color = Muted, fontSize = 12.sp, maxLines = 1)
                         }
                     }
                     Text(
@@ -683,6 +800,22 @@ private fun ApprovalBadge(approval: ListingApproval) {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
+}
+
+/**
+ * Formats a listing's ISO-8601 `created_at` into a short "d MMM yyyy" date (e.g. "27 Jul 2026")
+ * for the "Listed …" line on a host listing card. Handles an offset/zoned timestamp
+ * ("2026-07-27T10:28:00Z" / "+02:00"), a bare instant, and a plain "yyyy-MM-dd" date. Returns null
+ * when [raw] is null/blank or can't be parsed, so the caller simply omits the row.
+ */
+private fun formatListedDate(raw: String?): String? {
+    val value = raw?.takeUnless { it.isBlank() } ?: return null
+    val formatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.getDefault())
+    return runCatching { OffsetDateTime.parse(value).toLocalDate().format(formatter) }
+        .recoverCatching { Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDate().format(formatter) }
+        // Falls back to the leading date for timestamps with no zone/offset ("2026-07-27T10:28:00").
+        .recoverCatching { LocalDate.parse(value.take(10)).format(formatter) }
+        .getOrNull()
 }
 
 /**

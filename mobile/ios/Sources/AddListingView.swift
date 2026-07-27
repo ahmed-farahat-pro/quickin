@@ -35,7 +35,16 @@ struct AddListingView: View {
     @State private var location = ""
     @State private var country = "Egypt"
     @State private var priceText = ""
-    @State private var imageURL = ""
+
+    /// Device photos the host picked for the listing, each encoded as a
+    /// `data:image/jpeg;base64,…` URL in pick order. The first is the cover.
+    /// Sent to the backend as `images`; optional (zero photos is allowed).
+    @State private var photos: [String] = []
+    /// The multi-photo `PhotosPicker` selection; encoded into `photos` on change
+    /// then cleared so the next pick starts fresh.
+    @State private var photoItems: [PhotosPickerItem] = []
+    /// True while freshly-picked listing photos are being downscaled + encoded.
+    @State private var encodingPhotos = false
 
     @State private var maxGuests = 2
     @State private var bedrooms = 1
@@ -188,7 +197,10 @@ struct AddListingView: View {
                             monthlyPrices: $monthlyPrices,
                             ownershipDoc: $ownershipDoc,
                             ownershipDocItem: $ownershipDocItem,
-                            isProcessingDoc: isProcessingDoc
+                            isProcessingDoc: isProcessingDoc,
+                            photos: $photos,
+                            photoItems: $photoItems,
+                            encodingPhotos: encodingPhotos
                         ) }
                         .tag(3)
 
@@ -203,7 +215,7 @@ struct AddListingView: View {
                             beds: beds,
                             bathrooms: bathrooms,
                             coordinate: coordinate,
-                            imageURL: imageURL,
+                            photoCount: photos.count,
                             amenities: orderedAmenities,
                             cancellationPolicy: cancellationPolicy,
                             weeklyDiscount: weeklyDiscount,
@@ -234,6 +246,11 @@ struct AddListingView: View {
         // Downscale + encode a freshly-picked ownership document into a data URL.
         .onChange(of: ownershipDocItem) { _, item in
             Task { await processOwnershipDoc(item) }
+        }
+        // Downscale + encode freshly-picked listing photos into data URLs.
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task { await processPickedPhotos(items) }
         }
     }
 
@@ -404,6 +421,30 @@ struct AddListingView: View {
         ownershipDoc = dataURL
     }
 
+    // MARK: - Listing photos
+
+    /// Process listing photos chosen via `PhotosPicker`: load each item's data
+    /// off the main thread, downscale to ≤1600px + JPEG-encode into a `data:`
+    /// URL, and append (in pick order, capped at 10) to `photos`. The picker
+    /// selection is cleared when done; unreadable items are skipped.
+    private func processPickedPhotos(_ items: [PhotosPickerItem]) async {
+        errorMessage = nil
+        encodingPhotos = true
+        defer {
+            encodingPhotos = false
+            photoItems = []
+        }
+        for item in items {
+            guard photos.count < 10 else { break }
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                let image = UIImage(data: data),
+                let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1600, quality: 0.8)
+            else { continue }
+            photos.append(dataURL)
+        }
+    }
+
     // MARK: - AI description writer
 
     /// Compose a description from the listing's current fields via
@@ -455,7 +496,7 @@ struct AddListingView: View {
             bathrooms: bathrooms,
             maxGuests: maxGuests,
             propertyType: propertyType,
-            imageURL: imageURL,
+            images: photos,
             amenities: orderedAmenities,
             cancellationPolicy: cancellationPolicy,
             weeklyDiscount: weeklyDiscount,
@@ -740,6 +781,9 @@ private struct DetailsStep: View {
     @Binding var ownershipDoc: String
     @Binding var ownershipDocItem: PhotosPickerItem?
     let isProcessingDoc: Bool
+    @Binding var photos: [String]
+    @Binding var photoItems: [PhotosPickerItem]
+    let encodingPhotos: Bool
 
     var body: some View {
         FieldLabel("Capacity")
@@ -774,6 +818,14 @@ private struct DetailsStep: View {
         .frame(height: 52)
         .background(Color.qkCream)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+        FieldLabel(L.t("listing.photos"))
+        Text(L.t("listing.photosIntro"))
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.bottom, -4)
+        photosField
 
         FieldLabel("Amenities")
         AmenitiesPicker(selected: $selectedAmenities)
@@ -851,6 +903,77 @@ private struct DetailsStep: View {
         .buttonStyle(.plain)
         .disabled(isProcessingDoc)
     }
+
+    /// Horizontal strip of the picked listing photos — a "Cover" badge on the
+    /// first, a remove (×) control on each — followed by an "Add photos"
+    /// multi-select PhotosPicker. Photos are optional; the first is the cover.
+    private var photosField: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
+                    ReviewPhotoThumbnail(urlString: url, size: 84)
+                        .overlay(alignment: .topLeading) {
+                            if index == 0 {
+                                Text(L.t("listing.photoCover"))
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.qkBurgundy)
+                                    .clipShape(Capsule())
+                                    .padding(5)
+                            }
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            Button {
+                                photos.remove(at: index)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(Color.qkCream, Color.qkInk.opacity(0.65))
+                                    .padding(4)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(L.t("listing.removePhoto"))
+                        }
+                }
+
+                // Always shown; picks beyond the 10-photo cap are ignored while
+                // encoding. Encoding shows a spinner in place of the + tile.
+                PhotosPicker(
+                    selection: $photoItems,
+                    maxSelectionCount: 10,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    VStack(spacing: 6) {
+                        if encodingPhotos {
+                            ProgressView().tint(.qkBurgundy)
+                        } else {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .semibold))
+                            Text(L.t("listing.addPhotos"))
+                                .font(.system(size: 10, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                    }
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 84, height: 84)
+                    .background(Color.qkTan)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.qkBurgundy.opacity(0.3),
+                                          style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    )
+                }
+                .buttonStyle(.qkTap)
+                .disabled(encodingPhotos)
+            }
+            .padding(.vertical, 2)
+        }
+    }
 }
 
 /// A wrapping grid of selectable amenity chips. Tapping a chip toggles it in the
@@ -908,7 +1031,7 @@ private struct ReviewStep: View {
     let beds: Int
     let bathrooms: Int
     let coordinate: CLLocationCoordinate2D?
-    let imageURL: String
+    let photoCount: Int
     let amenities: [String]
     let cancellationPolicy: CancellationPolicy
     let weeklyDiscount: Int
@@ -963,6 +1086,9 @@ private struct ReviewStep: View {
                        value: "\(bedrooms) bd · \(beds) beds · \(bathrooms) ba")
             Divider()
             SummaryRow(label: "Coordinates", value: coordText, monospaced: true)
+            Divider()
+            SummaryRow(label: L.t("listing.photos"),
+                       value: photoCount == 0 ? "None" : "\(photoCount)")
             Divider()
             SummaryRow(label: "Amenities",
                        value: amenities.isEmpty ? "None" : amenities.joined(separator: ", "))

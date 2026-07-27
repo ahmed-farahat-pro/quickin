@@ -46,7 +46,10 @@ struct HostService {
         var bathrooms: Int
         var maxGuests: Int
         var propertyType: String
-        var imageURL: String
+        /// Device photos the host picked, each a `data:image/*;base64,…` data URL
+        /// (or an `http(s)` URL), in display order. The first is the listing
+        /// cover. Sent as `images: [String]`; empty when the host added none.
+        var images: [String] = []
         /// Amenity labels the host selected (e.g. "WiFi", "Pool"). Sent as
         /// `amenities: [String]`; empty when none chosen.
         var amenities: [String] = []
@@ -89,7 +92,6 @@ struct HostService {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let trimmedImage = listing.imageURL.trimmingCharacters(in: .whitespacesAndNewlines)
         var body: [String: Any] = [
             "title": listing.title,
             "description": listing.description,
@@ -102,7 +104,9 @@ struct HostService {
             "max_guests": listing.maxGuests,
             "property_type": listing.propertyType,
         ]
-        body["images"] = trimmedImage.isEmpty ? [] : [trimmedImage]
+        // Device photos (each a data: URL or http(s) URL) in display order; `[]`
+        // when the host added none. The first image is the listing cover.
+        body["images"] = listing.images
         body["amenities"] = listing.amenities
         // Host-set cancellation policy (backend `cancellation_policy` column).
         body["cancellation_policy"] = listing.cancellationPolicy.rawValue

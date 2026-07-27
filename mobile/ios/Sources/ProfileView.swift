@@ -40,6 +40,11 @@ struct ProfileView: View {
                             avatar
                             identity
                             badges
+                            // Become a host — surfaced right under the identity for non-hosts so
+                            // it's the first thing they see, instead of being buried near the bottom.
+                            if !isHost {
+                                becomeHostButton
+                            }
                             IdentityVerificationCard()
                             GuestReviewsAboutMeSection(guestID: auth.user?.id)
                             settingsEntry
@@ -51,8 +56,6 @@ struct ProfileView: View {
                             legalSection
                             if isHost {
                                 hostEntry
-                            } else {
-                                becomeHostButton
                             }
                             Spacer(minLength: 8)
                             logoutButton

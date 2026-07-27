@@ -557,6 +557,13 @@ enum Strings {
         "approval.submitForReview": "Submit for review",
         "approval.submittedForReview": "Submitted for review",
 
+        // Listing photos (host add-listing device picker)
+        "listing.photos": "Photos",
+        "listing.photosIntro": "Add photos of your place. The first photo is your cover — it's what guests see first.",
+        "listing.addPhotos": "Add photos",
+        "listing.photoCover": "Cover",
+        "listing.removePhoto": "Remove photo",
+
         // Availability (live calendar + host block/unblock)
         "availability.unavailable": "Unavailable",
         "availability.manage": "Manage availability",
@@ -1229,6 +1236,13 @@ enum Strings {
         "approval.submitForReview": "إرسال للمراجعة",
         "approval.submittedForReview": "تم الإرسال للمراجعة",
 
+        // Listing photos (host add-listing device picker)
+        "listing.photos": "الصور",
+        "listing.photosIntro": "أضف صورًا لمكانك. الصورة الأولى هي صورة الغلاف — وهي أول ما يراه الضيوف.",
+        "listing.addPhotos": "إضافة صور",
+        "listing.photoCover": "الغلاف",
+        "listing.removePhoto": "إزالة الصورة",
+
         // Availability (live calendar + host block/unblock)
         "availability.unavailable": "غير متاح",
         "availability.manage": "إدارة التوفر",
@@ -1839,6 +1853,13 @@ enum Strings {
         "approval.reviewNotice": "Votre annonce ne sera pas publique immédiatement. Après l'envoi, notre équipe examine votre justificatif de propriété et approuve l'annonce.",
         "approval.submitForReview": "Soumettre pour examen",
         "approval.submittedForReview": "Soumis pour examen",
+
+        // Listing photos (host add-listing device picker)
+        "listing.photos": "Photos",
+        "listing.photosIntro": "Ajoutez des photos de votre logement. La première photo est votre couverture — c'est ce que les voyageurs voient en premier.",
+        "listing.addPhotos": "Ajouter des photos",
+        "listing.photoCover": "Couverture",
+        "listing.removePhoto": "Supprimer la photo",
         "availability.unavailable": "Indisponible",
         "availability.manage": "Gérer la disponibilité",
         "availability.blockDates": "Bloquer des dates",
@@ -2426,6 +2447,13 @@ enum Strings {
         "approval.reviewNotice": "Su anuncio no será público de inmediato. Tras el envío, nuestro equipo revisa su documento de propiedad y aprueba el anuncio.",
         "approval.submitForReview": "Enviar para revisión",
         "approval.submittedForReview": "Enviado para revisión",
+
+        // Listing photos (host add-listing device picker)
+        "listing.photos": "Fotos",
+        "listing.photosIntro": "Añade fotos de tu alojamiento. La primera foto es tu portada: es lo que los huéspedes ven primero.",
+        "listing.addPhotos": "Añadir fotos",
+        "listing.photoCover": "Portada",
+        "listing.removePhoto": "Eliminar foto",
         "availability.unavailable": "No disponible",
         "availability.manage": "Gestionar disponibilidad",
         "availability.blockDates": "Bloquear fechas",

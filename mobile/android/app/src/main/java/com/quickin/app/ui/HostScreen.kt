@@ -1792,7 +1792,9 @@ private fun StepLocation(
         picked = picked,
         onPick = onPick
     )
-    HostField(country, onCountry, "Country")
+    // Searchable, Egypt-first country picker (parity with web's country dropdown and the
+    // iOS CountryPickerField) instead of a free-text field.
+    CountrySelector(value = country, onSelect = onCountry, label = "Country")
 }
 
 /** A single-select area pill (Step 2): filled Burgundy when selected, outlined Tan otherwise. */

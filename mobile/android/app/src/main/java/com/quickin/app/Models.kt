@@ -12,6 +12,11 @@ data class Listing(
     val title: String,
     val description: String?,
     val location: String?,
+    /**
+     * The listing's country (parsed from "country"); null when the backend omits it. Only the
+     * host's own edit form surfaces it — guests see the [location] line.
+     */
+    val country: String? = null,
     /** Id of the host that owns this listing (parsed from "host_id"); null when absent. */
     val hostId: String? = null,
     /** Display name of the host (parsed from "host_name"); null when absent. */
@@ -431,10 +436,15 @@ data class ReferredFriend(
  * Full reservation detail (from `GET /api/local/bookings/:id`). Adds the
  * [reservationCode] used to generate the in-app QR card; the user's list endpoint
  * doesn't carry the code, so the detail screen fetches this richer shape.
+ *
+ * [reservationCode] is **nullable on purpose**: the backend only assigns a code when the host
+ * approves the request, so a pending (or rejected/cancelled) booking genuinely has none. Read it
+ * through [stayPassUrl] / [hasStayPass] rather than assuming a code is there.
  */
 data class Reservation(
     val id: String,
-    val reservationCode: String,
+    /** The "QK-…" code, or null while the booking has not been approved (no code issued yet). */
+    val reservationCode: String?,
     val status: String,
     val title: String,
     val location: String?,
@@ -474,6 +484,44 @@ data class Reservation(
     val isPaid: Boolean
         get() = paymentStatus.equals("paid", ignoreCase = true)
 
+    /** True while the request is still waiting on the host — no code, and therefore no QR, yet. */
+    val isAwaitingApproval: Boolean
+        get() = BookingStatus.from(status) == BookingStatus.Pending
+
+    /**
+     * True once the host has APPROVED this reservation — the gate for issuing a stay pass.
+     * `completed` counts: it is only reachable from `confirmed`, and the code stays valid for the
+     * guest's records. Pending / rejected / cancelled do not.
+     */
+    val isApproved: Boolean
+        get() = when (BookingStatus.from(status)) {
+            BookingStatus.Confirmed, BookingStatus.Completed -> true
+            else -> false
+        }
+
+    /**
+     * The public stay-pass URL this reservation's QR encodes, or **null when no pass exists yet**.
+     * This is the single gate for the QR card, the "open stay pass" tap target and the stay guide:
+     * both halves of the rule live here — the booking must be [isApproved] AND carry a real
+     * [reservationCode] (never blank, never the literal "null" — see [ShareLinks.stay]). A pending
+     * request shows the "your QR appears once confirmed" placeholder instead.
+     */
+    val stayPassUrl: String?
+        get() = if (isApproved) ShareLinks.stay(reservationCode) else null
+
+    /** True when there is a real pass to render (QR + code + stay link + guide). */
+    val hasStayPass: Boolean
+        get() = stayPassUrl != null
+
+    /**
+     * True when the HOST may still edit the stay guide. Deliberately narrower than [hasStayPass]:
+     * the backend's stay-guide INSERT requires `b.status = 'confirmed'`, so offering the editor on a
+     * `completed` booking would show controls whose Save returns 403. The guest's read-only view
+     * stays on [hasStayPass] (a checked-out guest keeps access to the guide).
+     */
+    val canEditStayGuide: Boolean
+        get() = hasStayPass && BookingStatus.from(status) == BookingStatus.Confirmed
+
     /** True once this reservation has been cancelled. */
     val isCancelled: Boolean
         get() = status.equals("cancelled", ignoreCase = true) ||
@@ -493,6 +541,96 @@ data class Reservation(
     /** The refunded amount in EGP once cancelled, derived from [refundPercent] × [totalPrice]. */
     val refundedAmount: Int?
         get() = refundPercent?.let { (totalPrice * it / 100.0).toInt() }
+}
+
+/**
+ * What a [StayGuideItem] is. The four kinds the backend accepts — anything else is rejected there
+ * and dropped here, so an unrecognized kind never reaches the UI. [apiValue] is the canonical
+ * string sent to / read from the API; [labelRes] is resolved at render time so the host editor's
+ * kind picker follows the app's locale and stays RTL-safe.
+ */
+enum class StayGuideKind(
+    val apiValue: String,
+    @androidx.annotation.StringRes val labelRes: Int
+) {
+    /** A titled block of text: check-in steps, Wi-Fi, house rules… */
+    Info("info", R.string.stay_guide_kind_info),
+
+    /** A photo for the guide gallery (a `data:` URL from the device picker, or an http(s) image). */
+    Photo("photo", R.string.stay_guide_kind_photo),
+
+    /** A link to a place the guest should visit — rendered as a scannable QR plus a tappable button. */
+    PlaceQr("place_qr", R.string.stay_guide_kind_place_qr),
+
+    /** A downloadable file (menu, contract, map…) — a `data:` URL or an http(s) link. */
+    Attachment("attachment", R.string.stay_guide_kind_attachment);
+
+    /** True when this kind is meaningless without a [StayGuideItem.url]. */
+    val requiresUrl: Boolean
+        get() = this != Info
+
+    /**
+     * Client-side mirror of the backend's URL rules, so the editor can block a bad item before it
+     * costs a round trip (the server stays authoritative):
+     *  • [Photo] / [Attachment] — a `data:` URL or `http(s)://`, at most [MAX_URL_LENGTH] chars.
+     *  • [PlaceQr] — `http(s)://` only. It is a link the guest's phone will OPEN, so an inline
+     *    `data:` payload (or anything else, notably `javascript:`) is refused.
+     *  • [Info] — carries no URL at all.
+     */
+    fun isValidUrl(url: String?): Boolean {
+        val u = url?.trim().orEmpty()
+        if (u.isEmpty()) return !requiresUrl
+        if (u.length > MAX_URL_LENGTH) return false
+        return when (this) {
+            Info -> false
+            PlaceQr -> u.startsWith("http://", true) || u.startsWith("https://", true)
+            Photo, Attachment ->
+                u.startsWith("data:", true) || u.startsWith("http://", true) || u.startsWith("https://", true)
+        }
+    }
+
+    companion object {
+        /** Longest URL/data-URL the backend stores (matches its 3,500,000-char cap). */
+        const val MAX_URL_LENGTH = 3_500_000
+
+        /** Longest title/body the editor accepts (the backend caps these too). */
+        const val MAX_TITLE_LENGTH = 120
+        const val MAX_BODY_LENGTH = 2000
+
+        /** Maps a raw "kind" value to the enum, or **null** when it isn't one of the four. */
+        fun from(raw: String?): StayGuideKind? = when (raw?.trim()?.lowercase()) {
+            "info" -> Info
+            "photo" -> Photo
+            "place_qr" -> PlaceQr
+            "attachment" -> Attachment
+            else -> null
+        }
+    }
+}
+
+/**
+ * One host-authored entry on a confirmed booking's stay guide (from
+ * `GET /api/local/bookings/:id/stay-guide`). The host builds these on an approved reservation; the
+ * guest sees them on the reservation detail and on the public `/stay/<code>` page.
+ *
+ * [title] / [body] are plain text (never HTML — they are rendered to strangers), [url] carries the
+ * photo/attachment payload or the place link, and [order] is the host's chosen position.
+ */
+data class StayGuideItem(
+    val id: String,
+    val kind: StayGuideKind,
+    val title: String? = null,
+    val body: String? = null,
+    val url: String? = null,
+    val order: Int = 0
+) {
+    /** The heading to show, falling back to the kind's own label when the host left it blank. */
+    val hasTitle: Boolean
+        get() = !title.isNullOrBlank()
+
+    /** True when this item points at something a phone can open in a browser (place QR links). */
+    val isOpenableLink: Boolean
+        get() = kind == StayGuideKind.PlaceQr && !url.isNullOrBlank()
 }
 
 /**
@@ -552,10 +690,14 @@ data class CancellationQuote(
  * A reservation request seen by a host (from `GET /api/local/host/bookings`),
  * across all of the host's listings. Carries the [reservationCode] and the
  * guest-facing listing summary so the host can confirm / reject pending requests.
+ *
+ * [reservationCode] is null on a request the host hasn't approved yet — codes are issued at
+ * confirmation, so most rows in the "pending" bucket legitimately have none.
  */
 data class HostBooking(
     val id: String,
-    val reservationCode: String,
+    /** The "QK-…" code, or null while this request is still pending (no code issued yet). */
+    val reservationCode: String?,
     val title: String,
     val location: String?,
     val checkIn: String,
@@ -844,7 +986,8 @@ data class HostEarningItem(
  */
 data class GuestReceipt(
     val bookingId: String,
-    val reservationCode: String,
+    /** The "QK-…" code; null on the rare receipt whose booking never had one assigned. */
+    val reservationCode: String?,
     val title: String,
     val checkIn: String,
     val checkOut: String,
@@ -1004,6 +1147,30 @@ enum class BookingStatus(val label: String) {
             "cancelled", "canceled" -> Cancelled
             "completed" -> Completed
             else -> Other
+        }
+    }
+}
+
+/**
+ * What kind of host an applicant is, chosen on the "Apply to host" form and stored as the
+ * account's `host_type`. [apiValue] is the canonical value the backend accepts
+ * ("individual" | "company" | "brokerage"); [labelRes] is resolved at render time so the picker
+ * follows the app's locale and stays RTL-safe.
+ */
+enum class HostType(
+    val apiValue: String,
+    @androidx.annotation.StringRes val labelRes: Int
+) {
+    Individual("individual", R.string.host_type_individual),
+    Company("company", R.string.host_type_company),
+    Brokerage("brokerage", R.string.host_type_brokerage);
+
+    companion object {
+        /** Maps a raw "host_type" value to the enum; unknown / null → [Individual]. */
+        fun from(raw: String?): HostType = when (raw?.trim()?.lowercase()) {
+            "company" -> Company
+            "brokerage" -> Brokerage
+            else -> Individual
         }
     }
 }

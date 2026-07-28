@@ -4,6 +4,13 @@
 // (the local stack stores images inline — no blob service). We downscale + JPEG-
 // compress in a <canvas> so a 12MP phone photo doesn't become a multi-MB DB row.
 
+/**
+ * Cap on an inline proof-of-ownership document, mirroring the server-side limit
+ * in lib/local/db.ts (and quickin-backend's setListingOwnershipDoc), so the
+ * uploader can reject an oversized document before the request goes out.
+ */
+export const MAX_OWNERSHIP_DOC_CHARS = 3_500_000
+
 /** Convert a File to a compressed JPEG data URL. HEIC/HEIF is converted first. */
 export async function fileToCompressedDataUrl(
   file: File,

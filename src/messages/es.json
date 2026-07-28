@@ -1879,6 +1879,14 @@
       "badge": "En revisión",
       "title": "Solicitud de anfitrión en revisión",
       "subtitle": "Nuestro equipo está revisando tu solicitud. Te avisaremos en cuanto sea aprobada."
+    },
+    "hostRejected": {
+      "badge": "No aprobada",
+      "title": "Solicitud de anfitrión no aprobada",
+      "subtitle": "Nuestro equipo no pudo aprobar tu solicitud esta vez. Puedes actualizar tus datos y volver a solicitarlo.",
+      "reason": "Motivo",
+      "noReason": "Nuestro equipo no dejó ninguna nota.",
+      "button": "Volver a solicitar"
     }
   },
   "savedPage": {
@@ -1917,7 +1925,10 @@
       "error": "No se pudo activar el alojamiento. Inténtalo de nuevo.",
       "ctaApply": "Solicitar ser anfitrión",
       "pendingBadge": "En revisión",
-      "pendingBody": "Nuestro equipo está revisando tu solicitud. Te avisaremos en cuanto sea aprobada."
+      "pendingBody": "Nuestro equipo está revisando tu solicitud. Te avisaremos en cuanto sea aprobada.",
+      "rejectedBadge": "No aprobada",
+      "rejectedBody": "Nuestro equipo no pudo aprobar tu solicitud esta vez. Actualiza tus datos e inténtalo de nuevo.",
+      "ctaReapply": "Volver a solicitar ser anfitrión"
     },
     "dashboard": {
       "greeting": "Hospedaje, {name}",
@@ -1992,7 +2003,9 @@
         "photos": "URL de fotos",
         "pinLocation": "Marca la ubicación en el mapa",
         "weekendPrice": "Precio de fin de semana (opcional)",
-        "weekendDays": "¿Qué días son fin de semana?"
+        "weekendDays": "¿Qué días son fin de semana?",
+        "region": "Zona",
+        "amenities": "Servicios"
       },
       "placeholders": {
         "title": "Loft soleado junto al Nilo",
@@ -2043,7 +2056,89 @@
       "photosCover": "Portada",
       "photosRemove": "Eliminar foto",
       "locating": "Buscando en el mapa…",
-      "geocodeFail": "No se encontró el lugar — toca el mapa para ubicarlo."
+      "geocodeFail": "No se encontró el lugar — toca el mapa para ubicarlo.",
+      "regionNone": "Ninguna zona seleccionada",
+      "regionHint": "Zonas destacadas que los huéspedes exploran. Opcional: elige la que corresponda a tu alojamiento.",
+      "regions": {
+        "northCoast": "Costa Norte",
+        "ainSokhna": "Ain Sokhna",
+        "elGouna": "El Gouna",
+        "cairo": "El Cairo"
+      },
+      "amenities": {
+        "wifi": "Wi-Fi",
+        "pool": "Piscina",
+        "kitchen": "Cocina",
+        "airConditioning": "Aire acondicionado",
+        "freeParking": "Aparcamiento gratuito",
+        "washer": "Lavadora",
+        "tv": "TV",
+        "heating": "Calefacción",
+        "workspace": "Zona de trabajo",
+        "gym": "Gimnasio",
+        "beachAccess": "Acceso a la playa",
+        "petsAllowed": "Se admiten mascotas",
+        "hotTub": "Jacuzzi",
+        "bbqGrill": "Barbacoa",
+        "breakfast": "Desayuno"
+      },
+      "amenitiesHint": "Elige todo lo que ofrece tu alojamiento: los huéspedes filtran por estos servicios.",
+      "photosMoveEarlier": "Mover la foto antes",
+      "photosMoveLater": "Mover la foto después",
+      "photosSetCover": "Usar como foto de portada",
+      "photosReorderHint": "Usa las flechas para reordenar, o ★ para elegir la portada. La primera foto es la que ven primero los huéspedes."
+    },
+    "edit": {
+      "meta": {
+        "title": "Editar anuncio — QuickIn"
+      },
+      "backToHost": "Volver a anfitrión",
+      "viewListing": "Ver anuncio",
+      "title": "Editar anuncio",
+      "subtitle": "Cambia todo lo que ven los huéspedes: detalles, fotos y precios. Cada cambio vuelve a pasar por nuestro equipo.",
+      "statusLabel": "Estado actual",
+      "reviewWarning": {
+        "title": "Guardar envía este anuncio de nuevo a revisión",
+        "body": "Tus cambios pasan primero por nuestro equipo. El anuncio queda oculto para los huéspedes —y no puede recibir nuevas reservas— hasta que un administrador lo apruebe. Las reservas que ya aceptaste no se ven afectadas."
+      },
+      "confirm": {
+        "title": "¿Enviar este anuncio a revisión?",
+        "body": "Guardaremos tus cambios y pondremos el anuncio en la cola de revisión. Seguirá oculto para los huéspedes hasta que un administrador lo apruebe.",
+        "cta": "Guardar y enviar a revisión",
+        "cancel": "Seguir editando"
+      },
+      "save": "Guardar cambios",
+      "saving": "Guardando…",
+      "noChanges": "Aún no hay cambios",
+      "saved": {
+        "title": "Cambios guardados",
+        "body": "Tu anuncio está con nuestro equipo. Seguirá oculto para los huéspedes hasta que un administrador lo apruebe: lo encontrarás en «En revisión» dentro de tus anuncios.",
+        "bodyLive": "Tu anuncio está actualizado y sigue visible para los huéspedes.",
+        "cta": "Volver a mis anuncios"
+      },
+      "errors": {
+        "saveFailed": "No se pudieron guardar los cambios"
+      }
+    },
+    "ownershipDoc": {
+      "label": "Documento de propiedad",
+      "intro": "Sube un documento que acredite que eres propietario de este alojamiento o que estás autorizado a publicarlo (p. ej. una escritura o una factura de servicios). Nuestro equipo lo revisa antes de publicar tu anuncio.",
+      "upload": "Subir documento de propiedad",
+      "change": "Cambiar",
+      "processing": "Procesando…",
+      "attached": "Documento adjunto",
+      "onFile": "Documento guardado",
+      "missing": "No añadido",
+      "remove": "Quitar documento",
+      "reviewNotice": "Tu anuncio no será público de inmediato. Tras el envío, nuestro equipo revisa tu documento de propiedad y aprueba el anuncio.",
+      "reupload": "Volver a subir el documento de propiedad",
+      "uploading": "Subiendo…",
+      "resubmitted": "Enviado para revisión",
+      "errors": {
+        "tooLarge": "Esta imagen es demasiado grande",
+        "failed": "No se pudo procesar el documento. Prueba con otro.",
+        "uploadFailed": "No se pudo enviar el documento. Inténtalo de nuevo."
+      }
     }
   },
   "hostApply": {
@@ -2079,6 +2174,7 @@
       "notes": "Cualquier cosa que nuestro equipo deba saber"
     },
     "submit": "Enviar solicitud",
+    "reapply": "Volver a solicitar",
     "submitting": "Enviando…",
     "cancel": "Cancelar",
     "errors": {
@@ -2086,7 +2182,11 @@
       "phoneRequired": "Introduce tu número de teléfono.",
       "addressRequired": "Introduce tu dirección.",
       "submitFailed": "No se pudo enviar tu solicitud. Inténtalo de nuevo.",
-      "idRequired": "Añade el anverso y el reverso de tu documento."
+      "idRequired": "Añade el anverso y el reverso de tu documento.",
+      "fullNameRequired": "Introduce tu nombre completo.",
+      "hostTypeInvalid": "Elige particular, empresa o agencia.",
+      "checkFields": "Revisa los campos marcados.",
+      "conflict": "Tu estado de anfitrión ya ha cambiado. Hemos actualizado esta página."
     },
     "pending": {
       "subtitle": "Nuestro equipo está revisando tu solicitud.",
@@ -2094,6 +2194,15 @@
       "title": "Solicitud en revisión",
       "body": "Gracias por tu solicitud. Nuestro equipo está revisando los datos a continuación y te avisará en cuanto seas aprobado.",
       "submittedAt": "Enviada el"
+    },
+    "rejected": {
+      "subtitle": "Tu solicitud no fue aprobada. Este es el motivo: corrígela y vuelve a solicitarlo abajo.",
+      "badge": "No aprobada",
+      "title": "Solicitud no aprobada",
+      "body": "Nuestro equipo revisó tu solicitud y no pudo aprobarla esta vez. Actualiza tus datos abajo y vuelve a enviarla.",
+      "reason": "Motivo",
+      "noReason": "Nuestro equipo no dejó ninguna nota.",
+      "reviewedAt": "Revisada el"
     },
     "success": {
       "title": "Solicitud enviada",
@@ -2138,5 +2247,107 @@
     "iosSoon": "App para iOS — próximamente",
     "androidSoon": "App para Android — próximamente",
     "dismiss": "Cerrar"
+  },
+  "stayPass": {
+    "meta": {
+      "title": "Pase de estancia",
+      "description": "Tu pase de estancia de QuickIn: las fechas, el alojamiento y todo lo que tu anfitrión dejó para ti."
+    },
+    "backToExplore": "Volver a Explorar",
+    "heading": "Pase de estancia",
+    "greeting": "Bienvenido, {name}",
+    "greetingGeneric": "Bienvenido",
+    "hostedBy": "Anfitrión: {name}",
+    "codeLabel": "Código de reserva",
+    "checkIn": "Entrada",
+    "checkOut": "Salida",
+    "guestsLabel": "Huéspedes",
+    "guestsCount": "{count, plural, one {# huésped} other {# huéspedes}}",
+    "paid": "Pagado",
+    "status": {
+      "confirmed": "Confirmada",
+      "completed": "Finalizada",
+      "pending": "Pendiente de aprobación",
+      "cancelled": "Cancelada",
+      "rejected": "Rechazada"
+    },
+    "inactiveNotice": "Esta reserva ya no está activa. Contacta con tu anfitrión si crees que es un error.",
+    "hostNotes": "Una nota de tu anfitrión",
+    "guide": {
+      "heading": "Tu guía de estancia",
+      "subtitle": "Todo lo que tu anfitrión dejó para ti.",
+      "info": "Información útil",
+      "photos": "Fotos",
+      "places": "Lugares de interés",
+      "attachments": "Documentos",
+      "openLink": "Abrir enlace",
+      "scanHint": "Escanea con la cámara de tu teléfono",
+      "download": "Abrir",
+      "photoAlt": "Foto de la estancia"
+    },
+    "notFound": {
+      "title": "No encontramos esa reserva",
+      "body": "Puede que el enlace haya caducado o que el código esté mal escrito. Comprueba el código de tu reserva e inténtalo de nuevo.",
+      "cta": "Ir a mis viajes"
+    },
+    "missingCode": {
+      "title": "A este enlace le falta el código de reserva",
+      "body": "Abre tu reserva en la app de QuickIn y vuelve a escanear su código QR: te lleva directo a tu pase de estancia.",
+      "cta": "Ir a mis viajes"
+    },
+    "guest": {
+      "heading": "Tu pase de estancia",
+      "scanHint": "Muestra este código QR al llegar.",
+      "pendingTitle": "Tu código QR aparecerá aquí en cuanto se confirme tu reserva.",
+      "pendingBody": "Lo creamos en cuanto tu anfitrión apruebe la solicitud.",
+      "openPass": "Abrir el pase",
+      "copyLink": "Copiar enlace",
+      "copied": "Enlace copiado"
+    },
+    "host": {
+      "heading": "Guía de estancia",
+      "intro": "Añade lo que tu huésped necesita: información de la casa, fotos, enlaces a lugares cercanos y documentos. Lo verá todo al escanear su código QR.",
+      "locked": "La guía de estancia se abre cuando apruebes esta reserva.",
+      "manage": "Gestionar la guía",
+      "hide": "Ocultar la guía",
+      "loading": "Cargando la guía…",
+      "empty": "Aún no has añadido nada.",
+      "guestLink": "Enlace del huésped",
+      "itemsCount": "{count, plural, one {# elemento} other {# elementos}}",
+      "kindLabel": "Tipo",
+      "kinds": {
+        "info": "Información",
+        "photo": "Foto",
+        "place_qr": "Enlace a un lugar",
+        "attachment": "Documento"
+      },
+      "titleLabel": "Título",
+      "titlePlaceholder": "Wi-Fi, código de la puerta, desayuno…",
+      "bodyLabel": "Detalles",
+      "bodyPlaceholder": "¿Qué debe saber tu huésped?",
+      "linkLabel": "Enlace",
+      "linkPlaceholder": "https://…",
+      "choosePhoto": "Elegir foto",
+      "chooseFile": "Elegir documento",
+      "change": "Cambiar",
+      "attached": "Adjuntado",
+      "processing": "Procesando…",
+      "add": "Añadir a la guía",
+      "adding": "Añadiendo…",
+      "edit": "Editar",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "cancel": "Cancelar",
+      "remove": "Eliminar",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "errors": {
+        "load": "No se pudo cargar la guía de estancia.",
+        "save": "No se pudo guardar ese elemento. Inténtalo de nuevo.",
+        "remove": "No se pudo eliminar ese elemento. Inténtalo de nuevo.",
+        "tooLarge": "Ese archivo es demasiado grande",
+        "file": "No se pudo leer ese archivo. Prueba con otro."
+      }
+    }
   }
 }

@@ -4,10 +4,11 @@ import SwiftUI
 /// The authenticated user returned by the local Next.js auth API.
 ///
 /// Under the **unified account contract** there's one account per person: a
-/// normal user signs in and can *become a host* in-app, which just flips
-/// `isHost` on the same account. `role` is a derived convenience the backend
-/// still sends (`"host"` when `isHost`, else `"guest"`) — `isHost` is the
-/// source of truth the UI branches on.
+/// normal user signs in and *applies to become a host*, which an admin reviews
+/// before `isHost` flips on the same account. `role` is a derived convenience
+/// the backend still sends (`"host"` when `isHost`, else `"guest"`) — `isHost`
+/// is the source of truth the UI branches on, and it only ever comes from the
+/// server (see `AuthStore.refreshSession`).
 struct AuthUser: Codable, Equatable {
     let id: String
     let email: String
@@ -18,12 +19,24 @@ struct AuthUser: Codable, Equatable {
     /// Whether this account is a host. Defaults to `false` when the backend
     /// omits it; also inferred from `role == "host"` for older responses.
     let isHost: Bool
+    /// What the account applied (or was approved) as — `individual` / `company`
+    /// / `brokerage`; nil when there's no application on file.
+    let hostType: String?
+    /// Where the account sits in the become-a-host flow. Server-derived; an
+    /// account the backend calls a host always reads as `.approved`, even when
+    /// it predates the applications table (legacy rule in the contract).
+    let hostStatus: HostStatus
+    /// The admin's reason, set only when `hostStatus == .rejected`.
+    let hostReviewNote: String?
 
     enum CodingKeys: String, CodingKey {
         case id, email, provider, role
         case fullName = "full_name"
         case avatarURL = "avatar_url"
         case isHost = "is_host"
+        case hostType = "host_type"
+        case hostStatus = "host_status"
+        case hostReviewNote = "host_review_note"
     }
 
     init(
@@ -33,7 +46,10 @@ struct AuthUser: Codable, Equatable {
         provider: String?,
         avatarURL: String?,
         role: String?,
-        isHost: Bool = false
+        isHost: Bool = false,
+        hostType: String? = nil,
+        hostStatus: HostStatus = .none,
+        hostReviewNote: String? = nil
     ) {
         self.id = id
         self.email = email
@@ -42,6 +58,10 @@ struct AuthUser: Codable, Equatable {
         self.avatarURL = avatarURL
         self.role = role
         self.isHost = isHost
+        self.hostType = hostType
+        // Keep the invariant the contract demands: a host is always `approved`.
+        self.hostStatus = isHost ? .approved : hostStatus
+        self.hostReviewNote = hostReviewNote
     }
 
     init(from decoder: Decoder) throws {
@@ -56,20 +76,30 @@ struct AuthUser: Codable, Equatable {
         // Prefer the explicit boolean; fall back to the derived role string so a
         // backend that only sends `role: "host"` still reads as a host.
         let flag = try c.decodeIfPresent(Bool.self, forKey: .isHost)
-        isHost = flag ?? (decodedRole?.lowercased() == "host")
+        let resolvedIsHost = flag ?? (decodedRole?.lowercased() == "host")
+        isHost = resolvedIsHost
+        hostType = try c.decodeIfPresent(String.self, forKey: .hostType)
+        // Legacy rule: `is_host == true` ⇒ approved, whatever the application
+        // row says (pre-existing hosts have no row at all).
+        let decodedStatus = HostStatus(raw: try c.decodeIfPresent(String.self, forKey: .hostStatus))
+        hostStatus = resolvedIsHost ? .approved : decodedStatus
+        hostReviewNote = try c.decodeIfPresent(String.self, forKey: .hostReviewNote)
     }
 
-    /// A copy of this account with `isHost` flipped on (and `role` aligned),
-    /// used after a successful `POST /api/local/host/become`.
-    func promotedToHost() -> AuthUser {
+    /// A copy of this account carrying a new application state. Never touches
+    /// `isHost` — only an admin approval (reflected by the server) does that.
+    func withHostStatus(_ status: HostStatus, hostType: String? = nil, reviewNote: String? = nil) -> AuthUser {
         AuthUser(
             id: id,
             email: email,
             fullName: fullName,
             provider: provider,
             avatarURL: avatarURL,
-            role: "host",
-            isHost: true
+            role: role,
+            isHost: isHost,
+            hostType: hostType ?? self.hostType,
+            hostStatus: status,
+            hostReviewNote: reviewNote
         )
     }
 }
@@ -96,12 +126,15 @@ private struct PendingBody: Decodable {
     let email: String?
 }
 
-/// Shape of `POST /api/local/host/become` → `{ ok: true, user }`. The user now
-/// carries `is_host: true`; we adopt it to flip host surfaces on without a
-/// re-login.
-private struct BecomeHostResponse: Decodable {
-    let ok: Bool?
+/// Shape of `GET /api/auth/me` → `{ user }`. This is the authoritative account
+/// state the client re-reads on every launch (see `refreshSession`).
+///
+/// The backend answers 200 with `user: null` for a token it can't resolve, and
+/// 200 with `user: null` **plus** an `error` when the lookup itself blew up — so
+/// both are decoded to tell "signed out" apart from "server hiccup".
+private struct MeResponse: Decodable {
     let user: AuthUser?
+    let error: String?
 }
 
 /// The outcome of a signup or login attempt, so the view can decide whether to
@@ -144,6 +177,11 @@ final class AuthStore: ObservableObject {
 
     // MARK: - Session restore / persistence
 
+    /// Restore the session on launch. The cached `qk_user` is used for the FIRST
+    /// PAINT ONLY — it's a cache, never the truth — and is immediately followed
+    /// by a `GET /api/auth/me` whose answer replaces it (`refreshSession`).
+    /// Trusting the cache alone is what used to make host surfaces flicker in
+    /// (or linger) after a relaunch.
     private func restoreSession() {
         guard let token = defaults.string(forKey: Self.tokenKey), !token.isEmpty else {
             return
@@ -152,6 +190,55 @@ final class AuthStore: ObservableObject {
         if let data = defaults.data(forKey: Self.userKey),
            let saved = try? JSONDecoder().decode(AuthUser.self, from: data) {
             user = saved
+        }
+        Task { await refreshSession() }
+    }
+
+    /// Re-read the authoritative account from `GET /api/auth/me` and adopt it.
+    ///
+    /// **The server always wins.** Whatever it returns replaces the cached
+    /// account — including overwriting a cached `is_host: true` with `false`, so
+    /// host surfaces can never persist on an account the backend no longer
+    /// considers a host. Host state (`is_host` / `host_status`) is therefore
+    /// only ever as fresh as this call.
+    ///
+    /// A dead token (401, or the 200 `{ user: null }` this backend answers with)
+    /// clears the session rather than leaving a phantom one behind. A transport
+    /// failure or a server-side error leaves the cached session alone so the app
+    /// still opens offline. Runs quietly: it never touches `isLoading` or
+    /// `errorMessage`.
+    @discardableResult
+    func refreshSession() async -> Bool {
+        guard let token = currentToken else { return false }
+        guard let url = URL(string: Config.apiBaseURL + "/api/auth/me") else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return false }
+            if http.statusCode == 401 {
+                logout()
+                return false
+            }
+            guard (200...299).contains(http.statusCode),
+                  let decoded = try? JSONDecoder().decode(MeResponse.self, from: data) else {
+                return false
+            }
+            guard let serverUser = decoded.user else {
+                // No user and no server error → the token no longer resolves.
+                // With an error the lookup just failed; keep the session.
+                if decoded.error == nil { logout() }
+                return false
+            }
+            applyUser(serverUser)
+            return true
+        } catch {
+            // Offline / transient — keep the cached session so the app opens.
+            return false
         }
     }
 
@@ -400,56 +487,15 @@ final class AuthStore: ObservableObject {
         }
     }
 
-    /// Become a host on the **same** account (unified-account contract). POSTs
-    /// `/api/local/host/become` with the stored Bearer token; on 200 it decodes
-    /// the returned `{ user }` (now `is_host: true`) and updates the cached
-    /// session in place, so the host entry appears without a re-login. Idempotent
-    /// server-side. Returns `true` on success; on failure the message is set on
-    /// `errorMessage`.
-    @discardableResult
-    func becomeHost() async -> Bool {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
-
-        guard let token = currentToken else {
-            errorMessage = "Sign in to become a host."
-            return false
-        }
-        guard let url = URL(string: Config.apiBaseURL + "/api/local/host/become") else {
-            errorMessage = "Invalid server URL."
-            return false
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
-                errorMessage = "Invalid response from the server."
-                return false
-            }
-            guard (200...299).contains(http.statusCode) else {
-                setErrorFromResponse(data, status: http.statusCode)
-                return false
-            }
-            // Prefer the server's returned `{ user }`; fall back to flipping the
-            // cached account's flag locally so the UI updates either way.
-            if let decoded = try? JSONDecoder().decode(BecomeHostResponse.self, from: data),
-               let serverUser = decoded.user {
-                applyHostUser(serverUser)
-            } else if let current = user {
-                applyHostUser(current.promotedToHost())
-            }
-            return true
-        } catch {
-            errorMessage = error.localizedDescription
-            return false
-        }
+    /// Reflect a just-submitted host application on the cached account so the
+    /// Profile flips to "under review" immediately, without waiting for the next
+    /// `/api/auth/me`. Clears any previous rejection note (a reapply replaces it).
+    ///
+    /// **Never touches `isHost`** — becoming a host is an admin decision that
+    /// only reaches the app through `refreshSession`.
+    func applyHostApplicationSubmitted(hostType: HostType) {
+        guard let current = user else { return }
+        applyUser(current.withHostStatus(.pending, hostType: hostType.rawValue, reviewNote: nil))
     }
 
     /// Permanently delete the signed-in account and all its data (App Store
@@ -459,7 +505,7 @@ final class AuthStore: ObservableObject {
     /// replying `{ ok: true, deleted: true }`. On success this clears the local
     /// session (same as `logout()`), dropping the app back to the auth screen.
     /// Returns `true` on success; on failure the message is set on `errorMessage`
-    /// and the session is left intact. Mirrors `becomeHost`'s authed-request
+    /// and the session is left intact. Mirrors `refreshSession`'s authed-request
     /// pattern.
     ///
     /// The endpoint accepts both POST and DELETE; we use **POST** because
@@ -509,9 +555,12 @@ final class AuthStore: ObservableObject {
         }
     }
 
-    /// Update the cached account (UserDefaults + published `user`) to the
-    /// host-flagged version returned by `becomeHost`, keeping the existing token.
-    private func applyHostUser(_ updated: AuthUser) {
+    /// Adopt `updated` as the cached account (published `user` + the `qk_user`
+    /// UserDefaults cache), keeping the existing token. Used by `refreshSession`
+    /// (server truth) and the local post-apply status flip.
+    private func applyUser(_ updated: AuthUser) {
+        // No change → don't churn published state / UserDefaults.
+        guard updated != user else { return }
         user = updated
         if let data = try? JSONEncoder().encode(updated) {
             defaults.set(data, forKey: Self.userKey)
@@ -526,9 +575,17 @@ final class AuthStore: ObservableObject {
     /// Persist a `{token, user}` obtained outside the email flow (e.g. the
     /// native Apple / Google sign-in flows in `AuthView`). Mirrors the email
     /// path so the session restores on next launch.
+    ///
+    /// The Face ID path hands us the account as it looked when the biometric
+    /// session was stored, which can be arbitrarily stale — so we paint it and
+    /// immediately re-read `/api/auth/me`. Without this a keychain copy with
+    /// `is_host: true` would restore host surfaces on an account the server no
+    /// longer considers a host (the same bug `restoreSession` fixes for the
+    /// UserDefaults cache, and what Android does on its `isAuthenticated` flip).
     func adopt(token: String, user: AuthUser) {
         errorMessage = nil
         persist(token: token, user: user)
+        Task { await refreshSession() }
     }
 
     /// Surface an error from a view-driven social flow.
@@ -553,19 +610,14 @@ final class AuthStore: ObservableObject {
             provider: current.provider,
             avatarURL: avatarURL ?? current.avatarURL,
             role: role ?? current.role,
-            isHost: current.isHost
+            isHost: current.isHost,
+            // Host state is server-owned — carry it through a profile edit
+            // untouched rather than resetting it to the defaults.
+            hostType: current.hostType,
+            hostStatus: current.hostStatus,
+            hostReviewNote: current.hostReviewNote
         )
-        // No change → don't churn published state / UserDefaults.
-        guard merged != current else { return }
-        user = merged
-        if let data = try? JSONEncoder().encode(merged) {
-            defaults.set(data, forKey: Self.userKey)
-        }
-        // Keep the Keychain copy in sync so a later Face ID sign-in restores the
-        // up-to-date name (no-op when no biometric session is stored).
-        if let token = defaults.string(forKey: Self.tokenKey), !token.isEmpty {
-            BiometricAuth.shared.updateStoredUserIfPresent(merged, token: token)
-        }
+        applyUser(merged)
     }
 
     /// POST a JSON body to a social endpoint and, on success, adopt the

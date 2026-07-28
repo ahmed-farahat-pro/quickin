@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.BeachAccess
 import androidx.compose.material.icons.filled.Bed
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.FreeBreakfast
 import androidx.compose.material.icons.filled.Home
@@ -170,6 +171,11 @@ fun ListingDetailScreen(
     onAddBlock: (start: String, end: String, note: String?) -> Unit = { _, _, _ -> },
     /** Host removes a block by id. */
     onRemoveBlock: (blockId: String) -> Unit = {},
+    /**
+     * Opens the full listing editor (every field + photos) for the owning host. Saving there sends
+     * the listing back for review, so the editor warns before it commits.
+     */
+    onEditListing: () -> Unit = {},
     /**
      * Host-only cancellation-policy editor state (`PATCH /api/local/listings/:id`), driven by
      * HostViewModel. Lets the owning host change the policy from the detail screen.
@@ -369,6 +375,7 @@ fun ListingDetailScreen(
                         onLoadHostAvailability = onLoadHostAvailability,
                         onAddBlock = onAddBlock,
                         onRemoveBlock = onRemoveBlock,
+                        onEditListing = onEditListing,
                         cancellationPolicy = effectivePolicy,
                         cancellationPolicyState = cancellationPolicyState,
                         onSaveCancellationPolicy = onSaveCancellationPolicy
@@ -693,6 +700,7 @@ private fun ReservePanel(
     onLoadHostAvailability: () -> Unit = {},
     onAddBlock: (start: String, end: String, note: String?) -> Unit = { _, _, _ -> },
     onRemoveBlock: (blockId: String) -> Unit = {},
+    onEditListing: () -> Unit = {},
     cancellationPolicy: String = "moderate",
     cancellationPolicyState: com.quickin.app.CancellationPolicyUiState = com.quickin.app.CancellationPolicyUiState(),
     onSaveCancellationPolicy: (policy: String) -> Unit = {}
@@ -948,6 +956,22 @@ private fun ReservePanel(
                 }
             }
             } // end !isOwnHost booking form
+
+            // Host of this listing: the full editor (every field + photos). Saving there sends the
+            // listing back for review, which the editor spells out before it commits.
+            if (isOwnHost) {
+                OutlinedButton(
+                    onClick = onEditListing,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Burgundy),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Icon(Icons.Filled.Edit, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.listing_edit_title), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                }
+            }
 
             // Host of this listing: a calendar manager to block / unblock date ranges. Opening
             // it loads the listing's current spans (booked read-only + blocked removable).

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp, publicUser, generateOtp } from '@/lib/local/auth'
+import { getUserRowByEmail, verifyPassword, signToken, rateLimit, clientIp, publicUserWithHost, generateOtp } from '@/lib/local/auth'
 import { createOtpCode } from '@/lib/local/db'
 import { sendOtpEmail } from '@/lib/local/email'
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         { status: 403, headers: CORS }
       )
     }
-    const user = publicUser(row)
+    const user = await publicUserWithHost(row)
     const token = signToken({ sub: user.id, email: user.email })
     const res = NextResponse.json({ token, user }, { headers: CORS })
     res.cookies.set('qk_token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 30 * 24 * 3600 })

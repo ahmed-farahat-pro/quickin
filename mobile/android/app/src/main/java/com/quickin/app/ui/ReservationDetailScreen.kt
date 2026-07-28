@@ -2,6 +2,8 @@ package com.quickin.app.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +65,9 @@ import com.quickin.app.Qr
 import com.quickin.app.Reservation
 import com.quickin.app.ReservationDetailUiState
 import com.quickin.app.ShareLinks
+import com.quickin.app.StayGuideItem
+import com.quickin.app.StayGuideKind
+import com.quickin.app.openLink
 import com.quickin.app.shareText
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -106,7 +111,15 @@ fun ReservationDetailScreen(
     /** Dismisses the cancel confirm dialog without cancelling. */
     onDismissCancel: () -> Unit = {},
     /** Confirms the cancellation (`POST …/bookings/:id/cancel`). */
-    onConfirmCancel: () -> Unit = {}
+    onConfirmCancel: () -> Unit = {},
+    /** Host-only: appends a stay-guide item (`POST …/bookings/:id/stay-guide`). */
+    onAddGuideItem: (kind: StayGuideKind, title: String?, body: String?, url: String?) -> Unit = { _, _, _, _ -> },
+    /** Host-only: edits a stay-guide item in place (`PATCH …/stay-guide/:itemId`). */
+    onUpdateGuideItem: (itemId: String, title: String?, body: String?, url: String?) -> Unit = { _, _, _, _ -> },
+    /** Host-only: moves the item at `index` one slot up (`up = true`) or down. */
+    onMoveGuideItem: (index: Int, up: Boolean) -> Unit = { _, _ -> },
+    /** Host-only: removes a stay-guide item (`DELETE …/stay-guide/:itemId`). */
+    onDeleteGuideItem: (itemId: String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Scaffold(
@@ -181,7 +194,15 @@ fun ReservationDetailScreen(
                     cancelError = state.cancelError,
                     onRequestCancel = onRequestCancel,
                     onDismissCancel = onDismissCancel,
-                    onConfirmCancel = onConfirmCancel
+                    onConfirmCancel = onConfirmCancel,
+                    guide = state.guide,
+                    guideLoading = state.guideLoading,
+                    guideSaving = state.guideSaving,
+                    guideError = state.guideError,
+                    onAddGuideItem = onAddGuideItem,
+                    onUpdateGuideItem = onUpdateGuideItem,
+                    onMoveGuideItem = onMoveGuideItem,
+                    onDeleteGuideItem = onDeleteGuideItem
                 )
             }
         }
@@ -208,24 +229,25 @@ private fun ReservationCardContent(
     cancelError: String? = null,
     onRequestCancel: () -> Unit = {},
     onDismissCancel: () -> Unit = {},
-    onConfirmCancel: () -> Unit = {}
+    onConfirmCancel: () -> Unit = {},
+    guide: List<StayGuideItem> = emptyList(),
+    guideLoading: Boolean = false,
+    guideSaving: Boolean = false,
+    guideError: String? = null,
+    onAddGuideItem: (kind: StayGuideKind, title: String?, body: String?, url: String?) -> Unit = { _, _, _, _ -> },
+    onUpdateGuideItem: (itemId: String, title: String?, body: String?, url: String?) -> Unit = { _, _, _, _ -> },
+    onMoveGuideItem: (index: Int, up: Boolean) -> Unit = { _, _ -> },
+    onDeleteGuideItem: (itemId: String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    // Public stay-pass URL the QR encodes and the card opens on tap.
-    val stayUrl = remember(reservation.reservationCode) {
-        ShareLinks.stay(reservation.reservationCode)
-    }
-    val openStayPass: () -> Unit = openStayPass@{
-        if (reservation.reservationCode.isBlank()) return@openStayPass
-        runCatching {
-            context.startActivity(
-                android.content.Intent(
-                    android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse(stayUrl)
-                )
-            )
-        }
-    }
+    // ── THE QR GATE ─────────────────────────────────────────────────────────────────────────
+    // `stayPassUrl` is non-null ONLY when the host has approved this reservation AND a real
+    // reservation code was issued for it (never blank, never the literal "null" — see
+    // Reservation.stayPassUrl / ShareLinks.stay). While the request is pending — and once it is
+    // rejected or cancelled — this is null and nothing pass-shaped renders: no QR, no code, no
+    // tappable stay link, no stay guide. The card shows the "appears once confirmed" state instead.
+    val stayUrl = reservation.stayPassUrl
+    val openStayPass: (() -> Unit)? = stayUrl?.let { url -> { openLink(context, url) } }
 
     var showReviewDialog by remember { mutableStateOf(false) }
 
@@ -256,91 +278,30 @@ private fun ReservationCardContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // The stay guide can make this taller than the viewport, so the whole pass scrolls.
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // The in-app reservation card: title, city, QR, code, and trip details. The whole card is
-        // tappable → opens the public stay-pass page (same URL the QR encodes).
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = Color.White,
-            shadowElevation = 6.dp,
-            onClick = openStayPass,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // A confirmed reservation earns a drawn-on green checkmark (qkDraw + qkPop).
-                if (BookingStatus.from(reservation.status) == BookingStatus.Confirmed) {
-                    PopIn { DrawCheckmark(size = 64.dp) }
-                    Spacer(Modifier.height(12.dp))
-                }
-                // Guest view: payment-aware badge — "Waiting for approval" (pending),
-                // "Approved" (confirmed + unpaid), or "Paid" (confirmed + paid).
-                StatusBadge(reservation.status, guestView = true, isPaid = reservation.isPaid)
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    reservation.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = Ink,
-                    textAlign = TextAlign.Center
-                )
-                // City: the curated region when present, otherwise the listing location.
-                val city = reservation.cityText
-                if (city != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
-                    ) {
-                        Icon(Icons.Filled.LocationOn, null, tint = Muted, modifier = Modifier.height(16.dp))
-                        Text(city, color = Muted, fontSize = 14.sp)
-                    }
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // QR encodes the public stay-pass URL (not the bare code), so a scan opens the page.
-                QrBlock(stayUrl)
-
-                Spacer(Modifier.height(10.dp))
-                // Caption: the QR (and the card) opens the stay pass.
-                Text(
-                    stringResource(R.string.reservation_scan_or_tap),
-                    color = Muted,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.reservation_code_label), color = Muted, fontSize = 12.sp)
-                Text(
-                    reservation.reservationCode.ifBlank { "—" },
-                    color = Burgundy,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    letterSpacing = 2.sp
-                )
-
-                Spacer(Modifier.height(20.dp))
-                HorizontalDivider(color = Tan)
-                Spacer(Modifier.height(16.dp))
-
-                DetailRow(Icons.Filled.DateRange, stringResource(R.string.reservation_dates), reservation.dateRangeText)
-                Spacer(Modifier.height(10.dp))
-                DetailRow(Icons.Filled.People, stringResource(R.string.reservation_guests_label), "${reservation.guests}")
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(stringResource(R.string.detail_total), color = Muted, fontSize = 14.sp)
-                    Text(reservation.totalText, color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
+        // The in-app reservation card: title, city, QR, code, and trip details. It is tappable —
+        // opening the public stay-pass page — ONLY when a pass exists; with no pass there is
+        // nothing to open, so the card is inert rather than a link to a broken URL.
+        if (openStayPass != null) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                shadowElevation = 6.dp,
+                onClick = openStayPass,
+                modifier = Modifier.fillMaxWidth()
+            ) { ReservationPassBody(reservation = reservation, stayUrl = stayUrl) }
+        } else {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                shadowElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) { ReservationPassBody(reservation = reservation, stayUrl = null) }
         }
 
         // "From your host" — guests see notes read-only; hosts get an inline editor below.
@@ -350,6 +311,22 @@ private fun ReservationCardContent(
             saving = notesSaving,
             error = notesError,
             onSave = onSaveHostNotes
+        )
+
+        // The host-authored stay guide. Guests see it read-only; the host gets the editor — both
+        // only once the booking is approved, the same gate as the QR itself.
+        StayGuideSection(
+            items = guide,
+            isHost = isHost,
+            hasStayPass = reservation.hasStayPass,
+            canEdit = reservation.canEditStayGuide,
+            loading = guideLoading,
+            saving = guideSaving,
+            error = guideError,
+            onAddItem = onAddGuideItem,
+            onUpdateItem = onUpdateGuideItem,
+            onMoveItem = onMoveGuideItem,
+            onDeleteItem = onDeleteGuideItem
         )
 
         // Payment is gated on host approval. The guest can only pay once the host has APPROVED the
@@ -483,6 +460,133 @@ private fun ReservationCardContent(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+    }
+}
+
+/**
+ * The contents of the reservation pass card: status, place, then EITHER the QR + code (when
+ * [stayUrl] is non-null, i.e. the booking is approved and has a real reservation code) OR the
+ * "your QR appears once confirmed" placeholder — never a QR pointing at a fabricated URL.
+ */
+@Composable
+private fun ReservationPassBody(
+    reservation: Reservation,
+    stayUrl: String?
+) {
+    Column(
+        modifier = Modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // A confirmed reservation earns a drawn-on green checkmark (qkDraw + qkPop).
+        if (BookingStatus.from(reservation.status) == BookingStatus.Confirmed) {
+            PopIn { DrawCheckmark(size = 64.dp) }
+            Spacer(Modifier.height(12.dp))
+        }
+        // Guest view: payment-aware badge — "Waiting for approval" (pending),
+        // "Approved" (confirmed + unpaid), or "Paid" (confirmed + paid).
+        StatusBadge(reservation.status, guestView = true, isPaid = reservation.isPaid)
+        Spacer(Modifier.height(14.dp))
+        Text(
+            reservation.title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = Ink,
+            textAlign = TextAlign.Center
+        )
+        // City: the curated region when present, otherwise the listing location.
+        val city = reservation.cityText
+        if (city != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                Icon(Icons.Filled.LocationOn, null, tint = Muted, modifier = Modifier.height(16.dp))
+                Text(city, color = Muted, fontSize = 14.sp)
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        if (stayUrl != null) {
+            // QR encodes the public stay-pass URL (not the bare code), so a scan opens the page.
+            QrBlock(stayUrl)
+
+            Spacer(Modifier.height(10.dp))
+            // Caption: the QR (and the card) opens the stay pass.
+            Text(
+                stringResource(R.string.reservation_scan_or_tap),
+                color = Muted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.reservation_code_label), color = Muted, fontSize = 12.sp)
+            Text(
+                reservation.reservationCode.orEmpty(),
+                color = Burgundy,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                letterSpacing = 2.sp
+            )
+        } else {
+            // No pass yet (or ever): no QR, no code, no link — just why.
+            NoPassBlock(awaitingApproval = reservation.isAwaitingApproval)
+        }
+
+        Spacer(Modifier.height(20.dp))
+        HorizontalDivider(color = Tan)
+        Spacer(Modifier.height(16.dp))
+
+        DetailRow(Icons.Filled.DateRange, stringResource(R.string.reservation_dates), reservation.dateRangeText)
+        Spacer(Modifier.height(10.dp))
+        DetailRow(Icons.Filled.People, stringResource(R.string.reservation_guests_label), "${reservation.guests}")
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(stringResource(R.string.detail_total), color = Muted, fontSize = 14.sp)
+            Text(reservation.totalText, color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
+    }
+}
+
+/**
+ * Stands in for the QR while there is no stay pass. [awaitingApproval] picks the copy: a pending
+ * request is told its code is coming once the host confirms; a rejected/cancelled one is simply
+ * told there is no pass. Deliberately the same 220dp footprint as [QrBlock] so approval doesn't
+ * make the card jump.
+ */
+@Composable
+private fun NoPassBlock(awaitingApproval: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Cream,
+        modifier = Modifier.size(220.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                Icons.Filled.HourglassEmpty,
+                contentDescription = null,
+                tint = if (awaitingApproval) Burgundy else Muted,
+                modifier = Modifier.size(34.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(
+                    if (awaitingApproval) R.string.reservation_qr_pending else R.string.reservation_qr_none
+                ),
+                color = Ink,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
         }
     }
 }

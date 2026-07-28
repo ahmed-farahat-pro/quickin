@@ -89,7 +89,7 @@ struct HostListingsTab: View {
                                 .padding(.vertical, 4)
                         } else {
                             ForEach(filteredListings) { listing in
-                                HostListingRow(listing: listing, onResubmitted: {
+                                HostListingRow(listing: listing, onChanged: {
                                     Task { await viewModel.load() }
                                 })
                             }

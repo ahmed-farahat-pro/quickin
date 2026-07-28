@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { isAdminKey } from '@/lib/local/auth'
 import { getPendingHostApplications, reviewHostApplication } from '@/lib/local/db'
 
-// Admin (key-gated): GET ?key=  → pending host applications.
+// Admin (key-gated): GET ?key=[&status=]  → host applications (default: pending).
 //                    POST ?key= { id, action: 'approve'|'reject', note? } → decide.
+// Approving flips users.is_host (transactionally) and notifies the applicant.
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 const keyOf = (req: Request) => new URL(req.url).searchParams.get('key') || req.headers.get('x-admin-key')
@@ -11,7 +12,8 @@ const keyOf = (req: Request) => new URL(req.url).searchParams.get('key') || req.
 export async function GET(req: Request) {
   if (!isAdminKey(keyOf(req))) return NextResponse.json({ error: 'forbidden' }, { status: 403, headers: CORS })
   try {
-    return NextResponse.json({ applications: await getPendingHostApplications() }, { headers: CORS })
+    const status = new URL(req.url).searchParams.get('status') || 'pending'
+    return NextResponse.json({ applications: await getPendingHostApplications(status) }, { headers: CORS })
   } catch (err) {
     console.error('admin host-applications GET:', err)
     return NextResponse.json({ error: 'Failed to load' }, { status: 500, headers: CORS })

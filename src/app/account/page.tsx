@@ -5,8 +5,8 @@ import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
-import { getVerification, getHostApplication } from '@/lib/local/db'
-import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { getVerification } from '@/lib/local/db'
+import { verifyToken, getUserRowByEmail, getHostState, type HostStatus } from '@/lib/local/auth'
 import { AccountForms, BecomeHostButton } from './account-forms'
 
 export const dynamic = 'force-dynamic'
@@ -37,9 +37,12 @@ interface AccountUser {
   full_name: string | null
   avatar_url: string | null
   is_host: boolean
+  host_status: HostStatus
+  host_review_note: string | null
 }
 
-// Resolve the signed-in user (full row), or null when the cookie is missing/invalid.
+// Resolve the signed-in user (full row) + their authoritative host state, or null
+// when the cookie is missing/invalid.
 async function getCurrentUser(): Promise<AccountUser | null> {
   const token = (await cookies()).get('qk_token')?.value
   if (!token) return null
@@ -48,12 +51,15 @@ async function getCurrentUser(): Promise<AccountUser | null> {
   try {
     const row = await getUserRowByEmail(claims.email)
     if (!row) return null
+    const host = await getHostState(row.id, !!row.is_host)
     return {
       id: row.id,
       email: row.email,
       full_name: row.full_name,
       avatar_url: row.avatar_url,
       is_host: !!row.is_host,
+      host_status: host.host_status,
+      host_review_note: host.host_review_note,
     }
   } catch {
     return null
@@ -123,8 +129,6 @@ export default async function AccountPage() {
 
   const t = await getTranslations('accountPage')
   const verification = await getVerification(user.id)
-  const application = user.is_host ? null : await getHostApplication(user.id)
-  const applicationPending = application?.status === 'pending'
   const chipColors = VERIFY_CHIP_COLORS[verification.status] ?? VERIFY_CHIP_COLORS.unverified
   const chipKey = VERIFY_CHIP_COLORS[verification.status]
     ? verification.status
@@ -252,9 +256,10 @@ export default async function AccountPage() {
         </div>
 
         {/* Unified account: one person, one login. Becoming a host is an
-            admin-reviewed application. Three states: hosting, application under
-            review, or the "Become a host" CTA (links to /host/apply). */}
-        {user.is_host ? (
+            admin-reviewed application, so this renders all four host_status
+            states: approved (hosting), pending (under review), rejected (reason
+            + reapply) and none (the "Become a host" CTA → /host/apply). */}
+        {user.host_status === 'approved' ? (
           <a
             href="/host"
             style={{
@@ -290,7 +295,7 @@ export default async function AccountPage() {
               {t('hosting.label')} →
             </span>
           </a>
-        ) : applicationPending ? (
+        ) : user.host_status === 'pending' ? (
           <div
             style={{
               background: '#fff',
@@ -320,6 +325,42 @@ export default async function AccountPage() {
             <p style={{ margin: 0, fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55 }}>
               {t('hostApplication.subtitle')}
             </p>
+          </div>
+        ) : user.host_status === 'rejected' ? (
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 22,
+              border: `1px solid rgba(179,38,30,0.22)`,
+              boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+              padding: '24px',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#fdecea',
+                color: '#b3261e',
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '4px 12px',
+                borderRadius: 999,
+                marginBottom: 12,
+              }}
+            >
+              {t('hostRejected.badge')}
+            </span>
+            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
+              {t('hostRejected.title')}
+            </h2>
+            <p style={{ margin: '0 0 6px', fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55 }}>
+              {t('hostRejected.subtitle')}
+            </p>
+            <p style={{ margin: '0 0 18px', fontSize: 14.5, color: COLORS.ink, lineHeight: 1.55 }}>
+              <strong style={{ color: COLORS.muted, fontSize: 12.5 }}>{t('hostRejected.reason')}: </strong>
+              {user.host_review_note || t('hostRejected.noReason')}
+            </p>
+            <BecomeHostButton label={t('hostRejected.button')} />
           </div>
         ) : (
           <div

@@ -482,6 +482,33 @@
     <string name="approval_rejected_note">تم رفض مستند الملكية. أعد رفعه لإرسال إعلانك للمراجعة مرة أخرى.</string>
     <string name="approval_doc_resubmitted">تم إرسال المستند. إعلانك قيد المراجعة مرة أخرى.</string>
 
+    <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->
+    <string name="listing_edit_title">تعديل الإعلان</string>
+    <string name="listing_edit_section_basics">الأساسيات</string>
+    <string name="listing_edit_section_location">الموقع</string>
+    <string name="listing_edit_section_details">التفاصيل والصور والأسعار</string>
+    <string name="listing_edit_review_title">الحفظ يعيد هذا الإعلان إلى المراجعة</string>
+    <string name="listing_edit_review_body">حفظ التغييرات يعيد إعلانك إلى المراجعة، وسيكون مخفيًا عن الضيوف حتى يوافق عليه المشرف.</string>
+    <string name="listing_edit_review_confirm">احفظ وأرسل للمراجعة</string>
+    <string name="listing_edit_keep_editing">متابعة التعديل</string>
+    <string name="listing_edit_save">حفظ التغييرات</string>
+    <string name="listing_edit_cancel">إلغاء</string>
+    <string name="listing_edit_done">تم</string>
+    <string name="listing_edit_saved">تم حفظ التغييرات</string>
+    <string name="listing_edit_saved_note">إعلانك قيد المراجعة ومخفي عن الضيوف حتى يوافق عليه المشرف.</string>
+    <string name="listing_edit_no_changes">لم تغيّر أي شيء بعد.</string>
+    <string name="listing_edit_needs_title">أضف عنوانًا.</string>
+    <string name="listing_edit_needs_description">أضف وصفًا.</string>
+    <string name="listing_edit_needs_location">أضف الموقع.</string>
+    <string name="listing_edit_needs_region">اختر المنطقة التي يقع فيها مكانك.</string>
+    <string name="listing_edit_needs_price">يجب أن يكون سعر الليلة أكبر من 0.</string>
+    <string name="listing_edit_discard_title">تجاهل تغييراتك؟</string>
+    <string name="listing_edit_discard_body">لم يتم حفظ تعديلاتك على هذا الإعلان.</string>
+    <string name="listing_edit_discard_confirm">تجاهل</string>
+    <string name="listing_edit_move_earlier">تقديم الصورة</string>
+    <string name="listing_edit_move_later">تأخير الصورة</string>
+    <string name="listing_edit_set_cover">اجعلها صورة الغلاف</string>
+
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">وثّق هويتك</string>
     <string name="trust_verify_intro">أضف شارة التوثيق إلى ملفك. ارفع صورة الوجه الأمامي والخلفي لهويتك الرسمية مع صورة سيلفي وسنراجعها قريبًا.</string>
@@ -673,4 +700,67 @@
     <string name="trust_selfie_photo">صورة سيلفي لك</string>
     <string name="trust_selfie_hint">التقط صورة سيلفي واضحة حتى نتمكن من مطابقتها مع هويتك.</string>
     <string name="trust_photos_required">يرجى إضافة صورة الهوية الأمامية والخلفية وصورة سيلفي.</string>
+
+    <!-- Become a host: the application states (none / pending / rejected / approved) -->
+    <string name="host_status_pending">قيد المراجعة</string>
+    <string name="host_status_rejected">لم تتم الموافقة</string>
+    <string name="host_status_approved">تمت الموافقة</string>
+    <string name="host_pending_title">طلبك قيد المراجعة</string>
+    <string name="host_pending_note">شكرًا لتقديمك. يراجع فريقنا بياناتك وسنُعلمك فور الموافقة عليك.</string>
+    <string name="host_rejected_title">لم تتم الموافقة على طلبك</string>
+    <string name="host_rejected_note">لم تتم الموافقة على طلب الاستضافة. حدّث بياناتك وقدّم الطلب مرة أخرى.</string>
+    <string name="host_rejected_reason">السبب: %1$s</string>
+    <string name="host_approved_title">أنت الآن مضيف</string>
+    <string name="host_approved_note">أضف العقارات وأدر الحجوزات وتابع أرباحك من قسم الاستضافة بالأسفل.</string>
+    <string name="host_reapply">قدّم الطلب مرة أخرى</string>
+
+    <!-- Become a host: the application form -->
+    <string name="host_apply_title">التقديم لتصبح مضيفًا</string>
+    <string name="host_apply_intro">أخبرنا قليلًا عنك. يراجع فريقنا كل طلب قبل أن تتمكن من الاستضافة.</string>
+    <string name="host_apply_full_name">الاسم الكامل</string>
+    <string name="host_apply_national_id">الرقم القومي</string>
+    <string name="host_apply_phone">رقم الهاتف</string>
+    <string name="host_apply_address">العنوان</string>
+    <string name="host_apply_company">الشركة / المكتب العقاري (اختياري)</string>
+    <string name="host_apply_notes">ملاحظات (اختياري)</string>
+    <string name="host_apply_host_type">هل أنت فرد أم شركة أم مكتب عقاري؟</string>
+    <string name="host_type_individual">فرد</string>
+    <string name="host_type_company">شركة</string>
+    <string name="host_type_brokerage">مكتب عقاري</string>
+    <string name="host_apply_submit">إرسال الطلب</string>
+    <string name="host_apply_required">أضف اسمك والرقم القومي ورقم الهاتف والعنوان للمتابعة.</string>
+    <string name="host_apply_error">تعذّر إرسال طلبك. يرجى المحاولة مرة أخرى.</string>
+
+    <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
+    <string name="reservation_qr_pending">سيظهر رمز QR هنا بمجرد تأكيد حجزك.</string>
+    <string name="reservation_qr_none">لا توجد بطاقة إقامة لهذا الحجز.</string>
+
+    <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
+    <string name="stay_guide_title">دليل إقامتك</string>
+    <string name="stay_guide_host_title">دليل الإقامة</string>
+    <string name="stay_guide_host_hint">أضف معلومات وصورًا وأماكن وملفات لضيفك. سيراها هنا وفي بطاقة الإقامة.</string>
+    <string name="stay_guide_host_empty">لم تتم إضافة أي شيء بعد.</string>
+    <string name="stay_guide_locked">يمكنك إعداد دليل الإقامة بعد الموافقة على هذا الحجز.</string>
+    <string name="stay_guide_kind_info">معلومة</string>
+    <string name="stay_guide_kind_photo">صورة</string>
+    <string name="stay_guide_kind_place_qr">مكان</string>
+    <string name="stay_guide_kind_attachment">ملف</string>
+    <string name="stay_guide_photos">الصور</string>
+    <string name="stay_guide_places">أماكن للزيارة</string>
+    <string name="stay_guide_attachments">الملفات</string>
+    <string name="stay_guide_open">فتح</string>
+    <string name="stay_guide_kind_label">ماذا تريد أن تضيف؟</string>
+    <string name="stay_guide_title_label">العنوان</string>
+    <string name="stay_guide_body_label">التفاصيل</string>
+    <string name="stay_guide_link_label">الرابط (https://…)</string>
+    <string name="stay_guide_choose_photo">اختر صورة</string>
+    <string name="stay_guide_photo_ready">الصورة جاهزة</string>
+    <string name="stay_guide_invalid_link">أدخل رابطًا يبدأ بـ https://</string>
+    <string name="stay_guide_add">أضف إلى الدليل</string>
+    <string name="stay_guide_save">حفظ</string>
+    <string name="stay_guide_edit">تعديل</string>
+    <string name="stay_guide_delete">إزالة</string>
+    <string name="stay_guide_move_up">تحريك لأعلى</string>
+    <string name="stay_guide_move_down">تحريك لأسفل</string>
+    <string name="cd_place_qr">رمز QR لـ %1$s</string>
 </resources>

@@ -8,8 +8,9 @@ struct ProfileView: View {
     @Environment(\.openURL) private var openURL
     @StateObject private var notifications = NotificationsBadgeModel()
     @StateObject private var header = ProfileHeaderModel()
-    /// True while the "Become a host" request is in flight.
-    @State private var isBecomingHost = false
+    @StateObject private var hostApplication = HostApplicationModel()
+    /// Drives the "Become a host" application sheet.
+    @State private var showHostApply = false
     /// Drives the "Delete your account?" confirmation sheet.
     @State private var showDeleteConfirm = false
     /// True while the account-deletion request is in flight.
@@ -42,8 +43,9 @@ struct ProfileView: View {
                             badges
                             // Become a host — surfaced right under the identity for non-hosts so
                             // it's the first thing they see, instead of being buried near the bottom.
+                            // Renders whichever of the four application states applies.
                             if !isHost {
-                                becomeHostButton
+                                hostApplicationSection
                             }
                             IdentityVerificationCard()
                             GuestReviewsAboutMeSection(guestID: auth.user?.id)
@@ -74,9 +76,15 @@ struct ProfileView: View {
         // Refresh the unread badge + profile header (bio / avatar) every time
         // the tab appears (e.g. after returning from notifications, which may
         // have marked some read, or from Edit profile, which may have changed
-        // the bio / photo).
+        // the bio / photo). Also re-reads the authoritative account so an
+        // approved / rejected host application lands without a relaunch — the
+        // server's `is_host` + `host_status` always win over the local cache.
         .onAppear {
             Task {
+                await auth.refreshSession()
+                // Only non-hosts have an application worth reading (a host's
+                // surface is the dashboard, not the four-state card).
+                if !isHost { await hostApplication.refresh() }
                 await notifications.refresh()
                 await header.refresh()
             }
@@ -84,7 +92,25 @@ struct ProfileView: View {
         // A logout → login as someone else should drop the previous bio / avatar.
         .onChange(of: auth.user?.id) { _, _ in
             header.reset()
-            Task { await header.refresh() }
+            hostApplication.reset()
+            Task {
+                await header.refresh()
+                if !isHost { await hostApplication.refresh() }
+            }
+        }
+        // Become a host: the application form (also used to reapply after a
+        // rejection). Submitting files it for admin review — it never grants
+        // host, so on success we only flip the local status to `pending`.
+        .sheet(isPresented: $showHostApply) {
+            HostApplicationSheet(
+                existing: hostApplication.application,
+                fallbackName: auth.user?.fullName,
+                onSubmitted: { hostType in
+                    auth.applyHostApplicationSubmitted(hostType: hostType)
+                    Task { await hostApplication.refresh() }
+                }
+            )
+            .presentationDragIndicator(.visible)
         }
         // In-app account deletion (App Store Guideline 5.1.1(v)). A polished
         // destructive confirmation sheet precedes the irreversible delete; on
@@ -406,7 +432,8 @@ struct ProfileView: View {
     }
 
     /// Host-only entry into the host dashboard (add listing + reservation
-    /// requests). Rendered only when `role == "host"`. A burgundy-gradient card.
+    /// requests). Rendered only when the server says `is_host` — an approved
+    /// application, never a local flag. A burgundy-gradient card.
     private var hostEntry: some View {
         NavigationLink {
             HostDashboardView()
@@ -433,27 +460,33 @@ struct ProfileView: View {
         .buttonStyle(.qkTap)
     }
 
-    /// "Become a host" CTA, shown only when the account isn't a host yet. Calls
-    /// `POST /api/local/host/become`; on success the account's `is_host` flips
-    /// to true and `hostEntry` replaces this button (no re-login). A burgundy
-    /// card matching `hostEntry`'s look so the upgrade reads as the same surface.
+    /// The become-a-host surface for a non-host account, branching on the
+    /// server-derived `host_status`. There's no instant promotion any more: the
+    /// CTA opens the application form, an admin reviews it in `/ops`, and only
+    /// then does `is_host` flip (which `hostEntry` gates on).
+    ///
+    /// `approved` is unreachable here — the contract guarantees it implies
+    /// `is_host`, and this whole section is skipped for hosts.
+    @ViewBuilder
+    private var hostApplicationSection: some View {
+        switch hostStatus {
+        case .none:     becomeHostButton
+        case .pending:  hostPendingCard
+        case .rejected: hostRejectedCard
+        case .approved: EmptyView()
+        }
+    }
+
+    /// "Become a host" CTA, shown when there's no application on file. Opens the
+    /// application sheet. A burgundy card matching `hostEntry`'s look so the
+    /// upgrade reads as the same surface.
     private var becomeHostButton: some View {
         Button {
-            Task {
-                isBecomingHost = true
-                _ = await auth.becomeHost()
-                isBecomingHost = false
-            }
+            showHostApply = true
         } label: {
             HStack(spacing: 13) {
-                if isBecomingHost {
-                    ProgressView()
-                        .tint(.qkCream)
-                        .frame(width: 22)
-                } else {
-                    Image(systemName: "house.lodge.fill")
-                        .font(.title3)
-                }
+                Image(systemName: "house.lodge.fill")
+                    .font(.title3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(loc.t("profile.becomeHost"))
                         .font(.system(size: 15, weight: .bold))
@@ -469,10 +502,101 @@ struct ProfileView: View {
             .background(LinearGradient.qkBurgundyPanel)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: Color.qkBurgundy.opacity(0.26), radius: 14, x: 0, y: 10)
-            .opacity(isBecomingHost ? 0.85 : 1)
         }
         .buttonStyle(.qkTap)
-        .disabled(isBecomingHost)
+    }
+
+    /// `pending` — the application is with the admins. Read-only on purpose:
+    /// there's nothing for the applicant to do but wait.
+    private var hostPendingCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            hostStatusHeader(
+                icon: "clock.fill",
+                title: loc.t("hostApply.pending.title"),
+                badge: loc.t("hostApply.pending.badge"),
+                tint: .qkGoldDeep
+            )
+            Text(loc.t("hostApply.pending.body"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let submitted = hostApplication.application?.submittedText {
+                Text(submitted)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.qkMuted.opacity(0.85))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .qkCard(cornerRadius: 18, lifts: false)
+    }
+
+    /// `rejected` — show the admin's reason (when they left one) and offer a
+    /// reapply, which reopens the same form (the backend upserts on resubmit).
+    private var hostRejectedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            hostStatusHeader(
+                icon: "exclamationmark.triangle.fill",
+                title: loc.t("hostApply.rejected.title"),
+                badge: loc.t("hostApply.rejected.badge"),
+                tint: .qkBurgundy
+            )
+            Text(loc.t("hostApply.rejected.body"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let note = auth.user?.hostReviewNote?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !note.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(loc.t("hostApply.rejected.reason"))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.qkBurgundy)
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.qkBurgundy.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            Button {
+                showHostApply = true
+            } label: {
+                QKPrimaryButtonLabel(title: loc.t("hostApply.reapply"), systemImage: "arrow.clockwise", height: 48)
+            }
+            .buttonStyle(QKPressStyle())
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .qkCard(cornerRadius: 18, lifts: false)
+    }
+
+    /// Shared title row for the pending / rejected cards: a tinted glyph, the
+    /// title, and a status pill — mirrors `IdentityVerificationCard`'s header.
+    private func hostStatusHeader(icon: String, title: String, badge: String, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 24)
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.qkInk)
+            Spacer(minLength: 8)
+            Text(badge)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(tint)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(tint.opacity(0.12))
+                .clipShape(Capsule())
+        }
     }
 
     private var logoutButton: some View {
@@ -547,9 +671,16 @@ struct ProfileView: View {
     }
 
     /// Whether the signed-in account is a host (gates the host dashboard entry
-    /// vs. the "Become a host" CTA). Uses the unified-account `is_host` flag.
+    /// vs. the "Become a host" CTA). Uses the unified-account `is_host` flag —
+    /// the server's value, refreshed on every appearance, never a local guess.
     private var isHost: Bool {
         auth.user?.isHost ?? false
+    }
+
+    /// Where the account sits in the become-a-host flow, from the server's
+    /// derived `host_status`. Drives which of the four states is rendered.
+    private var hostStatus: HostStatus {
+        auth.user?.hostStatus ?? .none
     }
 
     /// Friendly label for the account-type pill, derived from `is_host`.
@@ -564,6 +695,370 @@ struct ProfileView: View {
         case "apple": return "apple.logo"
         default: return "envelope.fill"
         }
+    }
+}
+
+// MARK: - Become a host (application → admin review)
+
+/// Reads the signed-in account's host application
+/// (`GET /api/local/host/application`) so the profile can date the "under
+/// review" card and prefill the form when a rejected applicant reapplies. Fails
+/// silently: without it the cards simply drop the extras. The authoritative
+/// status still comes from `auth.user?.hostStatus`, never from here.
+@MainActor
+final class HostApplicationModel: ObservableObject {
+    @Published var application: HostApplication?
+
+    func refresh() async {
+        guard let state = try? await HostService.shared.fetchHostApplication() else { return }
+        application = state.application
+    }
+
+    /// Clear the cached row so a different account never momentarily shows the
+    /// previous one's application.
+    func reset() {
+        application = nil
+    }
+}
+
+/// The "Become a host" application form, presented as a sheet from
+/// `ProfileView`. Collects what an admin needs to review — full name, national
+/// ID, phone, address, host type, an optional company name and optional notes —
+/// and POSTs them to `/api/local/host/apply`.
+///
+/// Submitting does **not** make the account a host: the backend files the
+/// application as `pending` and an admin approves it in `/ops`. The same form
+/// doubles as the reapply surface after a rejection (the backend upserts on the
+/// `UNIQUE (user_id)` constraint), so it prefills from the previous submission.
+private struct HostApplicationSheet: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Environment(\.dismiss) private var dismiss
+
+    /// The previous submission, when there is one (drives the prefill).
+    let existing: HostApplication?
+    /// The account's name, used when the application has none yet.
+    let fallbackName: String?
+    /// Called after a successful submit so the profile can flip to `pending`.
+    let onSubmitted: (HostType) -> Void
+
+    @State private var draft = HostService.HostApplicationDraft()
+    @State private var isSubmitting = false
+    @State private var didSubmit = false
+    @State private var errorMessage: String?
+    /// Set when client-side validation fails, so the offending field is named.
+    @State private var invalidField: Field?
+    /// Guards the one-shot seed so a re-appearance never overwrites typing.
+    @State private var didPrefill = false
+
+    private enum Field { case fullName, nationalID, phone, address }
+
+    var body: some View {
+        ZStack {
+            LinearGradient.qkPageWash.ignoresSafeArea()
+
+            if didSubmit {
+                successPanel
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        intro
+                        formCard
+                        if let errorMessage {
+                            errorBanner(errorMessage)
+                        }
+                        submitButton
+                        cancelButton
+                    }
+                    .padding(20)
+                    .padding(.bottom, 12)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+        }
+        .tint(.qkBurgundy)
+        .interactiveDismissDisabled(isSubmitting)
+        .onAppear(perform: prefill)
+    }
+
+    // MARK: - Pieces
+
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(loc.t("hostApply.title"))
+                .font(.system(.title2, design: .serif).weight(.bold))
+                .foregroundStyle(Color.qkInk)
+            Text(loc.t("hostApply.subtitle"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
+    }
+
+    private var formCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            hostTypePicker
+            Divider()
+            field(
+                loc.t("hostApply.fullName"),
+                systemImage: "person.fill",
+                placeholder: loc.t("hostApply.fullName.placeholder"),
+                text: $draft.fullName,
+                field: .fullName,
+                contentType: .name,
+                capitalization: .words
+            )
+            Divider()
+            field(
+                loc.t("hostApply.nationalId"),
+                systemImage: "creditcard.fill",
+                placeholder: loc.t("hostApply.nationalId.placeholder"),
+                text: $draft.nationalID,
+                field: .nationalID,
+                capitalization: .characters
+            )
+            Divider()
+            field(
+                loc.t("hostApply.phone"),
+                systemImage: "phone.fill",
+                placeholder: loc.t("hostApply.phone.placeholder"),
+                text: $draft.phone,
+                field: .phone,
+                contentType: .telephoneNumber,
+                keyboard: .phonePad
+            )
+            Divider()
+            field(
+                loc.t("hostApply.address"),
+                systemImage: "mappin.and.ellipse",
+                placeholder: loc.t("hostApply.address.placeholder"),
+                text: $draft.address,
+                field: .address,
+                contentType: .fullStreetAddress
+            )
+            // Only companies and brokerages carry a trading name.
+            if draft.hostType.isBusiness {
+                Divider()
+                field(
+                    loc.t(draft.hostType == .brokerage ? "hostApply.brokerage" : "hostApply.company"),
+                    systemImage: "building.2.fill",
+                    placeholder: loc.t("hostApply.company.placeholder"),
+                    text: $draft.company,
+                    field: nil,
+                    contentType: .organizationName,
+                    capitalization: .words
+                )
+            }
+            Divider()
+            notesField
+        }
+        .padding(18)
+        .qkCard(lifts: false)
+    }
+
+    /// Individual / Company / Brokerage — sent as `host_type` (web parity).
+    private var hostTypePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(loc.t("hostApply.type"), systemImage: "person.2.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            HStack(spacing: 8) {
+                ForEach(HostType.allCases) { type in
+                    QKChip(title: type.label, isSelected: draft.hostType == type) {
+                        draft.hostType = type
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    /// Multiline "anything else" box, styled like `ProfileSettingsView`'s bio.
+    private var notesField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(loc.t("hostApply.notes"), systemImage: "text.alignleft")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            TextField(loc.t("hostApply.notes.placeholder"), text: $draft.notes, axis: .vertical)
+                .lineLimit(3...6)
+                .textInputAutocapitalization(.sentences)
+                .foregroundStyle(Color.qkInk)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(minHeight: 96, alignment: .topLeading)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+                )
+        }
+    }
+
+    /// One labelled text field. `field` names the validation slot so a failed
+    /// check can outline the offending input (nil for the optional ones).
+    private func field(
+        _ label: String,
+        systemImage: String,
+        placeholder: String,
+        text: Binding<String>,
+        field: Field?,
+        contentType: UITextContentType? = nil,
+        keyboard: UIKeyboardType = .default,
+        capitalization: TextInputAutocapitalization = .sentences
+    ) -> some View {
+        let isInvalid = field != nil && field == invalidField
+        return VStack(alignment: .leading, spacing: 6) {
+            Label(label, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            TextField(placeholder, text: text)
+                .textContentType(contentType)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(capitalization)
+                .foregroundStyle(Color.qkInk)
+                .padding(.horizontal, 14)
+                .frame(height: 48)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(
+                            isInvalid ? Color.qkBurgundy : Color.qkInk.opacity(0.1),
+                            lineWidth: isInvalid ? 1.5 : 1
+                        )
+                )
+        }
+    }
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.qkBurgundy)
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(Color.qkInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.qkBurgundy.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var submitButton: some View {
+        Button {
+            Task { await submit() }
+        } label: {
+            QKPrimaryButtonLabel(
+                title: loc.t(isSubmitting ? "hostApply.submitting" : "hostApply.submit"),
+                systemImage: isSubmitting ? nil : "paperplane.fill",
+                isLoading: isSubmitting
+            )
+        }
+        .buttonStyle(QKPressStyle())
+        .disabled(isSubmitting)
+    }
+
+    private var cancelButton: some View {
+        Button(role: .cancel) {
+            dismiss()
+        } label: {
+            Text(loc.t("common.cancel"))
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .foregroundStyle(Color.qkInk)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isSubmitting)
+    }
+
+    /// Shown in place of the form once the application is filed — the profile
+    /// behind the sheet has already flipped to its "under review" card.
+    private var successPanel: some View {
+        VStack(spacing: 18) {
+            QKDrawCheck(size: 84)
+            Text(loc.t("hostApply.success.title"))
+                .font(.system(.title2, design: .serif).weight(.bold))
+                .foregroundStyle(Color.qkInk)
+                .multilineTextAlignment(.center)
+            Text(loc.t("hostApply.success.body"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                dismiss()
+            } label: {
+                QKPrimaryButtonLabel(title: loc.t("hostApply.success.done"))
+            }
+            .buttonStyle(QKPressStyle())
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, 28)
+    }
+
+    // MARK: - Actions
+
+    /// Seed the form from the previous submission (reapply) or, failing that,
+    /// from the account's own name. Runs once when the sheet appears.
+    private func prefill() {
+        guard !didPrefill else { return }
+        didPrefill = true
+        draft.fullName = existing?.fullName ?? fallbackName ?? ""
+        draft.nationalID = existing?.nationalID ?? ""
+        draft.phone = existing?.phone ?? ""
+        draft.address = existing?.address ?? ""
+        draft.company = existing?.company ?? ""
+        draft.notes = existing?.notes ?? ""
+        draft.hostType = HostType(raw: existing?.hostType)
+    }
+
+    /// Validate the required fields client-side (same rules the backend
+    /// enforces), then POST. On success flip to the confirmation panel and let
+    /// the profile know so its card becomes "under review".
+    private func submit() async {
+        errorMessage = nil
+        invalidField = nil
+
+        if let failure = firstValidationFailure() {
+            invalidField = failure.0
+            errorMessage = loc.t(failure.1)
+            return
+        }
+
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await HostService.shared.submitHostApplication(draft)
+            onSubmitted(draft.hostType)
+            didSubmit = true
+        } catch {
+            // Prefer the server's own text ("Already a host", "Application
+            // already under review", a 400's message) over a generic line.
+            let text = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            errorMessage = text.isEmpty ? loc.t("hostApply.error.submit") : text
+        }
+    }
+
+    /// The first empty required field and the message key that explains it.
+    /// Mirrors the backend's own validation so the round-trip is rarely needed.
+    private func firstValidationFailure() -> (Field, String)? {
+        let checks: [(slot: Field, value: String, messageKey: String)] = [
+            (.fullName, draft.fullName, "hostApply.error.fullName"),
+            (.nationalID, draft.nationalID, "hostApply.error.nationalId"),
+            (.phone, draft.phone, "hostApply.error.phone"),
+            (.address, draft.address, "hostApply.error.address"),
+        ]
+        for check in checks
+        where check.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return (check.slot, check.messageKey)
+        }
+        return nil
     }
 }
 

@@ -1879,6 +1879,14 @@
       "badge": "Under review",
       "title": "Host application under review",
       "subtitle": "Our team is reviewing your application. We’ll let you know as soon as it’s approved."
+    },
+    "hostRejected": {
+      "badge": "Not approved",
+      "title": "Host application not approved",
+      "subtitle": "Our team could not approve your application this time. You can update your details and reapply.",
+      "reason": "Reason",
+      "noReason": "Our team did not leave a note.",
+      "button": "Reapply"
     }
   },
   "savedPage": {
@@ -1917,7 +1925,10 @@
       "error": "Could not enable hosting. Please try again.",
       "ctaApply": "Apply to host",
       "pendingBadge": "Under review",
-      "pendingBody": "Our team is reviewing your application. We’ll let you know as soon as it’s approved."
+      "pendingBody": "Our team is reviewing your application. We’ll let you know as soon as it’s approved.",
+      "rejectedBadge": "Not approved",
+      "rejectedBody": "Our team could not approve your application this time. Update your details and try again.",
+      "ctaReapply": "Reapply to host"
     },
     "dashboard": {
       "greeting": "Hosting, {name}",
@@ -1992,7 +2003,9 @@
         "photos": "Photo URLs",
         "pinLocation": "Pin the location on the map",
         "weekendPrice": "Weekend price (optional)",
-        "weekendDays": "Which days count as the weekend?"
+        "weekendDays": "Which days count as the weekend?",
+        "region": "Area",
+        "amenities": "Amenities"
       },
       "placeholders": {
         "title": "Sunlit loft by the Nile",
@@ -2043,7 +2056,89 @@
       "photosCover": "Cover",
       "photosRemove": "Remove photo",
       "locating": "Finding on map…",
-      "geocodeFail": "Couldn't find that place — tap the map to set it."
+      "geocodeFail": "Couldn't find that place — tap the map to set it.",
+      "regionNone": "No area selected",
+      "regionHint": "Curated areas guests browse by. Optional — pick the one your place belongs to.",
+      "regions": {
+        "northCoast": "North Coast",
+        "ainSokhna": "Ain Sokhna",
+        "elGouna": "El Gouna",
+        "cairo": "Cairo"
+      },
+      "amenities": {
+        "wifi": "WiFi",
+        "pool": "Pool",
+        "kitchen": "Kitchen",
+        "airConditioning": "Air conditioning",
+        "freeParking": "Free parking",
+        "washer": "Washer",
+        "tv": "TV",
+        "heating": "Heating",
+        "workspace": "Workspace",
+        "gym": "Gym",
+        "beachAccess": "Beach access",
+        "petsAllowed": "Pets allowed",
+        "hotTub": "Hot tub",
+        "bbqGrill": "BBQ grill",
+        "breakfast": "Breakfast"
+      },
+      "amenitiesHint": "Pick everything your place offers — guests filter by these.",
+      "photosMoveEarlier": "Move photo earlier",
+      "photosMoveLater": "Move photo later",
+      "photosSetCover": "Make this the cover photo",
+      "photosReorderHint": "Use the arrows to reorder, or ★ to make a photo the cover. The first photo is the one guests see first."
+    },
+    "edit": {
+      "meta": {
+        "title": "Edit listing — QuickIn"
+      },
+      "backToHost": "Back to hosting",
+      "viewListing": "View listing",
+      "title": "Edit listing",
+      "subtitle": "Change anything guests see — details, photos, pricing. Every change goes back to our team for review.",
+      "statusLabel": "Current status",
+      "reviewWarning": {
+        "title": "Saving sends this listing back for review",
+        "body": "Your changes go to our team first. The listing is hidden from guests — and cannot take new bookings — until an admin approves it. Reservations you have already accepted are not affected."
+      },
+      "confirm": {
+        "title": "Send this listing for review?",
+        "body": "We will save your changes and put the listing in the review queue. It stays hidden from guests until an admin approves it.",
+        "cta": "Save and send for review",
+        "cancel": "Keep editing"
+      },
+      "save": "Save changes",
+      "saving": "Saving…",
+      "noChanges": "No changes yet",
+      "saved": {
+        "title": "Changes saved",
+        "body": "Your listing is with our team now. It stays hidden from guests until an admin approves it — you will find it under “Under review” in your listings.",
+        "bodyLive": "Your listing is up to date and still visible to guests.",
+        "cta": "Back to my listings"
+      },
+      "errors": {
+        "saveFailed": "Could not save your changes"
+      }
+    },
+    "ownershipDoc": {
+      "label": "Ownership document",
+      "intro": "Upload a document that proves you own or are authorised to list this place (e.g. a title deed or utility bill). Our team reviews it before your listing goes live.",
+      "upload": "Upload ownership document",
+      "change": "Change",
+      "processing": "Processing…",
+      "attached": "Document attached",
+      "onFile": "Document on file",
+      "missing": "Not added",
+      "remove": "Remove document",
+      "reviewNotice": "Your listing won't be public right away. After you submit, our team reviews your ownership document and approves the listing.",
+      "reupload": "Re-upload ownership document",
+      "uploading": "Uploading…",
+      "resubmitted": "Sent for review",
+      "errors": {
+        "tooLarge": "That image is too large",
+        "failed": "Couldn't process that document. Try another.",
+        "uploadFailed": "Couldn't send that document. Please try again."
+      }
     }
   },
   "hostApply": {
@@ -2079,6 +2174,7 @@
       "notes": "Anything you’d like our team to know"
     },
     "submit": "Submit application",
+    "reapply": "Reapply",
     "submitting": "Submitting…",
     "cancel": "Cancel",
     "errors": {
@@ -2086,7 +2182,11 @@
       "phoneRequired": "Please enter your phone number.",
       "addressRequired": "Please enter your address.",
       "submitFailed": "Could not submit your application. Please try again.",
-      "idRequired": "Please add the front and back of your ID."
+      "idRequired": "Please add the front and back of your ID.",
+      "fullNameRequired": "Please enter your full name.",
+      "hostTypeInvalid": "Please choose individual, company or brokerage.",
+      "checkFields": "Please check the highlighted fields.",
+      "conflict": "Your host status has already changed. We refreshed this page."
     },
     "pending": {
       "subtitle": "Your application is being reviewed by our team.",
@@ -2094,6 +2194,15 @@
       "title": "Application under review",
       "body": "Thanks for applying. Our team is reviewing the details below and will let you know as soon as you’re approved.",
       "submittedAt": "Submitted"
+    },
+    "rejected": {
+      "subtitle": "Your application was not approved. Here is why — you can fix it and reapply below.",
+      "badge": "Not approved",
+      "title": "Application not approved",
+      "body": "Our team reviewed your application and could not approve it this time. Update your details below and send it again.",
+      "reason": "Reason",
+      "noReason": "Our team did not leave a note.",
+      "reviewedAt": "Reviewed"
     },
     "success": {
       "title": "Application submitted",
@@ -2138,5 +2247,107 @@
     "iosSoon": "iOS app — coming soon",
     "androidSoon": "Android app — coming soon",
     "dismiss": "Dismiss"
+  },
+  "stayPass": {
+    "meta": {
+      "title": "Stay pass",
+      "description": "Your QuickIn stay pass — the dates, the place, and everything your host left for you."
+    },
+    "backToExplore": "Back to Explore",
+    "heading": "Stay pass",
+    "greeting": "Welcome, {name}",
+    "greetingGeneric": "Welcome",
+    "hostedBy": "Hosted by {name}",
+    "codeLabel": "Reservation code",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "guestsLabel": "Guests",
+    "guestsCount": "{count, plural, one {# guest} other {# guests}}",
+    "paid": "Paid",
+    "status": {
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "pending": "Pending approval",
+      "cancelled": "Cancelled",
+      "rejected": "Declined"
+    },
+    "inactiveNotice": "This reservation is no longer active. Please contact your host if you think this is a mistake.",
+    "hostNotes": "A note from your host",
+    "guide": {
+      "heading": "Your stay guide",
+      "subtitle": "Everything your host left for you.",
+      "info": "Good to know",
+      "photos": "Photos",
+      "places": "Places to know",
+      "attachments": "Documents",
+      "openLink": "Open link",
+      "scanHint": "Scan with your phone camera",
+      "download": "Open",
+      "photoAlt": "Stay photo"
+    },
+    "notFound": {
+      "title": "We couldn't find that reservation",
+      "body": "This link may have expired, or the code was mistyped. Check the code on your reservation and try again.",
+      "cta": "Go to my trips"
+    },
+    "missingCode": {
+      "title": "This link is missing a reservation code",
+      "body": "Open your reservation in the QuickIn app and scan its QR code again — it takes you straight to your stay pass.",
+      "cta": "Go to my trips"
+    },
+    "guest": {
+      "heading": "Your stay pass",
+      "scanHint": "Show this QR code at check-in.",
+      "pendingTitle": "Your QR code will appear here once your reservation is confirmed.",
+      "pendingBody": "We create it the moment your host approves this request.",
+      "openPass": "Open stay pass",
+      "copyLink": "Copy link",
+      "copied": "Link copied"
+    },
+    "host": {
+      "heading": "Stay guide",
+      "intro": "Add what your guest needs: house info, photos, links to places nearby and documents. They see it all when they scan their QR code.",
+      "locked": "The stay guide opens once you approve this reservation.",
+      "manage": "Manage stay guide",
+      "hide": "Hide stay guide",
+      "loading": "Loading the stay guide…",
+      "empty": "Nothing added yet.",
+      "guestLink": "Guest link",
+      "itemsCount": "{count, plural, one {# item} other {# items}}",
+      "kindLabel": "Type",
+      "kinds": {
+        "info": "Info",
+        "photo": "Photo",
+        "place_qr": "Place link",
+        "attachment": "Document"
+      },
+      "titleLabel": "Title",
+      "titlePlaceholder": "Wi-Fi, door code, breakfast…",
+      "bodyLabel": "Details",
+      "bodyPlaceholder": "What should your guest know?",
+      "linkLabel": "Link",
+      "linkPlaceholder": "https://…",
+      "choosePhoto": "Choose photo",
+      "chooseFile": "Choose document",
+      "change": "Change",
+      "attached": "Attached",
+      "processing": "Processing…",
+      "add": "Add to guide",
+      "adding": "Adding…",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "errors": {
+        "load": "Couldn't load the stay guide.",
+        "save": "Couldn't save that item. Please try again.",
+        "remove": "Couldn't remove that item. Please try again.",
+        "tooLarge": "That file is too large",
+        "file": "Couldn't read that file. Try another."
+      }
+    }
   }
 }

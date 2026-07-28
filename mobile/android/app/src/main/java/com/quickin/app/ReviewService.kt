@@ -252,7 +252,7 @@ object ReviewService {
                     listingId = o.optString("listing_id").ifBlank { null },
                     title = o.optString("title").ifBlank { "Your stay" },
                     location = o.optString("location").ifBlank { null },
-                    image = o.optString("image").ifBlank { null },
+                    image = o.optStringOrNull("image"),
                     checkIn = o.optString("check_in").ifBlank { null },
                     checkOut = o.optString("check_out").ifBlank { null }
                 )

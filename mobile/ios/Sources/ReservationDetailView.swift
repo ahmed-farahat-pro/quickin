@@ -2,6 +2,7 @@ import SwiftUI
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import PassKit
+import PhotosUI
 import UIKit
 
 /// Generates a crisp QR `UIImage` from a string using CoreImage's
@@ -96,6 +97,14 @@ struct ReservationDetailView: View {
     // cancelled status + refunded amount.
     @State private var showingCancel = false
 
+    // Stay guide: the host-authored info / photos / place QRs / files attached
+    // to a confirmed booking. `guide` holds the items (guests read, the host
+    // edits); `guideSheet` drives the add/edit form.
+    @StateObject private var guide = StayGuideStore()
+    @State private var guideSheet: StayGuideSheetTarget?
+    /// A guide photo opened full-screen from the guest gallery.
+    @State private var guidePhoto: StayGuidePhoto?
+
     /// Seeded with the list row's `Booking` so the screen renders instantly,
     /// then refined by the detail fetch.
     init(booking: Booking) {
@@ -136,6 +145,21 @@ struct ReservationDetailView: View {
             // Ask the backend whether this stay is eligible for a review
             // (confirmed + past checkout + not yet reviewed).
             canReview = await ReviewService.shared.isReviewable(bookingID: viewModel.bookingID)
+        }
+        .task { await guide.load(bookingID: viewModel.bookingID) }
+        .sheet(item: $guideSheet) { target in
+            StayGuideItemSheet(
+                bookingID: viewModel.bookingID,
+                existing: target.item,
+                nextOrder: guide.items.count
+            ) {
+                Task { await guide.load(bookingID: viewModel.bookingID) }
+            }
+            .environmentObject(loc)
+        }
+        .sheet(item: $guidePhoto) { photo in
+            ReviewPhotoZoomSheet(urlString: photo.url)
+                .environmentObject(loc)
         }
         .sheet(isPresented: $showingReviewSheet) {
             LeaveReviewSheet(
@@ -213,9 +237,11 @@ struct ReservationDetailView: View {
                 VStack(spacing: 20) {
                     statusHeader(detail)
                     payNowCard(detail)
-                    qrCard(detail)
+                    passSection(detail)
                     fromYourHostCard(detail)
+                    stayGuideCard(detail)
                     hostNotesEditor(detail)
+                    stayGuideEditor(detail)
                     messagesButton
                     detailsCard(detail)
                     cancellationCard(detail)
@@ -417,15 +443,61 @@ struct ReservationDetailView: View {
         .padding(.top, 4)
     }
 
+    /// The stay-pass area, gated on `ReservationDetail.hasStayPass` — i.e. the
+    /// booking is confirmed (or already completed) **and** the backend has
+    /// issued a real `reservation_code`.
+    ///
+    ///   • pass issued  → the QR card (below).
+    ///   • still pending (or confirmed with no code yet) → the "your QR code
+    ///     will appear once your reservation is confirmed" placeholder. No QR,
+    ///     no link, nothing tappable.
+    ///   • cancelled / rejected → nothing at all; that pass is never coming.
+    @ViewBuilder
+    private func passSection(_ detail: ReservationDetail) -> some View {
+        if let url = detail.stayPassURL, let code = detail.qrPayload {
+            qrCard(url: url, code: code)
+        } else if detail.isAwaitingStayPass {
+            awaitingPassCard
+        }
+    }
+
+    /// Shown instead of the QR while the reservation is waiting for the host's
+    /// approval. Deliberately inert — there is no code to encode and no URL to
+    /// open, so rendering one would point the guest at a dead `/stay/null` page.
+    private var awaitingPassCard: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.qkTan)
+                    .frame(width: 160, height: 160)
+                Image(systemName: "qrcode")
+                    .font(.system(size: 52))
+                    .foregroundStyle(Color.qkTan4)
+            }
+            Text(loc.t("pass.awaiting.title"))
+                .font(.headline)
+                .foregroundStyle(Color.qkInk)
+            Text(loc.t("pass.awaiting.body"))
+                .font(.footnote)
+                .foregroundStyle(Color.qkMuted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .qkCard()
+        .accessibilityElement(children: .combine)
+    }
+
     /// The QR / stay pass. The QR encodes the **public pass URL**
     /// (`…/stay/<code>`), and the whole pass is tappable → opens that URL so the
-    /// guest (or whoever scans it) lands on the deployed pass page.
-    private func qrCard(_ detail: ReservationDetail) -> some View {
+    /// guest (or whoever scans it) lands on the deployed pass page. Only ever
+    /// built from a real reservation code — see `passSection`.
+    private func qrCard(url: URL, code: String) -> some View {
         Button {
-            openURL(detail.stayPassURL)
+            openURL(url)
         } label: {
             VStack(spacing: 14) {
-                if let qr = QRCodeGenerator.image(from: detail.stayPassURL.absoluteString) {
+                if let qr = QRCodeGenerator.image(from: url.absoluteString) {
                     Image(uiImage: qr)
                         .interpolation(.none)
                         .resizable()
@@ -448,7 +520,7 @@ struct ReservationDetailView: View {
                     Text(loc.t("pass.reservationCode"))
                         .font(.caption)
                         .foregroundStyle(Color.qkMuted)
-                    Text(detail.qrPayload)
+                    Text(code)
                         .font(.system(.headline, design: .monospaced))
                         .foregroundStyle(Color.qkInk)
                         .textSelection(.enabled)
@@ -636,6 +708,358 @@ struct ReservationDetailView: View {
         }
     }
 
+    // MARK: - Stay guide — guest view
+
+    /// The host-authored stay guide as the **guest** sees it: info blocks, a
+    /// photo gallery, scannable place QRs and file links, in that order. Hidden
+    /// entirely when the host hasn't added anything (the host still gets the
+    /// editor below).
+    @ViewBuilder
+    private func stayGuideCard(_ detail: ReservationDetail) -> some View {
+        if !guide.items.isEmpty {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.qkGold)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(loc.t("guide.title"))
+                            .font(.headline)
+                            .foregroundStyle(Color.qkInk)
+                        Text(loc.t("guide.subtitle"))
+                            .font(.caption)
+                            .foregroundStyle(Color.qkMuted)
+                    }
+                    Spacer(minLength: 8)
+                }
+
+                ForEach(StayGuideKind.allCases) { kind in
+                    let group = guide.items.filter { $0.guideKind == kind }
+                    if !group.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(kind.sectionTitle)
+                                .font(.footnote.weight(.bold))
+                                .foregroundStyle(Color.qkMuted)
+                                .textCase(.uppercase)
+                            guideSection(kind: kind, items: group)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .qkCard()
+        }
+    }
+
+    /// One kind's worth of guide content, laid out the way that kind reads best.
+    @ViewBuilder
+    private func guideSection(kind: StayGuideKind, items: [StayGuideItem]) -> some View {
+        switch kind {
+        case .info:
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let title = item.titleText {
+                            Text(title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.qkInk)
+                        }
+                        if let body = item.bodyText {
+                            Text(body)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.qkMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+        case .photo:
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(items) { item in
+                        if let source = item.imageSource {
+                            Button {
+                                guidePhoto = StayGuidePhoto(url: source)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ReviewPhotoThumbnail(urlString: source, size: 132)
+                                    if let caption = item.titleText ?? item.bodyText {
+                                        Text(caption)
+                                            .font(.caption)
+                                            .foregroundStyle(Color.qkMuted)
+                                            .lineLimit(2)
+                                            .frame(width: 132, alignment: .leading)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.qkTap)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+        case .placeQR:
+            VStack(spacing: 12) {
+                ForEach(items) { item in
+                    if let link = item.placeLink {
+                        placeQRRow(item: item, link: link)
+                    }
+                }
+            }
+
+        case .attachment:
+            VStack(spacing: 10) {
+                ForEach(items) { item in
+                    attachmentRow(item)
+                }
+            }
+        }
+    }
+
+    /// A place the host wants the guest to find: a scannable QR of the link
+    /// plus a tappable "Open" button. Only `http(s)` links reach here — see
+    /// `StayGuideItem.placeLink`.
+    private func placeQRRow(item: StayGuideItem, link: URL) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            if let qr = QRCodeGenerator.image(from: link.absoluteString, size: 180) {
+                Image(uiImage: qr)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 92, height: 92)
+                    .padding(6)
+                    .background(Color.qkCream)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.qkGold.opacity(0.4), lineWidth: 1)
+                    )
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.titleText ?? link.host ?? loc.t("guide.kind.placeQR"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                if let body = item.bodyText {
+                    Text(body)
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button {
+                    openURL(link)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.forward.app.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(loc.t("guide.open"))
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .foregroundStyle(Color.qkBurgundy)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.qkTan)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.qkTap)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A file the host attached. A remote (`https`) file opens in the browser;
+    /// an inline image opens full-screen in-app.
+    @ViewBuilder
+    private func attachmentRow(_ item: StayGuideItem) -> some View {
+        let inlineImage = item.attachmentLink == nil ? item.imageSource : nil
+        Button {
+            if let link = item.attachmentLink {
+                openURL(link)
+            } else if let inlineImage {
+                guidePhoto = StayGuidePhoto(url: inlineImage)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.titleText ?? loc.t("guide.kind.attachment"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.qkInk)
+                    if let body = item.bodyText {
+                        Text(body)
+                            .font(.caption)
+                            .foregroundStyle(Color.qkMuted)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer(minLength: 8)
+                if item.attachmentLink != nil || inlineImage != nil {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.qkTan4)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .background(Color.qkTan.opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.qkTap)
+        .disabled(item.attachmentLink == nil && inlineImage == nil)
+    }
+
+    // MARK: - Stay guide — host editor
+
+    /// The host's stay-guide editor. Rendered only for the listing's host, and
+    /// only unlocked once the booking is **confirmed** — the same gate as the
+    /// pass itself, because the guide is what the QR leads to. A host looking at
+    /// a still-pending request sees why it's locked instead.
+    @ViewBuilder
+    private func stayGuideEditor(_ detail: ReservationDetail) -> some View {
+        if isHost(detail) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(loc.t("guide.editor.title"))
+                            .font(.headline)
+                            .foregroundStyle(Color.qkInk)
+                        Text(loc.t("guide.editor.subtitle"))
+                            .font(.caption)
+                            .foregroundStyle(Color.qkMuted)
+                    }
+                    Spacer(minLength: 8)
+                }
+
+                if detail.bookingStatus == .confirmed {
+                    if guide.items.isEmpty {
+                        Text(loc.t("guide.editor.empty"))
+                            .font(.footnote)
+                            .foregroundStyle(Color.qkMuted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(Array(guide.items.enumerated()), id: \.element.id) { index, item in
+                                guideEditorRow(item, index: index, total: guide.items.count)
+                            }
+                        }
+                    }
+
+                    if let error = guide.errorMessage {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(Color.qkBurgundy)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Button {
+                        guideSheet = .new
+                    } label: {
+                        QKPrimaryButtonLabel(
+                            title: loc.t("guide.editor.add"),
+                            systemImage: guide.isBusy ? nil : "plus.circle.fill",
+                            isLoading: guide.isBusy,
+                            height: 50
+                        )
+                    }
+                    .buttonStyle(QKPressStyle())
+                    .disabled(guide.isBusy)
+                } else {
+                    Text(loc.t("guide.editor.locked"))
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkMuted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .qkCard()
+        }
+    }
+
+    /// One editable row: tap to edit, plus reorder + remove controls.
+    private func guideEditorRow(_ item: StayGuideItem, index: Int, total: Int) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                guideSheet = .edit(item)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: item.guideKind.systemImage)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.titleText ?? item.guideKind.label)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.qkInk)
+                            .lineLimit(1)
+                        if let subtitle = item.bodyText ?? item.urlText {
+                            Text(subtitle)
+                                .font(.caption)
+                                .foregroundStyle(Color.qkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 4)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            guideRowControl(systemImage: "chevron.up",
+                            label: loc.t("guide.editor.moveUp"),
+                            disabled: index == 0 || guide.isBusy) {
+                Task { await guide.move(bookingID: viewModel.bookingID, from: index, to: index - 1) }
+            }
+            guideRowControl(systemImage: "chevron.down",
+                            label: loc.t("guide.editor.moveDown"),
+                            disabled: index >= total - 1 || guide.isBusy) {
+                Task { await guide.move(bookingID: viewModel.bookingID, from: index, to: index + 1) }
+            }
+            guideRowControl(systemImage: "trash",
+                            label: loc.t("guide.editor.delete"),
+                            disabled: guide.isBusy) {
+                Task { await guide.remove(bookingID: viewModel.bookingID, item: item) }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.qkTan.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// A small square icon control used by the editor rows.
+    private func guideRowControl(
+        systemImage: String,
+        label: String,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(disabled ? Color.qkTan4 : Color.qkBurgundy)
+                .frame(width: 30, height: 30)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel(label)
+    }
+
     private func detailsCard(_ detail: ReservationDetail) -> some View {
         VStack(spacing: 0) {
             detailRow(icon: "calendar", label: "Dates", value: detail.dateRangeText)
@@ -763,18 +1187,20 @@ struct ReservationDetailView: View {
     }
 
     /// Real "Add to Apple Wallet": downloads the signed .pkpass from the backend
-    /// and presents the system add-pass sheet. Enabled only once confirmed.
+    /// and presents the system add-pass sheet. Gated on `canAddToWallet` — the
+    /// same rule the backend enforces (confirmed + a real reservation code), so
+    /// an unconfirmed booking is never offered a pass it can't be given.
     @ViewBuilder
     private func walletButton(_ detail: ReservationDetail) -> some View {
         VStack(spacing: 6) {
-            if detail.bookingStatus == .confirmed {
+            if detail.canAddToWallet {
                 // Themed burgundy "Add to Apple Wallet" button with a clean
                 // wallet glyph, replacing the stock PassKit badge.
                 Button {
                     Task { await addToWallet() }
                 } label: {
                     QKPrimaryButtonLabel(
-                        title: "Add to Apple Wallet",
+                        title: loc.t("pass.wallet.add"),
                         systemImage: walletSymbol,
                         isLoading: walletLoading,
                         height: 50
@@ -789,8 +1215,8 @@ struct ReservationDetailView: View {
                         .foregroundStyle(Color.qkBurgundy)
                         .multilineTextAlignment(.center)
                 }
-            } else {
-                Text("Add to Apple Wallet becomes available once the host confirms your reservation.")
+            } else if detail.isAwaitingStayPass {
+                Text(loc.t("pass.wallet.locked"))
                     .font(.caption)
                     .foregroundStyle(Color.qkMuted)
                     .multilineTextAlignment(.center)
@@ -814,6 +1240,9 @@ struct ReservationDetailView: View {
         walletError = nil
         walletLoading = true
         defer { walletLoading = false }
+        // Defense in depth: the button only renders for a booking that has a
+        // pass, but never ask the backend to mint one for an unconfirmed stay.
+        guard viewModel.detail?.canAddToWallet == true else { return }
         guard PKPassLibrary.isPassLibraryAvailable() else {
             walletError = "Wallet isn't available on this device."
             return
@@ -875,6 +1304,452 @@ struct ReservationDetailView: View {
             .buttonStyle(QKPressStyle())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Stay guide plumbing
+
+/// A guide photo opened full-screen, wrapped so it can drive `.sheet(item:)`.
+struct StayGuidePhoto: Identifiable {
+    let url: String
+    var id: String { url }
+}
+
+/// What the add/edit sheet is currently doing.
+enum StayGuideSheetTarget: Identifiable {
+    case new
+    case edit(StayGuideItem)
+
+    var id: String {
+        switch self {
+        case .new:            return "new"
+        case let .edit(item): return item.id
+        }
+    }
+
+    /// The item being edited, or `nil` when creating a new one.
+    var item: StayGuideItem? {
+        if case let .edit(item) = self { return item }
+        return nil
+    }
+}
+
+/// Loads and mutates one booking's host-authored stay guide.
+///
+/// Reads are best-effort: a guest whose host wrote nothing and a backend that
+/// doesn't serve the guide yet both mean "no guide", so a failed load simply
+/// leaves the list empty rather than putting an error in front of the guest.
+/// Writes (host only) do surface their error inline.
+@MainActor
+final class StayGuideStore: ObservableObject {
+    /// The guide in display order.
+    @Published private(set) var items: [StayGuideItem] = []
+    /// True while a create/update/delete/reorder is in flight.
+    @Published private(set) var isBusy = false
+    /// The last write error, shown under the host editor.
+    @Published var errorMessage: String?
+
+    func load(bookingID: String) async {
+        do {
+            items = try await HostService.shared.fetchStayGuide(bookingID: bookingID).sortedForDisplay
+        } catch {
+            items = []
+        }
+    }
+
+    /// Remove an item, then refresh from the server.
+    func remove(bookingID: String, item: StayGuideItem) async {
+        await mutate(bookingID: bookingID) {
+            try await HostService.shared.deleteStayGuideItem(bookingID: bookingID, itemID: item.id)
+        }
+    }
+
+    /// Move the item at `from` to `to`, renumbering the whole guide so the order
+    /// stays stable (older rows can all share `order = 0`). Only the rows whose
+    /// position actually changed are PATCHed.
+    func move(bookingID: String, from: Int, to: Int) async {
+        guard items.indices.contains(from), items.indices.contains(to), from != to else { return }
+        var reordered = items
+        let moved = reordered.remove(at: from)
+        reordered.insert(moved, at: to)
+
+        // Optimistic: show the new order immediately, then persist.
+        let previous = items
+        items = reordered
+        await mutate(bookingID: bookingID, onFailure: { self.items = previous }) {
+            for (index, item) in reordered.enumerated() where item.order != index {
+                try await HostService.shared.setStayGuideOrder(
+                    bookingID: bookingID,
+                    itemID: item.id,
+                    order: index
+                )
+            }
+        }
+    }
+
+    /// Run a write, then reload. Any error is surfaced to the host editor.
+    private func mutate(
+        bookingID: String,
+        onFailure: (() -> Void)? = nil,
+        _ work: () async throws -> Void
+    ) async {
+        errorMessage = nil
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            try await work()
+            await load(bookingID: bookingID)
+        } catch {
+            onFailure?()
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+/// Add / edit one stay-guide item. The type picker switches which field the
+/// host fills in: free text for an info block, a picked photo for a photo or an
+/// attached file, and an `https://` link for a place QR.
+struct StayGuideItemSheet: View {
+    /// The booking this item belongs to.
+    let bookingID: String
+    /// The item being edited, or `nil` when adding a new one.
+    let existing: StayGuideItem?
+    /// Position to file a newly-created item at (the end of the guide).
+    let nextOrder: Int
+    /// Called after a successful save so the caller can reload the guide.
+    var onSaved: () -> Void
+
+    @EnvironmentObject private var loc: LocalizationManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var kind: StayGuideKind
+    @State private var title = ""
+    @State private var draftBody = ""
+    @State private var link = ""
+    /// The picked photo, kept as a `data:` URL ready to send.
+    @State private var pickedDataURL = ""
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var isEncoding = false
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    /// Fields are seeded from `existing` exactly once, so a host who clears a
+    /// field doesn't get it refilled when the view reappears.
+    @State private var didSeed = false
+
+    init(bookingID: String, existing: StayGuideItem?, nextOrder: Int, onSaved: @escaping () -> Void) {
+        self.bookingID = bookingID
+        self.existing = existing
+        self.nextOrder = nextOrder
+        self.onSaved = onSaved
+        _kind = State(initialValue: existing?.guideKind ?? .info)
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient.qkPageWash.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 20) {
+                    header
+                    kindPicker
+                    fields
+                    if let errorMessage {
+                        errorLine(errorMessage)
+                    }
+                    saveButton
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 22)
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .interactiveDismissDisabled(isSaving)
+        .onAppear(perform: seed)
+        .onChange(of: pickerItem) { _, item in
+            Task { await loadPicked(item) }
+        }
+    }
+
+    // MARK: - Pieces
+
+    private var header: some View {
+        VStack(spacing: 6) {
+            Text(loc.t(existing == nil ? "guide.form.newTitle" : "guide.form.editTitle"))
+                .font(.system(.title2, design: .serif).weight(.bold))
+                .foregroundStyle(Color.qkInk)
+            Text(loc.t("guide.form.subtitle"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var kindPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc.t("guide.form.kind"))
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(Color.qkMuted)
+            Picker(loc.t("guide.form.kind"), selection: $kind) {
+                ForEach(StayGuideKind.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(isSaving)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var fields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            field(label: loc.t("guide.form.titleLabel"),
+                  placeholder: loc.t("guide.form.titlePlaceholder"),
+                  text: $title)
+
+            field(label: loc.t("guide.form.bodyLabel"),
+                  placeholder: loc.t("guide.form.bodyPlaceholder"),
+                  text: $draftBody,
+                  lines: 3...6)
+
+            switch kind {
+            case .info:
+                EmptyView()
+            case .placeQR:
+                field(label: loc.t("guide.form.linkLabel"),
+                      placeholder: loc.t("guide.form.linkPlaceholder"),
+                      text: $link,
+                      isURL: true)
+                hint(loc.t("guide.form.linkHint"))
+            case .photo:
+                photoPicker
+            case .attachment:
+                photoPicker
+                field(label: loc.t("guide.form.linkLabel"),
+                      placeholder: loc.t("guide.form.linkPlaceholder"),
+                      text: $link,
+                      isURL: true)
+                hint(loc.t("guide.form.fileHint"))
+            }
+        }
+    }
+
+    /// The picked photo (or the one already attached), as a tappable well.
+    private var photoPicker: some View {
+        // Resolved out here: `PhotosPicker`'s label closure isn't main-actor
+        // isolated, so looking the string up inside it warns.
+        let choosePhoto = loc.t("guide.form.photo")
+        return VStack(alignment: .leading, spacing: 8) {
+            PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.qkSurface)
+                        .frame(height: 168)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(previewImage != nil ? Color.qkGoldDeep : Color.qkInk.opacity(0.12),
+                                              lineWidth: 1)
+                        )
+                    if let previewImage {
+                        Image(uiImage: previewImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 168)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        if isEncoding {
+                            ZStack {
+                                Color.black.opacity(0.25)
+                                ProgressView().tint(.white)
+                            }
+                            .frame(height: 168)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "photo.badge.plus")
+                                .font(.system(size: 26, weight: .light))
+                                .foregroundStyle(Color.qkBurgundy)
+                            Text(choosePhoto)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.qkInk)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isSaving)
+            .accessibilityLabel(loc.t(previewImage == nil ? "guide.form.photo" : "guide.form.photoChange"))
+
+            if previewImage != nil {
+                Text(loc.t("guide.form.photoChange"))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+    }
+
+    /// A labelled text field styled like the host-notes editor.
+    private func field(
+        label: String,
+        placeholder: String,
+        text: Binding<String>,
+        lines: ClosedRange<Int> = 1...1,
+        isURL: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(Color.qkMuted)
+            ZStack(alignment: .topLeading) {
+                if text.wrappedValue.isEmpty {
+                    Text(placeholder)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.qkMuted)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .allowsHitTesting(false)
+                }
+                TextField("", text: text, axis: .vertical)
+                    .font(.subheadline)
+                    .foregroundStyle(Color.qkInk)
+                    .lineLimit(lines)
+                    .textInputAutocapitalization(isURL ? .never : .sentences)
+                    .autocorrectionDisabled(isURL)
+                    .keyboardType(isURL ? .URL : .default)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+            }
+            .background(Color.qkCream)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.qkInk.opacity(0.08), lineWidth: 1)
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func hint(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(Color.qkMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func errorLine(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.qkBurgundy)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(Color.qkInk)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var saveButton: some View {
+        Button {
+            Task { await save() }
+        } label: {
+            QKPrimaryButtonLabel(
+                title: loc.t("common.save"),
+                systemImage: isSaving ? nil : "tray.and.arrow.down.fill",
+                isLoading: isSaving
+            )
+        }
+        .buttonStyle(QKPressStyle())
+        .disabled(isSaving || isEncoding)
+        .opacity(isEncoding ? 0.6 : 1)
+    }
+
+    // MARK: - State
+
+    /// The image shown in the picker well: the freshly-picked photo, else the
+    /// one already attached to the item being edited.
+    private var previewImage: UIImage? {
+        if !pickedDataURL.isEmpty { return QKAvatarImage.decodeDataURL(pickedDataURL) }
+        return QKAvatarImage.decodeDataURL(existing?.imageSource)
+    }
+
+    /// Seed the fields from the item being edited (once).
+    private func seed() {
+        guard !didSeed else { return }
+        didSeed = true
+        guard let existing else { return }
+        title = existing.titleText ?? ""
+        draftBody = existing.bodyText ?? ""
+        // A `data:` photo lives in the picker well, not the link field.
+        if let url = existing.urlText, StayGuideRules.isWebLink(url) {
+            link = url
+        } else if let url = existing.urlText {
+            pickedDataURL = url
+        }
+    }
+
+    /// Decode a picked photo into a `data:` URL, downscaled like the other
+    /// uploads in the app.
+    private func loadPicked(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        errorMessage = nil
+        isEncoding = true
+        defer { isEncoding = false }
+        guard
+            let data = try? await item.loadTransferable(type: Data.self),
+            let image = UIImage(data: data),
+            let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1600, quality: 0.8)
+        else {
+            errorMessage = loc.t("guide.error.photo")
+            return
+        }
+        pickedDataURL = dataURL
+    }
+
+    /// Build the draft and create/update it. `HostService` re-validates, so a
+    /// bad item never leaves the device.
+    @MainActor
+    private func save() async {
+        errorMessage = nil
+        isSaving = true
+        defer { isSaving = false }
+
+        var draft = HostService.StayGuideDraft(kind: kind, order: existing?.order ?? nextOrder)
+        draft.title = title
+        draft.body = draftBody
+        // Photos/files prefer the freshly-picked upload; a place QR is always
+        // the typed link.
+        switch kind {
+        case .info:
+            draft.url = ""
+        case .placeQR:
+            draft.url = link
+        case .photo:
+            draft.url = pickedDataURL
+        case .attachment:
+            draft.url = pickedDataURL.isEmpty ? link : pickedDataURL
+        }
+
+        do {
+            if let existing {
+                try await HostService.shared.updateStayGuideItem(
+                    bookingID: bookingID,
+                    itemID: existing.id,
+                    draft: draft
+                )
+            } else {
+                try await HostService.shared.createStayGuideItem(bookingID: bookingID, draft: draft)
+            }
+            onSaved()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

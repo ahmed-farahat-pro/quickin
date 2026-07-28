@@ -125,7 +125,7 @@ object NotificationService {
         type = o.optString("type"),
         title = o.optString("title"),
         body = o.optString("body").ifBlank { null },
-        link = o.optString("link").ifBlank { null },
+        link = o.optStringOrNull("link"),
         read = o.optBoolean("read", false),
         // ISO-8601 ("2026-07-27T10:28:00Z"); null when absent so the row shows no time.
         createdAt = o.optString("created_at").ifBlank { null }

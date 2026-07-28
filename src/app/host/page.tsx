@@ -5,11 +5,13 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { getLocale, getTranslations } from 'next-intl/server'
-import { getHostListings, getHostApplication, type Listing } from '@/lib/local/db'
-import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { getHostListings, type Listing } from '@/lib/local/db'
+import { verifyToken, getUserRowByEmail, getHostState, type HostStatus } from '@/lib/local/auth'
 import { formatPrice } from '@/lib/utils'
 import { HostReservations } from './host-reservations'
 import { HostTabs, HostListingsFilter, type HostListingStatus } from './host-tabs'
+import { ListingStatusChip } from './listing-status-chip'
+import { OwnershipDocReupload } from './ownership-doc'
 import { BecomeHostButton } from '../account/account-forms'
 
 export const dynamic = 'force-dynamic'
@@ -61,7 +63,16 @@ function formatListedOn(
   return t('dashboard.listedOn', { date: fmt.format(date) })
 }
 
-async function getCurrentUser(): Promise<{ id: string; firstName: string; is_host: boolean } | null> {
+interface HostViewer {
+  id: string
+  firstName: string
+  is_host: boolean
+  host_status: HostStatus
+  host_review_note: string | null
+}
+
+/** Resolved from the database on every request — never a cached client flag. */
+async function getCurrentUser(): Promise<HostViewer | null> {
   const token = (await cookies()).get('qk_token')?.value
   if (!token) return null
   const claims = verifyToken(token)
@@ -70,7 +81,14 @@ async function getCurrentUser(): Promise<{ id: string; firstName: string; is_hos
     const row = await getUserRowByEmail(claims.email)
     if (!row) return null
     const name = row.full_name?.trim() || row.email.split('@')[0]
-    return { id: row.id, firstName: name.split(' ')[0], is_host: !!row.is_host }
+    const host = await getHostState(row.id, !!row.is_host)
+    return {
+      id: row.id,
+      firstName: name.split(' ')[0],
+      is_host: !!row.is_host,
+      host_status: host.host_status,
+      host_review_note: host.host_review_note,
+    }
   } catch {
     return null
   }
@@ -158,10 +176,11 @@ export default async function HostPage() {
           padding: '36px 24px 72px',
         }}
       >
+        {/* Hosting surfaces gate on is_host === true only. */}
         {!user ? (
-          <BecomeAHost t={t} signedIn={false} pending={false} />
+          <BecomeAHost t={t} signedIn={false} status="none" reviewNote={null} />
         ) : !user.is_host ? (
-          <BecomeAHostSection userId={user.id} t={t} />
+          <BecomeAHost t={t} signedIn status={user.host_status} reviewNote={user.host_review_note} />
         ) : (
           <HostDashboard userId={user.id} firstName={user.firstName} t={t} />
         )}
@@ -171,22 +190,24 @@ export default async function HostPage() {
 }
 
 /**
- * Signed-in non-host wrapper: resolves whether they already have a pending host
- * application, then renders the intro with the right CTA / "under review" state.
- */
-async function BecomeAHostSection({ userId, t }: { userId: string; t: T }) {
-  const application = await getHostApplication(userId)
-  const pending = application?.status === 'pending'
-  return <BecomeAHost t={t} signedIn pending={pending} />
-}
-
-/**
- * Become-a-host intro: short pitch + CTA.
+ * Become-a-host intro: short pitch + the CTA for the viewer's host_status.
  * - signedIn=false → "Log in to start hosting" link (one account; they sign in first).
- * - signedIn=true, pending → "Application under review" (no CTA).
- * - signedIn=true, otherwise → "Apply to host" link to /host/apply (admin-reviewed).
+ * - pending  → "Application under review" (no CTA).
+ * - rejected → the admin's reason + a "Reapply" CTA.
+ * - none     → "Apply to host" link to /host/apply (admin-reviewed).
+ * `approved` never reaches here — that viewer gets the dashboard.
  */
-function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pending: boolean }) {
+function BecomeAHost({
+  t,
+  signedIn,
+  status,
+  reviewNote,
+}: {
+  t: T
+  signedIn: boolean
+  status: HostStatus
+  reviewNote: string | null
+}) {
   return (
     <div
       style={{
@@ -269,7 +290,7 @@ function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pendin
       </div>
 
       <div style={{ marginTop: 32 }}>
-        {signedIn && pending ? (
+        {signedIn && status === 'pending' ? (
           <div
             style={{
               display: 'inline-flex',
@@ -294,6 +315,33 @@ function BecomeAHost({ t, signedIn, pending }: { t: T; signedIn: boolean; pendin
             <p style={{ margin: 0, fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55, maxWidth: 380 }}>
               {t('become.pendingBody')}
             </p>
+          </div>
+        ) : signedIn && status === 'rejected' ? (
+          <div
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#fdecea',
+                color: '#b3261e',
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '5px 14px',
+                borderRadius: 999,
+              }}
+            >
+              {t('become.rejectedBadge')}
+            </span>
+            <p style={{ margin: 0, fontSize: 14.5, color: COLORS.muted, lineHeight: 1.55, maxWidth: 420 }}>
+              {reviewNote || t('become.rejectedBody')}
+            </p>
+            <BecomeHostButton label={t('become.ctaReapply')} variant="large" />
           </div>
         ) : signedIn ? (
           <BecomeHostButton label={t('become.ctaApply')} variant="large" />
@@ -511,21 +559,11 @@ function ListingCard({
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
           {status !== 'approved' && (
-            <span
-              style={{
-                position: 'absolute',
-                top: 10,
-                insetInlineStart: 10,
-                padding: '4px 10px',
-                borderRadius: 999,
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: '#fff',
-                background: status === 'pending' ? 'rgba(138,109,27,0.95)' : 'rgba(138,43,35,0.95)',
-              }}
-            >
-              {status === 'pending' ? labels.badgePending : labels.badgeRejected}
-            </span>
+            <ListingStatusChip
+              status={status}
+              label={status === 'pending' ? labels.badgePending : labels.badgeRejected}
+              style={{ position: 'absolute', top: 10, insetInlineStart: 10 }}
+            />
           )}
         </div>
         <div style={{ padding: '14px 16px 2px' }}>
@@ -583,6 +621,10 @@ function ListingCard({
           {labels.edit}
         </a>
       </div>
+      {/* Under review or rejected → let the host (re)submit the ownership
+          document straight from the card, which re-queues it for review.
+          Mirrors the iOS/Android host dashboards. */}
+      {status !== 'approved' && <OwnershipDocReupload listingId={listing.id} />}
     </article>
   )
 }

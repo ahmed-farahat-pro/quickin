@@ -1879,6 +1879,14 @@
       "badge": "En cours d’examen",
       "title": "Candidature d’hôte en cours d’examen",
       "subtitle": "Notre équipe examine votre candidature. Nous vous préviendrons dès qu’elle sera approuvée."
+    },
+    "hostRejected": {
+      "badge": "Non approuvée",
+      "title": "Candidature d’hôte non approuvée",
+      "subtitle": "Notre équipe n’a pas pu approuver votre candidature cette fois. Vous pouvez mettre à jour vos informations et postuler à nouveau.",
+      "reason": "Motif",
+      "noReason": "Notre équipe n’a pas laissé de note.",
+      "button": "Postuler à nouveau"
     }
   },
   "savedPage": {
@@ -1917,7 +1925,10 @@
       "error": "Impossible d’activer l’hébergement. Veuillez réessayer.",
       "ctaApply": "Postuler comme hôte",
       "pendingBadge": "En cours d’examen",
-      "pendingBody": "Notre équipe examine votre candidature. Nous vous préviendrons dès qu’elle sera approuvée."
+      "pendingBody": "Notre équipe examine votre candidature. Nous vous préviendrons dès qu’elle sera approuvée.",
+      "rejectedBadge": "Non approuvée",
+      "rejectedBody": "Notre équipe n’a pas pu approuver votre candidature cette fois. Mettez à jour vos informations et réessayez.",
+      "ctaReapply": "Postuler à nouveau comme hôte"
     },
     "dashboard": {
       "greeting": "Hébergement, {name}",
@@ -1992,7 +2003,9 @@
         "photos": "URL des photos",
         "pinLocation": "Placez l'emplacement sur la carte",
         "weekendPrice": "Prix du week-end (facultatif)",
-        "weekendDays": "Quels jours sont le week-end ?"
+        "weekendDays": "Quels jours sont le week-end ?",
+        "region": "Zone",
+        "amenities": "Équipements"
       },
       "placeholders": {
         "title": "Loft ensoleillé au bord du Nil",
@@ -2043,7 +2056,89 @@
       "photosCover": "Couverture",
       "photosRemove": "Supprimer la photo",
       "locating": "Localisation sur la carte…",
-      "geocodeFail": "Lieu introuvable — touchez la carte pour le définir."
+      "geocodeFail": "Lieu introuvable — touchez la carte pour le définir.",
+      "regionNone": "Aucune zone sélectionnée",
+      "regionHint": "Les zones que les voyageurs parcourent. Facultatif — choisissez celle de votre logement.",
+      "regions": {
+        "northCoast": "Côte Nord",
+        "ainSokhna": "Ain Sokhna",
+        "elGouna": "El Gouna",
+        "cairo": "Le Caire"
+      },
+      "amenities": {
+        "wifi": "Wi-Fi",
+        "pool": "Piscine",
+        "kitchen": "Cuisine",
+        "airConditioning": "Climatisation",
+        "freeParking": "Parking gratuit",
+        "washer": "Lave-linge",
+        "tv": "Télévision",
+        "heating": "Chauffage",
+        "workspace": "Espace de travail",
+        "gym": "Salle de sport",
+        "beachAccess": "Accès à la plage",
+        "petsAllowed": "Animaux acceptés",
+        "hotTub": "Jacuzzi",
+        "bbqGrill": "Barbecue",
+        "breakfast": "Petit-déjeuner"
+      },
+      "amenitiesHint": "Sélectionnez tout ce que propose votre logement — les voyageurs filtrent avec ces critères.",
+      "photosMoveEarlier": "Avancer la photo",
+      "photosMoveLater": "Reculer la photo",
+      "photosSetCover": "Définir comme photo de couverture",
+      "photosReorderHint": "Utilisez les flèches pour réordonner, ou ★ pour définir la photo de couverture. La première photo est celle que les voyageurs voient en premier."
+    },
+    "edit": {
+      "meta": {
+        "title": "Modifier l’annonce — QuickIn"
+      },
+      "backToHost": "Retour à l’hébergement",
+      "viewListing": "Voir l’annonce",
+      "title": "Modifier l’annonce",
+      "subtitle": "Modifiez tout ce que voient les voyageurs — détails, photos, tarifs. Chaque modification repasse par notre équipe.",
+      "statusLabel": "Statut actuel",
+      "reviewWarning": {
+        "title": "Enregistrer renvoie cette annonce en validation",
+        "body": "Vos modifications passent d’abord par notre équipe. L’annonce est masquée aux voyageurs — et ne peut pas recevoir de nouvelles réservations — jusqu’à son approbation par un administrateur. Les réservations déjà acceptées ne sont pas affectées."
+      },
+      "confirm": {
+        "title": "Envoyer cette annonce en validation ?",
+        "body": "Nous enregistrons vos modifications et plaçons l’annonce dans la file de validation. Elle reste masquée aux voyageurs jusqu’à son approbation par un administrateur.",
+        "cta": "Enregistrer et envoyer en validation",
+        "cancel": "Continuer à modifier"
+      },
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "noChanges": "Aucune modification pour l’instant",
+      "saved": {
+        "title": "Modifications enregistrées",
+        "body": "Votre annonce est entre les mains de notre équipe. Elle reste masquée aux voyageurs jusqu’à son approbation — vous la retrouverez sous « En cours de validation » dans vos annonces.",
+        "bodyLive": "Votre annonce est à jour et toujours visible par les voyageurs.",
+        "cta": "Retour à mes annonces"
+      },
+      "errors": {
+        "saveFailed": "Impossible d’enregistrer vos modifications"
+      }
+    },
+    "ownershipDoc": {
+      "label": "Justificatif de propriété",
+      "intro": "Téléversez un document prouvant que vous êtes propriétaire de ce logement ou autorisé à le publier (p. ex. un titre de propriété ou une facture de services publics). Notre équipe l'examine avant la mise en ligne de votre annonce.",
+      "upload": "Téléverser le justificatif de propriété",
+      "change": "Modifier",
+      "processing": "Traitement…",
+      "attached": "Document joint",
+      "onFile": "Document enregistré",
+      "missing": "Non ajouté",
+      "remove": "Retirer le document",
+      "reviewNotice": "Votre annonce ne sera pas publique immédiatement. Après l'envoi, notre équipe examine votre justificatif de propriété et approuve l'annonce.",
+      "reupload": "Téléverser à nouveau le justificatif de propriété",
+      "uploading": "Envoi…",
+      "resubmitted": "Envoyé pour examen",
+      "errors": {
+        "tooLarge": "Cette image est trop volumineuse",
+        "failed": "Impossible de traiter ce document. Essayez-en un autre.",
+        "uploadFailed": "Impossible d'envoyer ce document. Veuillez réessayer."
+      }
     }
   },
   "hostApply": {
@@ -2079,6 +2174,7 @@
       "notes": "Tout ce que notre équipe devrait savoir"
     },
     "submit": "Envoyer la candidature",
+    "reapply": "Postuler à nouveau",
     "submitting": "Envoi…",
     "cancel": "Annuler",
     "errors": {
@@ -2086,7 +2182,11 @@
       "phoneRequired": "Veuillez saisir votre numéro de téléphone.",
       "addressRequired": "Veuillez saisir votre adresse.",
       "submitFailed": "Impossible d’envoyer votre candidature. Veuillez réessayer.",
-      "idRequired": "Veuillez ajouter le recto et le verso de votre pièce d'identité."
+      "idRequired": "Veuillez ajouter le recto et le verso de votre pièce d'identité.",
+      "fullNameRequired": "Veuillez saisir votre nom complet.",
+      "hostTypeInvalid": "Veuillez choisir particulier, entreprise ou agence.",
+      "checkFields": "Veuillez vérifier les champs en surbrillance.",
+      "conflict": "Votre statut d’hôte a déjà changé. Nous avons actualisé cette page."
     },
     "pending": {
       "subtitle": "Votre candidature est en cours d’examen par notre équipe.",
@@ -2094,6 +2194,15 @@
       "title": "Candidature en cours d’examen",
       "body": "Merci pour votre candidature. Notre équipe examine les détails ci-dessous et vous préviendra dès votre approbation.",
       "submittedAt": "Envoyée le"
+    },
+    "rejected": {
+      "subtitle": "Votre candidature n’a pas été approuvée. Voici pourquoi — corrigez-la et postulez à nouveau ci-dessous.",
+      "badge": "Non approuvée",
+      "title": "Candidature non approuvée",
+      "body": "Notre équipe a examiné votre candidature et n’a pas pu l’approuver cette fois. Mettez à jour vos informations ci-dessous et renvoyez-la.",
+      "reason": "Motif",
+      "noReason": "Notre équipe n’a pas laissé de note.",
+      "reviewedAt": "Examinée le"
     },
     "success": {
       "title": "Candidature envoyée",
@@ -2138,5 +2247,107 @@
     "iosSoon": "App iOS — bientôt",
     "androidSoon": "App Android — bientôt",
     "dismiss": "Fermer"
+  },
+  "stayPass": {
+    "meta": {
+      "title": "Pass de séjour",
+      "description": "Votre pass de séjour QuickIn — les dates, le logement et tout ce que votre hôte a préparé pour vous."
+    },
+    "backToExplore": "Retour à l'exploration",
+    "heading": "Pass de séjour",
+    "greeting": "Bienvenue, {name}",
+    "greetingGeneric": "Bienvenue",
+    "hostedBy": "Hôte : {name}",
+    "codeLabel": "Code de réservation",
+    "checkIn": "Arrivée",
+    "checkOut": "Départ",
+    "guestsLabel": "Voyageurs",
+    "guestsCount": "{count, plural, one {# voyageur} other {# voyageurs}}",
+    "paid": "Payé",
+    "status": {
+      "confirmed": "Confirmée",
+      "completed": "Terminée",
+      "pending": "En attente de validation",
+      "cancelled": "Annulée",
+      "rejected": "Refusée"
+    },
+    "inactiveNotice": "Cette réservation n'est plus active. Contactez votre hôte si vous pensez qu'il s'agit d'une erreur.",
+    "hostNotes": "Un mot de votre hôte",
+    "guide": {
+      "heading": "Votre guide de séjour",
+      "subtitle": "Tout ce que votre hôte a préparé pour vous.",
+      "info": "Bon à savoir",
+      "photos": "Photos",
+      "places": "Adresses utiles",
+      "attachments": "Documents",
+      "openLink": "Ouvrir le lien",
+      "scanHint": "Scannez avec l'appareil photo de votre téléphone",
+      "download": "Ouvrir",
+      "photoAlt": "Photo du séjour"
+    },
+    "notFound": {
+      "title": "Nous n'avons pas trouvé cette réservation",
+      "body": "Ce lien a peut-être expiré ou le code est incorrect. Vérifiez le code de votre réservation et réessayez.",
+      "cta": "Voir mes voyages"
+    },
+    "missingCode": {
+      "title": "Ce lien ne contient pas de code de réservation",
+      "body": "Ouvrez votre réservation dans l'application QuickIn et scannez à nouveau son QR code — il vous amène directement à votre pass.",
+      "cta": "Voir mes voyages"
+    },
+    "guest": {
+      "heading": "Votre pass de séjour",
+      "scanHint": "Présentez ce QR code à l'arrivée.",
+      "pendingTitle": "Votre QR code apparaîtra ici dès que votre réservation sera confirmée.",
+      "pendingBody": "Nous le créons dès que votre hôte accepte la demande.",
+      "openPass": "Ouvrir le pass",
+      "copyLink": "Copier le lien",
+      "copied": "Lien copié"
+    },
+    "host": {
+      "heading": "Guide de séjour",
+      "intro": "Ajoutez ce dont votre voyageur a besoin : infos pratiques, photos, liens vers des adresses et documents. Il verra tout en scannant son QR code.",
+      "locked": "Le guide de séjour s'ouvre une fois cette réservation acceptée.",
+      "manage": "Gérer le guide de séjour",
+      "hide": "Masquer le guide",
+      "loading": "Chargement du guide…",
+      "empty": "Rien pour le moment.",
+      "guestLink": "Lien voyageur",
+      "itemsCount": "{count, plural, one {# élément} other {# éléments}}",
+      "kindLabel": "Type",
+      "kinds": {
+        "info": "Info",
+        "photo": "Photo",
+        "place_qr": "Lien d'adresse",
+        "attachment": "Document"
+      },
+      "titleLabel": "Titre",
+      "titlePlaceholder": "Wi-Fi, code de la porte, petit-déjeuner…",
+      "bodyLabel": "Détails",
+      "bodyPlaceholder": "Que doit savoir votre voyageur ?",
+      "linkLabel": "Lien",
+      "linkPlaceholder": "https://…",
+      "choosePhoto": "Choisir une photo",
+      "chooseFile": "Choisir un document",
+      "change": "Modifier",
+      "attached": "Ajouté",
+      "processing": "Traitement…",
+      "add": "Ajouter au guide",
+      "adding": "Ajout…",
+      "edit": "Modifier",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "remove": "Supprimer",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "errors": {
+        "load": "Impossible de charger le guide de séjour.",
+        "save": "Impossible d'enregistrer cet élément. Réessayez.",
+        "remove": "Impossible de supprimer cet élément. Réessayez.",
+        "tooLarge": "Ce fichier est trop volumineux",
+        "file": "Impossible de lire ce fichier. Essayez-en un autre."
+      }
+    }
   }
 }

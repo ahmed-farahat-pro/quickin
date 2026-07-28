@@ -361,7 +361,7 @@ struct HostDashboardView: View {
                         .padding(.vertical, 4)
                 } else {
                     ForEach(filteredListings) { listing in
-                        HostListingRow(listing: listing, onResubmitted: {
+                        HostListingRow(listing: listing, onChanged: {
                             Task { await viewModel.load() }
                         })
                     }
@@ -591,31 +591,88 @@ struct HostListingFilterBar: View {
     }
 }
 
+/// The coloured moderation capsule (Pending review / Approved / Rejected) shown
+/// on the host's own listings. Extracted so every host surface that has to say
+/// "this listing is under review" — the listing rows and the listing editor's
+/// post-save confirmation — shows the exact same chip.
+struct HostApprovalBadge: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    let status: ApprovalStatus
+
+    /// Explicit init: the `private` environment object would otherwise make the
+    /// synthesized memberwise initializer private (unusable from other files).
+    init(status: ApprovalStatus) {
+        self.status = status
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 9).padding(.vertical, 3)
+        .background(tint.opacity(0.12))
+        .clipShape(Capsule())
+    }
+
+    private var label: String {
+        switch status {
+        case .pending:  return loc.t("approval.pending")
+        case .approved: return loc.t("approval.approved")
+        case .rejected: return loc.t("approval.rejected")
+        }
+    }
+
+    private var icon: String {
+        switch status {
+        case .pending:  return "clock.fill"
+        case .approved: return "checkmark.circle.fill"
+        case .rejected: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch status {
+        case .pending:  return .qkGoldDeep
+        case .approved: return .qkSuccess
+        case .rejected: return .qkBurgundy
+        }
+    }
+}
+
 /// A compact row for one of the host's own listings — thumbnail, an approval
 /// status badge (Pending review / Approved / Rejected), title, location, gold ★
-/// and burgundy price. When the listing is pending or rejected, a
+/// and burgundy price. "Edit listing" opens the full editor (every field plus
+/// photos); saving there sends the listing back to the admin queue, which the
+/// badge reflects at once. When the listing is pending or rejected, a
 /// "Re-upload ownership document" `PhotosPicker` lets the host (re)submit the
 /// proof doc, which PATCHes the listing and re-queues it to pending.
 /// RTL-safe; DesignKit tokens throughout.
 struct HostListingRow: View {
     @EnvironmentObject private var loc: LocalizationManager
     let listing: Listing
-    /// Called after a successful re-submit so the parent can re-fetch the
-    /// authoritative status.
-    var onResubmitted: () -> Void
+    /// Called after any successful change to this listing — an ownership-doc
+    /// re-submit or a full edit — so the parent can re-fetch the authoritative
+    /// status.
+    var onChanged: () -> Void
 
     /// Locally-tracked status so the badge flips to "Pending review" the instant
-    /// a re-submit succeeds, before the parent's refetch lands. Seeded from the
-    /// listing's decoded `approval_status`.
+    /// a re-submit or an edit succeeds, before the parent's refetch lands.
+    /// Seeded from the listing's decoded `approval_status`.
     @State private var status: ApprovalStatus
     /// The doc selected in the re-upload `PhotosPicker`, processed on change.
     @State private var docItem: PhotosPickerItem?
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    /// Presents the full listing editor.
+    @State private var showingEditor = false
 
-    init(listing: Listing, onResubmitted: @escaping () -> Void) {
+    init(listing: Listing, onChanged: @escaping () -> Void) {
         self.listing = listing
-        self.onResubmitted = onResubmitted
+        self.onChanged = onChanged
         _status = State(initialValue: listing.approval)
     }
 
@@ -627,7 +684,7 @@ struct HostListingRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 5) {
-                    statusBadge
+                    HostApprovalBadge(status: status)
 
                     Text(listing.title)
                         .font(.system(size: 15, weight: .bold))
@@ -658,20 +715,23 @@ struct HostListingRow: View {
                 Spacer(minLength: 0)
             }
 
+            // Every field of the listing (and its photos) is editable from here.
+            editButton
+
             // Re-upload ownership doc when the listing is awaiting review or was
             // rejected. Approved listings need no action, so the row stays compact.
             if status.canResubmitDoc {
                 reuploadButton
+            }
 
-                if let errorMessage {
-                    HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Color.qkBurgundy)
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(Color.qkInk)
-                        Spacer(minLength: 0)
-                    }
+            if let errorMessage {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color.qkBurgundy)
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkInk)
+                    Spacer(minLength: 0)
                 }
             }
         }
@@ -680,22 +740,44 @@ struct HostListingRow: View {
         .onChange(of: docItem) { _, item in
             Task { await resubmit(item) }
         }
+        .sheet(isPresented: $showingEditor) {
+            EditListingView(listing: listing) { updated in
+                // Reflect the new moderation state immediately, then let the
+                // parent re-fetch the authoritative rows.
+                status = updated.approval
+                onChanged()
+            }
+        }
     }
 
     // MARK: - Pieces
 
-    /// Coloured status capsule reflecting the listing's moderation state.
-    private var statusBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: statusIcon)
-                .font(.system(size: 9, weight: .bold))
-            Text(statusLabel)
-                .font(.system(size: 10, weight: .bold))
+    /// Opens the full listing editor (every field + photo management). Saving
+    /// there sends the listing back for review — the editor warns first.
+    private var editButton: some View {
+        Button {
+            showingEditor = true
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(loc.t("listing.edit.action"))
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .background(Color.qkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.qkBurgundy.opacity(0.25), lineWidth: 1)
+            )
         }
-        .foregroundStyle(statusTint)
-        .padding(.horizontal, 9).padding(.vertical, 3)
-        .background(statusTint.opacity(0.12))
-        .clipShape(Capsule())
+        .buttonStyle(.qkTap)
+        .disabled(isSubmitting)
     }
 
     private var reuploadButton: some View {
@@ -751,35 +833,9 @@ struct HostListingRow: View {
         do {
             let updated = try await HostService.shared.resubmitOwnershipDoc(listingID: listing.id, doc: dataURL)
             status = updated.approval
-            onResubmitted()
+            onChanged()
         } catch {
             errorMessage = error.localizedDescription
-        }
-    }
-
-    // MARK: - Derived values
-
-    private var statusLabel: String {
-        switch status {
-        case .pending:  return loc.t("approval.pending")
-        case .approved: return loc.t("approval.approved")
-        case .rejected: return loc.t("approval.rejected")
-        }
-    }
-
-    private var statusIcon: String {
-        switch status {
-        case .pending:  return "clock.fill"
-        case .approved: return "checkmark.circle.fill"
-        case .rejected: return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var statusTint: Color {
-        switch status {
-        case .pending:  return .qkGoldDeep
-        case .approved: return .qkSuccess
-        case .rejected: return .qkBurgundy
         }
     }
 }

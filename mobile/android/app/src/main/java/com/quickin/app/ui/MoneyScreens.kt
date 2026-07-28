@@ -422,9 +422,10 @@ private fun ReceiptCard(receipt: GuestReceipt) {
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (receipt.reservationCode.isNotBlank()) {
+                    val code = receipt.reservationCode
+                    if (!code.isNullOrBlank()) {
                         Text(
-                            receipt.reservationCode,
+                            code,
                             color = Muted,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,

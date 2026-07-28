@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
@@ -58,6 +60,7 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -165,6 +168,8 @@ fun HostScreen(
     listingsState: com.quickin.app.HostListingsUiState = com.quickin.app.HostListingsUiState(),
     onLoadListings: () -> Unit = {},
     onOpenListing: (Listing) -> Unit = {},
+    /** Opens the full listing editor (every field + photos) from a host listing card. */
+    onEditListing: (Listing) -> Unit = {},
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
     stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
@@ -292,6 +297,7 @@ fun HostScreen(
                     // The wizard already lives on the "Add listing" tab — jump to it.
                     onAddListing = { tab = 2 },
                     onOpenListing = onOpenListing,
+                    onEditListing = onEditListing,
                     ownershipState = ownershipState,
                     onReuploadDoc = onReuploadDoc,
                     stayDiscountState = stayDiscountState,
@@ -319,6 +325,8 @@ fun HostListingsScreen(
     onLoad: () -> Unit,
     onAddListing: () -> Unit,
     onOpenListing: (Listing) -> Unit = {},
+    /** Opens the full listing editor (every field + photos) for one of the host's own listings. */
+    onEditListing: (Listing) -> Unit = {},
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
     stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
@@ -416,6 +424,7 @@ fun HostListingsScreen(
                             HostListingCard(
                                 listing = listing,
                                 onClick = { onOpenListing(listing) },
+                                onEdit = { onEditListing(listing) },
                                 ownershipState = ownershipState,
                                 onReuploadDoc = onReuploadDoc,
                                 stayDiscountState = stayDiscountState,
@@ -518,12 +527,14 @@ private fun HostFilterChip(label: String, selected: Boolean, onClick: () -> Unit
  * A compact card for one of the host's own listings (title, location, listed date, price) plus its
  * moderation [ApprovalBadge]. For a pending or rejected listing the card explains the status and
  * offers a "Re-upload ownership document" action that PATCHes `/api/local/listings/:id
- * {ownership_doc}` and re-queues the listing to review.
+ * {ownership_doc}` and re-queues the listing to review. "Edit listing" opens the full editor
+ * (every field + photos); saving there sends the listing back for review too.
  */
 @Composable
 private fun HostListingCard(
     listing: Listing,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     ownershipState: OwnershipDocUiState,
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit,
     stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
@@ -645,6 +656,21 @@ private fun HostListingCard(
                     label = stringResource(com.quickin.app.R.string.approval_reupload),
                     modifier = Modifier.padding(top = 10.dp)
                 )
+            }
+
+            // The full editor — every field plus photo management. Saving there re-queues the
+            // listing for review, so the host is warned before they commit.
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onEdit,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(com.quickin.app.R.string.listing_edit_title), fontWeight = FontWeight.SemiBold)
             }
 
             // Length-of-stay discount editor — set weekly (7+) / monthly (28+) % off; PATCHes on save.
@@ -785,7 +811,7 @@ private fun SeasonalPricingEditor(
 
 /** A small pill showing a listing's moderation state: amber (pending), green (approved), red (rejected). */
 @Composable
-private fun ApprovalBadge(approval: ListingApproval) {
+internal fun ApprovalBadge(approval: ListingApproval) {
     val (bg, fg) = when (approval) {
         ListingApproval.Pending -> Color(0xFFFFF3D6) to Color(0xFF8A6100)
         ListingApproval.Approved -> Color(0xFFE3F3E5) to SuccessGreen
@@ -1080,7 +1106,7 @@ private fun MoneyField(
 }
 
 /** Converts a month→text price map into the month→Double map the API expects (dropping blanks/0). */
-private fun monthlyPricesAsDoubles(prices: Map<String, String>): Map<String, Double> {
+internal fun monthlyPricesAsDoubles(prices: Map<String, String>): Map<String, Double> {
     val out = LinkedHashMap<String, Double>()
     prices.forEach { (month, text) ->
         text.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { out[month] = it }
@@ -1278,9 +1304,11 @@ private fun HostBookingCard(
                     Text(booking.location, color = Muted, fontSize = 14.sp, maxLines = 1)
                 }
             }
-            if (booking.reservationCode.isNotBlank()) {
+            // Codes are only issued at confirmation, so a pending request has none to show.
+            val code = booking.reservationCode
+            if (!code.isNullOrBlank()) {
                 Text(
-                    booking.reservationCode,
+                    code,
                     color = Muted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -1497,22 +1525,25 @@ private fun ReviewGuestCard(
 
 // ---- Add-listing tab --------------------------------------------------------
 
+// The wizard's field sets + step bodies are `internal` (not private) so the host's listing EDITOR
+// (ui/EditListingScreen.kt) renders the very same fields and validation rather than a second copy.
+
 /** The six property types offered in Step 1. */
-private val PROPERTY_TYPES = listOf("Apartment", "Villa", "House", "Chalet", "Cabin", "Guest House")
+internal val PROPERTY_TYPES = listOf("Apartment", "Villa", "House", "Chalet", "Cabin", "Guest House")
 
 /** Curated browse areas (Step 2). The host picks one before pinning the precise location. */
-private val REGIONS = listOf("North Coast", "Ain Sokhna", "El Gouna", "Cairo")
+internal val REGIONS = listOf("North Coast", "Ain Sokhna", "El Gouna", "Cairo")
 
 /** The amenity labels a host can toggle in Step 3 (sent to the backend as `amenities`). */
-private val AMENITY_OPTIONS = listOf(
+internal val AMENITY_OPTIONS = listOf(
     "WiFi", "Pool", "Kitchen", "Air conditioning", "Free parking", "Washer", "TV",
     "Heating", "Workspace", "Gym", "Beach access", "Pets allowed", "Hot tub", "BBQ grill", "Breakfast"
 )
 
 private const val TOTAL_STEPS = 4
 
-/** Max device photos a host can attach to a new listing (the first is the cover). */
-private const val MAX_LISTING_PHOTOS = 10
+/** Max device photos a host can attach to a listing (the first is the cover). */
+internal const val MAX_LISTING_PHOTOS = 10
 
 @Composable
 private fun AddListingTab(
@@ -1860,7 +1891,7 @@ private fun StepHeader(step: Int) {
 // ---- Step 1: Basics ---------------------------------------------------------
 
 @Composable
-private fun StepBasics(
+internal fun StepBasics(
     title: String, onTitle: (String) -> Unit,
     propertyType: String, onPropertyType: (String) -> Unit,
     description: String, onDescription: (String) -> Unit,
@@ -1925,7 +1956,7 @@ private fun PropertyTypeDropdown(selected: String, onSelected: (String) -> Unit)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StepLocation(
+internal fun StepLocation(
     region: String?, onRegion: (String) -> Unit,
     location: String, onLocation: (String) -> Unit,
     country: String, onCountry: (String) -> Unit,
@@ -1997,7 +2028,7 @@ private fun RegionChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StepDetails(
+internal fun StepDetails(
     maxGuests: String, onMaxGuests: (String) -> Unit,
     bedrooms: String, onBedrooms: (String) -> Unit,
     beds: String, onBeds: (String) -> Unit,
@@ -2011,7 +2042,19 @@ private fun StepDetails(
     onAddPhotos: () -> Unit, onRemovePhoto: (Int) -> Unit,
     selectedAmenities: List<String>, onToggleAmenity: (String) -> Unit,
     cancellationPolicy: String, onCancellationPolicy: (String) -> Unit,
-    ownershipDoc: String?, processingDoc: Boolean, onPickDoc: () -> Unit
+    ownershipDoc: String?, processingDoc: Boolean, onPickDoc: () -> Unit,
+    /**
+     * Reorders the photo at [from] to [to]. Null (the add-listing wizard) hides the reorder
+     * controls — a brand-new listing's photos are already in pick order.
+     */
+    onMovePhoto: ((from: Int, to: Int) -> Unit)? = null,
+    /** Promotes the photo at the given index to the cover (position 0). Null hides the control. */
+    onSetCoverPhoto: ((Int) -> Unit)? = null,
+    /**
+     * Amenity chips to offer. Defaults to the curated set; the listing editor passes that set plus
+     * anything the listing already has, so an existing amenity can never be silently dropped.
+     */
+    amenityOptions: List<String> = AMENITY_OPTIONS
 ) {
     // +/- steppers for the counts. Each shows the current value as a Text between the
     // buttons; minimums keep the values sensible (guests >= 1, the rest >= 0).
@@ -2084,7 +2127,9 @@ private fun StepDetails(
         encoding = encodingPhotos,
         enabled = photos.size < MAX_LISTING_PHOTOS,
         onAdd = onAddPhotos,
-        onRemove = onRemovePhoto
+        onRemove = onRemovePhoto,
+        onMove = onMovePhoto,
+        onSetCover = onSetCoverPhoto
     )
 
     // Amenities multi-select — tap chips to toggle. Sent to the backend as `amenities`.
@@ -2094,7 +2139,7 @@ private fun StepDetails(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        AMENITY_OPTIONS.forEach { amenity ->
+        amenityOptions.forEach { amenity ->
             AmenityChip(
                 label = amenity,
                 selected = selectedAmenities.contains(amenity),
@@ -2139,11 +2184,16 @@ private fun StepDetails(
 }
 
 /**
- * The add-listing photo attach control: an "Add photos" outlined button (disabled at the
- * [MAX_LISTING_PHOTOS] cap) plus a horizontal row of staged thumbnails, each with a remove (×)
- * chip; the first photo carries a small "Cover" badge. Mirrors the review dialog's photo picker
- * ([ReviewPhotoThumbnail] renders the `data:` URL thumbnails, which Coil can't fetch directly).
- * Photos are optional, so nothing here gates advancing the wizard.
+ * The listing photo control, shared by the add-listing wizard and the host's listing editor: an
+ * "Add photos" outlined button (disabled at the [MAX_LISTING_PHOTOS] cap) plus a horizontal row of
+ * staged thumbnails, each with a remove (×) chip; the first photo carries a small "Cover" badge.
+ * Mirrors the review dialog's photo picker ([ReviewPhotoThumbnail] renders the `data:` URL
+ * thumbnails, which Coil can't fetch directly). Photos are optional, so nothing here gates
+ * advancing the wizard.
+ *
+ * Passing [onMove] / [onSetCover] (the editor does; the wizard doesn't) adds a per-photo control
+ * row: move earlier / make cover / move later. The arrows are auto-mirrored, so "earlier" still
+ * points at the start of the row in RTL.
  */
 @Composable
 private fun ListingPhotoPicker(
@@ -2151,7 +2201,9 @@ private fun ListingPhotoPicker(
     encoding: Boolean,
     enabled: Boolean,
     onAdd: () -> Unit,
-    onRemove: (Int) -> Unit
+    onRemove: (Int) -> Unit,
+    onMove: ((from: Int, to: Int) -> Unit)? = null,
+    onSetCover: ((Int) -> Unit)? = null
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -2194,50 +2246,103 @@ private fun ListingPhotoPicker(
         if (photos.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 itemsIndexed(photos) { index, url ->
-                    Box {
-                        ReviewPhotoThumbnail(
-                            url = url,
-                            size = 84.dp,
-                            modifier = Modifier.padding(top = 6.dp, end = 6.dp)
-                        )
-                        // "Cover" badge on the first (cover) photo.
-                        if (index == 0) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box {
+                            ReviewPhotoThumbnail(
+                                url = url,
+                                size = 84.dp,
+                                modifier = Modifier.padding(top = 6.dp, end = 6.dp)
+                            )
+                            // "Cover" badge on the first (cover) photo.
+                            if (index == 0) {
+                                Surface(
+                                    color = Burgundy.copy(alpha = 0.92f),
+                                    shape = RoundedCornerShape(7.dp),
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(start = 4.dp, bottom = 4.dp)
+                                ) {
+                                    Text(
+                                        "Cover",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            // Remove (×) chip pinned to the top-end corner.
                             Surface(
-                                color = Burgundy.copy(alpha = 0.92f),
-                                shape = RoundedCornerShape(7.dp),
+                                color = Ink.copy(alpha = 0.72f),
+                                shape = CircleShape,
                                 modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(start = 4.dp, bottom = 4.dp)
+                                    .align(Alignment.TopEnd)
+                                    .size(24.dp)
+                                    .clickable { onRemove(index) }
                             ) {
-                                Text(
-                                    "Cover",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Remove photo",
+                                    tint = Color.White,
+                                    modifier = Modifier.padding(4.dp)
                                 )
                             }
                         }
-                        // Remove (×) chip pinned to the top-end corner.
-                        Surface(
-                            color = Ink.copy(alpha = 0.72f),
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(24.dp)
-                                .clickable { onRemove(index) }
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Remove photo",
-                                tint = Color.White,
-                                modifier = Modifier.padding(4.dp)
-                            )
+                        // Editor-only: reorder + set-cover under each thumbnail.
+                        if (onMove != null || onSetCover != null) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 2.dp, end = 6.dp)
+                            ) {
+                                if (onMove != null) {
+                                    PhotoActionButton(
+                                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                        description = stringResource(com.quickin.app.R.string.listing_edit_move_earlier),
+                                        enabled = index > 0,
+                                        onClick = { onMove(index, index - 1) }
+                                    )
+                                }
+                                if (onSetCover != null) {
+                                    PhotoActionButton(
+                                        icon = Icons.Filled.Star,
+                                        description = stringResource(com.quickin.app.R.string.listing_edit_set_cover),
+                                        enabled = index > 0,
+                                        onClick = { onSetCover(index) }
+                                    )
+                                }
+                                if (onMove != null) {
+                                    PhotoActionButton(
+                                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                        description = stringResource(com.quickin.app.R.string.listing_edit_move_later),
+                                        enabled = index < photos.lastIndex,
+                                        onClick = { onMove(index, index + 1) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** One compact icon action under a photo thumbnail (move earlier / make cover / move later). */
+@Composable
+private fun PhotoActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(28.dp)) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = if (enabled) Burgundy else Muted.copy(alpha = 0.35f),
+            modifier = Modifier.size(17.dp)
+        )
     }
 }
 

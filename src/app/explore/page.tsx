@@ -11,7 +11,6 @@ import { getListings, getWishlistIds } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
 import { Heart, MessageCircle } from 'lucide-react'
 import ExploreClient from './explore-client'
-import AppDownloadBar from './app-download-bar'
 import AddListingFab from './add-listing-fab'
 
 export const dynamic = 'force-dynamic'
@@ -448,9 +447,6 @@ export default async function ExplorePage({
           </div>
         </div>
       </footer>
-
-      {/* Phone-only "download the app" bar (links managed from /ops). */}
-      <AppDownloadBar />
 
       {/* Hosts get "Add listing" as a floating button on the bottom-end corner
           (the WhatsApp FAB sits on the bottom-start corner). Same host gate the

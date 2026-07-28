@@ -3,10 +3,15 @@ import CoreLocation
 
 /// A photo attached to a listing (from the `listing_images` table).
 struct ListingImage: Codable, Hashable {
+    /// `listing_images.id` — what the photo delete / reorder endpoints address.
+    /// `nil` on older responses that only returned `url` + `order`; the host
+    /// photo editor then can't address that row individually.
+    let id: String?
     let url: String
     let order: Int?
 
     enum CodingKeys: String, CodingKey {
+        case id
         case url
         case order
     }
@@ -18,9 +23,15 @@ struct Listing: Codable, Identifiable, Hashable {
     let title: String
     let description: String?
     let location: String?
+    /// The place's country, from the `country` column. `nil` when unset. Only
+    /// the host edit form reads it (the guest UI shows `location`/`region`).
+    let country: String?
     /// Curated area the place belongs to (e.g. "North Coast", "Ain Sokhna").
     /// Backed by the listings' `region` column; `nil` when unset.
     let region: String?
+    /// The property type ("Apartment", "Villa", …), from the `property_type`
+    /// column. `nil` when unset. Prefills the host edit form's type picker.
+    let propertyType: String?
     /// The host's profile id, from the `host_id` column. `nil` when the backend
     /// omits it. Drives the "More from this host" fetch on the detail screen.
     let hostId: String?
@@ -84,7 +95,8 @@ struct Listing: Codable, Identifiable, Hashable {
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, description, location, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
+        case id, title, description, location, country, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
+        case propertyType = "property_type"
         case pricePerNight = "price_per_night"
         case maxGuests = "max_guests"
         case isGuestFavorite = "is_guest_favorite"
@@ -109,7 +121,9 @@ struct Listing: Codable, Identifiable, Hashable {
         title = try c.decode(String.self, forKey: .title)
         description = try c.decodeIfPresent(String.self, forKey: .description)
         location = try c.decodeIfPresent(String.self, forKey: .location)
+        country = try c.decodeIfPresent(String.self, forKey: .country)
         region = try c.decodeIfPresent(String.self, forKey: .region)
+        propertyType = try c.decodeIfPresent(String.self, forKey: .propertyType)
         hostId = try c.decodeIfPresent(String.self, forKey: .hostId)
         hostName = try c.decodeIfPresent(String.self, forKey: .hostName)
         pricePerNight = try c.decode(Double.self, forKey: .pricePerNight)
@@ -164,12 +178,17 @@ struct Listing: Codable, Identifiable, Hashable {
         return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
+    /// Photos sorted by their `order` field (first = cover). Empty when the
+    /// listing has none. Keeps each row's `id`, which the host photo editor
+    /// needs to delete / reorder an individual photo.
+    var sortedImages: [ListingImage] {
+        (images ?? []).sorted { ($0.order ?? 0) < ($1.order ?? 0) }
+    }
+
     /// Photo URLs sorted by their `order` field. Empty when the listing has no
     /// photos — callers render a `PhotoPlaceholder` instead of a stock image.
     var sortedImageURLs: [String] {
-        (images ?? [])
-            .sorted { ($0.order ?? 0) < ($1.order ?? 0) }
-            .map { $0.url }
+        sortedImages.map { $0.url }
     }
 
     /// "27 Jul 2026" style creation date, parsed from the ISO-8601 `created_at`.
@@ -562,18 +581,227 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
         return (n?.isEmpty == false) ? n : nil
     }
 
-    /// The bare reservation code (falls back to the booking id) shown under the QR.
-    var qrPayload: String {
-        let code = reservationCode?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (code?.isEmpty == false) ? code! : id
+    /// The real reservation code, or `nil` when the booking doesn't carry one.
+    /// A missing value, an empty/blank string and the literal `"null"` (what a
+    /// JSON `null` collapses to on some clients) all count as **absent** — a
+    /// stay URL must never be built from any of them, or it resolves to the
+    /// `/stay/null` page the guest reported.
+    ///
+    /// Note there is deliberately **no fallback to the booking id**: the pass
+    /// page looks a stay up by `reservation_code`, so an id could never resolve.
+    var stayCode: String? {
+        guard let raw = reservationCode?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              raw.lowercased() != "null"
+        else { return nil }
+        return raw
     }
 
+    /// `true` once this reservation actually has a stay pass — the gate behind
+    /// the QR card and the `/stay/<code>` link (the Wallet button uses the
+    /// stricter `canAddToWallet`).
+    ///
+    /// Two conditions, both required: the backend has issued a
+    /// `reservation_code` (it only does that at the confirmation transition),
+    /// **and** the booking is in a state that still has a usable pass. A
+    /// `pending` booking is waiting for the host's approval and has no code, so
+    /// nothing is rendered; `cancelled`/`rejected` keep their old code but the
+    /// pass is dead. `completed` keeps working so a guest can still open the
+    /// pass for a stay that has already ended.
+    var hasStayPass: Bool {
+        guard stayCode != nil else { return false }
+        return bookingStatus == .confirmed || bookingStatus == .completed
+    }
+
+    /// `true` when an Apple Wallet pass can be minted for this reservation.
+    /// Deliberately stricter than `hasStayPass`: the backend's
+    /// `GET /api/wallet/pass/:id` rejects anything that isn't `confirmed` with a
+    /// `reservation_code` (400), so the button is only offered when it works.
+    var canAddToWallet: Bool {
+        bookingStatus == .confirmed && stayCode != nil
+    }
+
+    /// `true` while the pass simply hasn't been issued **yet** — the reservation
+    /// is still awaiting the host's approval (or was just confirmed and the code
+    /// hasn't landed on this response). Drives the "your QR code will appear
+    /// once your reservation is confirmed" placeholder. Cancelled / rejected
+    /// stays are never coming back, so they show nothing at all.
+    var isAwaitingStayPass: Bool {
+        guard !hasStayPass else { return false }
+        return bookingStatus == .pending || bookingStatus == .confirmed
+    }
+
+    /// The bare reservation code shown under the QR, or `nil` when there is no
+    /// pass to show.
+    var qrPayload: String? { hasStayPass ? stayCode : nil }
+
     /// The public stay-pass URL the QR encodes — scanning/clicking it opens the
-    /// deployed pass page. Built from the reservation code (or id) on the web
-    /// frontend host, so it works whether or not the app is installed.
-    var stayPassURL: URL {
-        let encoded = qrPayload.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? qrPayload
-        return URL(string: "\(AppLinks.webBase)/stay/\(encoded)") ?? URL(string: AppLinks.webBase)!
+    /// deployed pass page. `nil` unless this reservation has a pass, so the
+    /// caller physically cannot render a QR/wallet/stay link for a booking that
+    /// is still awaiting approval.
+    var stayPassURL: URL? {
+        guard let code = qrPayload else { return nil }
+        let encoded = code.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? code
+        return URL(string: "\(AppLinks.webBase)/stay/\(encoded)")
+    }
+}
+
+// MARK: - Stay guide (host-authored content on a confirmed booking)
+
+/// The kinds of item a host can attach to a confirmed booking's stay guide,
+/// matching the `stay_guide_items.kind` column. Anything unrecognised (an older
+/// or newer server) reads as `.info` so the guide still renders.
+enum StayGuideKind: String, CaseIterable, Identifiable, Hashable {
+    case info
+    case photo
+    case placeQR = "place_qr"
+    case attachment
+
+    var id: String { rawValue }
+
+    init(raw: String?) {
+        self = StayGuideKind(rawValue: (raw ?? "").lowercased()) ?? .info
+    }
+
+    /// Short label for the type picker in the host editor.
+    @MainActor
+    var label: String {
+        switch self {
+        case .info:       return L.t("guide.kind.info")
+        case .photo:      return L.t("guide.kind.photo")
+        case .placeQR:    return L.t("guide.kind.placeQR")
+        case .attachment: return L.t("guide.kind.attachment")
+        }
+    }
+
+    /// Heading of the guest-facing section this kind is grouped under.
+    @MainActor
+    var sectionTitle: String {
+        switch self {
+        case .info:       return L.t("guide.section.info")
+        case .photo:      return L.t("guide.section.photo")
+        case .placeQR:    return L.t("guide.section.placeQR")
+        case .attachment: return L.t("guide.section.attachment")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .info:       return "info.circle.fill"
+        case .photo:      return "photo.on.rectangle.angled"
+        case .placeQR:    return "qrcode"
+        case .attachment: return "paperclip"
+        }
+    }
+
+    /// `true` when this kind carries an uploaded file (a `data:` URL is allowed).
+    var acceptsUpload: Bool { self == .photo || self == .attachment }
+}
+
+/// Limits + validation shared by the stay-guide editor and `HostService`, kept
+/// in step with the server rules so bad input is caught before a round trip.
+/// Mirrors the ownership-doc / payment-proof house style.
+enum StayGuideRules {
+    /// Max characters of a `data:` (or `http(s)`) URL — ~3.5 MB, the same cap
+    /// the backend applies to uploaded images.
+    static let maxURLChars = 3_500_000
+    static let maxTitleChars = 120
+    static let maxBodyChars = 2_000
+
+    /// `true` for an `http(s)://` link — the only thing a `place_qr` may hold,
+    /// since the guest's phone opens it. Rejects `data:` and `javascript:`.
+    static func isWebLink(_ value: String) -> Bool {
+        let v = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return v.hasPrefix("http://") || v.hasPrefix("https://")
+    }
+
+    /// `true` for something a photo/attachment may hold: an inline `data:` URL
+    /// or an `http(s)://` link.
+    static func isUploadURL(_ value: String) -> Bool {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("data:")
+            || isWebLink(value)
+    }
+}
+
+/// One host-authored stay-guide item, from
+/// `GET /api/local/bookings/:id/stay-guide` (and embedded in the public
+/// `GET /api/local/stay/:code` response as `guide`).
+struct StayGuideItem: Codable, Identifiable, Hashable {
+    let id: String
+    /// Raw `kind` column — read the typed value through `guideKind`.
+    let kind: String?
+    let title: String?
+    /// The info text, or the caption of a photo / file / place link.
+    let body: String?
+    /// A `data:` URL (photo, attachment) or an external link (place QR).
+    let url: String?
+    /// Display order within the guide, ascending. `nil` on older rows.
+    let order: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, title, body, url, order
+    }
+
+    var guideKind: StayGuideKind { StayGuideKind(raw: kind) }
+
+    /// Trimmed title, or `nil` when the host left it blank.
+    var titleText: String? { StayGuideItem.clean(title) }
+
+    /// Trimmed body/caption, or `nil` when blank.
+    var bodyText: String? { StayGuideItem.clean(body) }
+
+    /// Trimmed URL, or `nil` when blank.
+    var urlText: String? { StayGuideItem.clean(url) }
+
+    /// The external link a `place_qr` points at. `https?://` only — a `data:`
+    /// or `javascript:` value that somehow reached the column is dropped rather
+    /// than opened or encoded into a QR.
+    var placeLink: URL? {
+        guard guideKind == .placeQR,
+              let raw = urlText,
+              StayGuideRules.isWebLink(raw)
+        else { return nil }
+        return URL(string: raw)
+    }
+
+    /// The link behind an `attachment` row, when it is a remote file (inline
+    /// `data:` attachments are rendered in-app instead of opened in Safari).
+    var attachmentLink: URL? {
+        guard guideKind == .attachment,
+              let raw = urlText,
+              StayGuideRules.isWebLink(raw)
+        else { return nil }
+        return URL(string: raw)
+    }
+
+    /// The image source of a `photo` (or of an image the host attached as a
+    /// file), suitable for `QKAvatarImage.decodeDataURL` / `AsyncImage`.
+    var imageSource: String? {
+        guard guideKind == .photo || guideKind == .attachment,
+              let raw = urlText,
+              StayGuideRules.isUploadURL(raw)
+        else { return nil }
+        return raw
+    }
+
+    /// `true` when there is nothing at all to draw for this row.
+    var isEmpty: Bool { titleText == nil && bodyText == nil && urlText == nil }
+
+    private static func clean(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty == false) ? trimmed : nil
+    }
+}
+
+extension Array where Element == StayGuideItem {
+    /// The guide in display order: by the host's `order`, ties broken by id so
+    /// the list never shuffles between reloads. Blank rows are dropped.
+    var sortedForDisplay: [StayGuideItem] {
+        filter { !$0.isEmpty }
+            .sorted {
+                let a = $0.order ?? 0, b = $1.order ?? 0
+                return a == b ? $0.id < $1.id : a < b
+            }
     }
 }
 
@@ -1417,6 +1645,133 @@ struct PublicProfile: Decodable, Identifiable, Hashable {
 
     /// Strongly-typed verification state.
     var status: VerificationStatus { VerificationStatus(raw: verificationStatusRaw) }
+}
+
+// MARK: - Become a host (application → admin review)
+
+/// Where the signed-in account sits in the "become a host" flow, from the
+/// server-derived `host_status` on `GET /api/auth/me`. There is no instant
+/// promotion any more: a guest applies, an admin approves in `/ops`, and only
+/// then does `users.is_host` flip.
+///
+/// `approved` is driven by `is_host`, not by the application row, so a
+/// pre-existing host with no application still reads as approved.
+enum HostStatus: String, Codable, Equatable {
+    case none
+    case pending
+    case rejected
+    case approved
+
+    /// Parse a raw backend string, defaulting to `.none` for nil / unknown.
+    init(raw: String?) {
+        self = HostStatus(rawValue: (raw ?? "").lowercased()) ?? .none
+    }
+
+    /// Whether the account may submit the application form — nothing on file
+    /// yet, or the last one was rejected (a reapply overwrites it).
+    var canApply: Bool { self == .none || self == .rejected }
+}
+
+/// What kind of host is applying (`host_type`). Drives the picker on the
+/// application form; the two business types also collect a company name.
+enum HostType: String, CaseIterable, Identifiable, Equatable {
+    case individual
+    case company
+    case brokerage
+
+    var id: String { rawValue }
+
+    /// Parse a raw backend string, defaulting to `.individual`.
+    init(raw: String?) {
+        self = HostType(rawValue: (raw ?? "").lowercased()) ?? .individual
+    }
+
+    /// Localized picker label.
+    @MainActor var label: String { L.t("hostApply.type.\(rawValue)") }
+
+    /// Companies and brokerages carry a display name; individuals don't.
+    var isBusiness: Bool { self != .individual }
+}
+
+/// The signed-in account's host application, from
+/// `GET /api/local/host/application` → `{ host_status, application }`. Every
+/// field is optional so a partial row still decodes; it's used to prefill the
+/// form when a rejected applicant reapplies and to date the pending card.
+struct HostApplication: Decodable, Equatable {
+    let fullName: String?
+    let nationalID: String?
+    let phone: String?
+    let address: String?
+    let company: String?
+    let hostType: String?
+    let notes: String?
+    let submittedAt: String?
+    let reviewNote: String?
+
+    enum CodingKeys: String, CodingKey {
+        case notes
+        case company
+        case phone
+        case address
+        case fullName = "full_name"
+        case nationalID = "national_id"
+        case hostType = "host_type"
+        case submittedAt = "submitted_at"
+        case reviewNote = "review_note"
+    }
+
+    /// "Submitted 12 Mar 2026" style line for the pending card, or `nil` when
+    /// the timestamp is missing / unparseable.
+    @MainActor var submittedText: String? {
+        guard let submittedAt, let date = HostApplication.parseDate(submittedAt) else { return nil }
+        return String(format: L.t("hostApply.submitted"), HostApplication.dayFormatter.string(from: date))
+    }
+
+    private static func parseDate(_ raw: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFraction.date(from: raw) { return d }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let d = plain.date(from: raw) { return d }
+        // The backend `to_char`s this column without a zone designator
+        // ("2026-07-27T12:34:56"), which the ISO parsers reject.
+        let naive = DateFormatter()
+        naive.locale = Locale(identifier: "en_US_POSIX")
+        naive.timeZone = TimeZone(secondsFromGMT: 0)
+        naive.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        if let d = naive.date(from: raw) { return d }
+        let dateOnly = DateFormatter()
+        dateOnly.locale = Locale(identifier: "en_US_POSIX")
+        dateOnly.dateFormat = "yyyy-MM-dd"
+        return dateOnly.date(from: raw)
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = .current
+        f.dateFormat = "d MMM yyyy"
+        return f
+    }()
+}
+
+/// `GET /api/local/host/application` → `{ host_status, application }`. The
+/// status is authoritative (server-derived); `application` is nil when nothing
+/// has been submitted.
+struct HostApplicationState: Decodable, Equatable {
+    let status: HostStatus
+    let application: HostApplication?
+
+    enum CodingKeys: String, CodingKey {
+        case status = "host_status"
+        case application
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        status = HostStatus(raw: try c.decodeIfPresent(String.self, forKey: .status))
+        application = try c.decodeIfPresent(HostApplication.self, forKey: .application)
+    }
 }
 
 // MARK: - Money — host earnings / payouts

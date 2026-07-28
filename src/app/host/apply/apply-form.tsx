@@ -39,17 +39,54 @@ const input: React.CSSProperties = {
 
 const fieldWrap: React.CSSProperties = { marginBottom: 18 }
 
-export function ApplyForm({ initialName }: { initialName: string }) {
+/** Inline message under a single field; renders nothing when the field is fine. */
+function FieldError({ text }: { text?: string }) {
+  if (!text) return null
+  return (
+    <p style={{ margin: '6px 0 0', fontSize: 12.5, color: '#b3261e', fontWeight: 600 }}>{text}</p>
+  )
+}
+
+/** Previous answers, so a rejected applicant reapplies by editing, not retyping. */
+export interface PreviousApplication {
+  national_id: string
+  phone: string
+  address: string
+  company: string
+  notes: string
+}
+
+/** Server `fields` keys → localized messages; anything unmapped falls back to the
+ *  server's own text. The client validates first, so this is the safety net. */
+const FIELD_ERROR_KEYS: Record<string, string> = {
+  full_name: 'errors.fullNameRequired',
+  national_id: 'errors.nationalIdRequired',
+  phone: 'errors.phoneRequired',
+  address: 'errors.addressRequired',
+  host_type: 'errors.hostTypeInvalid',
+}
+
+export function ApplyForm({
+  initialName,
+  reapply = false,
+  previous = null,
+}: {
+  initialName: string
+  reapply?: boolean
+  previous?: PreviousApplication | null
+}) {
   const router = useRouter()
   const t = useTranslations('hostApply')
 
   const [fullName, setFullName] = useState(initialName)
-  const [hostType, setHostType] = useState<'individual' | 'company' | 'brokerage'>('individual')
-  const [nationalId, setNationalId] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [company, setCompany] = useState('')
-  const [notes, setNotes] = useState('')
+  const [hostType, setHostType] = useState<'individual' | 'company' | 'brokerage'>(
+    previous?.company ? 'company' : 'individual'
+  )
+  const [nationalId, setNationalId] = useState(previous?.national_id ?? '')
+  const [phone, setPhone] = useState(previous?.phone ?? '')
+  const [address, setAddress] = useState(previous?.address ?? '')
+  const [company, setCompany] = useState(previous?.company ?? '')
+  const [notes, setNotes] = useState(previous?.notes ?? '')
   const isBusiness = hostType === 'company' || hostType === 'brokerage'
 
   // ID photos (data URLs) — required so admins can verify the host, same as /verify-id.
@@ -73,22 +110,23 @@ export function ApplyForm({ initialName }: { initialName: string }) {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setFieldErrors({})
 
-    if (!nationalId.trim()) {
-      setError(t('errors.nationalIdRequired'))
-      return
-    }
-    if (!phone.trim()) {
-      setError(t('errors.phoneRequired'))
-      return
-    }
-    if (!address.trim()) {
-      setError(t('errors.addressRequired'))
+    // Same required set as the API: everything but company + notes.
+    const invalid: Record<string, string> = {}
+    if (!fullName.trim()) invalid.full_name = t('errors.fullNameRequired')
+    if (!nationalId.trim()) invalid.national_id = t('errors.nationalIdRequired')
+    if (!phone.trim()) invalid.phone = t('errors.phoneRequired')
+    if (!address.trim()) invalid.address = t('errors.addressRequired')
+    if (Object.keys(invalid).length) {
+      setFieldErrors(invalid)
+      setError(t('errors.checkFields'))
       return
     }
     if (!idFront || !idBack) {
@@ -103,7 +141,7 @@ export function ApplyForm({ initialName }: { initialName: string }) {
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          full_name: fullName.trim() || undefined,
+          full_name: fullName.trim(),
           host_type: hostType,
           national_id: nationalId.trim(),
           phone: phone.trim(),
@@ -116,8 +154,25 @@ export function ApplyForm({ initialName }: { initialName: string }) {
         router.push('/login')
         return
       }
+      // 409 = already a host, or an application is already under review. The page
+      // is server-rendered from host_status, so refresh it into the right state.
+      if (res.status === 409) {
+        setBusy(false)
+        setError(t('errors.conflict'))
+        router.refresh()
+        return
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
+        // 400 with per-field messages → surface them inline, next to each input.
+        if (err.fields && typeof err.fields === 'object') {
+          const mapped: Record<string, string> = {}
+          for (const [name, msg] of Object.entries(err.fields as Record<string, string>)) {
+            mapped[name] = FIELD_ERROR_KEYS[name] ? t(FIELD_ERROR_KEYS[name]) : String(msg)
+          }
+          setFieldErrors(mapped)
+          throw new Error(t('errors.checkFields'))
+        }
         throw new Error(err.error || t('errors.submitFailed'))
       }
 
@@ -241,10 +296,13 @@ export function ApplyForm({ initialName }: { initialName: string }) {
             )
           })}
         </div>
+        <FieldError text={fieldErrors.host_type} />
       </div>
 
       <div style={fieldWrap}>
-        <label style={label} htmlFor="apply-name">{t('fields.fullName')}</label>
+        <label style={label} htmlFor="apply-name">
+          {t('fields.fullName')} <span style={{ color: C.burgundy }}>*</span>
+        </label>
         <input
           id="apply-name"
           style={input}
@@ -252,7 +310,9 @@ export function ApplyForm({ initialName }: { initialName: string }) {
           onChange={(e) => setFullName(e.target.value)}
           placeholder={t('placeholders.fullName')}
           autoComplete="name"
+          required
         />
+        <FieldError text={fieldErrors.full_name} />
       </div>
 
       <div style={fieldWrap}>
@@ -267,6 +327,7 @@ export function ApplyForm({ initialName }: { initialName: string }) {
           placeholder={t('placeholders.nationalId')}
           required
         />
+        <FieldError text={fieldErrors.national_id} />
       </div>
 
       <div style={fieldWrap}>
@@ -283,6 +344,7 @@ export function ApplyForm({ initialName }: { initialName: string }) {
           autoComplete="tel"
           required
         />
+        <FieldError text={fieldErrors.phone} />
       </div>
 
       <div style={fieldWrap}>
@@ -298,6 +360,7 @@ export function ApplyForm({ initialName }: { initialName: string }) {
           autoComplete="street-address"
           required
         />
+        <FieldError text={fieldErrors.address} />
       </div>
 
       <div style={fieldWrap}>
@@ -443,7 +506,7 @@ export function ApplyForm({ initialName }: { initialName: string }) {
             fontFamily: 'inherit',
           }}
         >
-          {busy ? t('submitting') : t('submit')}
+          {busy ? t('submitting') : reapply ? t('reapply') : t('submit')}
         </button>
         <a
           href="/account"

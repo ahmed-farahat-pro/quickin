@@ -4,9 +4,11 @@ import { cookies } from 'next/headers'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { getUserBookings } from '@/lib/local/db'
 import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { getRequestOrigin } from '@/lib/site-origin'
 import { localeToBcp47, type Locale } from '@/i18n/config'
 import { formatPrice } from '@/lib/utils'
 import { ReservationActions } from './reservation-actions'
+import { StayPassCard } from './stay-pass-card'
 
 export const dynamic = 'force-dynamic'
 
@@ -222,6 +224,8 @@ async function ReservationsList({
 }) {
   const bookings = await getUserBookings(userId)
   const t = await getTranslations('reservationsLocal')
+  // Absolute origin for the stay-pass QR (see StayPassCard).
+  const origin = await getRequestOrigin()
   const tHost = await getTranslations('hostPage.dashboard')
   const bcp47 = localeToBcp47((await getLocale()) as Locale)
 
@@ -400,6 +404,13 @@ async function ReservationsList({
                   paid={b.payment_status === 'paid'}
                   checkIn={b.check_in}
                   checkOut={b.check_out}
+                />
+                {/* QR + link to the public pass — rendered only once the host
+                    has approved and a code exists (see StayPassCard). */}
+                <StayPassCard
+                  status={b.status}
+                  reservationCode={b.reservation_code}
+                  origin={origin}
                 />
               </div>
 

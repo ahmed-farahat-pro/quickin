@@ -2,6 +2,81 @@ import SwiftUI
 import CoreLocation
 import PhotosUI
 
+// MARK: - Shared listing-form vocabulary
+
+/// The option lists the host listing forms offer. One copy, used by both the
+/// "Add listing" wizard and the "Edit listing" editor, so the two can never
+/// drift apart (and both stay matched to the backend's accepted values).
+enum ListingFormOptions {
+    /// Property types the picker offers. The stored value stays English — only
+    /// the label is ever localized — so it round-trips through the API.
+    static let propertyTypes = ["Apartment", "House", "Villa", "Cabin", "Studio", "Loft", "Cottage"]
+
+    /// What a listing gets when nothing else is chosen — the same default the
+    /// backend falls back to when `property_type` is omitted on create.
+    static let defaultPropertyType = "Apartment"
+
+    /// Curated areas a host picks from before dropping the precise pin. Matched
+    /// 1:1 with the Explore region chips and the backend's accepted regions.
+    static let regions = ["North Coast", "Ain Sokhna", "El Gouna", "Cairo"]
+
+    /// The picker list for an existing listing: the standard types plus whatever
+    /// the listing already carries (a type set elsewhere, e.g. "Chalet"), so
+    /// opening the editor can never silently rewrite the host's choice.
+    static func propertyTypes(including current: String?) -> [String] {
+        guard let current = current?.trimmingCharacters(in: .whitespaces), !current.isEmpty,
+              !propertyTypes.contains(current) else { return propertyTypes }
+        return propertyTypes + [current]
+    }
+}
+
+// MARK: - Shared listing photo model
+
+/// One photo in a host photo editor. A photo already on the listing carries its
+/// `listing_images.id` (what the delete / reorder endpoints address); a photo
+/// the host just picked has none until it's uploaded. The add-listing wizard
+/// only ever holds new ones; the editor holds a mix.
+struct ListingPhotoDraft: Identifiable, Hashable {
+    /// `listing_images.id`, or `nil` for a photo picked in this session.
+    let imageID: String?
+    /// A `data:image/*;base64,…` URL (fresh pick) or the stored photo URL.
+    let url: String
+    /// Stable `ForEach` identity — the row id when there is one, else a token
+    /// minted per pick so two identical photos stay two rows.
+    let id: String
+
+    init(imageID: String? = nil, url: String) {
+        self.imageID = imageID
+        self.url = url
+        self.id = imageID ?? "new:\(UUID().uuidString)"
+    }
+
+    /// Seed from a photo already on the listing.
+    init(_ image: ListingImage) {
+        self.init(imageID: image.id, url: image.url)
+    }
+
+    /// `true` for a photo that already exists server-side.
+    var isExisting: Bool { imageID != nil }
+
+    /// Downscale + JPEG-encode photos picked with `PhotosPicker` into `data:`
+    /// URL drafts, at most `limit` of them. Unreadable items are skipped. Shared
+    /// by the add wizard and the editor so both produce identical payloads.
+    static func encode(_ items: [PhotosPickerItem], limit: Int) async -> [ListingPhotoDraft] {
+        var out: [ListingPhotoDraft] = []
+        for item in items {
+            guard out.count < limit else { break }
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                let image = UIImage(data: data),
+                let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1600, quality: 0.8)
+            else { continue }
+            out.append(ListingPhotoDraft(url: dataURL))
+        }
+        return out
+    }
+}
+
 /// Host "Add listing" flow → `POST /api/local/listings`. Restructured as a
 /// 4-step wizard (Basics → Location → Details → Review) over the same field set
 /// and the same create-listing networking the single-form version used.
@@ -37,9 +112,9 @@ struct AddListingView: View {
     @State private var priceText = ""
 
     /// Device photos the host picked for the listing, each encoded as a
-    /// `data:image/jpeg;base64,…` URL in pick order. The first is the cover.
-    /// Sent to the backend as `images`; optional (zero photos is allowed).
-    @State private var photos: [String] = []
+    /// `data:image/jpeg;base64,…` URL. Order is display order — the first is the
+    /// cover. Sent to the backend as `images`; optional (zero photos is allowed).
+    @State private var photos: [ListingPhotoDraft] = []
     /// The multi-photo `PhotosPicker` selection; encoded into `photos` on change
     /// then cleared so the next pick starts fresh.
     @State private var photoItems: [PhotosPickerItem] = []
@@ -80,12 +155,12 @@ struct AddListingView: View {
     /// True while a freshly-picked ownership doc is being downscaled + encoded.
     @State private var isProcessingDoc = false
 
-    private let propertyTypes = ["Apartment", "House", "Villa", "Cabin", "Studio", "Loft", "Cottage"]
-    @State private var propertyType = "Apartment"
+    private let propertyTypes = ListingFormOptions.propertyTypes
+    @State private var propertyType = ListingFormOptions.defaultPropertyType
 
     /// Curated areas a host picks from before dropping the precise pin. Sent as
     /// `region` and matched 1:1 with the Explore region chips / backend regions.
-    private let regions = ["North Coast", "Ain Sokhna", "El Gouna", "Cairo"]
+    private let regions = ListingFormOptions.regions
     /// Chosen region (nil until the host taps one). Required to advance.
     @State private var region: String?
 
@@ -423,10 +498,10 @@ struct AddListingView: View {
 
     // MARK: - Listing photos
 
-    /// Process listing photos chosen via `PhotosPicker`: load each item's data
-    /// off the main thread, downscale to ≤1600px + JPEG-encode into a `data:`
-    /// URL, and append (in pick order, capped at 10) to `photos`. The picker
-    /// selection is cleared when done; unreadable items are skipped.
+    /// Process listing photos chosen via `PhotosPicker` — `ListingPhotoDraft`
+    /// downscales + encodes each into a `data:` URL off the main thread — and
+    /// append them (in pick order, up to `HostService.maxListingPhotos`). The
+    /// picker selection is cleared when done; unreadable items are skipped.
     private func processPickedPhotos(_ items: [PhotosPickerItem]) async {
         errorMessage = nil
         encodingPhotos = true
@@ -434,15 +509,9 @@ struct AddListingView: View {
             encodingPhotos = false
             photoItems = []
         }
-        for item in items {
-            guard photos.count < 10 else { break }
-            guard
-                let data = try? await item.loadTransferable(type: Data.self),
-                let image = UIImage(data: data),
-                let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1600, quality: 0.8)
-            else { continue }
-            photos.append(dataURL)
-        }
+        let room = HostService.maxListingPhotos - photos.count
+        guard room > 0 else { return }
+        photos.append(contentsOf: await ListingPhotoDraft.encode(items, limit: room))
     }
 
     // MARK: - AI description writer
@@ -496,7 +565,7 @@ struct AddListingView: View {
             bathrooms: bathrooms,
             maxGuests: maxGuests,
             propertyType: propertyType,
-            images: photos,
+            images: photos.map(\.url),
             amenities: orderedAmenities,
             cancellationPolicy: cancellationPolicy,
             weeklyDiscount: weeklyDiscount,
@@ -534,6 +603,11 @@ private struct BasicsStep: View {
     var writerError: String? = nil
     var onWriteWithAI: () -> Void = {}
 
+    /// Marks the description mandatory. Off while creating (the backend accepts
+    /// a listing without one); on while editing, where `PATCH` rejects a blank
+    /// description — so the asterisk matches the rule that will be applied.
+    var descriptionRequired: Bool = false
+
     var body: some View {
         FieldLabel("Title", required: true)
         WizardTextField("e.g. Sea-view boutique apartment", text: $title)
@@ -558,7 +632,7 @@ private struct BasicsStep: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
 
-        FieldLabel("Description")
+        FieldLabel("Description", required: descriptionRequired)
         WizardTextField("Tell guests what makes your place special…",
                         text: $description, axis: .vertical, lineLimit: 4...8)
     }
@@ -579,6 +653,11 @@ private struct LocationStep: View {
     var onSearch: () -> Void
     var onSelect: (PlaceResult) -> Void
     var onUseCurrentLocation: () -> Void
+
+    /// Marks the city mandatory. Off while creating (the backend accepts a
+    /// listing without one); on while editing, where `PATCH` rejects a blank
+    /// location — so the asterisk matches the rule that will be applied.
+    var locationRequired: Bool = false
 
     var body: some View {
         // Region first: the host picks the area, then drops the precise pin.
@@ -641,7 +720,7 @@ private struct LocationStep: View {
             }
         }
 
-        FieldLabel("Location (city)")
+        FieldLabel("Location (city)", required: locationRequired)
         WizardTextField("City", text: $location)
             .textInputAutocapitalization(.words)
 
@@ -781,7 +860,7 @@ private struct DetailsStep: View {
     @Binding var ownershipDoc: String
     @Binding var ownershipDocItem: PhotosPickerItem?
     let isProcessingDoc: Bool
-    @Binding var photos: [String]
+    @Binding var photos: [ListingPhotoDraft]
     @Binding var photoItems: [PhotosPickerItem]
     let encodingPhotos: Bool
 
@@ -825,7 +904,7 @@ private struct DetailsStep: View {
             .foregroundStyle(Color.qkMuted)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, -4)
-        photosField
+        ListingPhotosField(photos: $photos, pickerItems: $photoItems, isEncoding: encodingPhotos)
 
         FieldLabel("Amenities")
         AmenitiesPicker(selected: $selectedAmenities)
@@ -903,75 +982,162 @@ private struct DetailsStep: View {
         .buttonStyle(.plain)
         .disabled(isProcessingDoc)
     }
+}
 
-    /// Horizontal strip of the picked listing photos — a "Cover" badge on the
-    /// first, a remove (×) control on each — followed by an "Add photos"
-    /// multi-select PhotosPicker. Photos are optional; the first is the cover.
-    private var photosField: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(Array(photos.enumerated()), id: \.offset) { index, url in
-                    ReviewPhotoThumbnail(urlString: url, size: 84)
-                        .overlay(alignment: .topLeading) {
-                            if index == 0 {
-                                Text(L.t("listing.photoCover"))
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Color.qkBurgundy)
-                                    .clipShape(Capsule())
-                                    .padding(5)
-                            }
-                        }
-                        .overlay(alignment: .topTrailing) {
-                            Button {
-                                photos.remove(at: index)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(Color.qkCream, Color.qkInk.opacity(0.65))
-                                    .padding(4)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(L.t("listing.removePhoto"))
-                        }
-                }
+// MARK: - Shared listing photo manager
 
-                // Always shown; picks beyond the 10-photo cap are ignored while
-                // encoding. Encoding shows a spinner in place of the + tile.
-                PhotosPicker(
-                    selection: $photoItems,
-                    maxSelectionCount: 10,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    VStack(spacing: 6) {
-                        if encodingPhotos {
-                            ProgressView().tint(.qkBurgundy)
-                        } else {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20, weight: .semibold))
-                            Text(L.t("listing.addPhotos"))
-                                .font(.system(size: 10, weight: .semibold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                    }
-                    .foregroundStyle(Color.qkBurgundy)
-                    .frame(width: 84, height: 84)
-                    .background(Color.qkTan)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.qkBurgundy.opacity(0.3),
-                                          style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                    )
-                }
-                .buttonStyle(.qkTap)
-                .disabled(encodingPhotos)
+/// The host photo manager: add, remove, reorder, and set the cover. Used by the
+/// add-listing wizard (all photos are new) and by the listing editor (a mix of
+/// photos already on the listing and fresh picks), so both offer exactly the
+/// same controls and the same cap.
+///
+/// The list order **is** the display order — index 0 is the cover — and the
+/// editor turns the final order into the server calls when the host saves.
+/// Reorder / remove controls follow the stay-guide editor's row pattern.
+struct ListingPhotosField: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Binding var photos: [ListingPhotoDraft]
+    /// The multi-select `PhotosPicker` selection; the owner encodes it into
+    /// `photos` on change and clears it.
+    @Binding var pickerItems: [PhotosPickerItem]
+    /// True while freshly-picked photos are being downscaled + encoded.
+    let isEncoding: Bool
+
+    /// Explicit init: the `private` environment object would otherwise make the
+    /// synthesized memberwise initializer private (unusable from other files).
+    init(photos: Binding<[ListingPhotoDraft]>, pickerItems: Binding<[PhotosPickerItem]>, isEncoding: Bool) {
+        _photos = photos
+        _pickerItems = pickerItems
+        self.isEncoding = isEncoding
+    }
+
+    private var isFull: Bool { photos.count >= HostService.maxListingPhotos }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
+                photoRow(photo, index: index)
             }
-            .padding(.vertical, 2)
+
+            addButton
+
+            Text(String(format: loc.t("listing.photoCap"), "\(HostService.maxListingPhotos)"))
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: - Pieces
+
+    /// One photo: thumbnail, a "Cover" capsule on the first, then set-cover /
+    /// move-up / move-down / remove controls.
+    private func photoRow(_ photo: ListingPhotoDraft, index: Int) -> some View {
+        HStack(spacing: 8) {
+            ReviewPhotoThumbnail(urlString: photo.url, size: 52)
+
+            if index == 0 {
+                Text(loc.t("listing.photoCover"))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.qkBurgundy)
+                    .clipShape(Capsule())
+            }
+            Spacer(minLength: 0)
+
+            rowControl(systemImage: "star", label: loc.t("listing.setCover"), disabled: index == 0) {
+                move(from: index, to: 0)
+            }
+            rowControl(systemImage: "chevron.up", label: loc.t("listing.movePhotoUp"), disabled: index == 0) {
+                move(from: index, to: index - 1)
+            }
+            rowControl(systemImage: "chevron.down",
+                       label: loc.t("listing.movePhotoDown"),
+                       disabled: index >= photos.count - 1) {
+                move(from: index, to: index + 1)
+            }
+            rowControl(systemImage: "trash", label: loc.t("listing.removePhoto"), disabled: false) {
+                withAnimation(QKAnim.swap) { _ = photos.remove(at: index) }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.qkCream)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// A small square icon control, matching the stay-guide editor's rows.
+    private func rowControl(
+        systemImage: String,
+        label: String,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(disabled ? Color.qkTan4 : Color.qkBurgundy)
+                .frame(width: 30, height: 30)
+                .background(Color.qkSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel(label)
+    }
+
+    /// Full-width dashed "Add photos" tile. Hidden once the cap is reached, so
+    /// the host is never offered a pick that would be silently dropped.
+    @ViewBuilder
+    private var addButton: some View {
+        if !isFull {
+            // Hoisted out of the picker's label closure, which isn't main-actor
+            // isolated (calling `loc.t` inside it warns).
+            let addTitle = loc.t("listing.addPhotos")
+            PhotosPicker(
+                selection: $pickerItems,
+                maxSelectionCount: HostService.maxListingPhotos - photos.count,
+                matching: .images,
+                photoLibrary: .shared()
+            ) {
+                HStack(spacing: 8) {
+                    if isEncoding {
+                        ProgressView().controlSize(.small).tint(.qkBurgundy)
+                    } else {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    Text(addTitle)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .foregroundStyle(Color.qkBurgundy)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(Color.qkTan)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.qkBurgundy.opacity(0.3),
+                                      style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                )
+            }
+            .buttonStyle(.qkTap)
+            .disabled(isEncoding)
+        }
+    }
+
+    /// Move one photo within the list, clamping to the valid range.
+    private func move(from: Int, to: Int) {
+        guard photos.indices.contains(from) else { return }
+        let target = max(0, min(to, photos.count - 1))
+        guard target != from else { return }
+        withAnimation(QKAnim.swap) {
+            let photo = photos.remove(at: from)
+            photos.insert(photo, at: target)
         }
     }
 }
@@ -1278,5 +1444,693 @@ private struct SummaryRow: View {
                 .multilineTextAlignment(.trailing)
         }
         .frame(minHeight: 44)
+    }
+}
+
+// MARK: - Edit listing (host)
+
+/// Host "Edit listing" flow → `PATCH /api/local/listings/:id` (+ the `/images`
+/// endpoints for photos). It is the add-listing wizard with the fields seeded
+/// from the live listing: the very same `BasicsStep` / `LocationStep` /
+/// `DetailsStep` and the very same option lists and validation, so there is only
+/// one set of listing rules on iOS.
+///
+/// • Steps 1–3 — every field of the listing: title, description, property type,
+///   region, city, country, map pin, capacity, price, photos (add / remove /
+///   reorder / set cover), amenities, cancellation policy, length-of-stay
+///   discounts, seasonal pricing, and a replacement ownership document.
+/// • Step 4 — "Review changes": the summary, the listing's current status, and
+///   the **re-review warning**, because saving is a destructive-feeling side
+///   effect: the listing goes back into the admin queue and is hidden from
+///   guests until it's approved. The host confirms that once more in a dialog
+///   before anything is sent.
+///
+/// Two rules the backend applies that the create form doesn't: `description` and
+/// `location` must be non-blank on an edit, so both are marked required here.
+struct EditListingView: View {
+    /// The listing being edited, as the host listings screen has it.
+    let listing: Listing
+    /// Called with the saved listing — already `approval_status = "pending"` —
+    /// so the caller can show "Under review" immediately and refetch.
+    var onSaved: (Listing) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var loc: LocalizationManager
+
+    // MARK: Wizard state
+
+    private static let totalSteps = 4
+    @State private var step = 1
+
+    // MARK: Fields (the add wizard's set, seeded from `listing`)
+
+    /// Everything that goes into the PATCH body. Held as one value so each step
+    /// can bind straight into it (`$draft.title`, …).
+    @State private var draft: HostService.ListingEdit
+    /// Nightly price as text, matching the wizard's numeric field.
+    @State private var priceText: String
+    @State private var selectedAmenities: Set<String>
+    /// Seasonal pricing as the text the fields edit; parsed back on save.
+    @State private var weekendPriceText: String
+    @State private var monthlyPriceTexts: [String: String]
+    /// Map coordinate; mirrored into `draft.lat` / `draft.lng` on save.
+    @State private var coordinate: CLLocationCoordinate2D?
+
+    /// The desired final photo set (order = display order, first = cover). A mix
+    /// of photos already on the listing and fresh picks.
+    @State private var photos: [ListingPhotoDraft]
+    /// What the server currently holds — the baseline the save diffs against, so
+    /// untouched photos are never re-uploaded. Re-seeded from each response as
+    /// the save progresses, so retrying after a mid-way failure doesn't repeat
+    /// work that already landed.
+    @State private var serverPhotos: [ListingPhotoDraft]
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var encodingPhotos = false
+
+    /// A replacement ownership document, if the host picks one.
+    @State private var ownershipDocItem: PhotosPickerItem?
+    @State private var isProcessingDoc = false
+
+    /// Property types offered — the standard list plus whatever this listing
+    /// already carries, so an edit can't silently rewrite it.
+    private let propertyTypes: [String]
+
+    // MARK: Location search (step 2)
+
+    @State private var searchQuery = ""
+    @StateObject private var locationSearch = LocationSearchManager()
+    @State private var recenterTarget: CLLocationCoordinate2D?
+    @State private var recenterToken = 0
+
+    // MARK: Saving
+
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+    /// Drives the "this sends your listing back for review" confirmation.
+    @State private var showingConfirm = false
+    /// Set once the save succeeded — shows the "Under review" confirmation.
+    @State private var savedListing: Listing?
+
+    init(listing: Listing, onSaved: @escaping (Listing) -> Void) {
+        self.listing = listing
+        self.onSaved = onSaved
+
+        var seeded = HostService.ListingEdit(listing: listing)
+        // A listing with no property type on file (only possible on very old
+        // rows) would otherwise open with an empty picker and fail validation.
+        if seeded.propertyType.trimmingCharacters(in: .whitespaces).isEmpty {
+            seeded.propertyType = ListingFormOptions.defaultPropertyType
+        }
+        _draft = State(initialValue: seeded)
+        _priceText = State(initialValue: listing.pricePerNight > 0 ? String(Int(listing.pricePerNight.rounded())) : "")
+        _selectedAmenities = State(initialValue: Set(listing.amenities))
+        _weekendPriceText = State(initialValue: listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _monthlyPriceTexts = State(initialValue: SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
+        _coordinate = State(initialValue: listing.coordinate)
+
+        let existing = listing.sortedImages.map(ListingPhotoDraft.init)
+        _photos = State(initialValue: existing)
+        _serverPhotos = State(initialValue: existing)
+        propertyTypes = ListingFormOptions.propertyTypes(including: listing.propertyType)
+    }
+
+    private var price: Double { Double(priceText.trimmingCharacters(in: .whitespaces)) ?? 0 }
+
+    /// Selected amenities in the catalog's display order, with any the catalog
+    /// doesn't know about (set on another surface) kept at the end rather than
+    /// silently dropped by the edit.
+    private var orderedAmenities: [String] {
+        Amenities.all.filter { selectedAmenities.contains($0) }
+            + selectedAmenities.subtracting(Amenities.all).sorted()
+    }
+
+    // MARK: - Per-step validation (the wizard's rules + the two PATCH requires)
+
+    private var step1Valid: Bool {
+        !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
+            && !draft.description.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+    /// The region has to be one the backend accepts — a listing carrying an
+    /// older/unknown area has to be re-picked rather than 400 on save.
+    private var step2Valid: Bool {
+        let region = draft.region?.trimmingCharacters(in: .whitespaces) ?? ""
+        return ListingFormOptions.regions.contains { $0.caseInsensitiveCompare(region) == .orderedSame }
+            && coordinate != nil
+            && !draft.location.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+    private var step3Valid: Bool { price > 0 }
+
+    private var currentStepValid: Bool {
+        switch step {
+        case 1:  return step1Valid
+        case 2:  return step2Valid
+        case 3:  return step3Valid
+        default: return true
+        }
+    }
+
+    private var canSave: Bool {
+        step1Valid && step2Valid && step3Valid && !isSaving && savedListing == nil
+    }
+
+    // MARK: - Body
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient.qkPageWash.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    progressHeader
+
+                    TabView(selection: $step) {
+                        stepCard { BasicsStep(
+                            title: $draft.title,
+                            description: $draft.description,
+                            propertyType: $draft.propertyType,
+                            propertyTypes: propertyTypes,
+                            descriptionRequired: true
+                        ) }
+                        .tag(1)
+
+                        stepCard { LocationStep(
+                            region: $draft.region,
+                            regions: ListingFormOptions.regions,
+                            location: $draft.location,
+                            country: $draft.country,
+                            coordinate: $coordinate,
+                            searchQuery: $searchQuery,
+                            recenterTarget: $recenterTarget,
+                            recenterToken: $recenterToken,
+                            search: locationSearch,
+                            onSearch: { Task { await locationSearch.search(searchQuery) } },
+                            onSelect: { applyPlace($0) },
+                            onUseCurrentLocation: { locationSearch.requestCurrentLocation() },
+                            locationRequired: true
+                        ) }
+                        .tag(2)
+
+                        stepCard { DetailsStep(
+                            maxGuests: $draft.maxGuests,
+                            bedrooms: $draft.bedrooms,
+                            beds: $draft.beds,
+                            bathrooms: $draft.bathrooms,
+                            priceText: $priceText,
+                            selectedAmenities: $selectedAmenities,
+                            cancellationPolicy: $draft.cancellationPolicy,
+                            weeklyDiscount: $draft.weeklyDiscount,
+                            monthlyDiscount: $draft.monthlyDiscount,
+                            weekendPrice: $weekendPriceText,
+                            monthlyPrices: $monthlyPriceTexts,
+                            ownershipDoc: $draft.ownershipDoc,
+                            ownershipDocItem: $ownershipDocItem,
+                            isProcessingDoc: isProcessingDoc,
+                            photos: $photos,
+                            photoItems: $photoItems,
+                            encodingPhotos: encodingPhotos
+                        ) }
+                        .tag(3)
+
+                        stepCard { EditReviewStep(
+                            title: draft.title,
+                            propertyType: draft.propertyType,
+                            location: draft.location,
+                            country: draft.country,
+                            price: price,
+                            maxGuests: draft.maxGuests,
+                            bedrooms: draft.bedrooms,
+                            beds: draft.beds,
+                            bathrooms: draft.bathrooms,
+                            coordinate: coordinate,
+                            photoCount: photos.count,
+                            amenities: orderedAmenities,
+                            cancellationPolicy: draft.cancellationPolicy,
+                            weeklyDiscount: draft.weeklyDiscount,
+                            monthlyDiscount: draft.monthlyDiscount,
+                            hasNewOwnershipDoc: !draft.ownershipDoc.isEmpty,
+                            currentStatus: listing.approval,
+                            errorMessage: errorMessage
+                        ) }
+                        .tag(4)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .animation(.easeInOut(duration: 0.3), value: step)
+
+                    navBar
+                }
+
+                if let saved = savedListing {
+                    savedOverlay(saved)
+                }
+            }
+            .navigationTitle(loc.t("listing.edit.title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.qkCream, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(loc.t("common.cancel")) { dismiss() }
+                        .tint(.qkBurgundy)
+                        .disabled(isSaving)
+                }
+            }
+        }
+        .tint(.qkBurgundy)
+        .interactiveDismissDisabled(isSaving)
+        .onAppear { bindLocationCallback() }
+        .onChange(of: ownershipDocItem) { _, item in
+            Task { await processOwnershipDoc(item) }
+        }
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task { await processPickedPhotos(items) }
+        }
+        // The one thing a host must not be surprised by: saving takes the
+        // listing offline until an admin approves it again.
+        .alert(loc.t("listing.edit.confirmTitle"), isPresented: $showingConfirm) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("listing.edit.confirmSave")) { Task { await save() } }
+        } message: {
+            Text(loc.t("listing.edit.reviewNotice"))
+        }
+    }
+
+    // MARK: - Chrome
+
+    private var progressHeader: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                ForEach(1...Self.totalSteps, id: \.self) { index in
+                    Capsule()
+                        .fill(index <= step ? Color.qkBurgundy : Color.qkBurgundy.opacity(0.18))
+                        .frame(width: index == step ? 26 : 9, height: 9)
+                        .animation(.easeInOut(duration: 0.3), value: step)
+                }
+            }
+            HStack {
+                Text(stepTitle)
+                    .font(.headline)
+                    .foregroundStyle(Color.qkInk)
+                Spacer()
+                Text(String(format: loc.t("listing.edit.stepOf"), "\(step)", "\(Self.totalSteps)"))
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Color.qkMuted)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var stepTitle: String {
+        switch step {
+        case 1:  return loc.t("listing.edit.step.basics")
+        case 2:  return loc.t("listing.edit.step.location")
+        case 3:  return loc.t("listing.edit.step.details")
+        default: return loc.t("listing.edit.step.review")
+        }
+    }
+
+    /// Bottom Back / Next (or Save changes) bar.
+    private var navBar: some View {
+        HStack(spacing: 12) {
+            if step > 1 {
+                Button { goBack() } label: {
+                    Text(loc.t("listing.edit.back"))
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .foregroundStyle(Color.qkBurgundy)
+                        .background(Color.white)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.qkBurgundy.opacity(0.25), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .disabled(isSaving)
+            }
+
+            if step < Self.totalSteps {
+                Button { goNext() } label: {
+                    QKPrimaryButtonLabel(title: loc.t("listing.edit.next"))
+                        .opacity(currentStepValid ? 1 : 0.45)
+                }
+                .buttonStyle(QKPressStyle())
+                .disabled(!currentStepValid)
+            } else {
+                Button { showingConfirm = true } label: {
+                    QKPrimaryButtonLabel(title: loc.t("listing.edit.save"), isLoading: isSaving)
+                        .opacity(canSave ? 1 : 0.45)
+                }
+                .buttonStyle(QKPressStyle())
+                .disabled(!canSave)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(Color.qkCream)
+    }
+
+    private func stepCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                content()
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    /// Post-save confirmation: the listing's new state, shown with the same
+    /// approval chip the host listings screen uses.
+    private func savedOverlay(_ saved: Listing) -> some View {
+        ZStack {
+            Color.qkInk.opacity(0.35).ignoresSafeArea()
+            VStack(spacing: 14) {
+                HostApprovalBadge(status: saved.approval)
+                Text(loc.t("listing.edit.saved"))
+                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                Text(loc.t("listing.edit.savedBody"))
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkMuted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { dismiss() } label: {
+                    QKPrimaryButtonLabel(title: loc.t("common.done"), cornerRadius: 14, height: 46)
+                }
+                .buttonStyle(QKPressStyle())
+            }
+            .padding(24)
+            .frame(maxWidth: 340)
+            .background(Color.qkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 24)
+        }
+        .transition(.opacity)
+    }
+
+    // MARK: - Navigation actions
+
+    private func goNext() {
+        guard currentStepValid else { return }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            step = min(step + 1, Self.totalSteps)
+        }
+    }
+
+    private func goBack() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            step = max(step - 1, 1)
+        }
+    }
+
+    // MARK: - Applying a chosen place / current location
+
+    private func bindLocationCallback() {
+        locationSearch.onLocation = { coord, place in
+            apply(coordinate: coord, city: place?.city, country: place?.country)
+        }
+    }
+
+    private func applyPlace(_ place: PlaceResult) {
+        apply(coordinate: place.coordinate, city: place.city, country: place.country)
+        locationSearch.clearResults()
+    }
+
+    /// Place the pin and fill city / country only when they're still empty, so a
+    /// search never clobbers what the listing already says.
+    private func apply(coordinate coord: CLLocationCoordinate2D, city: String?, country countryName: String?) {
+        coordinate = coord
+        recenterTarget = coord
+        recenterToken += 1
+
+        if draft.location.trimmingCharacters(in: .whitespaces).isEmpty,
+           let city, !city.isEmpty {
+            draft.location = city
+        }
+        if draft.country.trimmingCharacters(in: .whitespaces).isEmpty,
+           let countryName, !countryName.isEmpty {
+            draft.country = countryName
+        }
+    }
+
+    // MARK: - Pickers
+
+    /// Downscale + encode a replacement ownership document into `draft.ownershipDoc`.
+    private func processOwnershipDoc(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        errorMessage = nil
+        isProcessingDoc = true
+        defer { isProcessingDoc = false }
+        guard
+            let data = try? await item.loadTransferable(type: Data.self),
+            let image = UIImage(data: data),
+            let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1200, quality: 0.8)
+        else {
+            errorMessage = loc.t("trust.uploadError")
+            return
+        }
+        draft.ownershipDoc = dataURL
+    }
+
+    /// Append freshly-picked photos, up to the shared cap.
+    private func processPickedPhotos(_ items: [PhotosPickerItem]) async {
+        errorMessage = nil
+        encodingPhotos = true
+        defer {
+            encodingPhotos = false
+            photoItems = []
+        }
+        let room = HostService.maxListingPhotos - photos.count
+        guard room > 0 else { return }
+        photos.append(contentsOf: await ListingPhotoDraft.encode(items, limit: room))
+    }
+
+    // MARK: - Save
+
+    /// Save every field, then bring the photo set in line. Each call re-queues
+    /// the listing for review server-side and echoes the updated listing, so the
+    /// last response is the authoritative one we hand back.
+    private func save() async {
+        errorMessage = nil
+        isSaving = true
+        defer { isSaving = false }
+
+        draft.pricePerNight = price
+        draft.weekendPrice = SeasonalPricingFields.parseWeekend(weekendPriceText)
+        draft.monthlyPrices = SeasonalPricingFields.parseMonths(monthlyPriceTexts)
+        draft.amenities = orderedAmenities
+        draft.lat = coordinate?.latitude
+        draft.lng = coordinate?.longitude
+
+        do {
+            var updated = try await HostService.shared.updateListing(id: listing.id, draft)
+            updated = try await syncPhotos(from: updated)
+            withAnimation(QKAnim.swap) { savedListing = updated }
+            onSaved(updated)
+        } catch {
+            errorMessage = error.localizedDescription
+            // Surface the failure on the step that carries the error line.
+            withAnimation(.easeInOut(duration: 0.3)) { step = Self.totalSteps }
+        }
+    }
+
+    /// Apply the photo edits the host made: delete what they removed, upload
+    /// what they added, then set the final order (which is also how "set as
+    /// cover" is expressed). Photos that didn't change are never re-uploaded.
+    ///
+    /// Each step re-seeds `serverPhotos` from the response — and an upload also
+    /// swaps the uploaded drafts for their server-backed twins — so if a later
+    /// call fails, tapping Save again resumes rather than repeating.
+    private func syncPhotos(from listingAfterFields: Listing) async throws -> Listing {
+        var current = listingAfterFields
+
+        // 1. Photos the host removed.
+        let keptIDs = Set(photos.compactMap(\.imageID))
+        for imageID in serverPhotos.compactMap(\.imageID) where !keptIDs.contains(imageID) {
+            current = try await HostService.shared.deleteListingPhoto(listingID: listing.id, imageID: imageID)
+            serverPhotos = current.sortedImages.map(ListingPhotoDraft.init)
+        }
+
+        // 2. Photos the host added — uploaded once, in display order.
+        let addedURLs = photos.filter { !$0.isExisting }.map(\.url)
+        if !addedURLs.isEmpty {
+            let knownIDs = Set(serverPhotos.compactMap(\.imageID))
+            current = try await HostService.shared.addListingPhotos(listingID: listing.id, urls: addedURLs)
+            // The rows the listing just gained, in the order they were sent.
+            var freshIDs = current.sortedImages.compactMap(\.id).filter { !knownIDs.contains($0) }
+            photos = photos.map { photo in
+                guard photo.imageID == nil, !freshIDs.isEmpty else { return photo }
+                return ListingPhotoDraft(imageID: freshIDs.removeFirst(), url: photo.url)
+            }
+            serverPhotos = current.sortedImages.map(ListingPhotoDraft.init)
+        }
+
+        // 3. The final order (index 0 = cover). Only when every photo is
+        //    addressable and the order actually moved.
+        let serverIDs = current.sortedImages.compactMap(\.id)
+        let desiredIDs = photos.compactMap(\.imageID)
+        guard desiredIDs.count == serverIDs.count, desiredIDs != serverIDs else { return current }
+        current = try await HostService.shared.setListingPhotoOrder(listingID: listing.id, imageIDs: desiredIDs)
+        serverPhotos = current.sortedImages.map(ListingPhotoDraft.init)
+        return current
+    }
+}
+
+// MARK: - Edit step 4: Review changes
+
+/// Read-only summary of the edited listing, its current moderation state, and
+/// the warning that saving sends it back for review. The same `SummaryRow`
+/// layout the add wizard's review step uses.
+private struct EditReviewStep: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    let title: String
+    let propertyType: String
+    let location: String
+    let country: String
+    let price: Double
+    let maxGuests: Int
+    let bedrooms: Int
+    let beds: Int
+    let bathrooms: Int
+    let coordinate: CLLocationCoordinate2D?
+    let photoCount: Int
+    let amenities: [String]
+    let cancellationPolicy: CancellationPolicy
+    let weeklyDiscount: Int
+    let monthlyDiscount: Int
+    let hasNewOwnershipDoc: Bool
+    let currentStatus: ApprovalStatus
+    let errorMessage: String?
+
+    private var placeText: String {
+        let parts = [location, country].map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return parts.isEmpty ? "—" : parts.joined(separator: ", ")
+    }
+
+    private var coordText: String {
+        guard let coordinate else { return loc.t("listing.edit.notSet") }
+        return String(format: "%.5f, %.5f", coordinate.latitude, coordinate.longitude)
+    }
+
+    /// "2 bedrooms · 3 beds · 1 baths", reusing the detail screen's spec words.
+    private var roomsText: String {
+        [
+            "\(bedrooms) \(loc.t("detail.spec.bedrooms"))",
+            "\(beds) \(loc.t("detail.spec.beds"))",
+            "\(bathrooms) \(loc.t("detail.spec.baths"))",
+        ].joined(separator: " · ")
+    }
+
+    private var discountSummary: String {
+        var parts: [String] = []
+        if weeklyDiscount > 0 {
+            parts.append(String(format: loc.t("growth.weeklyShort"), "\(weeklyDiscount)"))
+        }
+        if monthlyDiscount > 0 {
+            parts.append(String(format: loc.t("growth.monthlyShort"), "\(monthlyDiscount)"))
+        }
+        return parts.isEmpty ? loc.t("growth.noDiscounts") : parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        Text(loc.t("listing.edit.summary"))
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Color.qkInk)
+
+        Text(loc.t("listing.edit.summaryIntro"))
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+
+        HStack(spacing: 8) {
+            Text(loc.t("listing.edit.currentStatus"))
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+            Spacer(minLength: 12)
+            HostApprovalBadge(status: currentStatus)
+        }
+
+        VStack(spacing: 0) {
+            SummaryRow(label: loc.t("listing.edit.field.title"), value: title.isEmpty ? "—" : title)
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.type"), value: propertyType.isEmpty ? "—" : propertyType)
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.location"), value: placeText)
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.price"),
+                       value: price > 0 ? "EGP \(formatted(price)) / \(loc.t("common.night"))" : "—")
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.guests"), value: "\(maxGuests)")
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.rooms"), value: roomsText)
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.coordinates"), value: coordText, monospaced: true)
+            Divider()
+            SummaryRow(label: loc.t("listing.photos"),
+                       value: photoCount == 0 ? loc.t("listing.edit.none") : "\(photoCount)")
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.amenities"),
+                       value: amenities.isEmpty ? loc.t("listing.edit.none")
+                                                : amenities.joined(separator: ", "))
+            Divider()
+            SummaryRow(label: loc.t("cancel.policyLabel"), value: cancellationPolicy.name)
+            Divider()
+            SummaryRow(label: loc.t("growth.lengthOfStayDiscounts"), value: discountSummary)
+            Divider()
+            SummaryRow(
+                label: loc.t("approval.ownershipDoc"),
+                value: hasNewOwnershipDoc ? loc.t("listing.edit.docReplaced") : loc.t("listing.edit.docUnchanged")
+            )
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(Color.qkCream)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+        // The one thing the host must read before saving.
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.qkGoldDeep)
+            Text(loc.t("listing.edit.reviewNotice"))
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Color.qkInk)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color.qkGoldDeep.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.qkGoldDeep.opacity(0.28), lineWidth: 1)
+        )
+
+        if let errorMessage {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.qkBurgundy)
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private func formatted(_ value: Double) -> String {
+        value == value.rounded()
+            ? String(Int(value))
+            : String(format: "%.2f", value)
     }
 }

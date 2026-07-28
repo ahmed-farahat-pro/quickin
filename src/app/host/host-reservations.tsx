@@ -5,6 +5,7 @@
 // /api/local/bookings/[id] { status: 'confirm' | 'reject' } and refresh the list.
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
+import { StayGuideEditor } from './stay-guide-editor'
 
 const C = {
   burgundy: '#5B0F16',
@@ -26,6 +27,8 @@ interface HostBooking {
   guest_name: string | null
   listing_title: string | null
   title?: string
+  /** Issued at approval — null while the request is still pending. */
+  reservation_code: string | null
 }
 
 // BCP47 mapping mirrors the app's i18n config so dates render in the active locale.
@@ -66,6 +69,7 @@ const card: React.CSSProperties = {
 
 export function HostReservations() {
   const t = useTranslations('hostPage.reservations')
+  const tGuide = useTranslations('stayPass.host')
   const locale = useLocale()
   const [bookings, setBookings] = useState<HostBooking[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -245,6 +249,16 @@ export function HostReservations() {
                   {t('decline')}
                 </button>
               </div>
+            )}
+
+            {/* The stay guide (and the guest's QR with it) only exists on an
+                approved reservation — while it's pending we say so instead of
+                offering an editor whose writes the API would reject. */}
+            {b.status === 'pending' && (
+              <p style={{ margin: '12px 0 0', fontSize: 13, color: C.muted }}>{tGuide('locked')}</p>
+            )}
+            {b.status === 'confirmed' && (
+              <StayGuideEditor bookingId={b.id} reservationCode={b.reservation_code} />
             )}
 
             {rowError?.id === b.id && (

@@ -1,15 +1,17 @@
 // Become-a-host application (no Supabase) — an admin-reviewed application, NOT
-// an instant flip. Server-resolves the signed-in user from the qk_token cookie:
-//   - not signed in           → redirect('/login')
-//   - already a host          → redirect('/host')
-//   - pending application      → calm "under review" state (read-only)
-//   - otherwise               → the application form (client component)
+// an instant flip. Server-resolves the signed-in user + their host_status from the
+// database on every request (force-dynamic; never a cached client flag):
+//   - not signed in  → redirect('/login')
+//   - approved       → redirect('/host')
+//   - pending        → calm "under review" state (read-only)
+//   - rejected       → the reason + the form again, as a reapply
+//   - none           → the application form (client component)
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getHostApplication } from '@/lib/local/db'
-import { verifyToken, getUserRowByEmail } from '@/lib/local/auth'
+import { verifyToken, getUserRowByEmail, getHostState, type HostStatus } from '@/lib/local/auth'
 import { ApplyForm } from './apply-form'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +40,8 @@ interface ApplyUser {
   id: string
   email: string
   full_name: string | null
-  is_host: boolean
+  host_status: HostStatus
+  host_review_note: string | null
 }
 
 async function getCurrentUser(): Promise<ApplyUser | null> {
@@ -49,11 +52,13 @@ async function getCurrentUser(): Promise<ApplyUser | null> {
   try {
     const row = await getUserRowByEmail(claims.email)
     if (!row) return null
+    const host = await getHostState(row.id, !!row.is_host)
     return {
       id: row.id,
       email: row.email,
       full_name: row.full_name,
-      is_host: !!row.is_host,
+      host_status: host.host_status,
+      host_review_note: host.host_review_note,
     }
   } catch {
     return null
@@ -112,11 +117,12 @@ function formatDate(iso: string): string {
 export default async function HostApplyPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
-  if (user.is_host) redirect('/host')
+  if (user.host_status === 'approved') redirect('/host')
 
   const t = await getTranslations('hostApply')
   const application = await getHostApplication(user.id)
-  const pending = application?.status === 'pending'
+  const pending = user.host_status === 'pending'
+  const rejected = user.host_status === 'rejected'
 
   return (
     <main
@@ -153,9 +159,52 @@ export default async function HostApplyPage() {
             {t('title')}
           </h1>
           <p style={{ margin: 0, fontSize: 15, color: COLORS.muted, lineHeight: 1.55 }}>
-            {pending ? t('pending.subtitle') : t('subtitle')}
+            {pending ? t('pending.subtitle') : rejected ? t('rejected.subtitle') : t('subtitle')}
           </p>
         </div>
+
+        {/* Rejected: the decision + the admin's reason, then the form again so the
+            applicant can fix what was wrong and reapply (re-submitting clears it). */}
+        {rejected && (
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 22,
+              border: `1px solid rgba(179,38,30,0.22)`,
+              boxShadow: '0 6px 24px rgba(42,34,32,0.06)',
+              padding: '28px 26px',
+            }}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#fdecea',
+                color: '#b3261e',
+                fontSize: 12.5,
+                fontWeight: 700,
+                padding: '5px 14px',
+                borderRadius: 999,
+              }}
+            >
+              {t('rejected.badge')}
+            </span>
+            <h2 style={{ margin: '16px 0 6px', fontSize: 19, fontWeight: 700, color: COLORS.ink }}>
+              {t('rejected.title')}
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: 14.5, color: COLORS.muted, lineHeight: 1.6 }}>
+              {t('rejected.body')}
+            </p>
+            <dl style={{ margin: 0, display: 'grid', gap: 14 }}>
+              <SummaryRow
+                label={t('rejected.reason')}
+                value={user.host_review_note || t('rejected.noReason')}
+              />
+              {application?.reviewed_at && (
+                <SummaryRow label={t('rejected.reviewedAt')} value={formatDate(application.reviewed_at)} />
+              )}
+            </dl>
+          </div>
+        )}
 
         {pending && application ? (
           <div
@@ -205,7 +254,21 @@ export default async function HostApplyPage() {
             </dl>
           </div>
         ) : (
-          <ApplyForm initialName={user.full_name ?? ''} />
+          <ApplyForm
+            initialName={application?.full_name || user.full_name || ''}
+            reapply={rejected}
+            previous={
+              rejected && application
+                ? {
+                    national_id: application.national_id ?? '',
+                    phone: application.phone ?? '',
+                    address: application.address ?? '',
+                    company: application.company ?? '',
+                    notes: application.notes ?? '',
+                  }
+                : null
+            }
+          />
         )}
       </section>
     </main>

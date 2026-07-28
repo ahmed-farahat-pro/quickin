@@ -228,7 +228,7 @@ object ServiceService {
         location = o.optString("location").ifBlank { null },
         price = o.optDouble("price", 0.0),
         currency = o.optString("currency").ifBlank { null },
-        imageUrl = o.optString("image_url").ifBlank { null },
+        imageUrl = o.optStringOrNull("image_url"),
         lat = o.optDouble("lat").takeUnless { it.isNaN() },
         lng = o.optDouble("lng").takeUnless { it.isNaN() },
         isPublished = o.optBoolean("is_published", true)
@@ -251,7 +251,7 @@ object ServiceService {
         requestCode = o.optString("request_code").ifBlank { null },
         serviceTitle = o.optString("service_title"),
         serviceCategory = o.optString("service_category").ifBlank { null },
-        serviceImage = o.optString("service_image").ifBlank { null },
+        serviceImage = o.optStringOrNull("service_image"),
         servicePrice = o.optDouble("service_price", 0.0),
         serviceCurrency = o.optString("service_currency").ifBlank { null },
         serviceLocation = o.optString("service_location").ifBlank { null },

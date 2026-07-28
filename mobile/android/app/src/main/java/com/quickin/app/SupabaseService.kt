@@ -417,6 +417,7 @@ object SupabaseService {
             title = o.optString("title"),
             description = o.optStringOrNull("description"),
             location = o.optStringOrNull("location"),
+            country = o.optStringOrNull("country"),
             hostId = o.optStringOrNull("host_id"),
             hostName = o.optStringOrNull("host_name"),
             region = o.optStringOrNull("region"),
@@ -478,8 +479,9 @@ private fun buildQueryString(query: ListingQuery): String {
     return if (params.isEmpty()) "" else "?" + params.joinToString("&")
 }
 
-private fun org.json.JSONObject.optStringOrNull(key: String): String? =
-    if (isNull(key)) null else optString(key).ifEmpty { null }
+// `optStringOrNull` used to be duplicated here. It now lives in Json.kt, shared across the
+// services, and additionally treats the literal string "null" — what JSONObject.optString hands
+// back for a JSON null — as absent.
 
 private fun org.json.JSONObject.optIntOrNull(key: String): Int? =
     if (isNull(key) || !has(key)) null else optInt(key)

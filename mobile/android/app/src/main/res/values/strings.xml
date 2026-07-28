@@ -487,6 +487,33 @@
     <string name="approval_rejected_note">Your ownership document was declined. Re-upload it to submit your listing for review again.</string>
     <string name="approval_doc_resubmitted">Document submitted. Your listing is under review again.</string>
 
+    <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->
+    <string name="listing_edit_title">Edit listing</string>
+    <string name="listing_edit_section_basics">Basics</string>
+    <string name="listing_edit_section_location">Location</string>
+    <string name="listing_edit_section_details">Details, photos &amp; pricing</string>
+    <string name="listing_edit_review_title">Saving sends this listing back for review</string>
+    <string name="listing_edit_review_body">Saving changes sends your listing back for review. It will be hidden from guests until an admin approves it.</string>
+    <string name="listing_edit_review_confirm">Save and send for review</string>
+    <string name="listing_edit_keep_editing">Keep editing</string>
+    <string name="listing_edit_save">Save changes</string>
+    <string name="listing_edit_cancel">Cancel</string>
+    <string name="listing_edit_done">Done</string>
+    <string name="listing_edit_saved">Changes saved</string>
+    <string name="listing_edit_saved_note">Your listing is under review and hidden from guests until an admin approves it.</string>
+    <string name="listing_edit_no_changes">You haven\'t changed anything yet.</string>
+    <string name="listing_edit_needs_title">Add a title.</string>
+    <string name="listing_edit_needs_description">Add a description.</string>
+    <string name="listing_edit_needs_location">Add the location.</string>
+    <string name="listing_edit_needs_region">Pick the area your place is in.</string>
+    <string name="listing_edit_needs_price">Price per night must be more than 0.</string>
+    <string name="listing_edit_discard_title">Discard your changes?</string>
+    <string name="listing_edit_discard_body">Your edits to this listing haven\'t been saved.</string>
+    <string name="listing_edit_discard_confirm">Discard</string>
+    <string name="listing_edit_move_earlier">Move photo earlier</string>
+    <string name="listing_edit_move_later">Move photo later</string>
+    <string name="listing_edit_set_cover">Make this the cover photo</string>
+
     <!-- Trust & Safety: identity verification (Profile tab) -->
     <string name="trust_verify">Verify your identity</string>
     <string name="trust_verify_intro">Add a verified badge to your profile. Upload the front and back of your government ID plus a selfie — we\'ll review them shortly.</string>
@@ -672,4 +699,67 @@
     <string name="trust_selfie_photo">A selfie of you</string>
     <string name="trust_selfie_hint">Take a clear selfie so we can match it to your ID.</string>
     <string name="trust_photos_required">Please add your ID front, back and a selfie.</string>
+
+    <!-- Become a host: the application states (none / pending / rejected / approved) -->
+    <string name="host_status_pending">Under review</string>
+    <string name="host_status_rejected">Not approved</string>
+    <string name="host_status_approved">Approved</string>
+    <string name="host_pending_title">Application under review</string>
+    <string name="host_pending_note">Thanks for applying. Our team is reviewing your details and we\'ll let you know as soon as you\'re approved.</string>
+    <string name="host_rejected_title">Application not approved</string>
+    <string name="host_rejected_note">Your host application wasn\'t approved. Update your details and apply again.</string>
+    <string name="host_rejected_reason">Reason: %1$s</string>
+    <string name="host_approved_title">You\'re a host</string>
+    <string name="host_approved_note">Add listings, manage reservations and track your earnings from the Hosting section below.</string>
+    <string name="host_reapply">Apply again</string>
+
+    <!-- Become a host: the application form -->
+    <string name="host_apply_title">Apply to host</string>
+    <string name="host_apply_intro">Tell us a little about you. Our team reviews every application before you can start hosting.</string>
+    <string name="host_apply_full_name">Full name</string>
+    <string name="host_apply_national_id">National ID</string>
+    <string name="host_apply_phone">Phone</string>
+    <string name="host_apply_address">Address</string>
+    <string name="host_apply_company">Company / brokerage (optional)</string>
+    <string name="host_apply_notes">Notes (optional)</string>
+    <string name="host_apply_host_type">Are you an individual, a company, or a brokerage?</string>
+    <string name="host_type_individual">Individual</string>
+    <string name="host_type_company">Company</string>
+    <string name="host_type_brokerage">Brokerage</string>
+    <string name="host_apply_submit">Submit application</string>
+    <string name="host_apply_required">Add your name, national ID, phone and address to continue.</string>
+    <string name="host_apply_error">Couldn\'t submit your application. Please try again.</string>
+
+    <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
+    <string name="reservation_qr_pending">Your QR code will appear here once your reservation is confirmed.</string>
+    <string name="reservation_qr_none">There\'s no stay pass for this reservation.</string>
+
+    <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
+    <string name="stay_guide_title">Your stay guide</string>
+    <string name="stay_guide_host_title">Stay guide</string>
+    <string name="stay_guide_host_hint">Add info, photos, places and files for your guest. They\'ll see them here and on their stay pass.</string>
+    <string name="stay_guide_host_empty">Nothing added yet.</string>
+    <string name="stay_guide_locked">You can build the stay guide once you approve this reservation.</string>
+    <string name="stay_guide_kind_info">Info</string>
+    <string name="stay_guide_kind_photo">Photo</string>
+    <string name="stay_guide_kind_place_qr">Place</string>
+    <string name="stay_guide_kind_attachment">File</string>
+    <string name="stay_guide_photos">Photos</string>
+    <string name="stay_guide_places">Places to visit</string>
+    <string name="stay_guide_attachments">Files</string>
+    <string name="stay_guide_open">Open</string>
+    <string name="stay_guide_kind_label">What are you adding?</string>
+    <string name="stay_guide_title_label">Title</string>
+    <string name="stay_guide_body_label">Details</string>
+    <string name="stay_guide_link_label">Link (https://…)</string>
+    <string name="stay_guide_choose_photo">Choose photo</string>
+    <string name="stay_guide_photo_ready">Photo ready</string>
+    <string name="stay_guide_invalid_link">Enter a link starting with https://</string>
+    <string name="stay_guide_add">Add to guide</string>
+    <string name="stay_guide_save">Save</string>
+    <string name="stay_guide_edit">Edit</string>
+    <string name="stay_guide_delete">Remove</string>
+    <string name="stay_guide_move_up">Move up</string>
+    <string name="stay_guide_move_down">Move down</string>
+    <string name="cd_place_qr">QR code for %1$s</string>
 </resources>

@@ -216,7 +216,7 @@ object TrustService {
             TrustBadges()
         }
         val avatar = if (o.has("avatar_url") && !o.isNull("avatar_url")) {
-            o.optString("avatar_url").takeIf { it.isNotBlank() }
+            o.optStringOrNull("avatar_url")
         } else null
         return PublicProfile(
             id = o.optString("id"),

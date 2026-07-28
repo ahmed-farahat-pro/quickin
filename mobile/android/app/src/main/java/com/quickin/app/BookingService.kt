@@ -15,6 +15,11 @@ import java.net.URL
  *   POST {base}/api/local/bookings  {listing_id, check_in, check_out, guests} -> 201 | {error}
  *   GET  {base}/api/local/bookings  -> [ {id, listing_id, check_in, check_out, guests,
  *                                         total_price, status, title, location, image} ]
+ *
+ * **String parsing rule:** every string field is read through [optStringOrNull] / [optStringOr],
+ * never `JSONObject.optString`. Android's `optString` returns the literal string `"null"` for a
+ * JSON `null`, which is exactly how a code-less booking used to render `/stay/null`. Do not
+ * reintroduce a bare `optString` here.
  */
 object BookingService {
 
@@ -53,17 +58,17 @@ object BookingService {
                 checkoutUrl = "",
                 returnUrlPrefix = "",
                 amountCents = 0L,
-                currency = o.optString("currency").ifBlank { "EGP" },
-                reference = o.optString("reference"),
+                currency = o.optStringOr("currency", "EGP"),
+                reference = o.optStringOr("reference", ""),
                 alreadyPaid = true
             )
         }
         PayInit(
-            checkoutUrl = o.optString("checkout_url"),
-            returnUrlPrefix = o.optString("return_url_prefix"),
+            checkoutUrl = o.optStringOr("checkout_url", ""),
+            returnUrlPrefix = o.optStringOr("return_url_prefix", ""),
             amountCents = o.optLong("amount_cents", 0L),
-            currency = o.optString("currency").ifBlank { "EGP" },
-            reference = o.optString("reference"),
+            currency = o.optStringOr("currency", "EGP"),
+            reference = o.optStringOr("reference", ""),
             alreadyPaid = false
         )
     }
@@ -207,8 +212,8 @@ object BookingService {
         val text = get(token, "/api/local/payment-config")
         val o = JSONObject(text)
         PaymentConfig(
-            instapayHandle = o.optString("instapay_handle"),
-            instructions = o.optString("instructions")
+            instapayHandle = o.optStringOr("instapay_handle", ""),
+            instructions = o.optStringOr("instructions", "")
         )
     }
 
@@ -403,7 +408,7 @@ object BookingService {
             put("notes", notes)
         }
         val text = send("POST", token, "/api/local/ai/listing-description", body)
-        JSONObject(text).optString("description")
+        JSONObject(text).optStringOr("description", "")
     }
 
     /**
@@ -425,7 +430,7 @@ object BookingService {
                 val m = monthsArr.optJSONObject(i) ?: continue
                 months.add(
                     AnalyticsMonth(
-                        month = m.optString("month"),
+                        month = m.optStringOr("month", ""),
                         bookings = m.optInt("bookings", 0),
                         revenue = m.optDouble("revenue", 0.0).takeUnless { it.isNaN() } ?: 0.0
                     )
@@ -439,7 +444,7 @@ object BookingService {
                 val t = topArr.optJSONObject(i) ?: continue
                 top.add(
                     TopListing(
-                        title = t.optString("title").ifBlank { "—" },
+                        title = t.optStringOr("title", "—"),
                         bookings = t.optInt("bookings", 0),
                         revenue = t.optDouble("revenue", 0.0).takeUnless { it.isNaN() } ?: 0.0
                     )
@@ -447,7 +452,7 @@ object BookingService {
             }
         }
         return HostAnalytics(
-            currency = o.optString("currency").ifBlank { "EGP" },
+            currency = o.optStringOr("currency", "EGP"),
             listings = o.optInt("listings", 0),
             totalBookings = o.optInt("totalBookings", 0),
             paidBookings = o.optInt("paidBookings", 0),
@@ -469,20 +474,20 @@ object BookingService {
                 val e = arr.optJSONObject(i) ?: continue
                 items.add(
                     HostEarningItem(
-                        bookingId = e.optString("booking_id"),
-                        title = e.optString("title"),
-                        checkIn = e.optString("check_in"),
-                        checkOut = e.optString("check_out"),
+                        bookingId = e.optStringOr("booking_id", ""),
+                        title = e.optStringOr("title", ""),
+                        checkIn = e.optStringOr("check_in", ""),
+                        checkOut = e.optStringOr("check_out", ""),
                         gross = e.optDouble("gross", 0.0).takeUnless { it.isNaN() } ?: 0.0,
                         net = e.optDouble("net", 0.0).takeUnless { it.isNaN() } ?: 0.0,
-                        status = e.optString("status").ifBlank { "upcoming" },
-                        paidAt = e.optString("paid_at").ifBlank { null }
+                        status = e.optStringOr("status", "upcoming"),
+                        paidAt = e.optStringOrNull("paid_at")
                     )
                 )
             }
         }
         return HostEarnings(
-            currency = o.optString("currency").ifBlank { "EGP" },
+            currency = o.optStringOr("currency", "EGP"),
             totalEarned = o.optDouble("totalEarned", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             paidOut = o.optDouble("paidOut", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             pending = o.optDouble("pending", 0.0).takeUnless { it.isNaN() } ?: 0.0,
@@ -493,21 +498,22 @@ object BookingService {
     }
 
     private fun parseReceipt(o: JSONObject): GuestReceipt = GuestReceipt(
-        bookingId = o.optString("booking_id"),
-        reservationCode = o.optString("reservation_code"),
-        title = o.optString("title"),
-        checkIn = o.optString("check_in"),
-        checkOut = o.optString("check_out"),
+        bookingId = o.optStringOr("booking_id", ""),
+        // Null-safe: a receipt whose booking never got a code must NOT read back as "null".
+        reservationCode = o.optStringOrNull("reservation_code"),
+        title = o.optStringOr("title", ""),
+        checkIn = o.optStringOr("check_in", ""),
+        checkOut = o.optStringOr("check_out", ""),
         nights = o.optInt("nights", 0),
         subtotal = o.optDouble("subtotal", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         serviceFee = o.optDouble("serviceFee", 0.0).takeUnless { it.isNaN() } ?: 0.0,
-        method = o.optString("method").ifBlank { "mock" },
+        method = o.optStringOr("method", "mock"),
         methodFee = o.optDouble("methodFee", 0.0).takeUnless { it.isNaN() } ?: 0.0,
-        promoCode = o.optString("promoCode").ifBlank { null },
+        promoCode = o.optStringOrNull("promoCode"),
         promoDiscount = o.optDouble("promoDiscount", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         total = o.optDouble("total", 0.0).takeUnless { it.isNaN() } ?: 0.0,
-        paidAt = o.optString("paidAt").ifBlank { null },
-        currency = o.optString("currency").ifBlank { "EGP" }
+        paidAt = o.optStringOrNull("paidAt"),
+        currency = o.optStringOr("currency", "EGP")
     )
 
     // ---- Availability (host-managed blocks) -----------------------------------
@@ -727,6 +733,84 @@ object BookingService {
         SupabaseService.parseListing(JSONObject(text))
     }
 
+    /**
+     * Saves a host's full edit of their own listing in ONE request
+     * (`PATCH /api/local/listings/:id`). The backend writes only the keys present in the body and
+     * — for every field below — sends the listing back to the admin queue in the same statement
+     * (`approval_status = 'pending'`, `is_published = false`), so the returned [Listing] already
+     * carries the "under review" state and the caller never needs a refetch.
+     *
+     * [images] is the FULL replacement photo set in display order (index 0 = cover), which is how
+     * the editor persists every photo change — add, delete, reorder and set-cover — atomically with
+     * the rest of the edit. Pass null to leave the listing's photos untouched (nothing is
+     * re-uploaded when the host only changed, say, the price). The per-photo endpoints
+     * (`/images`, `/images/:imageId`) exist too, but each applies immediately — the editor stages
+     * changes locally so the single Save is what puts the listing back in review.
+     *
+     * [ownershipDoc] (a `data:image/...;base64` URL) is only sent when the host attached a fresh
+     * document; a blank value is omitted so the existing one is kept.
+     *
+     * Throws [HttpError] (401 not signed in, 403 when the caller doesn't host this listing,
+     * 400 on validation).
+     */
+    suspend fun updateListing(
+        token: String,
+        listingId: String,
+        title: String,
+        description: String,
+        location: String,
+        country: String,
+        region: String,
+        pricePerNight: Double,
+        maxGuests: Int,
+        bedrooms: Int,
+        beds: Int,
+        bathrooms: Int,
+        propertyType: String,
+        amenities: List<String>,
+        lat: Double?,
+        lng: Double?,
+        cancellationPolicy: String,
+        weeklyDiscount: Int,
+        monthlyDiscount: Int,
+        weekendPrice: Double?,
+        monthlyPrices: Map<String, Double>,
+        images: List<String>?,
+        ownershipDoc: String?
+    ): Listing = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("title", title)
+            put("description", description)
+            put("location", location)
+            put("country", country)
+            put("region", region)
+            put("price_per_night", pricePerNight)
+            put("max_guests", maxGuests)
+            put("bedrooms", bedrooms)
+            put("beds", beds)
+            put("bathrooms", bathrooms)
+            put("property_type", propertyType)
+            val amenityArr = JSONArray()
+            amenities.forEach { amenityArr.put(it) }
+            put("amenities", amenityArr)
+            // Coordinates from the map pin-picker; null clears the pin server-side.
+            put("lat", lat ?: JSONObject.NULL)
+            put("lng", lng ?: JSONObject.NULL)
+            put("cancellation_policy", cancellationPolicy)
+            put("weekly_discount", weeklyDiscount.coerceIn(0, 100))
+            put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
+            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
+            put("monthly_prices", monthlyPricesJson(monthlyPrices))
+            // Only sent when the photo set actually changed — an omitted key keeps the photos as-is.
+            if (images != null) {
+                put("images", JSONArray().apply { images.forEach { if (it.isNotBlank()) put(it) } })
+            }
+            if (!ownershipDoc.isNullOrBlank()) put("ownership_doc", ownershipDoc)
+        }
+        val text = send("PATCH", token, "/api/local/listings/$listingId", body)
+        SupabaseService.parseListing(JSONObject(text))
+    }
+
     // ---- Guest cancellation (quote + cancel) ----------------------------------
 
     /**
@@ -764,12 +848,12 @@ object BookingService {
         }
 
     private fun parseCancellationQuote(o: JSONObject): CancellationQuote = CancellationQuote(
-        policy = o.optString("policy").ifBlank { "moderate" },
+        policy = o.optStringOr("policy", "moderate"),
         daysUntilCheckIn = o.optInt("daysUntilCheckIn", 0),
         refundPercent = o.optInt("refundPercent", 0),
         refundAmount = o.optDouble("refundAmount", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         total = o.optDouble("total", 0.0).takeUnless { it.isNaN() } ?: 0.0,
-        currency = o.optString("currency").ifBlank { "EGP" }
+        currency = o.optStringOr("currency", "EGP")
     )
 
     /**
@@ -853,8 +937,9 @@ object BookingService {
     }
 
     private fun extractError(text: String, code: Int): String {
-        val parsed = runCatching { JSONObject(text).optString("error") }.getOrNull()
-        return if (!parsed.isNullOrBlank()) parsed else "Request failed ($code)"
+        // optStringOrNull, so an `{"error": null}` body can't surface "null" as the user-facing message.
+        val parsed = runCatching { JSONObject(text).optStringOrNull("error") }.getOrNull()
+        return parsed ?: "Request failed ($code)"
     }
 
     private fun parseBookings(json: String): List<Booking> {
@@ -867,66 +952,68 @@ object BookingService {
     }
 
     private fun parseBooking(o: JSONObject): Booking = Booking(
-        id = o.optString("id"),
-        listingId = o.optString("listing_id"),
-        checkIn = o.optString("check_in"),
-        checkOut = o.optString("check_out"),
+        id = o.optStringOr("id", ""),
+        listingId = o.optStringOr("listing_id", ""),
+        checkIn = o.optStringOr("check_in", ""),
+        checkOut = o.optStringOr("check_out", ""),
         guests = o.optInt("guests", 1),
         totalPrice = o.optDouble("total_price", 0.0),
-        status = o.optString("status").ifBlank { null },
-        title = o.optString("title"),
-        location = o.optString("location").ifBlank { null },
-        image = o.optString("image").ifBlank { null },
-        paymentStatus = o.optString("payment_status").ifBlank { "unpaid" },
-        paidAt = o.optString("paid_at").ifBlank { null },
-        region = o.optString("region").ifBlank { null },
-        hostNotes = o.optString("host_notes").ifBlank { null },
-        cancellationPolicy = o.optString("cancellation_policy").ifBlank { "moderate" },
-        cancelledAt = o.optString("cancelled_at").ifBlank { null },
+        status = o.optStringOrNull("status"),
+        title = o.optStringOr("title", ""),
+        location = o.optStringOrNull("location"),
+        image = o.optStringOrNull("image"),
+        paymentStatus = o.optStringOr("payment_status", "unpaid"),
+        paidAt = o.optStringOrNull("paid_at"),
+        region = o.optStringOrNull("region"),
+        hostNotes = o.optStringOrNull("host_notes"),
+        cancellationPolicy = o.optStringOr("cancellation_policy", "moderate"),
+        cancelledAt = o.optStringOrNull("cancelled_at"),
         refundPercent = if (o.isNull("refund_percent") || !o.has("refund_percent")) null else o.optInt("refund_percent")
     )
 
     private fun parseReservation(o: JSONObject): Reservation = Reservation(
-        id = o.optString("id"),
-        reservationCode = o.optString("reservation_code"),
-        status = o.optString("status").ifBlank { "pending" },
-        title = o.optString("title"),
-        location = o.optString("location").ifBlank { null },
-        checkIn = o.optString("check_in"),
-        checkOut = o.optString("check_out"),
+        id = o.optStringOr("id", ""),
+        // THE fix for /stay/null: a pending booking has `"reservation_code": null`, and
+        // JSONObject.optString would hand back the literal "null" here.
+        reservationCode = o.optStringOrNull("reservation_code"),
+        status = o.optStringOr("status", "pending"),
+        title = o.optStringOr("title", ""),
+        location = o.optStringOrNull("location"),
+        checkIn = o.optStringOr("check_in", ""),
+        checkOut = o.optStringOr("check_out", ""),
         guests = o.optInt("guests", 1),
         totalPrice = o.optDouble("total_price", 0.0),
-        paymentStatus = o.optString("payment_status").ifBlank { "unpaid" },
-        paidAt = o.optString("paid_at").ifBlank { null },
-        region = o.optString("region").ifBlank { null },
-        hostNotes = o.optString("host_notes").ifBlank { null },
-        cancellationPolicy = o.optString("cancellation_policy").ifBlank { "moderate" },
-        cancelledAt = o.optString("cancelled_at").ifBlank { null },
+        paymentStatus = o.optStringOr("payment_status", "unpaid"),
+        paidAt = o.optStringOrNull("paid_at"),
+        region = o.optStringOrNull("region"),
+        hostNotes = o.optStringOrNull("host_notes"),
+        cancellationPolicy = o.optStringOr("cancellation_policy", "moderate"),
+        cancelledAt = o.optStringOrNull("cancelled_at"),
         refundPercent = if (o.isNull("refund_percent") || !o.has("refund_percent")) null else o.optInt("refund_percent")
     )
 
     private fun parsePaymentReceipt(o: JSONObject): PaymentReceipt = PaymentReceipt(
-        currency = o.optString("currency").ifBlank { "EGP" },
+        currency = o.optStringOr("currency", "EGP"),
         nights = o.optInt("nights", 0),
         nightly = o.optInt("nightly", 0),
         subtotal = o.optInt("subtotal", 0),
         serviceFee = o.optInt("serviceFee", 0),
         total = o.optInt("total", 0),
-        reference = o.optString("reference"),
-        paidAt = o.optString("paidAt"),
-        method = o.optString("method").ifBlank { "mock" },
+        reference = o.optStringOr("reference", ""),
+        paidAt = o.optStringOr("paidAt", ""),
+        method = o.optStringOr("method", "mock"),
         methodFee = o.optInt("methodFee", 0),
-        promoCode = o.optString("promoCode").ifBlank { null },
+        promoCode = o.optStringOrNull("promoCode"),
         promoDiscount = o.optInt("promoDiscount", 0)
     )
 
     private fun parsePromoQuote(o: JSONObject): PromoQuote = PromoQuote(
         valid = o.optBoolean("valid", false),
-        code = o.optString("code"),
-        kind = o.optString("kind").ifBlank { null },
+        code = o.optStringOr("code", ""),
+        kind = o.optStringOrNull("kind"),
         value = o.optDouble("value", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         discount = o.optInt("discount", 0),
-        message = o.optString("message").ifBlank { null }
+        message = o.optStringOrNull("message")
     )
 
     private fun parseReferralSummary(o: JSONObject): ReferralSummary {
@@ -937,15 +1024,15 @@ object BookingService {
                 val f = arr.optJSONObject(i) ?: continue
                 friends.add(
                     ReferredFriend(
-                        name = f.optString("name").ifBlank { "Friend" },
-                        createdAt = f.optString("created_at").ifBlank { null },
+                        name = f.optStringOr("name", "Friend"),
+                        createdAt = f.optStringOrNull("created_at"),
                         rewardAmount = f.optDouble("reward_amount", 0.0).takeUnless { it.isNaN() } ?: 0.0
                     )
                 )
             }
         }
         return ReferralSummary(
-            code = o.optString("code"),
+            code = o.optStringOr("code", ""),
             count = o.optInt("count", 0),
             rewardTotal = o.optDouble("rewardTotal", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             referred = friends
@@ -953,22 +1040,145 @@ object BookingService {
     }
 
     private fun parseMessage(o: JSONObject): ChatMessage = ChatMessage(
-        id = o.optString("id"),
-        senderId = o.optString("sender_id"),
-        senderName = o.optString("sender_name").ifBlank { "Guest" },
-        body = o.optString("body"),
-        createdAt = o.optString("created_at")
+        id = o.optStringOr("id", ""),
+        senderId = o.optStringOr("sender_id", ""),
+        senderName = o.optStringOr("sender_name", "Guest"),
+        body = o.optStringOr("body", ""),
+        createdAt = o.optStringOr("created_at", "")
     )
 
     private fun parseHostBooking(o: JSONObject): HostBooking = HostBooking(
-        id = o.optString("id"),
-        reservationCode = o.optString("reservation_code"),
-        title = o.optString("title"),
-        location = o.optString("location").ifBlank { null },
-        checkIn = o.optString("check_in"),
-        checkOut = o.optString("check_out"),
+        id = o.optStringOr("id", ""),
+        // Null-safe: a pending request has no code yet — it must read back as null, not "null".
+        reservationCode = o.optStringOrNull("reservation_code"),
+        title = o.optStringOr("title", ""),
+        location = o.optStringOrNull("location"),
+        checkIn = o.optStringOr("check_in", ""),
+        checkOut = o.optStringOr("check_out", ""),
         guests = o.optInt("guests", 1),
         totalPrice = o.optDouble("total_price", 0.0),
-        status = o.optString("status").ifBlank { "pending" }
+        status = o.optStringOr("status", "pending")
     )
+
+    // ---- Stay guide (host-authored content on a confirmed booking) ------------
+
+    /**
+     * The stay guide for [bookingId] (`GET /api/local/bookings/:id/stay-guide`, Bearer) — the
+     * host's info blocks, photos, place QRs and attachments, in the host's chosen order. Readable
+     * by the booking's guest and by the listing's host. Items with an unrecognized `kind` are
+     * dropped rather than rendered. Throws [HttpError] (401 not signed in, 403/404 when the
+     * booking isn't the caller's).
+     */
+    suspend fun fetchStayGuide(token: String, bookingId: String): List<StayGuideItem> =
+        withContext(Dispatchers.IO) {
+            val text = get(token, "/api/local/bookings/$bookingId/stay-guide")
+            parseStayGuide(text)
+        }
+
+    /**
+     * Adds an item to [bookingId]'s stay guide
+     * (`POST /api/local/bookings/:id/stay-guide {kind, title, body, url, order}`). **Host of the
+     * listing only, and only on a CONFIRMED booking** — the backend enforces both. Returns the
+     * created item. Throws [HttpError] (401 not signed in, 403 not this listing's host, 400 on
+     * validation / an unconfirmed booking).
+     */
+    suspend fun addStayGuideItem(
+        token: String,
+        bookingId: String,
+        kind: StayGuideKind,
+        title: String?,
+        body: String?,
+        url: String?,
+        order: Int = 0
+    ): StayGuideItem = withContext(Dispatchers.IO) {
+        val payload = stayGuidePayload(kind, title, body, url, order)
+        val text = send("POST", token, "/api/local/bookings/$bookingId/stay-guide", payload)
+        val obj = JSONObject(text)
+        parseStayGuideItem(obj.optJSONObject("item") ?: obj)
+            ?: throw HttpError(500, "Couldn't read the saved item")
+    }
+
+    /**
+     * Edits / reorders one stay-guide item
+     * (`PATCH /api/local/bookings/:id/stay-guide/:itemId`). Host-only. Only non-null arguments are
+     * sent, so passing just [order] is a pure reorder. Returns the updated item. Throws [HttpError]
+     * (401 / 403 / 404 / 400).
+     */
+    suspend fun updateStayGuideItem(
+        token: String,
+        bookingId: String,
+        itemId: String,
+        kind: StayGuideKind? = null,
+        title: String? = null,
+        body: String? = null,
+        url: String? = null,
+        order: Int? = null
+    ): StayGuideItem = withContext(Dispatchers.IO) {
+        val payload = JSONObject().apply {
+            if (kind != null) put("kind", kind.apiValue)
+            if (title != null) put("title", title.trim())
+            if (body != null) put("body", body.trim())
+            if (url != null) put("url", url.trim())
+            if (order != null) put("order", order)
+        }
+        val text = send("PATCH", token, "/api/local/bookings/$bookingId/stay-guide/$itemId", payload)
+        val obj = JSONObject(text)
+        parseStayGuideItem(obj.optJSONObject("item") ?: obj)
+            ?: throw HttpError(500, "Couldn't read the saved item")
+    }
+
+    /**
+     * Removes one stay-guide item
+     * (`DELETE /api/local/bookings/:id/stay-guide/:itemId`). Host-only. Throws [HttpError]
+     * (401 not signed in, 403 not this listing's host, 404 unknown item).
+     */
+    suspend fun deleteStayGuideItem(
+        token: String,
+        bookingId: String,
+        itemId: String
+    ): Unit = withContext(Dispatchers.IO) {
+        delete(token, "/api/local/bookings/$bookingId/stay-guide/$itemId")
+    }
+
+    /** Body for a stay-guide create: blank optional fields are omitted rather than sent empty. */
+    private fun stayGuidePayload(
+        kind: StayGuideKind,
+        title: String?,
+        body: String?,
+        url: String?,
+        order: Int
+    ): JSONObject = JSONObject().apply {
+        put("kind", kind.apiValue)
+        if (!title.isNullOrBlank()) put("title", title.trim())
+        if (!body.isNullOrBlank()) put("body", body.trim())
+        if (!url.isNullOrBlank()) put("url", url.trim())
+        put("order", order)
+    }
+
+    /** Parses the stay-guide array, dropping any entry whose `kind` isn't one of the four. */
+    private fun parseStayGuide(json: String): List<StayGuideItem> {
+        // The endpoint returns a bare array; tolerate a { items: [...] } envelope too.
+        val arr = runCatching { JSONArray(json) }.getOrNull()
+            ?: runCatching { JSONObject(json).optJSONArray("items") }.getOrNull()
+            ?: return emptyList()
+        val out = ArrayList<StayGuideItem>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            parseStayGuideItem(o)?.let { out.add(it) }
+        }
+        return out.sortedBy { it.order }
+    }
+
+    /** One stay-guide item, or null when its `kind` is missing / unrecognized. */
+    private fun parseStayGuideItem(o: JSONObject): StayGuideItem? {
+        val kind = StayGuideKind.from(o.optStringOrNull("kind")) ?: return null
+        return StayGuideItem(
+            id = o.optStringOr("id", ""),
+            kind = kind,
+            title = o.optStringOrNull("title"),
+            body = o.optStringOrNull("body"),
+            url = o.optStringOrNull("url"),
+            order = o.optInt("order", 0)
+        )
+    }
 }

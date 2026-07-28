@@ -68,11 +68,16 @@ type AdminListing = {
   created_at: string
   booking_count: number
   image: string | null
+  // Proof of ownership. The image itself only comes down for listings awaiting
+  // review (that's where it has to be looked at); elsewhere just the flag.
+  has_ownership_doc?: boolean
+  ownership_doc?: string | null
 }
 
 type AdminBooking = {
   id: string
-  reservation_code: string
+  // Issued when the booking is confirmed — pending requests have none.
+  reservation_code: string | null
   status: string
   payment_status: string
   total_price: number
@@ -94,6 +99,7 @@ type HostApplication = {
   phone?: string | null
   address?: string | null
   company?: string | null
+  host_type?: string | null
   notes?: string | null
   status?: string | null
   submitted_at?: string | null
@@ -1040,6 +1046,33 @@ export default function OpsPage() {
                       Delete
                     </button>
                   </div>
+                  {/* Proof of ownership — shown in full for listings awaiting
+                      review so it can actually be checked before approving. */}
+                  {l.approval_status === 'pending' ? (
+                    <div style={{ flexBasis: '100%' }}>
+                      <div style={labelStyle}>Ownership document</div>
+                      {l.ownership_doc ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={l.ownership_doc}
+                          alt="Ownership document"
+                          style={{
+                            maxHeight: 220,
+                            maxWidth: '100%',
+                            borderRadius: 12,
+                            border: `1px solid ${TAN}`,
+                            display: 'block',
+                          }}
+                        />
+                      ) : (
+                        <div style={{ fontSize: 13, color: MUTED }}>Not provided</div>
+                      )}
+                    </div>
+                  ) : l.has_ownership_doc ? (
+                    <div style={{ flexBasis: '100%', fontSize: 12, color: MUTED }}>
+                      Ownership document on file
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -1068,7 +1101,7 @@ export default function OpsPage() {
                   {bookings.map((b) => (
                     <tr key={b.id}>
                       <td style={{ ...tdStyle, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                        {b.reservation_code}
+                        {b.reservation_code || '—'}
                       </td>
                       <td style={tdStyle}>
                         <div style={{ fontWeight: 600 }}>{b.guest_name || '—'}</div>
@@ -1142,6 +1175,12 @@ export default function OpsPage() {
                       <div>
                         <div style={labelStyle}>Phone</div>
                         <div style={{ fontSize: 14 }}>{a.phone}</div>
+                      </div>
+                    ) : null}
+                    {a.host_type ? (
+                      <div>
+                        <div style={labelStyle}>Host type</div>
+                        <div style={{ fontSize: 14 }}>{a.host_type}</div>
                       </div>
                     ) : null}
                     {a.company ? (

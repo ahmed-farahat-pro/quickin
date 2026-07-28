@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { verifyToken, getUserRowByEmail, publicUser } from '@/lib/local/auth'
+import { verifyToken, getUserRowByEmail, publicUserWithHost } from '@/lib/local/auth'
 
 export const dynamic = 'force-dynamic'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 
 // GET /api/auth/me — resolves the current user from a Bearer token or qk_token cookie.
+// Returns the authoritative host fields (is_host, host_type, host_status,
+// host_review_note) so a client can re-validate host state on every launch
+// instead of trusting a cached flag.
 export async function GET(req: Request) {
   try {
     const auth = req.headers.get('authorization') || ''
@@ -21,7 +24,7 @@ export async function GET(req: Request) {
     const row = await getUserRowByEmail(claims.email)
     if (!row) return NextResponse.json({ user: null }, { headers: CORS })
 
-    return NextResponse.json({ user: publicUser(row) }, { headers: CORS })
+    return NextResponse.json({ user: await publicUserWithHost(row) }, { headers: CORS })
   } catch (err) {
     return NextResponse.json({ user: null, error: String(err) }, { status: 200, headers: CORS })
   }

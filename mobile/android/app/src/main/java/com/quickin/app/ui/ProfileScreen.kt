@@ -30,10 +30,13 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Sailing
@@ -74,6 +77,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.AuthUiState
 import com.quickin.app.CurrencyManager
+import com.quickin.app.HOST_STATUS_APPROVED
+import com.quickin.app.HOST_STATUS_PENDING
+import com.quickin.app.HOST_STATUS_REJECTED
 import com.quickin.app.LocaleManager
 import com.quickin.app.Profile
 import com.quickin.app.R
@@ -83,8 +89,12 @@ import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Gold
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
+import com.quickin.app.ui.theme.SuccessGreen
 import com.quickin.app.ui.theme.Tan
 import java.util.Locale
+
+/** Muted red used for the "not approved" host-application pill (matches the Trust & Safety red). */
+private val HostRejectedRed = Color(0xFFB3261E)
 
 /**
  * Profile tab: shows the signed-in user's avatar (photo or initials), name, email, an optional
@@ -101,10 +111,8 @@ fun ProfileScreen(
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
     /** Submits the picked FRONT + BACK ID photos + SELFIE (and an optional id number). */
     onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit = { _, _, _, _ -> },
-    /** True while a "Become a host" promotion is in flight (drives the button spinner). */
-    becomingHost: Boolean = false,
-    /** Promotes this account to a host in-app (POST /api/local/host/become). */
-    onBecomeHost: () -> Unit = {},
+    /** Opens the "Apply to host" form (a first application, or a re-application after a rejection). */
+    onOpenHostApplication: () -> Unit = {},
     onOpenHost: () -> Unit = {},
     onOpenMySubscriptions: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
@@ -221,13 +229,16 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Become a host — surfaced at the very top for non-hosts so it's the first thing they see
-        // (unified account: this flips to a host in-app, no separate login) instead of being buried
-        // below the settings sections.
-        if (!isHost) {
-            BecomeHostCard(loading = becomingHost, onBecomeHost = onBecomeHost)
-            Spacer(modifier = Modifier.height(24.dp))
-        }
+        // Become a host — surfaced at the very top so it's the first thing a guest sees instead of
+        // being buried below the settings sections. The card renders whichever of the four
+        // application states the SERVER reports (none / pending / rejected / approved).
+        HostApplicationCard(
+            status = state.hostStatus,
+            reviewNote = state.hostReviewNote,
+            onApply = onOpenHostApplication
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // "Reviews about you" — the reviews this user has received from hosts (two-way reviews).
         ReviewsAboutYouSection(receivedReviews)
@@ -429,14 +440,20 @@ fun ProfileSignInCta(
 }
 
 /**
- * "Become a host" card on the Profile tab (unified account). Shown only to accounts that aren't
- * hosts yet: one button that promotes the SAME account to a host in-app (POST
- * /api/local/host/become) — no separate login or account. On success the caller flips
- * [AuthUiState.isHost] and the host-management entries replace this card without a re-login.
- * Shows a spinner while [loading].
+ * The host-application card on the Profile tab (unified account — one account per person, no
+ * separate host login). It renders whichever of the four server-derived [status] values applies:
+ *
+ *  • "none"     — the "Become a host" pitch + a CTA that opens the application form.
+ *  • "pending"  — read-only "under review"; there is nothing to do but wait for an admin.
+ *  • "rejected" — the decision, the admin's [reviewNote] reason, and an "Apply again" CTA that
+ *                 re-opens the form (a re-submission moves the application back to pending).
+ *  • "approved" — a quiet confirmation; the real host surfaces are the Hosting section below,
+ *                 which gates on `is_host` alone.
+ *
+ * Applying never grants hosting by itself — only an admin approval flips `is_host`.
  */
 @Composable
-private fun BecomeHostCard(loading: Boolean, onBecomeHost: () -> Unit) {
+private fun HostApplicationCard(status: String, reviewNote: String?, onApply: () -> Unit) {
     BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -451,37 +468,102 @@ private fun BecomeHostCard(loading: Boolean, onBecomeHost: () -> Unit) {
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        stringResource(R.string.become_host),
+                        stringResource(
+                            when (status) {
+                                HOST_STATUS_PENDING -> R.string.host_pending_title
+                                HOST_STATUS_REJECTED -> R.string.host_rejected_title
+                                HOST_STATUS_APPROVED -> R.string.host_approved_title
+                                else -> R.string.become_host
+                            }
+                        ),
                         color = Ink,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )
                     Text(
-                        stringResource(R.string.become_host_sub),
+                        stringResource(
+                            when (status) {
+                                HOST_STATUS_PENDING -> R.string.host_pending_note
+                                HOST_STATUS_REJECTED -> R.string.host_rejected_note
+                                HOST_STATUS_APPROVED -> R.string.host_approved_note
+                                else -> R.string.become_host_sub
+                            }
+                        ),
                         color = Muted,
                         fontSize = 13.sp,
-                        modifier = Modifier.padding(top = 1.dp)
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            GradientButton(
-                onClick = onBecomeHost,
-                enabled = !loading,
-                radius = 16.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (loading) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                } else {
+
+            // A colored status pill for every state that has one ("none" is just the pitch above).
+            HostStatusPill(status)
+
+            // The admin's reason, shown only on a rejection (and only when they left one).
+            if (status == HOST_STATUS_REJECTED && !reviewNote.isNullOrBlank()) {
+                Surface(color = Cream, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        stringResource(R.string.become_host),
+                        stringResource(R.string.host_rejected_reason, reviewNote),
+                        color = Ink,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
+            // Only "none" and "rejected" can act — a pending application is read-only, and an
+            // approved account uses the Hosting section below.
+            if (status != HOST_STATUS_PENDING && status != HOST_STATUS_APPROVED) {
+                Spacer(Modifier.height(14.dp))
+                GradientButton(
+                    onClick = onApply,
+                    radius = 16.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(
+                            if (status == HOST_STATUS_REJECTED) R.string.host_reapply
+                            else R.string.become_host
+                        ),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )
                 }
             }
+        }
+    }
+}
+
+/** A colored pill for the host-application state (gold pending / red rejected / green approved). */
+@Composable
+private fun HostStatusPill(status: String) {
+    val (labelRes, tint, icon) = when (status) {
+        HOST_STATUS_PENDING -> Triple(R.string.host_status_pending, Gold, Icons.Filled.HourglassTop)
+        HOST_STATUS_REJECTED -> Triple(R.string.host_status_rejected, HostRejectedRed, Icons.Filled.NewReleases)
+        HOST_STATUS_APPROVED -> Triple(R.string.host_status_approved, SuccessGreen, Icons.Filled.Verified)
+        // "none" — no application on file yet, so there's no state to badge.
+        else -> return
+    }
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = tint.copy(alpha = 0.12f),
+        modifier = Modifier.padding(top = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                stringResource(labelRes),
+                color = tint,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }

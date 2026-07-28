@@ -156,7 +156,7 @@ object ProfileService {
         }
         val ageValue = if (o.has("age") && !o.isNull("age")) o.optInt("age").takeIf { it > 0 } else null
         val avatar = if (o.has("avatar_url") && !o.isNull("avatar_url")) {
-            o.optString("avatar_url").takeIf { it.isNotBlank() }
+            o.optStringOrNull("avatar_url")
         } else null
         return Profile(
             fullName = o.optString("full_name").ifBlank { o.optString("name") },

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS listings (
   is_guest_favorite boolean DEFAULT false,
   is_published      boolean DEFAULT true,
   approval_status   text DEFAULT 'pending',              -- moderation: 'pending' | 'approved' | 'rejected'. New listings start pending; an admin approves in /ops (flips is_published + notifies the host). NULL/legacy rows treated as approved.
+  ownership_doc     text,                                -- proof-of-ownership image the host attaches (data:image/… or https URL). Admin-only — shown in the moderation queue; re-uploading re-queues the listing to 'pending'.
   listing_code      text,
   lat               double precision,
   lng               double precision,
@@ -94,6 +95,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   pets           int NOT NULL DEFAULT 0,
   total_price    numeric NOT NULL DEFAULT 0,
   status         text NOT NULL DEFAULT 'pending',  -- pending → (pay) → host approves → confirmed
+  -- Short code on the pass + encoded in the QR ("QK-7F3K9Q"). NULL while the
+  -- booking is pending: it is assigned ONCE, at the confirmation transition, and
+  -- never regenerated. No code ⇒ no QR, no wallet pass, no /stay/<code> page.
+  reservation_code text,
   paid_at        timestamptz,
   cancelled_at   timestamptz,
   refund_percent int,
@@ -102,6 +107,9 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_listing ON bookings(listing_id);
+-- A reservation code must resolve to exactly one stay (lookups are case-insensitive).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_bookings_reservation_code
+  ON bookings (upper(reservation_code)) WHERE reservation_code IS NOT NULL;
 
 -- ID verification: one active submission per user. The ID photo is stored inline
 -- as a base64 data URL (no blob service — works on serverless). Auto path fills
@@ -218,6 +226,22 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at      timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS chat_messages_conversation_idx ON chat_messages (conversation_id, created_at);
+
+-- Host-authored stay guide: extra content the host attaches to a CONFIRMED
+-- booking (arrival info, photos, QR links to places, attachments). Rendered on
+-- the public /stay/<code> pass the guest's QR opens, alongside bookings.host_notes.
+-- Host-supplied text — every client escapes it, it is never HTML.
+CREATE TABLE IF NOT EXISTS stay_guide_items (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id  uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  kind        text NOT NULL,          -- 'info' | 'photo' | 'place_qr' | 'attachment'
+  title       text,
+  body        text,                   -- info text, or a caption
+  url         text,                   -- data: URL (photo/attachment) or an external link (place_qr)
+  "order"     int DEFAULT 0,
+  created_at  timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_stay_guide_booking ON stay_guide_items(booking_id, "order");
 
 -- ---- Seed listings (only if the table is empty) -----------------------------
 DO $$

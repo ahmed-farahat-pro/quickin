@@ -306,6 +306,10 @@
     <string name="reviews_title">Avis</string>
     <string name="reviews_loading">Chargement des avis…</string>
     <string name="reviews_empty">Pas encore d\'avis — soyez le premier à séjourner et à laisser un avis.</string>
+    <plurals name="reviews_count">
+        <item quantity="one">%1$d avis</item>
+        <item quantity="other">%1$d avis</item>
+    </plurals>
     <string name="review_leave">Laisser un avis</string>
     <string name="review_dialog_title">Laisser un avis</string>
     <string name="review_dialog_subtitle">Comment s\'est passé votre séjour à %1$s ?</string>
@@ -400,6 +404,33 @@
     <string name="approval_pending_note">Votre annonce est en cours d\'examen et n\'est pas encore publique. Nous vous préviendrons dès qu\'elle sera approuvée.</string>
     <string name="approval_rejected_note">Votre justificatif de propriété a été refusé. Téléversez-le à nouveau pour soumettre votre annonce à un nouvel examen.</string>
     <string name="approval_doc_resubmitted">Document soumis. Votre annonce est de nouveau en cours d\'examen.</string>
+
+    <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->
+    <string name="listing_edit_title">Modifier l\'annonce</string>
+    <string name="listing_edit_section_basics">Informations de base</string>
+    <string name="listing_edit_section_location">Emplacement</string>
+    <string name="listing_edit_section_details">Détails, photos et tarifs</string>
+    <string name="listing_edit_review_title">L\'enregistrement renvoie cette annonce en examen</string>
+    <string name="listing_edit_review_body">Enregistrer vos modifications renvoie votre annonce en examen. Elle sera masquée aux voyageurs jusqu\'à son approbation par un administrateur.</string>
+    <string name="listing_edit_review_confirm">Enregistrer et envoyer en examen</string>
+    <string name="listing_edit_keep_editing">Continuer à modifier</string>
+    <string name="listing_edit_save">Enregistrer les modifications</string>
+    <string name="listing_edit_cancel">Annuler</string>
+    <string name="listing_edit_done">Terminé</string>
+    <string name="listing_edit_saved">Modifications enregistrées</string>
+    <string name="listing_edit_saved_note">Votre annonce est en cours d\'examen et masquée aux voyageurs jusqu\'à son approbation par un administrateur.</string>
+    <string name="listing_edit_no_changes">Vous n\'avez encore rien modifié.</string>
+    <string name="listing_edit_needs_title">Ajoutez un titre.</string>
+    <string name="listing_edit_needs_description">Ajoutez une description.</string>
+    <string name="listing_edit_needs_location">Ajoutez l\'emplacement.</string>
+    <string name="listing_edit_needs_region">Choisissez la zone où se trouve votre logement.</string>
+    <string name="listing_edit_needs_price">Le prix par nuit doit être supérieur à 0.</string>
+    <string name="listing_edit_discard_title">Abandonner vos modifications ?</string>
+    <string name="listing_edit_discard_body">Vos modifications de cette annonce n\'ont pas été enregistrées.</string>
+    <string name="listing_edit_discard_confirm">Abandonner</string>
+    <string name="listing_edit_move_earlier">Déplacer la photo vers le début</string>
+    <string name="listing_edit_move_later">Déplacer la photo vers la fin</string>
+    <string name="listing_edit_set_cover">Définir comme photo de couverture</string>
     <string name="trust_verify">Vérifiez votre identité</string>
     <string name="trust_verify_intro">Ajoutez un badge vérifié à votre profil. Téléchargez le recto et le verso de votre pièce d\'identité officielle ainsi qu\'un selfie — nous les examinerons sous peu.</string>
     <string name="trust_status_unverified">Non vérifié</string>
@@ -571,4 +602,67 @@
     <string name="trust_selfie_photo">Un selfie de vous</string>
     <string name="trust_selfie_hint">Prenez un selfie net pour que nous puissions le comparer à votre pièce d\'identité.</string>
     <string name="trust_photos_required">Ajoutez le recto, le verso de votre pièce d\'identité et un selfie.</string>
+
+    <!-- Become a host: the application states (none / pending / rejected / approved) -->
+    <string name="host_status_pending">En cours d\'examen</string>
+    <string name="host_status_rejected">Non approuvée</string>
+    <string name="host_status_approved">Approuvée</string>
+    <string name="host_pending_title">Candidature en cours d\'examen</string>
+    <string name="host_pending_note">Merci pour votre candidature. Notre équipe examine vos informations et vous préviendra dès votre approbation.</string>
+    <string name="host_rejected_title">Candidature non approuvée</string>
+    <string name="host_rejected_note">Votre candidature d\'hôte n\'a pas été approuvée. Mettez à jour vos informations et postulez à nouveau.</string>
+    <string name="host_rejected_reason">Motif : %1$s</string>
+    <string name="host_approved_title">Vous êtes hôte</string>
+    <string name="host_approved_note">Ajoutez des annonces, gérez les réservations et suivez vos revenus depuis la section Hébergement ci-dessous.</string>
+    <string name="host_reapply">Postuler à nouveau</string>
+
+    <!-- Become a host: the application form -->
+    <string name="host_apply_title">Devenir hôte</string>
+    <string name="host_apply_intro">Parlez-nous un peu de vous. Notre équipe examine chaque candidature avant que vous puissiez héberger.</string>
+    <string name="host_apply_full_name">Nom complet</string>
+    <string name="host_apply_national_id">Numéro d\'identité</string>
+    <string name="host_apply_phone">Téléphone</string>
+    <string name="host_apply_address">Adresse</string>
+    <string name="host_apply_company">Société / agence (facultatif)</string>
+    <string name="host_apply_notes">Remarques (facultatif)</string>
+    <string name="host_apply_host_type">Êtes-vous un particulier, une société ou une agence ?</string>
+    <string name="host_type_individual">Particulier</string>
+    <string name="host_type_company">Société</string>
+    <string name="host_type_brokerage">Agence</string>
+    <string name="host_apply_submit">Envoyer la candidature</string>
+    <string name="host_apply_required">Ajoutez votre nom, votre numéro d\'identité, votre téléphone et votre adresse pour continuer.</string>
+    <string name="host_apply_error">Impossible d\'envoyer votre candidature. Veuillez réessayer.</string>
+
+    <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
+    <string name="reservation_qr_pending">Votre QR code apparaîtra ici dès que votre réservation sera confirmée.</string>
+    <string name="reservation_qr_none">Il n\'y a pas de pass séjour pour cette réservation.</string>
+
+    <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
+    <string name="stay_guide_title">Votre guide de séjour</string>
+    <string name="stay_guide_host_title">Guide de séjour</string>
+    <string name="stay_guide_host_hint">Ajoutez des infos, des photos, des adresses et des fichiers pour votre voyageur. Il les verra ici et sur son pass séjour.</string>
+    <string name="stay_guide_host_empty">Rien n\'a encore été ajouté.</string>
+    <string name="stay_guide_locked">Vous pourrez créer le guide de séjour une fois cette réservation approuvée.</string>
+    <string name="stay_guide_kind_info">Info</string>
+    <string name="stay_guide_kind_photo">Photo</string>
+    <string name="stay_guide_kind_place_qr">Adresse</string>
+    <string name="stay_guide_kind_attachment">Fichier</string>
+    <string name="stay_guide_photos">Photos</string>
+    <string name="stay_guide_places">Adresses à visiter</string>
+    <string name="stay_guide_attachments">Fichiers</string>
+    <string name="stay_guide_open">Ouvrir</string>
+    <string name="stay_guide_kind_label">Que souhaitez-vous ajouter ?</string>
+    <string name="stay_guide_title_label">Titre</string>
+    <string name="stay_guide_body_label">Détails</string>
+    <string name="stay_guide_link_label">Lien (https://…)</string>
+    <string name="stay_guide_choose_photo">Choisir une photo</string>
+    <string name="stay_guide_photo_ready">Photo prête</string>
+    <string name="stay_guide_invalid_link">Saisissez un lien commençant par https://</string>
+    <string name="stay_guide_add">Ajouter au guide</string>
+    <string name="stay_guide_save">Enregistrer</string>
+    <string name="stay_guide_edit">Modifier</string>
+    <string name="stay_guide_delete">Supprimer</string>
+    <string name="stay_guide_move_up">Monter</string>
+    <string name="stay_guide_move_down">Descendre</string>
+    <string name="cd_place_qr">QR code pour %1$s</string>
 </resources>

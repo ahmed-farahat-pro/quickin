@@ -11,6 +11,7 @@ import { getRequestLocale } from '@/i18n/request-locale'
 import { AppDirectionProvider } from '@/components/providers/app-direction-provider'
 import { AuthNotification } from '@/components/features/auth/auth-notification'
 import WhatsAppFab from "@/components/whatsapp-fab";
+import AppStoreBar from "@/components/app-store-bar";
 import { getBaseUrl } from "@/lib/utils";
 
 // Body fonts
@@ -125,6 +126,8 @@ async function RootLayoutInner({
             <RouteProgressBar />
             <GlobalLoadingBar />
             <AuthNotification />
+            {/* Site-wide "Get the app" bar — sits above the header on every page. */}
+            <AppStoreBar />
             {children}
             <WhatsAppFab />
             <Toaster position="top-center" />

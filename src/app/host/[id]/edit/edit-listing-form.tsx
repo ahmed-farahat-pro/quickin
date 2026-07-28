@@ -3,16 +3,31 @@
 // Host edit form: pre-filled from the listing, PATCHes to /api/local/listings/:id
 // (server enforces ownership). Deliberately mirrors host/new/new-listing-form.tsx
 // field-for-field — same photo uploader, same currency/country selects, same
-// property-type icon grid, same place-search + map pin, same weekend-day pills —
-// so hosts see one consistent listing form whether they're creating or editing.
-// It also reuses the `hostPage.create.*` translations so both flows read alike.
+// property-type icon grid, same area + amenity catalogs, same place-search + map
+// pin, same weekend-day pills — so hosts see one consistent listing form whether
+// they're creating or editing. It also reuses the `hostPage.create.*` translations
+// so both flows read alike.
+//
+// Two things are specific to editing:
+//  1. It sends a PARTIAL patch — only the fields the host actually changed. That
+//     keeps a listing holding a legacy value (say a property type the catalogs no
+//     longer offer) editable, and keeps a text-only edit from re-uploading every
+//     photo as base64.
+//  2. Saving sends the listing BACK FOR REVIEW (approval_status='pending',
+//     unpublished until an admin approves). That is a heavy, destructive-feeling
+//     side effect, so the host is told before they save, has to confirm, and sees
+//     the resulting "Under review" chip afterwards.
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
-import { PROPERTY_TYPES, MAX_WEB_LISTING_PHOTOS } from '@/lib/property-types'
+import dynamic from 'next/dynamic'
+import { PROPERTY_TYPES, MAX_WEB_LISTING_PHOTOS, iconForPropertyType } from '@/lib/property-types'
+import { REGIONS, AMENITIES } from '@/lib/listing-options'
 import { fileToCompressedDataUrl } from '@/lib/image'
 import { DEFAULT_WEEKEND_DAYS } from '@/lib/geo'
+import { OwnershipDocField } from '../../ownership-doc'
+import { ListingStatusChip } from '../../listing-status-chip'
+import type { HostListingStatus } from '../../host-tabs'
 import type { Listing } from '@/lib/local/db'
 
 const C = {
@@ -109,14 +124,40 @@ const dropdownStyle: React.CSSProperties = {
   overflowY: 'auto',
 }
 
-export function EditListingForm({ listing }: { listing: Listing }) {
+/** Legacy rows have no approval_status — treat anything unknown as published
+ *  (same rule as the host dashboard's listingStatus). */
+function statusOf(approval: string | null | undefined): HostListingStatus {
+  return approval === 'pending' || approval === 'rejected' ? approval : 'approved'
+}
+
+/** Same members, ignoring order — amenities are a set, not a sequence. */
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false
+  const norm = (list: readonly string[]) => [...list].map((s) => s.toLowerCase()).sort()
+  const [x, y] = [norm(a), norm(b)]
+  return x.every((v, i) => v === y[i])
+}
+
+export function EditListingForm({
+  listing,
+  hasOwnershipDoc,
+}: {
+  listing: Listing
+  /** A proof-of-ownership document is already stored for this listing. Its bytes
+   *  stay admin-only, so the host only ever sees this flag. */
+  hasOwnershipDoc: boolean
+}) {
   const router = useRouter()
   const t = useTranslations('hostPage.create')
+  const tEdit = useTranslations('hostPage.edit')
+  // The chips the host already knows from their listings screen.
+  const tDash = useTranslations('hostPage.dashboard')
 
   const [title, setTitle] = useState(listing.title ?? '')
   const [description, setDescription] = useState(listing.description ?? '')
   const [location, setLocation] = useState(listing.location ?? '')
   const [country, setCountry] = useState(listing.country?.trim() || 'Egypt')
+  const [region, setRegion] = useState(listing.region?.trim() || '')
   const [lat, setLat] = useState<number | null>(listing.lat ?? null)
   const [lng, setLng] = useState<number | null>(listing.lng ?? null)
   const [geo, setGeo] = useState<'idle' | 'locating' | 'fail'>('idle')
@@ -134,6 +175,7 @@ export function EditListingForm({ listing }: { listing: Listing }) {
   const [bathrooms, setBathrooms] = useState(String(listing.bathrooms ?? 1))
   const [maxGuests, setMaxGuests] = useState(String(listing.max_guests ?? 2))
   const [propertyType, setPropertyType] = useState(listing.property_type ?? 'Apartment')
+  const [amenities, setAmenities] = useState<string[]>(listing.amenities ?? [])
   // Existing photos come back ordered; index 0 is the cover. New device uploads
   // are appended as compressed base64 data URLs — the API accepts both forms.
   const initialPhotos = useMemo<string[]>(
@@ -154,10 +196,23 @@ export function EditListingForm({ listing }: { listing: Listing }) {
     photos.some((url, i) => url !== initialPhotos[i])
   const [photoBusy, setPhotoBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  // A freshly-picked ownership document. Only sent when the host actually
+  // replaces it, because submitting one re-queues the listing for review.
+  const [ownershipDoc, setOwnershipDoc] = useState('')
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  // Two-step save: the host confirms the listing goes back for review.
+  const [confirming, setConfirming] = useState(false)
+  // The approval status the API returned after a successful save ('pending').
+  const [savedStatus, setSavedStatus] = useState<HostListingStatus | null>(null)
+
+  const currentStatus = statusOf(listing.approval_status)
+  const statusLabel: Record<HostListingStatus, string> = {
+    approved: tDash('filters.published'),
+    pending: tDash('badge.pending'),
+    rejected: tDash('badge.rejected'),
+  }
 
   // Older listings may hold a value the standardised lists don't cover (the
   // currency used to be a free-text box). Surface it as an extra option so
@@ -168,9 +223,29 @@ export function EditListingForm({ listing }: { listing: Listing }) {
   const currencyOptions: string[] = (CURRENCIES as readonly string[]).includes(currency)
     ? [...CURRENCIES]
     : [...CURRENCIES, currency]
+  // Same idea for the property-type grid: a type this listing already holds but
+  // the grid doesn't offer (e.g. one created on mobile) still shows as selected.
+  const propertyOptions = PROPERTY_TYPES.some((p) => p.value === propertyType)
+    ? PROPERTY_TYPES
+    : [...PROPERTY_TYPES, { value: propertyType, key: '', Icon: iconForPropertyType(propertyType) }]
+  // …and for amenities saved elsewhere that aren't in the web catalog.
+  const amenityOptions = [
+    ...AMENITIES,
+    ...amenities
+      .filter((a) => !AMENITIES.some((c) => c.value.toLowerCase() === a.toLowerCase()))
+      .map((a) => ({ value: a, key: '', Icon: null })),
+  ]
 
   function toggleWeekendDay(day: number) {
     setWeekendDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
+  }
+
+  function toggleAmenity(value: string) {
+    setAmenities((prev) =>
+      prev.some((a) => a.toLowerCase() === value.toLowerCase())
+        ? prev.filter((a) => a.toLowerCase() !== value.toLowerCase())
+        : [...prev, value]
+    )
   }
 
   // Forward-geocode the typed location (scoped to the chosen country) so the map
@@ -291,10 +366,81 @@ export function EditListingForm({ listing }: { listing: Listing }) {
     setPhotos((prev) => prev.filter((_, idx) => idx !== i))
   }
 
-  async function submit(e: React.FormEvent) {
+  /** Move a photo one slot earlier/later. Array order IS display order, so this
+   *  is all "reorder" means — and moving to index 0 is what "set cover" does. */
+  function movePhoto(from: number, to: number) {
+    setPhotos((prev) => {
+      if (to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
+  /**
+   * Only the fields the host actually changed. The API treats an absent key as
+   * "leave it alone", so a partial patch is both smaller and safer: values this
+   * listing already holds are never re-validated, and photos (base64 data URLs)
+   * only travel when the set changed. Returns null when nothing differs.
+   */
+  function buildPatch(): Record<string, unknown> | null {
+    const patch: Record<string, unknown> = {}
+    const text = (v: string) => v.trim()
+    const int = (v: string, d: number) => {
+      const n = Math.floor(Number(v))
+      return Number.isFinite(n) && n >= 0 ? n : d
+    }
+
+    if (text(title) !== (listing.title ?? '').trim()) patch.title = text(title)
+    if (text(description) !== (listing.description ?? '').trim()) patch.description = text(description) || null
+    if (text(location) !== (listing.location ?? '').trim()) patch.location = text(location) || null
+    if (text(country) !== (listing.country ?? '').trim()) patch.country = text(country) || null
+    if (text(region) !== (listing.region ?? '').trim()) patch.region = text(region) || null
+    if ((lat ?? null) !== (listing.lat ?? null)) patch.lat = lat ?? null
+    if ((lng ?? null) !== (listing.lng ?? null)) patch.lng = lng ?? null
+
+    const priceNum = Number(price)
+    if (priceNum !== Number(listing.price_per_night)) patch.price_per_night = priceNum
+    const wk = Number(weekendPrice)
+    const nextWeekendPrice = weekendPrice.trim() && Number.isFinite(wk) && wk > 0 ? wk : null
+    const weekendPriceChanged = nextWeekendPrice !== (listing.weekend_price ?? null)
+    if (weekendPriceChanged) patch.weekend_price = nextWeekendPrice
+    // Weekend days are only meaningful alongside a weekend price — they are
+    // saved together, and cleared together.
+    const nextWeekendDays = nextWeekendPrice ? weekendDays : null
+    const currentWeekendDays = listing.weekend_days ?? null
+    const daysChanged =
+      (nextWeekendDays === null) !== (currentWeekendDays === null) ||
+      (nextWeekendDays !== null &&
+        currentWeekendDays !== null &&
+        (nextWeekendDays.length !== currentWeekendDays.length ||
+          nextWeekendDays.some((d, i) => d !== currentWeekendDays[i])))
+    if (daysChanged) patch.weekend_days = nextWeekendDays
+    if (text(currency) !== (listing.currency ?? '').trim()) patch.currency = text(currency) || 'EGP'
+
+    if (int(bedrooms, 1) !== (listing.bedrooms ?? 1)) patch.bedrooms = int(bedrooms, 1)
+    if (int(beds, 1) !== (listing.beds ?? 1)) patch.beds = int(beds, 1)
+    if (int(bathrooms, 1) !== (listing.bathrooms ?? 1)) patch.bathrooms = int(bathrooms, 1)
+    if (int(maxGuests, 2) !== (listing.max_guests ?? 2)) patch.max_guests = int(maxGuests, 2)
+    if (propertyType !== (listing.property_type ?? '')) patch.property_type = propertyType || null
+    if (!sameSet(amenities, listing.amenities ?? [])) patch.amenities = amenities
+
+    // Full ordered set — the form owns photos, so this replaces them.
+    if (photosDirty) patch.images = photos
+    // Re-submitting proof of ownership sends the listing back for review.
+    if (ownershipDoc) patch.ownership_doc = ownershipDoc
+
+    return Object.keys(patch).length ? patch : null
+  }
+
+  const patch = buildPatch()
+  const dirty = patch !== null
+
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
+    if (busy || savedStatus) return
 
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
@@ -306,39 +452,25 @@ export function EditListingForm({ listing }: { listing: Listing }) {
       setError(t('errors.priceInvalid'))
       return
     }
-    const int = (v: string, d: number) => {
-      const n = Math.floor(Number(v))
-      return Number.isFinite(n) && n >= 0 ? n : d
-    }
-    const wk = Number(weekendPrice)
-    const weekend_price = weekendPrice.trim() && Number.isFinite(wk) && wk > 0 ? wk : null
+    if (!dirty) return
+    // Everything checks out — now tell the host what saving actually does.
+    setConfirming(true)
+  }
 
+  async function save() {
+    const body = buildPatch()
+    if (!body) {
+      setConfirming(false)
+      return
+    }
     setBusy(true)
+    setError(null)
     try {
       const res = await fetch(`/api/local/listings/${listing.id}`, {
         method: 'PATCH',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: trimmedTitle,
-          description: description.trim() || null,
-          location: location.trim() || null,
-          country: country.trim() || null,
-          lat: lat ?? null,
-          lng: lng ?? null,
-          price_per_night: priceNum,
-          weekend_price,
-          // Only meaningful alongside a weekend price — clear them together.
-          weekend_days: weekend_price ? weekendDays : null,
-          currency: currency.trim() || 'EGP',
-          bedrooms: int(bedrooms, 1),
-          beds: int(beds, 1),
-          bathrooms: int(bathrooms, 1),
-          max_guests: int(maxGuests, 2),
-          property_type: propertyType || null,
-          // Full ordered set — the form owns photos, so this replaces them.
-          ...(photosDirty ? { images: photos } : {}),
-        }),
+        body: JSON.stringify(body),
       })
       if (res.status === 401) {
         router.push('/login')
@@ -346,21 +478,28 @@ export function EditListingForm({ listing }: { listing: Listing }) {
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Could not save your changes')
+        throw new Error(err.error || tEdit('errors.saveFailed'))
       }
-      setSaved(true)
+      // Every mutation answers with the updated listing, so the new status is
+      // shown straight away — no refetch.
+      const updated = (await res.json().catch(() => null)) as Listing | null
+      setBusy(false)
+      setConfirming(false)
+      setSavedStatus(statusOf(updated?.approval_status))
       router.refresh()
-      // Brief confirmation, then back to the host dashboard.
-      setTimeout(() => router.push('/host'), 800)
+      // Long enough to read the "Under review" chip, then back to the listings
+      // screen where the same chip + filter are waiting.
+      setTimeout(() => router.push('/host'), 1800)
     } catch (err) {
       setBusy(false)
-      setError(err instanceof Error ? err.message : 'Could not save your changes')
+      setConfirming(false)
+      setError(err instanceof Error ? err.message : tEdit('errors.saveFailed'))
     }
   }
 
   return (
     <form
-      onSubmit={submit}
+      onSubmit={onSubmit}
       style={{
         background: '#fff',
         borderRadius: 24,
@@ -373,6 +512,8 @@ export function EditListingForm({ listing }: { listing: Listing }) {
         @media (max-width: 560px) {
           .qk-edit-row { grid-template-columns: 1fr !important; }
         }
+        /* Reorder arrows point the other way when the page is right-to-left. */
+        [dir="rtl"] .qk-photo-move { transform: scaleX(-1); }
       `}</style>
 
       <div style={fieldWrap}>
@@ -459,6 +600,23 @@ export function EditListingForm({ listing }: { listing: Listing }) {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Curated browse area — the chips guests filter by (same four on mobile). */}
+      <div style={fieldWrap}>
+        <label style={label} htmlFor="edit-region">{t('fields.region')}</label>
+        <select
+          id="edit-region"
+          style={input}
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+        >
+          <option value="">{t('regionNone')}</option>
+          {REGIONS.map((r) => (
+            <option key={r.value} value={r.value}>{t(`regions.${r.key}`)}</option>
+          ))}
+        </select>
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>{t('regionHint')}</p>
       </div>
 
       {/* Map pin — sets lat/lng; guests see an approximate area, not the exact pin. */}
@@ -577,7 +735,7 @@ export function EditListingForm({ listing }: { listing: Listing }) {
             gap: 10,
           }}
         >
-          {PROPERTY_TYPES.map((p) => {
+          {propertyOptions.map((p) => {
             const on = propertyType === p.value
             const Icon = p.Icon
             return (
@@ -603,14 +761,51 @@ export function EditListingForm({ listing }: { listing: Listing }) {
                 }}
               >
                 <Icon size={22} strokeWidth={1.8} color={on ? C.burgundy : C.muted} />
-                {t(`propertyTypes.${p.key}`)}
+                {p.key ? t(`propertyTypes.${p.key}`) : p.value}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Photos — existing shots plus camera/library additions, up to MAX_WEB_LISTING_PHOTOS */}
+      {/* Amenities — the same catalog (and the same stored values) as iOS/Android */}
+      <div style={fieldWrap}>
+        <label style={label}>{t('fields.amenities')}</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {amenityOptions.map((a) => {
+            const on = amenities.some((x) => x.toLowerCase() === a.value.toLowerCase())
+            const Icon = a.Icon
+            return (
+              <button
+                key={a.value}
+                type="button"
+                onClick={() => toggleAmenity(a.value)}
+                aria-pressed={on}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: `1px solid ${on ? C.burgundy : 'rgba(42,34,32,0.16)'}`,
+                  background: on ? C.burgundy : '#fff',
+                  color: on ? '#fff' : C.ink,
+                }}
+              >
+                {Icon && <Icon size={15} strokeWidth={1.9} />}
+                {a.key ? t(`amenities.${a.key}`) : a.value}
+              </button>
+            )
+          })}
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('amenitiesHint')}</p>
+      </div>
+
+      {/* Photos — add, remove, reorder and pick the cover, up to MAX_WEB_LISTING_PHOTOS */}
       <div style={fieldWrap}>
         <label style={label}>{t('fields.photos')}</label>
         <input
@@ -652,7 +847,7 @@ export function EditListingForm({ listing }: { listing: Listing }) {
             style={{
               marginTop: 12,
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
               gap: 10,
             }}
           >
@@ -661,7 +856,7 @@ export function EditListingForm({ listing }: { listing: Listing }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 {i === 0 && (
-                  <span style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(91,15,22,0.92)', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>
+                  <span style={{ position: 'absolute', top: 6, insetInlineStart: 6, background: 'rgba(91,15,22,0.92)', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999 }}>
                     {t('photosCover')}
                   </span>
                 )}
@@ -670,35 +865,172 @@ export function EditListingForm({ listing }: { listing: Listing }) {
                   onClick={() => removePhoto(i)}
                   aria-label={t('photosRemove')}
                   style={{
-                    position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 999,
+                    position: 'absolute', top: 5, insetInlineEnd: 5, width: 22, height: 22, borderRadius: 999,
                     border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 14, lineHeight: 1,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
                   ×
                 </button>
+                {/* Reorder + cover controls. Order in this array IS display order,
+                    so moving a photo to the front is exactly "make it the cover". */}
+                <div
+                  style={{
+                    position: 'absolute', insetInline: 0, bottom: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    padding: '5px 4px', background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 55%)',
+                  }}
+                >
+                  <PhotoControl
+                    label={t('photosMoveEarlier')}
+                    disabled={i === 0}
+                    onClick={() => movePhoto(i, i - 1)}
+                    glyph="‹"
+                  />
+                  {i !== 0 && (
+                    <PhotoControl
+                      label={t('photosSetCover')}
+                      onClick={() => movePhoto(i, 0)}
+                      glyph="★"
+                      wide
+                    />
+                  )}
+                  <PhotoControl
+                    label={t('photosMoveLater')}
+                    disabled={i === photos.length - 1}
+                    onClick={() => movePhoto(i, i + 1)}
+                    glyph="›"
+                  />
+                </div>
               </div>
             ))}
           </div>
         )}
-        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('photosHint')}</p>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('photosReorderHint')}</p>
       </div>
+
+      {/* Ownership document — uploading a new one re-queues the listing for review. */}
+      <OwnershipDocField
+        value={ownershipDoc}
+        onChange={setOwnershipDoc}
+        onError={setError}
+        idPrefix="edit"
+        hasExistingDoc={hasOwnershipDoc}
+      />
 
       {error && (
         <p role="alert" style={{ margin: '0 0 14px', fontSize: 13.5, color: '#b3261e', fontWeight: 600 }}>
           {error}
         </p>
       )}
-      {saved && (
-        <p style={{ margin: '0 0 14px', fontSize: 13.5, color: '#177245', fontWeight: 700 }}>
-          Saved ✓ Taking you back to your listings…
-        </p>
+
+      {/* What saving actually does — shown BEFORE the host commits to it. */}
+      {!savedStatus && (
+        <div
+          style={{
+            margin: '0 0 18px',
+            background: '#fff7e6',
+            border: '1px solid rgba(154,107,0,0.28)',
+            borderRadius: 16,
+            padding: '14px 16px',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: '#8a6d1b' }}>
+            {tEdit('reviewWarning.title')}
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: 13.5, lineHeight: 1.55, color: C.ink }}>
+            {tEdit('reviewWarning.body')}
+          </p>
+        </div>
+      )}
+
+      {/* Saved: the same "Under review" chip the listings screen shows. */}
+      {savedStatus && (
+        <div
+          role="status"
+          style={{
+            margin: '0 0 18px',
+            background: C.cream,
+            border: `1px solid ${C.tan}`,
+            borderRadius: 16,
+            padding: '14px 16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#177245' }}>{tEdit('saved.title')}</span>
+            <ListingStatusChip status={savedStatus} label={statusLabel[savedStatus]} />
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: 13.5, lineHeight: 1.55, color: C.ink }}>
+            {savedStatus === 'pending' ? tEdit('saved.body') : tEdit('saved.bodyLive')}
+          </p>
+          <a href="/host" style={{ display: 'inline-block', marginTop: 10, color: C.burgundy, fontWeight: 700, fontSize: 13.5 }}>
+            {tEdit('saved.cta')}
+          </a>
+        </div>
+      )}
+
+      {/* Two-step save: confirm the trip back through moderation. */}
+      {confirming && !savedStatus && (
+        <div
+          style={{
+            margin: '0 0 18px',
+            background: '#fff',
+            border: `1px solid ${C.burgundy}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            boxShadow: '0 8px 24px rgba(91,15,22,0.10)',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.burgundy }}>{tEdit('confirm.title')}</p>
+          <p style={{ margin: '6px 0 14px', fontSize: 13.5, lineHeight: 1.55, color: C.ink }}>
+            {tEdit('confirm.body')}
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              style={{
+                background: C.burgundy,
+                color: '#fff',
+                border: 'none',
+                borderRadius: 999,
+                padding: '11px 24px',
+                fontWeight: 700,
+                fontSize: 14.5,
+                fontFamily: 'inherit',
+                cursor: busy ? 'default' : 'pointer',
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              {busy ? tEdit('saving') : tEdit('confirm.cta')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={busy}
+              style={{
+                background: '#fff',
+                color: C.ink,
+                border: `1px solid rgba(42,34,32,0.16)`,
+                borderRadius: 999,
+                padding: '11px 20px',
+                fontWeight: 700,
+                fontSize: 14.5,
+                fontFamily: 'inherit',
+                cursor: busy ? 'default' : 'pointer',
+              }}
+            >
+              {tEdit('confirm.cancel')}
+            </button>
+          </div>
+        </div>
       )}
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !dirty || !!savedStatus}
           style={{
             background: C.burgundy,
             color: '#fff',
@@ -707,17 +1039,72 @@ export function EditListingForm({ listing }: { listing: Listing }) {
             padding: '12px 30px',
             fontWeight: 700,
             fontSize: 15,
-            cursor: busy ? 'default' : 'pointer',
-            opacity: busy ? 0.7 : 1,
+            cursor: busy || !dirty || savedStatus ? 'default' : 'pointer',
+            opacity: busy || !dirty || savedStatus ? 0.55 : 1,
             fontFamily: 'inherit',
           }}
         >
-          {busy ? 'Saving…' : 'Save changes'}
+          {busy ? tEdit('saving') : tEdit('save')}
         </button>
         <a href="/host" style={{ color: C.muted, textDecoration: 'none', fontWeight: 600, fontSize: 14.5 }}>
           {t('cancel')}
         </a>
+        {!dirty && !savedStatus && (
+          <span style={{ fontSize: 13, color: C.muted }}>{tEdit('noChanges')}</span>
+        )}
       </div>
+      {/* Where the listing stands right now, in the host's own vocabulary. */}
+      {!savedStatus && (
+        <p style={{ margin: '14px 0 0', fontSize: 12.5, color: C.muted, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {tEdit('statusLabel')}
+          <ListingStatusChip status={currentStatus} label={statusLabel[currentStatus]} />
+        </p>
+      )}
     </form>
+  )
+}
+
+/** One small overlay button on a photo tile (reorder / set cover). */
+function PhotoControl({
+  label,
+  glyph,
+  onClick,
+  disabled = false,
+  wide = false,
+}: {
+  label: string
+  glyph: string
+  onClick: () => void
+  disabled?: boolean
+  wide?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={wide ? undefined : 'qk-photo-move'}
+      style={{
+        minWidth: 22,
+        height: 22,
+        padding: wide ? '0 8px' : 0,
+        borderRadius: 999,
+        border: 'none',
+        background: disabled ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.55)',
+        color: '#fff',
+        fontSize: 13,
+        lineHeight: 1,
+        fontFamily: 'inherit',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {glyph}
+    </button>
   )
 }

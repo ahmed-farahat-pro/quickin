@@ -210,14 +210,60 @@ export function publicUser(row: {
   }
 }
 
-/** Promote the current account to a host (idempotent). One account, no re-register. */
-export async function becomeHost(userId: string): Promise<void> {
-  await pool.query(`UPDATE users SET is_host = true WHERE id = $1`, [userId])
-  // Keep the legacy `role` flag in sync so the mobile backend (which reads role)
-  // also recognizes this host. The column is absent on a frontend-only dev DB, so
-  // this is best-effort and must never fail the promotion.
-  try { await pool.query(`UPDATE users SET role = 'host' WHERE id = $1`, [userId]) } catch { /* role column not present */ }
+// ---- Host state (authoritative, server-derived) ------------------------------
+
+/** The four states every client renders. `approved` is driven by users.is_host. */
+export type HostStatus = 'none' | 'pending' | 'rejected' | 'approved'
+
+export interface HostState {
+  host_type: string | null
+  host_status: HostStatus
+  host_review_note: string | null
 }
+
+/**
+ * Resolve a user's host state from the database — the single source of truth the
+ * clients read on every launch (never a cached local flag).
+ *
+ * `approved` follows `users.is_host`, NOT the application row, so pre-existing
+ * hosts (is_host=true with no application) keep working. One tolerant query: on a
+ * pre-migration DB (no host_type / host_applications) it degrades to is_host alone
+ * rather than failing the session.
+ */
+export async function getHostState(userId: string, isHost: boolean): Promise<HostState> {
+  const fallback: HostState = { host_type: null, host_status: isHost ? 'approved' : 'none', host_review_note: null }
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.host_type, a.status AS app_status, a.review_note
+         FROM users u LEFT JOIN host_applications a ON a.user_id = u.id
+        WHERE u.id = $1`,
+      [userId]
+    )
+    const row = rows[0] as { host_type: string | null; app_status: string | null; review_note: string | null } | undefined
+    if (!row) return fallback
+    const host_type = row.host_type ?? null
+    // Legacy rule first: is_host = true ⇒ approved, whatever the application says.
+    if (isHost) return { host_type, host_status: 'approved', host_review_note: null }
+    if (row.app_status === 'pending') return { host_type, host_status: 'pending', host_review_note: null }
+    if (row.app_status === 'rejected') return { host_type, host_status: 'rejected', host_review_note: row.review_note ?? null }
+    // An 'approved' row without is_host means the flip never landed — show the
+    // apply CTA so the applicant can recover instead of a fake host state.
+    return { host_type, host_status: 'none', host_review_note: null }
+  } catch {
+    return fallback
+  }
+}
+
+/** publicUser + the host fields every client reads on launch / session restore. */
+export async function publicUserWithHost(row: {
+  id: string; email: string; full_name: string | null; provider: string; avatar_url: string | null; is_host?: boolean | null; email_verified?: boolean | null
+}): Promise<User & { role: 'host' | 'guest' } & HostState> {
+  const user = publicUser(row)
+  return { ...user, ...(await getHostState(user.id, user.is_host)) }
+}
+
+// NB: there is deliberately no "promote me to host" helper here. Host is granted
+// only by an admin decision — `reviewHostApplication` / `adminSetHost` in db.ts.
 
 /** Shared-secret check for the local-stack admin (host-application + ID review).
  *  Configure ADMIN_OPS_KEY in the environment; falls back to a dev default. */

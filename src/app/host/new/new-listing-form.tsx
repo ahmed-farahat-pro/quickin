@@ -3,14 +3,18 @@
 // Create-listing form: POSTs the listing fields to /api/local/listings (host_id
 // is taken from the signed-in caller server-side) and on success navigates to
 // /host. Location is set with a map pin; photos are uploaded from the device
-// (camera or library) and sent as compressed base64 data URLs.
+// (camera or library) and sent as compressed base64 data URLs. The same uploader
+// attaches the proof-of-ownership document (`ownership_doc`) an admin reviews
+// before the listing goes live — parity with the iOS/Android add-listing flows.
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import { PROPERTY_TYPES, MAX_WEB_LISTING_PHOTOS } from '@/lib/property-types'
+import { REGIONS, AMENITIES } from '@/lib/listing-options'
 import { fileToCompressedDataUrl } from '@/lib/image'
 import { DEFAULT_WEEKEND_DAYS } from '@/lib/geo'
+import { OwnershipDocField } from '../ownership-doc'
 
 const C = {
   burgundy: '#5B0F16',
@@ -115,6 +119,7 @@ export function NewListingForm() {
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
   const [country, setCountry] = useState('Egypt')
+  const [region, setRegion] = useState('')
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
   const [geo, setGeo] = useState<'idle' | 'locating' | 'fail'>('idle')
@@ -132,12 +137,19 @@ export function NewListingForm() {
   const [bathrooms, setBathrooms] = useState('1')
   const [maxGuests, setMaxGuests] = useState('2')
   const [propertyType, setPropertyType] = useState('Apartment')
+  const [amenities, setAmenities] = useState<string[]>([])
   const [photos, setPhotos] = useState<string[]>([]) // base64 data URLs
   const [photoBusy, setPhotoBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  // Proof of ownership — one compressed data URL, admin-only (never public).
+  const [ownershipDoc, setOwnershipDoc] = useState('')
 
   function toggleWeekendDay(day: number) {
     setWeekendDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()))
+  }
+
+  function toggleAmenity(value: string) {
+    setAmenities((prev) => (prev.includes(value) ? prev.filter((a) => a !== value) : [...prev, value]))
   }
 
   // Forward-geocode the typed location (scoped to the chosen country) so the map
@@ -302,7 +314,10 @@ export function NewListingForm() {
           bathrooms: num(bathrooms, 1),
           max_guests: num(maxGuests, 2),
           property_type: propertyType || undefined,
+          region: region || undefined,
+          amenities,
           images: photos,
+          ownership_doc: ownershipDoc || undefined,
         }),
       })
       if (res.status === 401) {
@@ -422,6 +437,23 @@ export function NewListingForm() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Curated browse area — the chips guests filter by (same four on mobile). */}
+      <div style={fieldWrap}>
+        <label style={label} htmlFor="region">{t('fields.region')}</label>
+        <select
+          id="region"
+          style={input}
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+        >
+          <option value="">{t('regionNone')}</option>
+          {REGIONS.map((r) => (
+            <option key={r.value} value={r.value}>{t(`regions.${r.key}`)}</option>
+          ))}
+        </select>
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: C.muted }}>{t('regionHint')}</p>
       </div>
 
       {/* Map pin — sets lat/lng; guests see an approximate area, not the exact pin. */}
@@ -573,6 +605,43 @@ export function NewListingForm() {
         </div>
       </div>
 
+      {/* Amenities — the same catalog (and the same stored values) as iOS/Android */}
+      <div style={fieldWrap}>
+        <label style={label}>{t('fields.amenities')}</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {AMENITIES.map((a) => {
+            const on = amenities.includes(a.value)
+            const Icon = a.Icon
+            return (
+              <button
+                key={a.value}
+                type="button"
+                onClick={() => toggleAmenity(a.value)}
+                aria-pressed={on}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '8px 14px',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: `1px solid ${on ? C.burgundy : 'rgba(42,34,32,0.16)'}`,
+                  background: on ? C.burgundy : '#fff',
+                  color: on ? '#fff' : C.ink,
+                }}
+              >
+                <Icon size={15} strokeWidth={1.9} />
+                {t(`amenities.${a.key}`)}
+              </button>
+            )
+          })}
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('amenitiesHint')}</p>
+      </div>
+
       {/* Photos — camera or library, compressed to base64, up to MAX_WEB_LISTING_PHOTOS */}
       <div style={fieldWrap}>
         <label style={label}>{t('fields.photos')}</label>
@@ -646,6 +715,14 @@ export function NewListingForm() {
         )}
         <p style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted }}>{t('photosHint')}</p>
       </div>
+
+      {/* Ownership document — reviewed in /ops before the listing goes live. */}
+      <OwnershipDocField
+        value={ownershipDoc}
+        onChange={setOwnershipDoc}
+        onError={setError}
+        idPrefix="new"
+      />
 
       {error && (
         <p style={{ margin: '0 0 14px', fontSize: 13.5, color: '#b3261e', fontWeight: 600 }}>{error}</p>

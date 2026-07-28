@@ -77,8 +77,10 @@ import com.quickin.app.ui.AddListingScreen
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
 import com.quickin.app.ui.ChatScreen
+import com.quickin.app.ui.EditListingScreen
 import com.quickin.app.ui.ForgotPasswordScreen
 import com.quickin.app.ui.HostAnalyticsScreen
+import com.quickin.app.ui.HostApplyScreen
 import com.quickin.app.ui.HostEarningsScreen
 import com.quickin.app.ui.HostProfileScreen
 import com.quickin.app.ui.avatarInitials
@@ -306,8 +308,8 @@ private fun MainApp() {
     val authViewModel: AuthViewModel = viewModel()
     val authState by authViewModel.state.collectAsState()
     val forgotState by authViewModel.forgot.collectAsState()
-    // Whether a "become a host" promotion is in flight (drives the Profile button spinner).
-    val becomingHost by authViewModel.becomingHost.collectAsState()
+    // Drives the "Apply to host" form (submitting spinner, inline error, submitted).
+    val hostApplyState by authViewModel.hostApply.collectAsState()
     // Whether an account deletion is in flight (drives the settings delete dialog's spinner).
     val deletingAccount by authViewModel.deletingAccount.collectAsState()
 
@@ -335,6 +337,8 @@ private fun MainApp() {
     val hostAnalyticsState by hostViewModel.analytics.collectAsState()
     // Host "My listings" tab (approval status, ownership doc, discounts, seasonal pricing).
     val hostListingsState by hostViewModel.listings.collectAsState()
+    // The host's full listing edit (every field + photos) — saving re-queues it for admin review.
+    val editListingState by hostViewModel.edit.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
     val stayDiscountState by hostViewModel.stayDiscount.collectAsState()
     val seasonalPricingState by hostViewModel.seasonalPricing.collectAsState()
@@ -398,6 +402,9 @@ private fun MainApp() {
     var selectedListing by remember { mutableStateOf<Listing?>(null) }
     // True while the host "Add a listing" route (full-screen) is open (from the Listings tab).
     var showAddListing by remember { mutableStateOf(false) }
+    // The host's own listing being edited in the full editor (every field + photos), or null.
+    // Opened from a host listing card or from the listing detail's host controls.
+    var editingListing by remember { mutableStateOf<Listing?>(null) }
     // Service whose detail (subscribe) screen is open, or null.
     var selectedService by remember { mutableStateOf<Service?>(null) }
     // Id of a reservation whose detail (QR card) screen is open, or null.
@@ -419,6 +426,8 @@ private fun MainApp() {
     var showAnalytics by remember { mutableStateOf(false) }
     // True while the profile-settings (edit profile) screen (full-screen) is open.
     var showProfileSettings by remember { mutableStateOf(false) }
+    // True while the "Apply to host" application form (full-screen) is open, from the Profile card.
+    var showHostApply by remember { mutableStateOf(false) }
     // Booking whose chat thread (full-screen) is open: (bookingId, title), or null.
     var chatBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // Pre-booking chat (guest ↔ host) opened from a listing detail's "Message host": (listingId,
@@ -625,12 +634,22 @@ private fun MainApp() {
     // Everyone shares the guest tab set, so the tab set never changes on role. We still close the
     // host "Add a listing" route when an account stops being a host (e.g. on logout / account switch).
     LaunchedEffect(isHost) {
-        if (!isHost) showAddListing = false
+        if (!isHost) {
+            showAddListing = false
+            // Same for the listing editor — only a host can have one open.
+            hostViewModel.resetEdit()
+            editingListing = null
+        }
     }
 
     // Keep the Reservations tab in sync with auth: load on sign-in, clear on sign-out.
     LaunchedEffect(authState.isAuthenticated) {
         if (authState.isAuthenticated) {
+            // FIRST: re-read the authoritative account state (`GET /api/auth/me`). The cached
+            // SharedPreferences copy only paints the first frame — is_host / host_status come from
+            // the server on every launch (and after a biometric restore), so the host surfaces can
+            // never survive on a stale local flag. A dead session (401) signs out from here.
+            authViewModel.refreshSession()
             bookingsViewModel.loadReservations()
             servicesViewModel.loadMySubscriptions()
             // Prime the bell's unread badge as soon as we have a session.
@@ -670,6 +689,9 @@ private fun MainApp() {
             showEarnings = false
             showAnalytics = false
             showProfileSettings = false
+            // Leave the host application form too, and drop whatever was typed into it.
+            showHostApply = false
+            authViewModel.resetHostApply()
             showNotifications = false
             showForgot = false
             selectedReservationId = null
@@ -718,9 +740,10 @@ private fun MainApp() {
     val forgotOpen = showForgot && !authState.isAuthenticated
     val authOpen = showAuth && !authState.isAuthenticated
     val anyOverlay = pendingPayment != null || hostProfile != null || preBookingChat != null ||
+        editingListing != null ||
         selectedListing != null ||
         selectedService != null ||
-        showMySubscriptions || showProfileSettings || showHostServices ||
+        showMySubscriptions || showProfileSettings || showHostApply || showHostServices ||
         chatBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showMessages || openConversationThread != null ||
         showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
@@ -737,10 +760,17 @@ private fun MainApp() {
             hostProfile != null -> { trustViewModel.clearHostProfile(); hostProfile = null }
             // Pre-booking chat sits above the listing detail — Back returns to that detail.
             preBookingChat != null -> preBookingChat = null
+            // The listing editor sits above the detail / host dashboard it was opened from. (It
+            // installs its own BackHandler while there are unsaved edits, which asks first.)
+            editingListing != null -> { hostViewModel.resetEdit(); editingListing = null }
             selectedListing != null -> { bookingsViewModel.resetReserve(); selectedListing = null }
             selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
             showMySubscriptions -> showMySubscriptions = false
             showProfileSettings -> showProfileSettings = false
+            showHostApply -> {
+                authViewModel.resetHostApply()
+                showHostApply = false
+            }
             showHostServices -> showHostServices = false
             chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
@@ -866,6 +896,43 @@ private fun MainApp() {
         return
     }
 
+    // HOST LISTING EDITOR — every field plus photo management, in one save that sends the listing
+    // back to the admin queue. Full-screen; opened from a host listing card or from the listing
+    // detail's host controls. Rendered above the listing detail so Back returns to whichever
+    // screen opened it.
+    val editing = editingListing
+    if (editing != null && authState.isAuthenticated) {
+        /** Leaves the editor; a save that went through refreshes the detail behind it. */
+        fun closeEditor() {
+            editListingState.saved?.let { saved ->
+                if (selectedListing?.id == saved.id) selectedListing = saved
+            }
+            hostViewModel.resetEdit()
+            editingListing = null
+        }
+        EditListingScreen(
+            listing = editing,
+            state = editListingState,
+            onBack = { closeEditor() },
+            onSave = { title, description, location, country, region, price, maxGuests, bedrooms, beds, bathrooms, propertyType, amenities, lat, lng, cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices, images, ownershipDoc ->
+                hostViewModel.updateListing(
+                    editing.id, title, description, location, country, region, price,
+                    maxGuests, bedrooms, beds, bathrooms, propertyType, amenities, lat, lng,
+                    cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices,
+                    images, ownershipDoc
+                )
+            },
+            // The same AI description writer the add-listing wizard uses.
+            aiWriter = aiWriterState,
+            onGenerateDescription = { title, location, region, propertyType, bedrooms, maxGuests, amenities, notes ->
+                hostViewModel.generateDescription(title, location, region, propertyType, bedrooms, maxGuests, amenities, notes)
+            },
+            onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
+            onClearAiWriter = hostViewModel::clearAiWriter
+        )
+        return
+    }
+
     val current = selectedListing
     // The detail view is full-screen (no bottom bar); everything else is in the Scaffold.
     if (current != null) {
@@ -946,6 +1013,8 @@ private fun MainApp() {
             onLoadHostAvailability = { availabilityViewModel.loadHost(current.id) },
             onAddBlock = { start, end, note -> availabilityViewModel.addBlock(current.id, start, end, note) },
             onRemoveBlock = { blockId -> availabilityViewModel.removeBlock(current.id, blockId) },
+            // Host-only: open the full editor over this detail (Back returns here).
+            onEditListing = { editingListing = current },
             // Trust & Safety: the host's fetched badges + the report-this-listing flow.
             hostBadges = if (hostBadgesState.hostId == current.hostId) hostBadgesState.badges
                 else com.quickin.app.TrustBadges(),
@@ -1049,6 +1118,32 @@ private fun MainApp() {
         return
     }
 
+    // "Apply to host" application form. Full-screen; opened from the Profile tab's host card, both
+    // for a first application and for a re-application after a rejection. Submitting does NOT make
+    // the user a host — the application goes to the admin queue as "pending"; once it's on file the
+    // screen closes itself and the profile card switches to the read-only "under review" state.
+    if (showHostApply && authState.isAuthenticated) {
+        HostApplyScreen(
+            state = hostApplyState,
+            onBack = {
+                authViewModel.resetHostApply()
+                showHostApply = false
+            },
+            onSubmit = { fullName, nationalId, phone, address, company, hostType, notes ->
+                authViewModel.submitHostApplication(
+                    fullName, nationalId, phone, address, company, hostType, notes
+                )
+            },
+            onSubmitted = {
+                authViewModel.resetHostApply()
+                showHostApply = false
+            },
+            accountName = authState.userName,
+            hostType = authState.hostType
+        )
+        return
+    }
+
     // Host SERVICES dashboard (Requests / My services / Add service). Full-screen; host accounts only.
     if (showHostServices && authState.isAuthenticated) {
         HostServicesScreen(
@@ -1127,7 +1222,21 @@ private fun MainApp() {
             // Guest cancellation: quote → confirm → POST, all via the detail state.
             onRequestCancel = { bookingsViewModel.loadCancellationQuote(reservationId) },
             onDismissCancel = bookingsViewModel::dismissCancelQuote,
-            onConfirmCancel = { bookingsViewModel.cancelReservation(reservationId) }
+            onConfirmCancel = { bookingsViewModel.cancelReservation(reservationId) },
+            // Stay guide: the host authors it on an approved booking; the guest reads it. The
+            // backend re-checks host ownership + confirmed status on every write.
+            onAddGuideItem = { kind, title, body, url ->
+                bookingsViewModel.addStayGuideItem(reservationId, kind, title, body, url)
+            },
+            onUpdateGuideItem = { itemId, title, body, url ->
+                bookingsViewModel.updateStayGuideItem(reservationId, itemId, title, body, url)
+            },
+            onMoveGuideItem = { index, up ->
+                bookingsViewModel.moveStayGuideItem(reservationId, index, up)
+            },
+            onDeleteGuideItem = { itemId ->
+                bookingsViewModel.deleteStayGuideItem(reservationId, itemId)
+            }
         )
         return
     }
@@ -1169,6 +1278,7 @@ private fun MainApp() {
             listingsState = hostListingsState,
             onLoadListings = hostViewModel::loadHostListings,
             onOpenListing = { listing -> selectedListing = listing },
+            onEditListing = { listing -> editingListing = listing },
             ownershipState = ownershipDocState,
             onReuploadDoc = { id, doc -> hostViewModel.reuploadOwnershipDoc(id, doc) },
             stayDiscountState = stayDiscountState,
@@ -1438,10 +1548,13 @@ private fun MainApp() {
                         onSubmitVerification = { front, back, selfie, idNumber ->
                             trustViewModel.submitVerification(front, back, selfie, idNumber)
                         },
-                        // Unified account: a non-host taps "Become a host" → POST /host/become →
-                        // isHost flips true in place and the host entries appear (no re-login).
-                        becomingHost = becomingHost,
-                        onBecomeHost = authViewModel::becomeHost,
+                        // Unified account: "Become a host" (or "Apply again" after a rejection)
+                        // opens the application form — hosting is granted by an admin approval,
+                        // never by the tap itself. The card renders the server's host_status.
+                        onOpenHostApplication = {
+                            authViewModel.resetHostApply()
+                            showHostApply = true
+                        },
                         onOpenHost = { showHost = true },
                         onOpenMySubscriptions = {
                             servicesViewModel.loadMySubscriptions()

@@ -600,9 +600,10 @@ struct ProfileSettingsView: View {
     // MARK: - Derived values
 
     /// Whether the signed-in user is a host (gold avatar accent, matching the
-    /// Profile tab).
+    /// Profile tab). Reads the server's `is_host` — the same flag every host
+    /// surface gates on — not the derived `role` string.
     private var isHost: Bool {
-        auth.user?.role?.lowercased() == "host"
+        auth.user?.isHost ?? false
     }
 
     /// Initials shown behind the avatar when no photo is set. Prefers the edited

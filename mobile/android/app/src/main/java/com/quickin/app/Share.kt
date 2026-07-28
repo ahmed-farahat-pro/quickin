@@ -26,8 +26,19 @@ object ShareLinks {
      * The public stay-pass page for a reservation, keyed by its human reservation CODE (not the
      * internal id), e.g. `https://quickin-frontend.vercel.app/stay/QK-AB12CD`. This is what the
      * in-app QR encodes so a scan (or a tap on the card) opens the deployed pass page.
+     *
+     * Returns **null** when there is no usable code. A reservation only gets a code once the host
+     * approves it, so an unconfirmed booking has none — and a stay URL must never be fabricated
+     * from a missing one (that is what produced the reported `/stay/null`). Blank codes and the
+     * literal string `"null"` are both rejected here, at the source, so no caller can build the
+     * broken URL even if a bad value slips past [optStringOrNull]. Callers hide the QR / stay link
+     * entirely when this is null.
      */
-    fun stay(reservationCode: String): String = "$base/stay/${Uri.encode(reservationCode)}"
+    fun stay(reservationCode: String?): String? {
+        val code = reservationCode?.trim()
+        if (code.isNullOrEmpty() || code.equals("null", ignoreCase = true)) return null
+        return "$base/stay/${Uri.encode(code)}"
+    }
 }
 
 /**
@@ -48,6 +59,19 @@ fun shareText(
         if (!subject.isNullOrBlank()) putExtra(Intent.EXTRA_SUBJECT, subject)
     }
     runCatching { context.startActivity(Intent.createChooser(send, chooserTitle)) }
+}
+
+/**
+ * Opens [url] in whatever handles it (browser, or QuickIn itself for our own App Links).
+ * Best-effort and null-tolerant: a blank/absent URL or a device with no handler is a silent no-op,
+ * so a tap can never crash the app. Used for the stay pass and for host-supplied place links.
+ */
+fun openLink(context: Context, url: String?) {
+    val target = url?.trim().orEmpty()
+    if (target.isEmpty()) return
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+    }
 }
 
 /**

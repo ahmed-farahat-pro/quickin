@@ -21,8 +21,27 @@ data class AuthResult(
     val provider: String,
     val role: String,
     /** True once the account has become a host (parsed from the user JSON's `is_host`). */
-    val isHost: Boolean
+    val isHost: Boolean,
+    /**
+     * The account's host-application state, derived server-side and parsed from `host_status`:
+     * "none" (no application) | "pending" (awaiting an admin) | "rejected" | "approved".
+     * `is_host = true` always means "approved" — see [parseUser].
+     */
+    val hostStatus: String = HOST_STATUS_NONE,
+    /** The applicant's host type ("individual" | "company" | "brokerage"), or null when unset. */
+    val hostType: String? = null,
+    /** The admin's reason when [hostStatus] is "rejected"; null otherwise. */
+    val hostReviewNote: String? = null
 )
+
+/** No host application on file — the profile shows the "Become a host" CTA. */
+const val HOST_STATUS_NONE = "none"
+/** Application submitted, awaiting an admin — the profile shows a read-only "under review" card. */
+const val HOST_STATUS_PENDING = "pending"
+/** Application declined — the profile shows the reason plus an "Apply again" CTA. */
+const val HOST_STATUS_REJECTED = "rejected"
+/** `users.is_host = true` — the account has the full host surfaces. */
+const val HOST_STATUS_APPROVED = "approved"
 
 /**
  * Outcome of a sign-up or a login that requires email verification first.
@@ -46,8 +65,13 @@ sealed interface AuthOutcome {
  *   POST {base}/api/auth/resend-otp {email}                         -> {pending:true,email}
  *   POST {base}/api/auth/login      {email,password}                -> {token,user} | 403 {needsVerification:true,email} | {error}
  *   POST {base}/api/auth/google     {id_token}                      -> {token,user} | {error}
+ *   GET  {base}/api/auth/me                                         -> {user} (authoritative host state)
+ *   POST {base}/api/local/host/apply {full_name,national_id,…}      -> {ok,host_status,application} | {error}
  */
 object AuthService {
+
+    /** Thrown so callers can distinguish a dead session (401) from validation/conflict (400/409). */
+    class HttpError(val code: Int, message: String) : RuntimeException(message)
 
     /**
      * Logs in with email + password. One account per person — there is no role selection: the user
@@ -225,18 +249,40 @@ object AuthService {
         if (token.isBlank()) {
             throw RuntimeException("Malformed response: missing token")
         }
-        val user = obj.optJSONObject("user")
-        val id = user?.optString("id").takeUnless { it.isNullOrBlank() }.orEmpty()
-        val email = user?.optString("email").takeUnless { it.isNullOrBlank() }.orEmpty()
-        val name = user?.optString("full_name").takeUnless { it.isNullOrBlank() }
+        // A malformed/absent user object keeps the historical fallbacks below (name "Guest", etc.).
+        return parseUser(obj.optJSONObject("user") ?: JSONObject(), token)
+    }
+
+    /**
+     * Parses a `user` object (from login / verify-otp / social / `me`) into an [AuthResult], paired
+     * with the [token] the caller already holds — `/api/auth/me` returns no token of its own.
+     *
+     * `is_host` is the single source of truth for host abilities; `host_status` is the derived
+     * application state and is forced to "approved" whenever `is_host` is true, so pre-existing
+     * hosts (no application row) and older backends that don't send the field yet keep working.
+     */
+    private fun parseUser(user: JSONObject, token: String): AuthResult {
+        val id = user.optString("id").takeUnless { it.isBlank() }.orEmpty()
+        val email = user.optString("email").takeUnless { it.isBlank() }.orEmpty()
+        val name = user.optString("full_name").takeUnless { it.isBlank() }
             ?: email.takeUnless { it.isBlank() }
             ?: "Guest"
-        val provider = user?.optString("provider").takeUnless { it.isNullOrBlank() } ?: "email"
-        // [isHost] is the source of truth; [role] is "host"|"guest" (derived from is_host server-side)
-        // and falls back to that derivation when the field is absent.
-        val isHost = user?.optBoolean("is_host", false) ?: false
-        val role = user?.optString("role").takeUnless { it.isNullOrBlank() }
+        val provider = user.optString("provider").takeUnless { it.isBlank() } ?: "email"
+        // [isHost] is the source of truth; [role] is "host"|"guest" (derived from is_host
+        // server-side) and falls back to that derivation when the field is absent. A backend that
+        // doesn't send `is_host` at all yet is read from its `role` instead — still SERVER truth,
+        // never a local flag — so a host isn't demoted mid-rollout.
+        val isHost = if (user.has("is_host") && !user.isNull("is_host")) {
+            user.optBoolean("is_host", false)
+        } else {
+            user.optString("role").equals("host", ignoreCase = true)
+        }
+        val role = user.optString("role").takeUnless { it.isBlank() }
             ?: if (isHost) "host" else "guest"
+        val hostStatus = when {
+            isHost -> HOST_STATUS_APPROVED
+            else -> user.optStringOrNull("host_status") ?: HOST_STATUS_NONE
+        }
         return AuthResult(
             token = token,
             userId = id,
@@ -244,42 +290,86 @@ object AuthService {
             email = email,
             provider = provider,
             role = role,
-            isHost = isHost
+            isHost = isHost,
+            hostStatus = hostStatus,
+            hostType = user.optStringOrNull("host_type"),
+            // Only a rejection carries a reviewer note; ignore anything else so a stale note can't
+            // linger on a re-submitted application.
+            hostReviewNote = if (hostStatus == HOST_STATUS_REJECTED) {
+                user.optStringOrNull("host_review_note")
+            } else null
         )
     }
 
     /**
-     * Promotes the signed-in account to a host (unified-account contract): `POST
-     * /api/local/host/become` with the bearer [token]. Idempotent — flips `is_host` to true and
-     * returns the updated user, which we parse so the caller can refresh [isHost] without re-login.
-     * The response carries no fresh token, so the caller keeps the current [token]. A 401 (not
-     * signed in) surfaces as a [RuntimeException].
+     * Reads a nullable string field. `optString` renders an explicit JSON null as the literal
+     * "null", so guard with `isNull` first; blanks collapse to null too.
      */
-    suspend fun becomeHost(token: String): AuthResult = withContext(Dispatchers.IO) {
-        val (status, text) = authedPost("/api/local/host/become", token)
+    private fun JSONObject.optStringOrNull(name: String): String? =
+        if (isNull(name)) null else optString(name).takeUnless { it.isBlank() }
+
+    /**
+     * Re-reads the signed-in account from `GET /api/auth/me` with the bearer [token] — the
+     * authoritative `is_host` / `host_status` / `host_type` / `host_review_note` the clients must
+     * trust on every launch. The response carries no fresh token, so the caller keeps [token].
+     * Throws [HttpError] (401 when the session is gone server-side).
+     */
+    suspend fun fetchMe(token: String): AuthResult = withContext(Dispatchers.IO) {
+        val (status, text) = authedSend("GET", "/api/auth/me", token)
         if (status !in 200..299) {
-            throw RuntimeException(extractError(text, status))
+            throw HttpError(status, extractError(text, status))
         }
-        // The endpoint returns { ok, user } (no token) — re-use the existing bearer token.
-        val user = JSONObject(text).optJSONObject("user")
-        val id = user?.optString("id").takeUnless { it.isNullOrBlank() }.orEmpty()
-        val email = user?.optString("email").takeUnless { it.isNullOrBlank() }.orEmpty()
-        val name = user?.optString("full_name").takeUnless { it.isNullOrBlank() }
-            ?: email.takeUnless { it.isBlank() }
-            ?: "Guest"
-        val provider = user?.optString("provider").takeUnless { it.isNullOrBlank() } ?: "email"
-        val isHost = user?.optBoolean("is_host", true) ?: true
-        val role = user?.optString("role").takeUnless { it.isNullOrBlank() }
-            ?: if (isHost) "host" else "guest"
-        AuthResult(
-            token = token,
-            userId = id,
-            userName = name,
-            email = email,
-            provider = provider,
-            role = role,
-            isHost = isHost
-        )
+        // A missing user object must NOT be read as "signed out with no host abilities" — the
+        // caller would then persist an empty profile over a perfectly good cached one.
+        val body = JSONObject(text)
+        val user = body.optJSONObject("user")
+        if (user == null) {
+            // This backend answers a dead/expired token with 200 {"user":null} — NOT a 401 — so
+            // that case has to be mapped here or the session would never be cleared and a cached
+            // `is_host = true` would outlive the account's host access. A 200 that also carries
+            // {"error":…} is a server-side lookup failure: keep the cached session (the caller
+            // treats a plain exception as "offline, try again next launch").
+            if (body.isNull("error")) throw HttpError(401, "Session expired")
+            throw RuntimeException("Could not read account: ${body.optString("error")}")
+        }
+        parseUser(user, token)
+    }
+
+    /**
+     * Submits — or, after a rejection, re-submits — the signed-in account's host application:
+     * `POST /api/local/host/apply` with the bearer [token]. This NEVER grants hosting; the
+     * application lands in the admin queue and only an approval flips `is_host`. [company] and
+     * [notes] are optional and omitted when blank; [hostType] is one of
+     * "individual" | "company" | "brokerage". Returns the resulting host_status ("pending").
+     * Throws [HttpError] — 401 (signed out), 400 (validation), 409 (already a host / already
+     * under review) — carrying the server's `{error}` message.
+     */
+    suspend fun applyToHost(
+        token: String,
+        fullName: String,
+        nationalId: String,
+        phone: String,
+        address: String,
+        company: String?,
+        hostType: String,
+        notes: String?
+    ): String = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("full_name", fullName.trim())
+            put("national_id", nationalId.trim())
+            put("phone", phone.trim())
+            put("address", address.trim())
+            if (!company.isNullOrBlank()) put("company", company.trim())
+            put("host_type", hostType)
+            if (!notes.isNullOrBlank()) put("notes", notes.trim())
+        }
+        val (status, text) = authedSend("POST", "/api/local/host/apply", token, body)
+        if (status !in 200..299) {
+            throw HttpError(status, extractError(text, status))
+        }
+        // 200 { ok, host_status, application } — the status is always "pending" on success.
+        runCatching { JSONObject(text).optString("host_status") }.getOrNull()
+            ?.takeUnless { it.isBlank() } ?: HOST_STATUS_PENDING
     }
 
     /**
@@ -287,7 +377,8 @@ object AuthService {
      * via `POST /api/local/account` with the bearer [token]; the backend also clears the session
      * server-side. The endpoint accepts both POST and DELETE — we use POST because Android's
      * HttpURLConnection throws a ProtocolException when a DELETE carries a request body (and
-     * [authedSend] always writes a `{}` body), whereas POST is reliable on every platform.
+     * [authedSend] writes a `{}` body on every non-GET request), whereas POST is reliable on
+     * every platform.
      * Returns Unit on the 200 `{ok:true, deleted:true}`. A non-2xx (e.g. 401 when not signed in)
      * surfaces as a [RuntimeException] carrying the server's `{error}` message — the caller is
      * responsible for clearing the local session on success.
@@ -300,46 +391,30 @@ object AuthService {
     }
 
     /**
-     * Sends an authed request with the given [method] (e.g. "POST", "DELETE"), an empty `{}` body and
-     * a Bearer [token], returning the raw (statusCode, responseText) without throwing on 4xx/5xx.
+     * Sends an authed request with the given [method] ("GET", "POST", "DELETE") and a Bearer
+     * [token], returning the raw (statusCode, responseText) without throwing on 4xx/5xx. Writing
+     * bodies are sent [body] (an empty `{}` by default); a "GET" carries no body at all.
      */
-    private fun authedSend(method: String, path: String, token: String): Pair<Int, String> {
+    private fun authedSend(
+        method: String,
+        path: String,
+        token: String,
+        body: JSONObject = JSONObject()
+    ): Pair<Int, String> {
+        val writesBody = method != "GET"
         val conn = (URL(Config.API_BASE_URL + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 15_000
             readTimeout = 15_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
+            doOutput = writesBody
+            if (writesBody) setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Authorization", "Bearer $token")
         }
         return try {
-            conn.outputStream.use { out -> out.write("{}".toByteArray(Charsets.UTF_8)) }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            code to text
-        } finally {
-            conn.disconnect()
-        }
-    }
-
-    /**
-     * POSTs to [path] with an empty body and a Bearer [token], returning the raw
-     * (statusCode, responseText) without throwing on 4xx/5xx.
-     */
-    private fun authedPost(path: String, token: String): Pair<Int, String> {
-        val conn = (URL(Config.API_BASE_URL + path).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 15_000
-            readTimeout = 15_000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Authorization", "Bearer $token")
-        }
-        return try {
-            conn.outputStream.use { out -> out.write("{}".toByteArray(Charsets.UTF_8)) }
+            if (writesBody) {
+                conn.outputStream.use { out -> out.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            }
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()

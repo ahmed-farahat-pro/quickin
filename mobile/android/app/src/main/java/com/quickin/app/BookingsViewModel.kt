@@ -46,7 +46,19 @@ data class ReservationDetailUiState(
     /** True while the cancel POST is in flight. */
     val cancelling: Boolean = false,
     /** Error from quoting / cancelling, or null. */
-    val cancelError: String? = null
+    val cancelError: String? = null,
+    /**
+     * The host-authored stay guide for this booking (`GET …/bookings/:id/stay-guide`), in the
+     * host's order. Only fetched once the reservation is approved — an unconfirmed booking can't
+     * have one, so it stays empty.
+     */
+    val guide: List<StayGuideItem> = emptyList(),
+    /** True while the stay guide is loading. */
+    val guideLoading: Boolean = false,
+    /** True while a guide item is being created / edited / reordered / deleted. */
+    val guideSaving: Boolean = false,
+    /** Error from the last stay-guide read or write, or null. */
+    val guideError: String? = null
 )
 
 /**
@@ -301,7 +313,12 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val reservation = BookingService.fetchReservation(token, bookingId)
-                _detail.value = ReservationDetailUiState(reservation = reservation)
+                _detail.value = ReservationDetailUiState(
+                    reservation = reservation,
+                    // A stay guide only exists on an approved booking; don't spend a call otherwise.
+                    guideLoading = reservation.isApproved
+                )
+                if (reservation.isApproved) loadStayGuide(bookingId)
             } catch (e: Exception) {
                 _detail.value = ReservationDetailUiState(
                     error = humanError(e, "Could not load this reservation.")
@@ -340,6 +357,172 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                 _detail.value = _detail.value.copy(
                     savingNotes = false,
                     notesError = humanError(e, "Could not save your notes.")
+                )
+            }
+        }
+    }
+
+    // ---- Stay guide (host-authored content on a confirmed booking) ------------
+
+    /**
+     * Loads the stay guide for [bookingId] (`GET …/bookings/:id/stay-guide`). Readable by the
+     * booking's guest and by the listing's host. A failure is surfaced as [guideError] and never
+     * blocks the rest of the reservation screen — the QR card must still render.
+     */
+    fun loadStayGuide(bookingId: String) {
+        val token = token() ?: return
+        _detail.value = _detail.value.copy(guideLoading = true, guideError = null)
+        viewModelScope.launch {
+            try {
+                val items = BookingService.fetchStayGuide(token, bookingId)
+                _detail.value = _detail.value.copy(guideLoading = false, guide = items, guideError = null)
+            } catch (e: Exception) {
+                _detail.value = _detail.value.copy(
+                    guideLoading = false,
+                    guideError = humanError(e, "Couldn't load the stay guide.")
+                )
+            }
+        }
+    }
+
+    /**
+     * Host-only: appends an item to [bookingId]'s stay guide. New items land at the end (one past
+     * the current highest order). The backend re-checks that the caller hosts this listing and that
+     * the booking is confirmed; a rejection surfaces as [guideError].
+     */
+    fun addStayGuideItem(
+        bookingId: String,
+        kind: StayGuideKind,
+        title: String?,
+        body: String?,
+        url: String?
+    ) {
+        if (_detail.value.guideSaving) return
+        val token = token() ?: run {
+            _detail.value = _detail.value.copy(guideError = "Please sign in to edit the stay guide.")
+            return
+        }
+        val nextOrder = (_detail.value.guide.maxOfOrNull { it.order } ?: -1) + 1
+        _detail.value = _detail.value.copy(guideSaving = true, guideError = null)
+        viewModelScope.launch {
+            try {
+                val item = BookingService.addStayGuideItem(
+                    token, bookingId, kind, title, body, url, nextOrder
+                )
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = null,
+                    guide = (_detail.value.guide + item).sortedBy { it.order }
+                )
+            } catch (e: Exception) {
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = humanError(e, "Couldn't add that to the stay guide.")
+                )
+            }
+        }
+    }
+
+    /** Host-only: edits one guide item's text / link in place. */
+    fun updateStayGuideItem(
+        bookingId: String,
+        itemId: String,
+        title: String?,
+        body: String?,
+        url: String?
+    ) {
+        if (_detail.value.guideSaving) return
+        val token = token() ?: run {
+            _detail.value = _detail.value.copy(guideError = "Please sign in to edit the stay guide.")
+            return
+        }
+        _detail.value = _detail.value.copy(guideSaving = true, guideError = null)
+        viewModelScope.launch {
+            try {
+                val updated = BookingService.updateStayGuideItem(
+                    token, bookingId, itemId, title = title, body = body, url = url
+                )
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = null,
+                    guide = _detail.value.guide.map { if (it.id == updated.id) updated else it }
+                )
+            } catch (e: Exception) {
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = humanError(e, "Couldn't save that change.")
+                )
+            }
+        }
+    }
+
+    /**
+     * Host-only: moves the item at [index] one slot [up] (or down). A no-op at the ends of the list.
+     *
+     * Rather than swapping the two `order` values — which does nothing when a guide arrived with
+     * duplicate orders (e.g. every row defaulted to 0) — this renumbers the reordered list 0..n-1
+     * and PATCHes only the rows whose number actually changed. On an already-sequential guide that
+     * is the same two requests; on a degenerate one it repairs the ordering.
+     */
+    fun moveStayGuideItem(bookingId: String, index: Int, up: Boolean) {
+        if (_detail.value.guideSaving) return
+        val items = _detail.value.guide
+        val other = if (up) index - 1 else index + 1
+        if (index !in items.indices || other !in items.indices) return
+        val token = token() ?: run {
+            _detail.value = _detail.value.copy(guideError = "Please sign in to edit the stay guide.")
+            return
+        }
+        // The original items in their new visual order; `moved[p]` still carries its OLD order, so
+        // anything whose old order isn't its new position needs a PATCH.
+        val moved = items.toMutableList().apply { add(other, removeAt(index)) }
+        val renumbered = moved.mapIndexed { position, item -> item.copy(order = position) }
+        val changed = moved.mapIndexedNotNull { position, item ->
+            if (item.order != position) item.copy(order = position) else null
+        }
+
+        _detail.value = _detail.value.copy(guideSaving = true, guideError = null)
+        viewModelScope.launch {
+            try {
+                changed.forEach { item ->
+                    BookingService.updateStayGuideItem(token, bookingId, item.id, order = item.order)
+                }
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = null,
+                    guide = renumbered
+                )
+            } catch (e: Exception) {
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = humanError(e, "Couldn't reorder the stay guide.")
+                )
+                // The PATCHes aren't atomic — re-read so the list matches the server.
+                loadStayGuide(bookingId)
+            }
+        }
+    }
+
+    /** Host-only: removes one guide item. */
+    fun deleteStayGuideItem(bookingId: String, itemId: String) {
+        if (_detail.value.guideSaving) return
+        val token = token() ?: run {
+            _detail.value = _detail.value.copy(guideError = "Please sign in to edit the stay guide.")
+            return
+        }
+        _detail.value = _detail.value.copy(guideSaving = true, guideError = null)
+        viewModelScope.launch {
+            try {
+                BookingService.deleteStayGuideItem(token, bookingId, itemId)
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = null,
+                    guide = _detail.value.guide.filterNot { it.id == itemId }
+                )
+            } catch (e: Exception) {
+                _detail.value = _detail.value.copy(
+                    guideSaving = false,
+                    guideError = humanError(e, "Couldn't remove that item.")
                 )
             }
         }

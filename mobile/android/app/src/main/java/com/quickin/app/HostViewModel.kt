@@ -29,6 +29,21 @@ data class CreateListingUiState(
     val created: Listing? = null
 )
 
+/**
+ * State for the host's full listing edit (`PATCH /api/local/listings/:id`) — every field plus the
+ * photo set, saved in one request. [listingId] tags which listing is being saved; [saved] carries
+ * the listing the backend returned, which is already back to `approval_status = "pending"` and
+ * unpublished, so the editor can confirm with the same "Under review" chip the host listings
+ * screen uses.
+ */
+data class EditListingUiState(
+    val listingId: String? = null,
+    val isSaving: Boolean = false,
+    val error: String? = null,
+    /** Set on a successful save; carries the re-queued (now under-review) listing. */
+    val saved: Listing? = null
+)
+
 /** State for the host's own listings (`GET /api/local/host/listings`). */
 data class HostListingsUiState(
     val isLoading: Boolean = false,
@@ -137,6 +152,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _listings = MutableStateFlow(HostListingsUiState())
     val listings: StateFlow<HostListingsUiState> = _listings.asStateFlow()
+
+    private val _edit = MutableStateFlow(EditListingUiState())
+    val edit: StateFlow<EditListingUiState> = _edit.asStateFlow()
 
     private val _policy = MutableStateFlow(CancellationPolicyUiState())
     val policy: StateFlow<CancellationPolicyUiState> = _policy.asStateFlow()
@@ -312,6 +330,117 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     /** Resets the create-listing form (after dismissing success, to add another). */
     fun resetCreate() {
         _create.value = CreateListingUiState()
+    }
+
+    // ---- Edit listing (full edit → back to review) -----------------------------
+
+    /**
+     * Saves the host's full edit of [listingId] (`PATCH /api/local/listings/:id`). Numeric fields
+     * are parsed with the same lenient rules as [createListing] so the two forms can't drift.
+     *
+     * [images] is the full photo set in display order (index 0 = cover), or null when the host
+     * didn't touch the photos — the editor stages add / delete / reorder / set-cover locally and
+     * persists them here, so one Save is one re-review.
+     *
+     * The backend sends the listing back to the admin queue on every successful edit, so the
+     * response is already `approval_status = "pending"`; we fold it into the host's own-listings
+     * cache, which flips the card's approval chip to "Under review" without a refetch.
+     */
+    fun updateListing(
+        listingId: String,
+        title: String,
+        description: String,
+        location: String,
+        country: String,
+        region: String?,
+        pricePerNight: String,
+        maxGuests: String,
+        bedrooms: String,
+        beds: String,
+        bathrooms: String,
+        propertyType: String,
+        amenities: List<String>,
+        lat: Double?,
+        lng: Double?,
+        cancellationPolicy: String,
+        weeklyDiscount: String,
+        monthlyDiscount: String,
+        weekendPrice: String,
+        monthlyPrices: Map<String, Double>,
+        images: List<String>?,
+        ownershipDoc: String?
+    ) {
+        if (_edit.value.isSaving) return
+        val token = token() ?: run {
+            _edit.value = EditListingUiState(listingId = listingId, error = "Please sign in as the host.")
+            return
+        }
+        // Same required-field rules the backend enforces on a PATCH, checked here so the host sees
+        // the problem without a round trip.
+        if (title.isBlank() || description.isBlank() || location.isBlank()) {
+            _edit.value = EditListingUiState(
+                listingId = listingId,
+                error = "Title, description and location are required."
+            )
+            return
+        }
+        if (region.isNullOrBlank()) {
+            _edit.value = EditListingUiState(listingId = listingId, error = "Please choose an area.")
+            return
+        }
+        val price = pricePerNight.toDoubleOrNull() ?: 0.0
+        if (price <= 0.0) {
+            _edit.value = EditListingUiState(
+                listingId = listingId,
+                error = "Price per night must be greater than 0."
+            )
+            return
+        }
+        _edit.value = EditListingUiState(listingId = listingId, isSaving = true)
+        viewModelScope.launch {
+            try {
+                val updated = BookingService.updateListing(
+                    token = token,
+                    listingId = listingId,
+                    title = title.trim(),
+                    description = description.trim(),
+                    location = location.trim(),
+                    country = country.trim(),
+                    region = region.trim(),
+                    pricePerNight = price,
+                    maxGuests = maxGuests.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    bedrooms = bedrooms.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                    beds = beds.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                    bathrooms = bathrooms.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                    propertyType = propertyType.trim().ifBlank { "House" },
+                    amenities = amenities,
+                    lat = lat,
+                    lng = lng,
+                    cancellationPolicy = cancellationPolicy,
+                    weeklyDiscount = weeklyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
+                    monthlyDiscount = monthlyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
+                    weekendPrice = weekendPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                    monthlyPrices = monthlyPrices.filterValues { it > 0.0 },
+                    images = images,
+                    ownershipDoc = ownershipDoc
+                )
+                _edit.value = EditListingUiState(listingId = listingId, saved = updated)
+                // The edit put the listing back in review — reflect that on the host's card in place.
+                _listings.value = _listings.value.copy(
+                    listings = _listings.value.listings.map { if (it.id == updated.id) updated else it }
+                )
+            } catch (e: Exception) {
+                _edit.value = EditListingUiState(
+                    listingId = listingId,
+                    error = humanError(e, "Couldn't save your changes.")
+                )
+            }
+        }
+    }
+
+    /** Clears the edit state (on leaving the editor / after the saved confirmation). */
+    fun resetEdit() {
+        _edit.value = EditListingUiState()
     }
 
     // ---- Edit cancellation policy ---------------------------------------------

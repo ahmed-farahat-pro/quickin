@@ -26,9 +26,20 @@ data class AuthUiState(
     /**
      * Whether the signed-in account has become a host. One account per person: a host keeps every
      * guest ability and reaches host features (manage listings + reservations) from their profile.
-     * Flipped without re-login by [AuthViewModel.becomeHost].
+     * ONLY the server decides this — [AuthViewModel.refreshSession] re-reads it on every launch and
+     * the host surfaces gate on it alone (never on a local flag).
      */
     val isHost: Boolean = false,
+    /**
+     * The account's host-application state: "none" | "pending" | "rejected" | "approved"
+     * (see the HOST_STATUS_* constants). Drives which of the four states the profile's host card
+     * renders; "approved" always implies [isHost].
+     */
+    val hostStatus: String = HOST_STATUS_NONE,
+    /** The applicant's host type ("individual" | "company" | "brokerage"), or null when unset. */
+    val hostType: String? = null,
+    /** The admin's reason when [hostStatus] is "rejected"; null otherwise. */
+    val hostReviewNote: String? = null,
     /**
      * Set to the email awaiting OTP verification after a sign-up (or an unverified
      * login). Non-null drives the OTP screen; cleared once verified or cancelled.
@@ -54,6 +65,19 @@ data class ForgotPasswordUiState(
 }
 
 /**
+ * State for the "Apply to host" form (`POST /api/local/host/apply`). Kept separate from the main
+ * auth spinner/error so the form's own submission doesn't fight other loads. [submitted] flips
+ * true once the application is on file — the caller closes the form and the profile card switches
+ * to the read-only "under review" state.
+ */
+data class HostApplyUiState(
+    val isSubmitting: Boolean = false,
+    /** Inline error for the form (the server's message), or null. */
+    val error: String? = null,
+    val submitted: Boolean = false
+)
+
+/**
  * Holds auth state and persists the bearer token in SharedPreferences ("qk_auth" / "token")
  * so the user stays signed in across launches. `isAuthenticated` is true whenever a token exists.
  *
@@ -65,6 +89,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    // Seeded from SharedPreferences so the first frame after a cold start isn't empty. The host
+    // fields here are a CACHE ONLY — [refreshSession] immediately re-reads them from the server and
+    // overwrites whatever is stored (including a cached `is_host = true` that is now false).
     private val _state = MutableStateFlow(
         AuthUiState(
             isAuthenticated = prefs.getString(KEY_TOKEN, null) != null,
@@ -73,7 +100,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             email = prefs.getString(KEY_EMAIL, null),
             provider = prefs.getString(KEY_PROVIDER, null),
             role = prefs.getString(KEY_ROLE, null),
-            isHost = prefs.getBoolean(KEY_IS_HOST, false)
+            isHost = prefs.getBoolean(KEY_IS_HOST, false),
+            // An app upgraded from a build that only cached `is_host` has no stored status yet —
+            // treat an existing host as approved rather than flashing the "Become a host" pitch.
+            hostStatus = prefs.getString(KEY_HOST_STATUS, null)
+                ?: if (prefs.getBoolean(KEY_IS_HOST, false)) HOST_STATUS_APPROVED else HOST_STATUS_NONE,
+            hostType = prefs.getString(KEY_HOST_TYPE, null),
+            hostReviewNote = prefs.getString(KEY_HOST_REVIEW_NOTE, null)
         )
     )
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -122,38 +155,100 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         runOutcome { AuthService.signup(name.trim(), email.trim(), password) }
     }
 
-    // ---- Become a host (unified account) --------------------------------------
+    // ---- Authoritative host state (the source of truth on every launch) --------
 
     /**
-     * Whether a "become a host" promotion is in flight (drives the button spinner in the profile).
-     * Separate from the main auth spinner so it doesn't fight other loads.
+     * Re-reads the signed-in account from `GET /api/auth/me` and lets the SERVER win.
+     *
+     * The SharedPreferences copy is only a cache for the first paint: whatever comes back here
+     * replaces it — including flipping a cached `is_host = true` back to false when an approval
+     * was never granted (or was revoked). That is the whole restart bug: without this, the host
+     * surfaces survived a relaunch on nothing but a local flag.
+     *
+     * A 401 means the session is gone server-side, so the local one is cleared. A transport
+     * failure (offline launch) keeps the cached state and is never surfaced as an error.
      */
-    private val _becomingHost = MutableStateFlow(false)
-    val becomingHost: StateFlow<Boolean> = _becomingHost.asStateFlow()
-
-    /**
-     * Promotes the signed-in account to a host via `POST /api/local/host/become` (Bearer token).
-     * On success flips [AuthUiState.isHost] to true in place — and persists it — so the host
-     * entry appears immediately without a re-login. Idempotent; surfaces a message on failure.
-     */
-    fun becomeHost() {
-        if (_becomingHost.value || !_state.value.isAuthenticated) return
+    fun refreshSession() {
         val token = currentToken() ?: return
-        _becomingHost.value = true
         viewModelScope.launch {
             try {
-                val result = AuthService.becomeHost(token)
-                prefs.edit()
-                    .putBoolean(KEY_IS_HOST, result.isHost)
-                    .putString(KEY_ROLE, result.role)
-                    .apply()
-                _state.value = _state.value.copy(isHost = result.isHost, role = result.role)
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(error = humanError(e, "Couldn't become a host."))
-            } finally {
-                _becomingHost.value = false
+                persistUser(AuthService.fetchMe(token))
+            } catch (e: AuthService.HttpError) {
+                if (e.code == 401) logout()
+            } catch (_: Exception) {
+                // Offline / unreachable — keep the cached state for this launch.
             }
         }
+    }
+
+    // ---- Become a host (application → admin review) ----------------------------
+
+    /**
+     * Drives the "Apply to host" form: submitting spinner, inline error, and the one-shot
+     * `submitted` flag the screen closes itself on.
+     */
+    private val _hostApply = MutableStateFlow(HostApplyUiState())
+    val hostApply: StateFlow<HostApplyUiState> = _hostApply.asStateFlow()
+
+    /**
+     * Submits — or, after a rejection, re-submits — the account's host application via
+     * `POST /api/local/host/apply`. Hosting is NEVER granted here: the application lands in the
+     * admin queue as "pending" and only an approval flips `is_host`. On success the cached host
+     * state moves to the returned status (clearing any previous rejection note) so the profile
+     * card switches to "under review" without waiting for the next launch.
+     *
+     * The required fields are already gated by the form's submit button; the blank guard here is
+     * belt-and-braces. A 409 ("already a host" / "already under review") means our cached state is
+     * stale, so we re-read the truth from the server before surfacing the message.
+     */
+    fun submitHostApplication(
+        fullName: String,
+        nationalId: String,
+        phone: String,
+        address: String,
+        company: String?,
+        hostType: String,
+        notes: String?
+    ) {
+        if (_hostApply.value.isSubmitting || !_state.value.isAuthenticated) return
+        if (fullName.isBlank() || nationalId.isBlank() || phone.isBlank() || address.isBlank()) return
+        val token = currentToken() ?: return
+        _hostApply.value = HostApplyUiState(isSubmitting = true)
+        viewModelScope.launch {
+            try {
+                val status = AuthService.applyToHost(
+                    token = token,
+                    fullName = fullName,
+                    nationalId = nationalId,
+                    phone = phone,
+                    address = address,
+                    company = company,
+                    hostType = hostType,
+                    notes = notes
+                )
+                prefs.edit()
+                    .putString(KEY_HOST_STATUS, status)
+                    .putString(KEY_HOST_TYPE, hostType)
+                    .remove(KEY_HOST_REVIEW_NOTE)
+                    .apply()
+                _state.value = _state.value.copy(
+                    hostStatus = status,
+                    hostType = hostType,
+                    hostReviewNote = null
+                )
+                _hostApply.value = HostApplyUiState(submitted = true)
+            } catch (e: Exception) {
+                if (e is AuthService.HttpError && e.code == 409) refreshSession()
+                _hostApply.value = HostApplyUiState(
+                    error = humanError(e, "Couldn't submit your application.")
+                )
+            }
+        }
+    }
+
+    /** Resets the apply form (on close, or once the submitted application has been acknowledged). */
+    fun resetHostApply() {
+        _hostApply.value = HostApplyUiState()
     }
 
     // ---- Delete account (Google Play account-deletion requirement) ------------
@@ -341,10 +436,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .remove(KEY_PROVIDER)
             .remove(KEY_ROLE)
             .remove(KEY_IS_HOST)
+            .remove(KEY_HOST_STATUS)
+            .remove(KEY_HOST_TYPE)
+            .remove(KEY_HOST_REVIEW_NOTE)
             .apply()
         // Keep the biometric session so the fingerprint button appears on the next login.
         // Drop any pending "enable biometric" offer too.
         _biometricEnrollOffer.value = null
+        _hostApply.value = HostApplyUiState()
         _state.value = AuthUiState(isAuthenticated = false)
     }
 
@@ -425,6 +524,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .putString(KEY_PROVIDER, result.provider)
             .putString(KEY_ROLE, result.role)
             .putBoolean(KEY_IS_HOST, result.isHost)
+            .putString(KEY_HOST_STATUS, hostStatusOf(result))
+            .putString(KEY_HOST_TYPE, result.hostType)
+            .putString(KEY_HOST_REVIEW_NOTE, result.hostReviewNote)
             .apply()
         _state.value = AuthUiState(
             isAuthenticated = true,
@@ -435,6 +537,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             provider = result.provider,
             role = result.role,
             isHost = result.isHost,
+            hostStatus = hostStatusOf(result),
+            hostType = result.hostType,
+            hostReviewNote = result.hostReviewNote,
             pendingEmail = null
         )
         // Offer biometric enrollment only for password-derived logins, and only when the device can
@@ -445,6 +550,44 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 !isSessionAlreadyEnrolled(result)
             ) result else null
     }
+
+    /**
+     * Applies the account state returned by `GET /api/auth/me` over the cached one, keeping the
+     * current token (that response carries none) and leaving the OTP / biometric-offer state alone.
+     * Everything else — including `is_host` — is replaced, never merged: the server always wins.
+     */
+    private fun persistUser(result: AuthResult) {
+        prefs.edit()
+            .putString(KEY_USER_ID, result.userId)
+            .putString(KEY_NAME, result.userName)
+            .putString(KEY_EMAIL, result.email)
+            .putString(KEY_PROVIDER, result.provider)
+            .putString(KEY_ROLE, result.role)
+            .putBoolean(KEY_IS_HOST, result.isHost)
+            .putString(KEY_HOST_STATUS, hostStatusOf(result))
+            .putString(KEY_HOST_TYPE, result.hostType)
+            .putString(KEY_HOST_REVIEW_NOTE, result.hostReviewNote)
+            .apply()
+        _state.value = _state.value.copy(
+            userId = result.userId.takeUnless { it.isBlank() },
+            userName = result.userName,
+            email = result.email,
+            provider = result.provider,
+            role = result.role,
+            isHost = result.isHost,
+            hostStatus = hostStatusOf(result),
+            hostType = result.hostType,
+            hostReviewNote = result.hostReviewNote
+        )
+    }
+
+    /**
+     * The host state to cache for [result]: `is_host = true` ALWAYS means "approved", so a host
+     * with no application row at all (or a biometric session restored without the derived field)
+     * can never fall back to the "Become a host" CTA.
+     */
+    private fun hostStatusOf(result: AuthResult): String =
+        if (result.isHost) HOST_STATUS_APPROVED else result.hostStatus
 
     /** True when [result] is already the session stored for biometric login (avoid re-offering). */
     private fun isSessionAlreadyEnrolled(result: AuthResult): Boolean {
@@ -494,5 +637,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         const val KEY_PROVIDER = "provider"
         const val KEY_ROLE = "role"
         const val KEY_IS_HOST = "is_host"
+        const val KEY_HOST_STATUS = "host_status"
+        const val KEY_HOST_TYPE = "host_type"
+        const val KEY_HOST_REVIEW_NOTE = "host_review_note"
     }
 }

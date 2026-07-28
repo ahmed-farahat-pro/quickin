@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getListings, createListing } from '@/lib/local/db'
+import { getListings, createListing, isListingInputError } from '@/lib/local/db'
 import { getUserFromRequest } from '@/lib/local/auth'
 
 // Local-only API (no Supabase). GET /api/local/listings → JSON array.
 // Supports search: ?location=&guests=&checkIn=YYYY-MM-DD&checkOut=YYYY-MM-DD
 // Consumed by the /explore web page and the iOS + Android apps.
-//   POST /api/local/listings { ...listing fields, images? } → { listing } (auth; host_id = caller)
+//   POST /api/local/listings { ...listing fields, images?, ownership_doc? } → { listing }
+//        (auth; host_id = caller). The ownership doc is the proof-of-ownership
+//        image an admin reviews in /ops before the listing goes live.
 export const dynamic = 'force-dynamic'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
 
@@ -75,15 +77,21 @@ export async function POST(req: Request) {
       bathrooms: num(body.bathrooms),
       max_guests: num(body.max_guests),
       property_type: body.property_type ?? undefined,
+      // Curated area + amenity chips — same catalogs the edit form uses.
+      region: body.region ?? undefined,
+      amenities: Array.isArray(body.amenities) ? body.amenities : undefined,
       images: Array.isArray(body.images)
         ? body.images.filter(isImageSrc).map((u: string) => u.trim())
         : undefined,
+      // Same alias pair the mobile apps send (ownership_doc / ownershipDoc).
+      ownership_doc: body.ownership_doc ?? body.ownershipDoc ?? undefined,
     })
     return NextResponse.json({ listing }, { status: 201, headers: CORS })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('POST /api/local/listings failed:', err)
-    if (/Invalid|required/i.test(msg)) {
+    // Same split as PATCH: a fixable input problem answers 400 with its reason.
+    if (isListingInputError(err) || /Invalid|required|attach a photo|too large/i.test(msg)) {
       return NextResponse.json({ error: msg }, { status: 400, headers: CORS })
     }
     return NextResponse.json({ error: 'Failed to create listing' }, { status: 500, headers: CORS })

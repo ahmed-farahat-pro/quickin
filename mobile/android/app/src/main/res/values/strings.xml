@@ -305,6 +305,9 @@
     <string name="instapay_loading">Loading transfer details…</string>
     <string name="instapay_load_error">Couldn\'t load the transfer details. Please try again.</string>
     <string name="instapay_no_handle">The host hasn\'t set up Instapay yet — please contact them.</string>
+    <string name="instapay_scan_hint">Scan with your banking app</string>
+    <string name="instapay_open">Open in Instapay</string>
+    <string name="instapay_open_failed">Couldn\'t open that link.</string>
     <string name="instapay_add_screenshot">Add transfer screenshot</string>
     <string name="instapay_change_screenshot">Change screenshot</string>
     <string name="instapay_submit">I\'ve paid — submit screenshot</string>

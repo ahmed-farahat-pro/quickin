@@ -298,6 +298,9 @@
     <string name="instapay_loading">جارٍ تحميل تفاصيل التحويل…</string>
     <string name="instapay_load_error">تعذّر تحميل تفاصيل التحويل. حاول مرة أخرى.</string>
     <string name="instapay_no_handle">لم يقم المضيف بإعداد إنستاباي بعد — يرجى التواصل معه.</string>
+    <string name="instapay_scan_hint">امسح الرمز بتطبيق البنك</string>
+    <string name="instapay_open">افتح في إنستاباي</string>
+    <string name="instapay_open_failed">تعذّر فتح الرابط.</string>
     <string name="instapay_add_screenshot">أضف لقطة شاشة التحويل</string>
     <string name="instapay_change_screenshot">تغيير لقطة الشاشة</string>
     <string name="instapay_submit">لقد دفعت — إرسال لقطة الشاشة</string>

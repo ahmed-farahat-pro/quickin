@@ -254,6 +254,9 @@
     <string name="instapay_loading">Cargando los datos de la transferencia…</string>
     <string name="instapay_load_error">No se pudieron cargar los datos de la transferencia. Inténtalo de nuevo.</string>
     <string name="instapay_no_handle">El anfitrión aún no ha configurado Instapay; ponte en contacto con él.</string>
+    <string name="instapay_scan_hint">Escanea con tu app bancaria</string>
+    <string name="instapay_open">Abrir en Instapay</string>
+    <string name="instapay_open_failed">No se pudo abrir el enlace.</string>
     <string name="instapay_add_screenshot">Añadir captura de la transferencia</string>
     <string name="instapay_change_screenshot">Cambiar captura</string>
     <string name="instapay_submit">Ya pagué — enviar captura</string>

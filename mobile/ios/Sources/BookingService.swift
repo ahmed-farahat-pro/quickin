@@ -121,9 +121,10 @@ struct BookingService {
     // MARK: - Instapay (manual bank transfer)
 
     /// Load the Instapay transfer destination shown to the guest at checkout via
-    /// `GET /api/local/payment-config` (Bearer) → `{ instapay_handle, instructions }`.
-    /// The guest sends the transfer to `handle` and follows `instructions`, then
-    /// uploads a screenshot with `submitPaymentProof`. Throws
+    /// `GET /api/local/payment-config` (Bearer) → the handle, instructions, deep
+    /// link and QR. The guest sends the transfer to `handle` (or taps through the
+    /// link / scans the QR) and follows `instructions`, then uploads a screenshot
+    /// with `submitPaymentProof`. Throws
     /// `BookingError.notSignedIn` (no token / 401).
     func getPaymentConfig() async throws -> PaymentConfig {
         guard let token else { throw BookingError.notSignedIn }
@@ -739,25 +740,59 @@ private struct AlreadyPaidBody: Decodable {
 }
 
 /// The Instapay transfer destination shown to the guest at checkout, from
-/// `GET /api/local/payment-config` → `{ instapay_handle, instructions }`.
+/// `GET /api/local/payment-config` →
+/// `{ instapay_handle, instructions, instapay_link, instapay_qr_image, qr_payload }`.
 /// `handle` is the Instapay address the guest sends money to; `instructions` is
-/// free-text guidance from the host/admin (may be empty). Admin-editable via
-/// `/api/local/admin/settings/instapay`.
+/// free-text guidance from the host/admin (may be empty). The number, the QR and
+/// the deep link are all admin-editable via `/api/local/admin/settings/instapay`
+/// (web `/ops/payments`); any of them may be blank.
 struct PaymentConfig: Decodable, Hashable {
     /// The Instapay handle/address the guest transfers to (may be empty if unset).
     let handle: String
     /// Free-text transfer instructions to show alongside the handle (may be empty).
     let instructions: String
+    /// Deep link that opens Instapay on the account, e.g. `https://ipn.eg/S/…`.
+    let link: String
+    /// The admin's uploaded QR as a base64 data URL. Empty ⇒ draw one from `qrPayload`.
+    let qrImage: String
+    /// What to encode when we draw the QR ourselves: the link if set, else the handle.
+    let qrPayload: String
 
     enum CodingKeys: String, CodingKey {
         case handle = "instapay_handle"
         case instructions
+        case link = "instapay_link"
+        case qrImage = "instapay_qr_image"
+        case qrPayload = "qr_payload"
     }
 
+    /// Every field is optional so a build running against an API that predates the
+    /// QR/link keys still decodes — a missing key reads as empty rather than
+    /// failing the whole response. `qrPayload` is derived the same way the server
+    /// derives it when the response omits it.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         handle = (try c.decodeIfPresent(String.self, forKey: .handle)) ?? ""
         instructions = (try c.decodeIfPresent(String.self, forKey: .instructions)) ?? ""
+        link = (try c.decodeIfPresent(String.self, forKey: .link)) ?? ""
+        qrImage = (try c.decodeIfPresent(String.self, forKey: .qrImage)) ?? ""
+        let payload = (try c.decodeIfPresent(String.self, forKey: .qrPayload)) ?? ""
+        qrPayload = payload.isEmpty ? (link.isEmpty ? handle : link) : payload
+    }
+
+    /// False until an admin has set a destination — the UI blocks payment when
+    /// there is neither a handle nor a link to send money to.
+    var isConfigured: Bool {
+        !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The deep link as a URL, when it is a well-formed web link. http(s) only —
+    /// the server validates the same way, so anything else is treated as unset.
+    var linkURL: URL? {
+        let s = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard s.hasPrefix("http://") || s.hasPrefix("https://") else { return nil }
+        return URL(string: s)
     }
 }
 

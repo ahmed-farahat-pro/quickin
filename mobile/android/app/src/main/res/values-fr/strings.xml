@@ -254,6 +254,9 @@
     <string name="instapay_loading">Chargement des détails du virement…</string>
     <string name="instapay_load_error">Impossible de charger les détails du virement. Veuillez réessayer.</string>
     <string name="instapay_no_handle">L\'hôte n\'a pas encore configuré Instapay — veuillez le contacter.</string>
+    <string name="instapay_scan_hint">Scannez avec votre application bancaire</string>
+    <string name="instapay_open">Ouvrir dans Instapay</string>
+    <string name="instapay_open_failed">Impossible d\'ouvrir ce lien.</string>
     <string name="instapay_add_screenshot">Ajouter la capture du virement</string>
     <string name="instapay_change_screenshot">Changer la capture</string>
     <string name="instapay_submit">J\'ai payé — envoyer la capture</string>

@@ -197,23 +197,52 @@ object BookingService {
     /**
      * The transfer destination + notes for the Instapay bank-transfer flow
      * (`GET /api/local/payment-config`, Bearer): the [instapayHandle] the guest sends money to and
-     * free-text [instructions] to show alongside it.
+     * free-text [instructions] to show alongside it, plus the admin-configured
+     * [instapayLink] (a deep link that opens Instapay) and [instapayQrImage] (an uploaded QR as a
+     * base64 data URL). All four are set in the web ops panel and any of them may be blank.
+     *
+     * [qrPayload] is what a client encodes when drawing the QR itself — the link when there is
+     * one, else the handle.
      */
     data class PaymentConfig(
         val instapayHandle: String,
-        val instructions: String
-    )
+        val instructions: String,
+        val instapayLink: String = "",
+        val instapayQrImage: String = "",
+        val qrPayload: String = ""
+    ) {
+        /**
+         * True once there is somewhere to send money. A link alone is enough, so a link-only
+         * destination is still payable.
+         */
+        val isConfigured: Boolean
+            get() = instapayHandle.isNotBlank() || instapayLink.isNotBlank()
+
+        /** The deep link when it is a well-formed web link — http(s) only, as the server validates. */
+        val linkOrNull: String?
+            get() = instapayLink.trim().takeIf { it.startsWith("http://") || it.startsWith("https://") }
+    }
 
     /**
      * Loads the Instapay transfer destination + instructions to show the guest
      * (`GET /api/local/payment-config`, Bearer). Throws [HttpError] (401 when not signed in).
+     *
+     * Every field is read with a default so a build running against an API that predates the
+     * QR/link keys still works; [PaymentConfig.qrPayload] is derived the same way the server
+     * derives it when the response omits it.
      */
     suspend fun getPaymentConfig(token: String): PaymentConfig = withContext(Dispatchers.IO) {
         val text = get(token, "/api/local/payment-config")
         val o = JSONObject(text)
+        val handle = o.optStringOr("instapay_handle", "")
+        val link = o.optStringOr("instapay_link", "")
+        val payload = o.optStringOr("qr_payload", "")
         PaymentConfig(
-            instapayHandle = o.optStringOr("instapay_handle", ""),
-            instructions = o.optStringOr("instructions", "")
+            instapayHandle = handle,
+            instructions = o.optStringOr("instructions", ""),
+            instapayLink = link,
+            instapayQrImage = o.optStringOr("instapay_qr_image", ""),
+            qrPayload = payload.ifBlank { link.ifBlank { handle } }
         )
     }
 

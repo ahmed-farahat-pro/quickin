@@ -41,6 +41,9 @@ struct PaymentSheet: View {
     @State private var config: PaymentConfig?
     @State private var isLoadingConfig = false
     @State private var configFailed = false
+    /// The QR to show: the admin's uploaded image, or one drawn from `qrPayload`.
+    /// Resolved once in `loadConfig()` so the body never regenerates it.
+    @State private var qrImage: UIImage?
 
     // MARK: - Picked screenshot
 
@@ -64,6 +67,11 @@ struct PaymentSheet: View {
     private var instructions: String {
         config?.instructions.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
+    /// The admin's Instapay deep link, when they set a well-formed http(s) one.
+    private var linkURL: URL? { config?.linkURL }
+    /// True once there is somewhere to send money — a handle OR a link is enough,
+    /// so a link-only destination is still a payable one.
+    private var isConfigured: Bool { config?.isConfigured ?? false }
     /// Pluralized "night" / "nights".
     private var nightsWord: String {
         loc.t(nights == 1 ? "common.night" : "common.nights")
@@ -170,19 +178,28 @@ struct PaymentSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else if configFailed {
                 errorLine(loc.t("instapay.loadError"))
-            } else if handle.isEmpty {
+            } else if !isConfigured {
                 Text(loc.t("instapay.noHandle"))
                     .font(.subheadline)
                     .foregroundStyle(Color.qkInk)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                HStack(spacing: 10) {
-                    Text(handle)
-                        .font(.system(.body, design: .monospaced).weight(.bold))
-                        .foregroundStyle(Color.qkInk)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    copyButton
+                if let qrImage {
+                    qrBlock(qrImage)
+                }
+                // A link-only destination is valid, so the handle row is conditional.
+                if !handle.isEmpty {
+                    HStack(spacing: 10) {
+                        Text(handle)
+                            .font(.system(.body, design: .monospaced).weight(.bold))
+                            .foregroundStyle(Color.qkInk)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        copyButton
+                    }
+                }
+                if let linkURL {
+                    openInstapayButton(linkURL)
                 }
                 if !instructions.isEmpty {
                     Divider()
@@ -196,6 +213,45 @@ struct PaymentSheet: View {
         .padding(16)
         .frame(maxWidth: .infinity)
         .qkCard()
+    }
+
+    /// The scannable QR: the admin's uploaded image when there is one, otherwise
+    /// the one drawn from `qr_payload` (the link if set, else the handle).
+    private func qrBlock(_ image: UIImage) -> some View {
+        VStack(spacing: 8) {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.none)          // keep the modules square, never blurred
+                .scaledToFit()
+                .frame(width: 148, height: 148)
+                .padding(8)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.qkTan, lineWidth: 1)
+                )
+            Text(loc.t("instapay.scanHint"))
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Hands the deep link to the system so Instapay opens when it claims the
+    /// domain (universal link), falling back to Safari when it doesn't. Nothing
+    /// reports back — the guest still uploads a screenshot afterwards.
+    private func openInstapayButton(_ url: URL) -> some View {
+        Link(destination: url) {
+            Label(loc.t("instapay.openInstapay"), systemImage: "arrow.up.forward.app")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .frame(height: 46)
+                .background(LinearGradient.qkBurgundyCTA)
+                .foregroundStyle(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
     }
 
     /// The Copy button beside the handle — copies to the pasteboard and briefly
@@ -374,10 +430,27 @@ struct PaymentSheet: View {
         configFailed = false
         defer { isLoadingConfig = false }
         do {
-            config = try await BookingService.shared.getPaymentConfig()
+            let loaded = try await BookingService.shared.getPaymentConfig()
+            config = loaded
+            // Resolve the QR once, here, rather than on every body pass: prefer the
+            // admin's uploaded image, else draw one from the payload with CoreImage.
+            qrImage = Self.decodeDataURL(loaded.qrImage)
+                ?? (loaded.qrPayload.isEmpty ? nil : QRCodeGenerator.image(from: loaded.qrPayload))
         } catch {
             configFailed = true
         }
+    }
+
+    /// Decode an inline `data:image/…;base64,…` URL (the World-1 image convention)
+    /// into a `UIImage`. Returns `nil` for an empty or malformed value.
+    private static func decodeDataURL(_ s: String) -> UIImage? {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("data:image/"),
+              let comma = trimmed.firstIndex(of: ","),
+              let data = Data(base64Encoded: String(trimmed[trimmed.index(after: comma)...]),
+                              options: .ignoreUnknownCharacters)
+        else { return nil }
+        return UIImage(data: data)
     }
 
     /// Decode the picked photo into a `UIImage` off the main thread.

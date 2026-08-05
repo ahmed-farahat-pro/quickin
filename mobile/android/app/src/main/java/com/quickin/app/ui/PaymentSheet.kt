@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.quickin.app.AvatarImage
 import com.quickin.app.BookingService
 import com.quickin.app.PaymentUiState
+import com.quickin.app.Qr
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.CreamPage
@@ -275,37 +280,106 @@ private fun InstapayPayBody(
                 configError || config == null -> {
                     Text(stringResource(R.string.instapay_load_error), color = ErrorRed, fontSize = 14.sp)
                 }
-                config!!.instapayHandle.isBlank() -> {
+                !config!!.isConfigured -> {
                     Text(stringResource(R.string.instapay_no_handle), color = Ink, fontSize = 14.sp)
                 }
                 else -> {
                     val cfg = config!!
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            cfg.instapayHandle,
-                            color = Ink,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedButton(
+                    // Resolve the QR once per config rather than on every recomposition: the
+                    // admin's uploaded image when there is one, else encode qr_payload (the
+                    // link if set, else the handle) locally with the bundled ZXing core.
+                    val qr = remember(cfg.instapayQrImage, cfg.qrPayload) {
+                        AvatarImage.decodeDataUrlToBitmap(cfg.instapayQrImage.takeIf { it.isNotBlank() })
+                            ?: cfg.qrPayload.takeIf { it.isNotBlank() }?.let { Qr.bitmap(it) }
+                    }
+                    if (qr != null) {
+                        val qrShape = RoundedCornerShape(14.dp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            androidx.compose.foundation.Image(
+                                bitmap = qr.asImageBitmap(),
+                                contentDescription = stringResource(R.string.instapay_scan_hint),
+                                // Nearest-neighbour keeps the QR modules square instead of blurring
+                                // them when the small bitmap is scaled up.
+                                filterQuality = FilterQuality.None,
+                                modifier = Modifier
+                                    .size(164.dp)
+                                    .clip(qrShape)
+                                    .background(Color.White, qrShape)
+                                    .border(1.dp, Tan, qrShape)
+                                    .padding(8.dp)
+                            )
+                            Text(
+                                stringResource(R.string.instapay_scan_hint),
+                                color = Muted,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    // A link-only destination is valid, so the handle row is conditional.
+                    if (cfg.instapayHandle.isNotBlank()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                cfg.instapayHandle,
+                                color = Ink,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    clipboard.setText(AnnotatedString(cfg.instapayHandle))
+                                    android.widget.Toast
+                                        .makeText(context, context.getString(R.string.instapay_copied), android.widget.Toast.LENGTH_SHORT)
+                                        .show()
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
+                                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy)
+                            ) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.instapay_copy), modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.instapay_copy), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                    // Hands the deep link to the system: Instapay opens when it has verified the
+                    // host as an App Link, otherwise the browser does. Nothing reports back — the
+                    // guest still uploads a screenshot below.
+                    cfg.linkOrNull?.let { link ->
+                        Button(
                             onClick = {
-                                clipboard.setText(AnnotatedString(cfg.instapayHandle))
-                                android.widget.Toast
-                                    .makeText(context, context.getString(R.string.instapay_copied), android.widget.Toast.LENGTH_SHORT)
-                                    .show()
+                                val opened = runCatching {
+                                    context.startActivity(
+                                        android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(link)
+                                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }.isSuccess
+                                if (!opened) {
+                                    android.widget.Toast
+                                        .makeText(context, context.getString(R.string.instapay_open_failed), android.widget.Toast.LENGTH_SHORT)
+                                        .show()
+                                }
                             },
                             shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy)
+                            colors = ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
                         ) {
-                            Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.instapay_copy), modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.instapay_copy), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.instapay_open), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         }
                     }
                     if (cfg.instructions.isNotBlank()) {

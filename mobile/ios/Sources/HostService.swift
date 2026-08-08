@@ -473,6 +473,13 @@ struct HostService {
         try await get("\(Config.apiBaseURL)/api/local/host/listings", as: [Listing].self)
     }
 
+    /// The platform commission, so the add/edit-listing screens can tell a host
+    /// what guests will pay for the price they are typing. Auth-gated server-side:
+    /// guests see one inclusive price, and the rate divides back out to the raw one.
+    func fetchCommission() async throws -> CommissionInfo {
+        try await get("\(Config.apiBaseURL)/api/local/host/commission", as: CommissionInfo.self)
+    }
+
     /// Confirm or reject a pending reservation. `action` is `confirm` or `reject`.
     @discardableResult
     func updateBooking(id: String, action: HostBookingAction) async throws -> HostBooking? {

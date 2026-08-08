@@ -180,6 +180,10 @@ struct AddListingView: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+    /// The platform commission, so the price fields can show the host what a
+    /// guest will actually pay. Advisory only — the server prices the listing
+    /// either way — so a failed fetch just leaves the hint hidden.
+    @State private var commission: CommissionInfo?
 
     // MARK: AI description writer (Section 10)
 
@@ -275,7 +279,8 @@ struct AddListingView: View {
                             isProcessingDoc: isProcessingDoc,
                             photos: $photos,
                             photoItems: $photoItems,
-                            encodingPhotos: encodingPhotos
+                            encodingPhotos: encodingPhotos,
+                            commission: commission
                         ) }
                         .tag(3)
 
@@ -318,6 +323,7 @@ struct AddListingView: View {
         }
         .tint(.qkBurgundy)
         .onAppear { bindLocationCallback() }
+        .task { commission = try? await HostService.shared.fetchCommission() }
         // Downscale + encode a freshly-picked ownership document into a data URL.
         .onChange(of: ownershipDocItem) { _, item in
             Task { await processOwnershipDoc(item) }
@@ -863,6 +869,8 @@ private struct DetailsStep: View {
     @Binding var photos: [ListingPhotoDraft]
     @Binding var photoItems: [PhotosPickerItem]
     let encodingPhotos: Bool
+    /// Drives the "guests will see EGP X" hints. nil until the rate loads.
+    let commission: CommissionInfo?
 
     var body: some View {
         FieldLabel("Capacity")
@@ -897,6 +905,7 @@ private struct DetailsStep: View {
         .frame(height: 52)
         .background(Color.qkCream)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        GuestPriceHint(priceText: priceText, commission: commission)
 
         FieldLabel(L.t("listing.photos"))
         Text(L.t("listing.photosIntro"))
@@ -927,6 +936,7 @@ private struct DetailsStep: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, -4)
         SeasonalPricingFields(weekend: $weekendPrice, months: $monthlyPrices)
+        GuestPriceHint(priceText: weekendPrice, commission: commission)
 
         FieldLabel(L.t("approval.ownershipDoc"))
         Text(L.t("approval.ownershipIntro"))
@@ -1306,6 +1316,38 @@ private struct ReviewStep: View {
 
 // MARK: - Reusable wizard building blocks
 
+/// "Guests will see EGP X" — shown under every price field in the host forms.
+///
+/// Hosts type the amount they want to RECEIVE. Guests are quoted that amount
+/// plus the platform commission, so without this a host has no idea what their
+/// listing actually costs to book. Says nothing until there is a real price: an
+/// empty field isn't an error, and "Guests will see EGP 0" is worse than silence.
+struct GuestPriceHint: View {
+    /// The raw text straight out of the field — may be blank or junk mid-typing.
+    let priceText: String
+    /// nil while the rate is still loading, or if the fetch failed.
+    let commission: CommissionInfo?
+
+    var body: some View {
+        if let commission,
+           let raw = Double(priceText.trimmingCharacters(in: .whitespaces)),
+           let guest = commission.guestPrice(for: raw) {
+            (Text("Guests will see ")
+                .foregroundStyle(Color.qkMuted)
+             + Text("EGP \(Int(guest))")
+                .foregroundStyle(Color.qkBurgundy)
+                .fontWeight(.semibold)
+             + Text(commission.rate > 0
+                    ? " · includes QuickIn's \(commission.percentText)% commission — you receive the price you entered"
+                    : "")
+                .foregroundStyle(Color.qkMuted))
+                .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, -4)
+        }
+    }
+}
+
 /// A small uppercase-ish field label, with an optional required asterisk.
 private struct FieldLabel: View {
     let text: String
@@ -1526,6 +1568,10 @@ struct EditListingView: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+    /// The platform commission, so the price fields can show the host what a
+    /// guest will actually pay. Advisory only — the server prices the listing
+    /// either way — so a failed fetch just leaves the hint hidden.
+    @State private var commission: CommissionInfo?
     /// Drives the "this sends your listing back for review" confirmation.
     @State private var showingConfirm = false
     /// Set once the save succeeded — shows the "Under review" confirmation.
@@ -1647,7 +1693,8 @@ struct EditListingView: View {
                             isProcessingDoc: isProcessingDoc,
                             photos: $photos,
                             photoItems: $photoItems,
-                            encodingPhotos: encodingPhotos
+                            encodingPhotos: encodingPhotos,
+                            commission: commission
                         ) }
                         .tag(3)
 
@@ -1697,6 +1744,7 @@ struct EditListingView: View {
         .tint(.qkBurgundy)
         .interactiveDismissDisabled(isSaving)
         .onAppear { bindLocationCallback() }
+        .task { commission = try? await HostService.shared.fetchCommission() }
         .onChange(of: ownershipDocItem) { _, item in
             Task { await processOwnershipDoc(item) }
         }

@@ -153,6 +153,24 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     private val _listings = MutableStateFlow(HostListingsUiState())
     val listings: StateFlow<HostListingsUiState> = _listings.asStateFlow()
 
+    /**
+     * The platform commission, so the add/edit-listing screens can show a host what a guest
+     * will pay for the price they are typing. Null until loaded. Advisory only — the server
+     * prices the listing either way — so a failed fetch just leaves the hint hidden.
+     */
+    private val _commission = MutableStateFlow<Commission?>(null)
+    val commission: StateFlow<Commission?> = _commission.asStateFlow()
+
+    /** Loads the platform commission (`GET /api/local/host/commission`). Silent on failure. */
+    fun loadCommission() {
+        if (_commission.value != null) return
+        val token = token() ?: return
+        viewModelScope.launch {
+            runCatching { BookingService.fetchCommission(token) }
+                .onSuccess { _commission.value = it }
+        }
+    }
+
     private val _edit = MutableStateFlow(EditListingUiState())
     val edit: StateFlow<EditListingUiState> = _edit.asStateFlow()
 

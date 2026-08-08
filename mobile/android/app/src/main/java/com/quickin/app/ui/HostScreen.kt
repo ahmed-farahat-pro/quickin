@@ -100,7 +100,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -108,6 +111,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.AvatarImage
+import com.quickin.app.Commission
 import com.quickin.app.Config
 import com.quickin.app.CreateListingUiState
 import com.quickin.app.HostBooking
@@ -200,7 +204,9 @@ fun HostScreen(
         bedrooms: Int, maxGuests: Int, amenities: List<String>, notes: String
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
-    onClearAiWriter: () -> Unit = {}
+    onClearAiWriter: () -> Unit = {},
+    /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
+    commission: Commission? = null
 ) {
     var tab by remember { mutableIntStateOf(0) }
 
@@ -289,7 +295,8 @@ fun HostScreen(
                     aiWriter = aiWriter,
                     onGenerateDescription = onGenerateDescription,
                     onConsumeGeneratedDescription = onConsumeGeneratedDescription,
-                    onClearAiWriter = onClearAiWriter
+                    onClearAiWriter = onClearAiWriter,
+                    commission = commission
                 )
                 else -> HostListingsScreen(
                     state = listingsState,
@@ -1182,7 +1189,9 @@ fun AddListingScreen(
         bedrooms: Int, maxGuests: Int, amenities: List<String>, notes: String
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
-    onClearAiWriter: () -> Unit = {}
+    onClearAiWriter: () -> Unit = {},
+    /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
+    commission: Commission? = null
 ) {
     Scaffold(
         containerColor = CreamPage,
@@ -1211,7 +1220,8 @@ fun AddListingScreen(
                 aiWriter = aiWriter,
                 onGenerateDescription = onGenerateDescription,
                 onConsumeGeneratedDescription = onConsumeGeneratedDescription,
-                onClearAiWriter = onClearAiWriter
+                onClearAiWriter = onClearAiWriter,
+                commission = commission
             )
         }
     }
@@ -1565,7 +1575,9 @@ private fun AddListingTab(
         bedrooms: Int, maxGuests: Int, amenities: List<String>, notes: String
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
-    onClearAiWriter: () -> Unit = {}
+    onClearAiWriter: () -> Unit = {},
+    /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
+    commission: Commission? = null
 ) {
     // A created listing replaces the wizard with a success card.
     if (state.created != null) {
@@ -1781,7 +1793,8 @@ private fun AddListingTab(
                             docPicker.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
-                        }
+                        },
+                        commission = commission
                     )
                     else -> StepReview(
                         title = title, propertyType = propertyType, region = region,
@@ -2024,6 +2037,35 @@ private fun RegionChip(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
+/**
+ * "Guests will see EGP X" — shown under every price field in the host forms.
+ *
+ * Hosts type the amount they want to RECEIVE. Guests are quoted that amount plus the platform
+ * commission, so without this a host has no idea what their listing actually costs to book.
+ * Renders nothing until there is a real price: an empty field isn't an error, and
+ * "Guests will see EGP 0" is worse than silence.
+ */
+@Composable
+internal fun GuestPriceHint(priceText: String, commission: Commission?) {
+    val guest = commission?.guestPrice(priceText.trim().toDoubleOrNull() ?: 0.0) ?: return
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = Muted)) { append("Guests will see ") }
+            withStyle(SpanStyle(color = Burgundy, fontWeight = FontWeight.SemiBold)) {
+                append("EGP ${guest.toInt()}")
+            }
+            if (commission.rate > 0.0) {
+                withStyle(SpanStyle(color = Muted)) {
+                    append(" · includes QuickIn's ${commission.percentText}% commission — you receive the price you entered")
+                }
+            }
+        },
+        fontSize = 12.5.sp,
+        lineHeight = 17.sp,
+        modifier = Modifier.padding(top = 2.dp)
+    )
+}
+
 // ---- Step 3: Details --------------------------------------------------------
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -2054,7 +2096,9 @@ internal fun StepDetails(
      * Amenity chips to offer. Defaults to the curated set; the listing editor passes that set plus
      * anything the listing already has, so an existing amenity can never be silently dropped.
      */
-    amenityOptions: List<String> = AMENITY_OPTIONS
+    amenityOptions: List<String> = AMENITY_OPTIONS,
+    /** Drives the "guests will see EGP X" hints. Null until the rate loads. */
+    commission: Commission? = null
 ) {
     // +/- steppers for the counts. Each shows the current value as a Text between the
     // buttons; minimums keep the values sensible (guests >= 1, the rest >= 0).
@@ -2083,6 +2127,7 @@ internal fun StepDetails(
         onChange = onBathrooms
     )
     HostField(price, { onPrice(it.filterNumeric(decimal = true)) }, "Price / night (EGP)", keyboardType = KeyboardType.Number)
+    GuestPriceHint(price, commission)
 
     // Length-of-stay discounts — reward longer bookings (% off applied server-side to the total).
     Text(
@@ -2120,6 +2165,7 @@ internal fun StepDetails(
         monthlyPrices = monthlyPrices,
         onMonthlyPrice = onMonthlyPrice
     )
+    GuestPriceHint(weekendPrice, commission)
 
     // Listing photos — a device multi-photo picker (the first photo is the cover). Optional.
     ListingPhotoPicker(

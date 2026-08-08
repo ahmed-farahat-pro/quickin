@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.model.LatLng
+import com.quickin.app.Commission
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.AvatarImage
 import com.quickin.app.EditListingUiState
@@ -115,7 +116,9 @@ fun EditListingScreen(
         bedrooms: Int, maxGuests: Int, amenities: List<String>, notes: String
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
-    onClearAiWriter: () -> Unit = {}
+    onClearAiWriter: () -> Unit = {},
+    /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
+    commission: Commission? = null
 ) {
     // A saved listing replaces the form with a confirmation card (guarded on the id so a stale
     // success from a previously-edited listing can't flash here).
@@ -340,6 +343,7 @@ fun EditListingScreen(
                     onMonthlyPrice = { month, value ->
                         if (value.isBlank()) monthlyPrices.remove(key = month) else monthlyPrices[month] = value
                     },
+                    commission = commission,
                     photos = photos,
                     encodingPhotos = encodingPhotos,
                     onAddPhotos = {

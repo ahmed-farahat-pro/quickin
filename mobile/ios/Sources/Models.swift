@@ -1777,9 +1777,59 @@ struct HostApplicationState: Decodable, Equatable {
 // MARK: - Money — host earnings / payouts
 
 /// A host's earnings + payout summary, returned by
+/// `GET /api/local/host/commission` (Bearer) → `{ rate, percent }`.
+///
+/// QuickIn takes its cut as a MARKUP, not a deduction: a host names the price
+/// they want to receive and is paid it in full; a guest is quoted
+/// `raw × (1 + rate)`, rounded UP to the nearest 10 EGP. This type exists so the
+/// add/edit-listing screens can show the host that second number as they type.
+///
+/// `guestPrice` must round exactly as the server does — the rule lives in
+/// `src/lib/local/commission-core.ts` (`withCommission` / `roundUpToStep`) in
+/// both quickin-backend and quickin-frontend. If you change it there, change it
+/// here and in the Android `Commission` object too.
+struct CommissionInfo: Decodable, Hashable {
+    /// The commission as a fraction, e.g. 0.1 = 10%.
+    let rate: Double
+    /// The same value as a percentage, e.g. 10.
+    let percent: Double
+
+    /// The default the server falls back to, so a failed fetch still shows a
+    /// sane hint rather than nothing.
+    static let fallback = CommissionInfo(rate: 0.1, percent: 10)
+
+    init(rate: Double, percent: Double) {
+        self.rate = rate
+        self.percent = percent
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rate = try c.decodeIfPresent(Double.self, forKey: .rate) ?? 0
+        percent = try c.decodeIfPresent(Double.self, forKey: .percent) ?? (rate * 100)
+    }
+
+    enum CodingKeys: String, CodingKey { case rate, percent }
+
+    /// What a guest is quoted for a host's raw price. Returns nil for a price
+    /// that isn't set yet, so the caller can show nothing rather than "EGP 0".
+    func guestPrice(for raw: Double) -> Double? {
+        guard raw > 0 else { return nil }
+        // Settle to piasters before rounding up: `100 * 1.1` is 110.00000000000001
+        // in binary floating point, and a naive ceil would bill 120.
+        let settled = (raw * (1 + rate) * 100).rounded() / 100
+        return (settled / 10).rounded(.up) * 10
+    }
+
+    /// The commission as a whole percent for display, e.g. "10".
+    var percentText: String {
+        percent == percent.rounded() ? String(Int(percent)) : String(format: "%.2g", percent)
+    }
+}
+
 /// `GET /api/local/host/earnings` (Bearer host) → `{ currency, totalEarned,
-/// paidOut, pending, bookingsCount, commissionRate, recent: [...] }`. All
-/// amounts are in `currency` (EGP) — convert for display only via `CurrencyManager`.
+/// paidOut, pending, bookingsCount, commissionRate, guestPaid, recent: [...] }`.
+/// All amounts are in `currency` (EGP) — convert for display only via `CurrencyManager`.
 struct HostEarnings: Decodable, Hashable {
     /// Base currency the amounts are denominated in (always "EGP").
     let currency: String
@@ -1791,13 +1841,18 @@ struct HostEarnings: Decodable, Hashable {
     let pending: Double
     /// Number of bookings backing the totals.
     let bookingsCount: Int
-    /// The platform commission rate applied (0–1, e.g. 0.1 = 10%).
+    /// The live platform rate (0–1, e.g. 0.1 = 10%). Present so a host can be
+    /// told "guests pay 10% above your price" — it is NOT deducted from any
+    /// figure here.
     let commissionRate: Double
+    /// What guests paid in total across the same bookings. The difference from
+    /// `totalEarned` is the platform's commission.
+    let guestPaid: Double
     /// Recent per-booking breakdown rows (newest-first from the backend).
     let recent: [HostEarningItem]
 
     enum CodingKeys: String, CodingKey {
-        case currency, totalEarned, paidOut, pending, bookingsCount, commissionRate, recent
+        case currency, totalEarned, paidOut, pending, bookingsCount, commissionRate, guestPaid, recent
     }
 
     init(from decoder: Decoder) throws {
@@ -1809,6 +1864,7 @@ struct HostEarnings: Decodable, Hashable {
         pending = try c.decodeIfPresent(Double.self, forKey: .pending) ?? 0
         bookingsCount = try c.decodeIfPresent(Int.self, forKey: .bookingsCount) ?? 0
         commissionRate = try c.decodeIfPresent(Double.self, forKey: .commissionRate) ?? 0
+        guestPaid = try c.decodeIfPresent(Double.self, forKey: .guestPaid) ?? 0
         recent = try c.decodeIfPresent([HostEarningItem].self, forKey: .recent) ?? []
     }
 
@@ -1824,9 +1880,11 @@ struct HostEarningItem: Decodable, Identifiable, Hashable {
     let title: String?
     let checkIn: String?
     let checkOut: String?
-    /// Gross booking total (before commission), in the parent's currency.
+    /// What the GUEST paid (commission-inclusive), in the parent's currency.
     let gross: Double
-    /// Net amount the host keeps (after commission), in the parent's currency.
+    /// What this host earns. Under the markup model that is their FULL raw price
+    /// — the commission is charged on top to the guest, never withheld from the
+    /// host — so `gross - net` is the platform's cut, not a deduction.
     let net: Double
     /// `"paid_out"` or `"upcoming"`.
     let status: String

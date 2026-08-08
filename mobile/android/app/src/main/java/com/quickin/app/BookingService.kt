@@ -378,6 +378,22 @@ object BookingService {
             SupabaseService.parseListings(text)
         }
 
+    /**
+     * The platform commission (`GET /api/local/host/commission`, Bearer), so the
+     * add/edit-listing screens can tell a host what guests will pay for the price
+     * they are typing. Auth-gated server-side: guests see one inclusive price, and
+     * the rate divides back out to the host's raw one.
+     */
+    suspend fun fetchCommission(token: String): Commission =
+        withContext(Dispatchers.IO) {
+            val o = JSONObject(get(token, "/api/local/host/commission"))
+            val rate = o.optDouble("rate", 0.0)
+            Commission(
+                rate = if (rate.isNaN()) 0.0 else rate,
+                percent = o.optDouble("percent", rate * 100).let { if (it.isNaN()) rate * 100 else it },
+            )
+        }
+
     // ---- Money views (Section 9 — all MOCK) -----------------------------------
 
     /**
@@ -522,6 +538,7 @@ object BookingService {
             pending = o.optDouble("pending", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             bookingsCount = o.optInt("bookingsCount", 0),
             commissionRate = o.optDouble("commissionRate", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+            guestPaid = o.optDouble("guestPaid", 0.0).takeUnless { it.isNaN() } ?: 0.0,
             recent = items
         )
     }

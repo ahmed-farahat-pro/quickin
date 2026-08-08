@@ -929,10 +929,48 @@ data class HostReview(
 // ---- Money views (Section 9 — all MOCK) -------------------------------------
 
 /**
+ * The platform commission (`GET /api/local/host/commission`).
+ *
+ * QuickIn takes its cut as a MARKUP, not a deduction: a host names the price they want to
+ * receive and is paid it in full; a guest is quoted `raw × (1 + rate)`, rounded UP to the
+ * nearest 10 EGP. This exists so the add/edit-listing screens can show the host that second
+ * number as they type.
+ *
+ * [guestPrice] must round exactly as the server does — the rule lives in
+ * `src/lib/local/commission-core.ts` (`withCommission` / `roundUpToStep`) in both
+ * quickin-backend and quickin-frontend. Change it there and you must change it here and in
+ * the iOS `CommissionInfo` too.
+ */
+data class Commission(
+    /** The commission as a fraction, e.g. 0.1 = 10%. */
+    val rate: Double = 0.0,
+    /** The same value as a percentage, e.g. 10.0. */
+    val percent: Double = 0.0,
+) {
+    /**
+     * What a guest is quoted for a host's raw price, or null when no price is set yet — the
+     * caller shows nothing rather than "EGP 0".
+     */
+    fun guestPrice(raw: Double): Double? {
+        if (raw <= 0.0 || raw.isNaN()) return null
+        // Settle to piasters before rounding up: `100 * 1.1` is 110.00000000000001 in binary
+        // floating point, and a naive ceil would bill 120.
+        val settled = Math.round(raw * (1 + rate) * 100.0) / 100.0
+        return Math.ceil(settled / 10.0) * 10.0
+    }
+
+    /** The commission as a whole percent for display, e.g. "10". */
+    val percentText: String
+        get() = if (percent == Math.floor(percent)) percent.toInt().toString() else percent.toString()
+}
+
+/**
  * The signed-in host's earnings summary (from `GET /api/local/host/earnings`, Bearer). All amounts
  * are in EGP (the platform base currency); the UI converts them for display via [CurrencyManager].
- * [totalEarned] is the gross across paid-out + upcoming stays, [paidOut] what's already been released,
- * [pending] what's still upcoming, and [commissionRate] the platform cut as a fraction (e.g. 0.1).
+ * [totalEarned] is what the HOST earns across paid-out + upcoming stays, [paidOut] what's already
+ * been released, [pending] what's still upcoming, and [commissionRate] the live platform rate as a
+ * fraction (e.g. 0.1). Nothing here is reduced by it: the commission is charged on top to the guest,
+ * never withheld from the host, so [guestPaid] minus [totalEarned] is the platform's cut.
  * [recent] is the per-booking breakdown shown under the stat cards.
  */
 data class HostEarnings(
@@ -941,8 +979,11 @@ data class HostEarnings(
     val paidOut: Double = 0.0,
     val pending: Double = 0.0,
     val bookingsCount: Int = 0,
-    /** Platform commission as a fraction of gross (e.g. 0.1 = 10%); shown as a whole percent. */
+    /** The live platform rate (e.g. 0.1 = 10%). Shown to the host as "guests pay N% above your
+     *  price" — it is NOT deducted from any figure here. */
     val commissionRate: Double = 0.0,
+    /** What guests paid in total across the same bookings. */
+    val guestPaid: Double = 0.0,
     val recent: List<HostEarningItem> = emptyList()
 ) {
     /** The commission cut formatted as a whole percent, e.g. "10%". */
@@ -951,8 +992,9 @@ data class HostEarnings(
 }
 
 /**
- * One booking in a host's earnings breakdown (an entry in [HostEarnings.recent]). [gross] is the
- * guest's total and [net] the host's take after commission, both EGP. [status] is "paid_out"
+ * One booking in a host's earnings breakdown (an entry in [HostEarnings.recent]). [gross] is what
+ * the guest paid (commission-inclusive) and [net] what this host earns — under the markup model
+ * their FULL raw price, so `gross - net` is the platform's cut, not a deduction. Both EGP. [status] is "paid_out"
  * (already released) or "upcoming" (still pending); [paidAt] is the ISO-8601 payout timestamp,
  * null while upcoming.
  */

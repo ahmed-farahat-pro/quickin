@@ -337,6 +337,10 @@ private fun MainApp() {
     val hostAnalyticsState by hostViewModel.analytics.collectAsState()
     // Host "My listings" tab (approval status, ownership doc, discounts, seasonal pricing).
     val hostListingsState by hostViewModel.listings.collectAsState()
+    // The platform commission, so the host price fields can show what a guest will pay.
+    // Loaded once (the ViewModel no-ops if it already has it) and null until it arrives.
+    val commission by hostViewModel.commission.collectAsState()
+    LaunchedEffect(Unit) { hostViewModel.loadCommission() }
     // The host's full listing edit (every field + photos) — saving re-queues it for admin review.
     val editListingState by hostViewModel.edit.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
@@ -928,7 +932,8 @@ private fun MainApp() {
                 hostViewModel.generateDescription(title, location, region, propertyType, bedrooms, maxGuests, amenities, notes)
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
-            onClearAiWriter = hostViewModel::clearAiWriter
+            onClearAiWriter = hostViewModel::clearAiWriter,
+            commission = commission
         )
         return
     }
@@ -1264,7 +1269,8 @@ private fun MainApp() {
                 hostViewModel.generateDescription(title, location, region, propertyType, bedrooms, maxGuests, amenities, notes)
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
-            onClearAiWriter = hostViewModel::clearAiWriter
+            onClearAiWriter = hostViewModel::clearAiWriter,
+            commission = commission
         )
         return
     }
@@ -1311,7 +1317,8 @@ private fun MainApp() {
                 hostViewModel.generateDescription(title, location, region, propertyType, bedrooms, maxGuests, amenities, notes)
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
-            onClearAiWriter = hostViewModel::clearAiWriter
+            onClearAiWriter = hostViewModel::clearAiWriter,
+            commission = commission
         )
         return
     }

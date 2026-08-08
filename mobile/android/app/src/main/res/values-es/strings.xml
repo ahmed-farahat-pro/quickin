@@ -136,6 +136,17 @@
     <string name="hero_title">Encuentre su escapada boutique</string>
     <string name="explore_no_stays">Aún no hay estancias.</string>
     <string name="explore_nothing_to_show">Aún no hay nada que mostrar</string>
+    <string name="explore_empty_title">Aún no hay estancias</string>
+    <string name="explore_empty_body">Añadimos lugares nuevos continuamente — vuelve pronto.</string>
+    <string name="explore_empty_filtered_title">Ninguna estancia coincide con tu búsqueda</string>
+    <string name="explore_empty_filtered_body">Prueba otras fechas, menos huéspedes o una zona más amplia.</string>
+    <string name="action_clear_filters">Borrar filtros</string>
+    <string name="subscriptions_empty_title">Aún no hay suscripciones</string>
+    <string name="subscriptions_empty_body">Suscríbete a una experiencia y aparecerá aquí.</string>
+    <string name="host_requests_empty_title">No hay solicitudes de suscripción</string>
+    <string name="host_requests_empty_body">Las solicitudes de los huéspedes aparecerán aquí.</string>
+    <string name="host_services_empty_title">Aún no hay servicios</string>
+    <string name="host_services_empty_body">Añade un servicio desde la pestaña \"Añadir servicio\".</string>
     <string name="search_where_to">¿A dónde?</string>
     <string name="search_search_stays">Buscar estancias</string>
     <string name="search_anytime">En cualquier momento</string>
@@ -263,7 +274,7 @@
     <string name="instapay_submitting">Enviando…</string>
     <string name="instapay_missing_screenshot">Añade la captura de tu transferencia.</string>
     <string name="instapay_sign_in">Inicia sesión para pagar por transferencia Instapay.</string>
-    <string name="instapay_awaiting_title">Esperando la aprobación del anfitrión</string>
+    <string name="instapay_awaiting_title">Esperando confirmación</string>
     <string name="instapay_awaiting_body">Hemos enviado la captura de tu transferencia al anfitrión. Tu reserva se confirmará en cuanto la apruebe.</string>
     <string name="instapay_note">Tu reserva se confirma después de que el anfitrión verifique tu transferencia.</string>
     <string name="instapay_for_one_night">por 1 noche</string>

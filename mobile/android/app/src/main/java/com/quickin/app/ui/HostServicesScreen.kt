@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quickin.app.CreateServiceUiState
+import com.quickin.app.R
 import com.quickin.app.HostServicesUiState
 import com.quickin.app.Service
 import com.quickin.app.ServiceRequest
@@ -202,7 +204,7 @@ private fun ServiceRequestsTab(
                 Text("Couldn't load requests", fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp)
                 Text(state.error, color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
                 Button(onClick = onLoad, colors = ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White)) {
-                    Text("Retry")
+                    Text(stringResource(R.string.action_retry))
                 }
             }
             state.requests.isEmpty() -> Column(
@@ -210,8 +212,8 @@ private fun ServiceRequestsTab(
                 modifier = Modifier.padding(32.dp)
             ) {
                 Icon(Icons.Filled.Inbox, contentDescription = null, tint = Burgundy, modifier = Modifier.size(48.dp))
-                Text("No subscription requests", fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
-                Text("Requests from guests will show up here.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.host_requests_empty_title), fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.host_requests_empty_body), color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -334,8 +336,8 @@ private fun MyServicesTab(state: HostServicesUiState, onLoad: () -> Unit) {
                 modifier = Modifier.padding(32.dp)
             ) {
                 Icon(Icons.Filled.Sailing, contentDescription = null, tint = Burgundy, modifier = Modifier.size(48.dp))
-                Text("No services yet", fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
-                Text("Add a service from the \"Add service\" tab.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.host_services_empty_title), fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(R.string.host_services_empty_body), color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),

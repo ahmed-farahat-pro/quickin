@@ -136,6 +136,17 @@
     <string name="hero_title">Trouvez votre escapade de charme</string>
     <string name="explore_no_stays">Aucun séjour pour l\'instant.</string>
     <string name="explore_nothing_to_show">Rien à afficher pour l\'instant</string>
+    <string name="explore_empty_title">Aucun séjour pour l\'instant</string>
+    <string name="explore_empty_body">De nouveaux lieux arrivent régulièrement — revenez bientôt.</string>
+    <string name="explore_empty_filtered_title">Aucun séjour ne correspond à votre recherche</string>
+    <string name="explore_empty_filtered_body">Essayez d\'autres dates, moins de voyageurs, ou une zone plus large.</string>
+    <string name="action_clear_filters">Effacer les filtres</string>
+    <string name="subscriptions_empty_title">Aucun abonnement pour l\'instant</string>
+    <string name="subscriptions_empty_body">Abonnez-vous à une expérience et elle apparaîtra ici.</string>
+    <string name="host_requests_empty_title">Aucune demande d\'abonnement</string>
+    <string name="host_requests_empty_body">Les demandes des voyageurs apparaîtront ici.</string>
+    <string name="host_services_empty_title">Aucun service pour l\'instant</string>
+    <string name="host_services_empty_body">Ajoutez un service depuis l\'onglet \"Ajouter un service\".</string>
     <string name="search_where_to">Où allez-vous ?</string>
     <string name="search_search_stays">Rechercher des séjours</string>
     <string name="search_anytime">À tout moment</string>
@@ -263,7 +274,7 @@
     <string name="instapay_submitting">Envoi en cours…</string>
     <string name="instapay_missing_screenshot">Veuillez ajouter la capture de votre virement.</string>
     <string name="instapay_sign_in">Veuillez vous connecter pour payer par virement Instapay.</string>
-    <string name="instapay_awaiting_title">En attente de l\'approbation de l\'hôte</string>
+    <string name="instapay_awaiting_title">En attente de confirmation</string>
     <string name="instapay_awaiting_body">Nous avons envoyé la capture de votre virement à l\'hôte. Votre réservation sera confirmée dès qu\'il l\'aura approuvée.</string>
     <string name="instapay_note">Votre réservation est confirmée après que l\'hôte a vérifié votre virement.</string>
     <string name="instapay_for_one_night">pour 1 nuit</string>

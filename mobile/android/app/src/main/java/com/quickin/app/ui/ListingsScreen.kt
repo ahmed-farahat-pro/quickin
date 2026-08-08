@@ -99,6 +99,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -275,10 +276,26 @@ fun ListingsScreen(
                         // Skeleton cards shaped like real listings shimmer in place of a spinner.
                         SkeletonListColumn(imageHeight = 220.dp)
                     }
-                    // Keep the empty/error state for List mode; the Map mode handles "no mappable
+                    // A real fault gets Retry; an empty result does not. These were one branch
+                    // until the empty copy stopped travelling in `error`.
+                    state.error != null && state.listings.isEmpty() -> {
+                        ErrorState(message = state.error, onRetry = onRetry)
+                    }
+                    // Keep the empty state for List mode; the Map mode handles "no mappable
                     // stays" itself, so still render the map when listings exist.
                     state.listings.isEmpty() && viewMode == ViewMode.List -> {
-                        EmptyState(message = state.error ?: stringResource(R.string.explore_no_stays), onRetry = onRetry)
+                        if (state.query.isActive) {
+                            EmptyState(
+                                title = stringResource(R.string.explore_empty_filtered_title),
+                                body = stringResource(R.string.explore_empty_filtered_body),
+                                onClearFilters = onClear
+                            )
+                        } else {
+                            EmptyState(
+                                title = stringResource(R.string.explore_empty_title),
+                                body = stringResource(R.string.explore_empty_body)
+                            )
+                        }
                     }
                     viewMode == ViewMode.Map -> {
                         ListingsMap(
@@ -424,7 +441,7 @@ private fun AiSearchResults(
                 }
             }
             state.error != null && state.results.isEmpty() -> {
-                EmptyState(message = state.error, onRetry = onRetry)
+                ErrorState(message = state.error, onRetry = onRetry)
             }
             else -> {
                 LazyColumn(
@@ -1262,7 +1279,7 @@ private fun dateChip(date: java.time.LocalDate): String =
     "${date.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH)} ${date.dayOfMonth}"
 
 @Composable
-private fun EmptyState(message: String, onRetry: () -> Unit) {
+private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)
@@ -1274,6 +1291,30 @@ private fun EmptyState(message: String, onRetry: () -> Unit) {
             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
         )
         Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+    }
+}
+
+/**
+ * A load that SUCCEEDED and found nothing — deliberately not [ErrorState]. There is no Retry
+ * here because retrying returns the same zero results; the only move that changes the outcome
+ * is widening the search, and that is only offered when a filter is actually narrowing it.
+ */
+@Composable
+private fun EmptyState(title: String, body: String, onClearFilters: (() -> Unit)? = null) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.padding(32.dp)
+    ) {
+        Text(title, fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp)
+        Text(
+            body,
+            color = Muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp, bottom = if (onClearFilters != null) 16.dp else 0.dp)
+        )
+        if (onClearFilters != null) {
+            Button(onClick = onClearFilters) { Text(stringResource(R.string.action_clear_filters)) }
+        }
     }
 }
 

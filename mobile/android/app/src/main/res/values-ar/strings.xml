@@ -163,6 +163,17 @@
     <string name="hero_title">اكتشف إقامتك المميزة</string>
     <string name="explore_no_stays">لا توجد إقامات بعد.</string>
     <string name="explore_nothing_to_show">لا يوجد ما يُعرض بعد</string>
+    <string name="explore_empty_title">لا توجد إقامات بعد</string>
+    <string name="explore_empty_body">نضيف أماكن جديدة باستمرار — عُد إلينا قريبًا.</string>
+    <string name="explore_empty_filtered_title">لا توجد إقامات تطابق بحثك</string>
+    <string name="explore_empty_filtered_body">جرّب تواريخ أخرى، أو عددًا أقل من الضيوف، أو نطاقًا أوسع.</string>
+    <string name="action_clear_filters">مسح عوامل التصفية</string>
+    <string name="subscriptions_empty_title">لا توجد اشتراكات بعد</string>
+    <string name="subscriptions_empty_body">اشترك في تجربة وستظهر هنا.</string>
+    <string name="host_requests_empty_title">لا توجد طلبات اشتراك</string>
+    <string name="host_requests_empty_body">ستظهر طلبات الضيوف هنا.</string>
+    <string name="host_services_empty_title">لا توجد خدمات بعد</string>
+    <string name="host_services_empty_body">أضف خدمة من تبويب \"إضافة خدمة\".</string>
     <string name="search_where_to">إلى أين؟</string>
     <string name="search_search_stays">ابحث عن إقامات</string>
     <string name="search_anytime">أي وقت</string>
@@ -307,7 +318,7 @@
     <string name="instapay_submitting">جارٍ الإرسال…</string>
     <string name="instapay_missing_screenshot">يرجى إضافة لقطة شاشة التحويل.</string>
     <string name="instapay_sign_in">يرجى تسجيل الدخول للدفع عبر تحويل إنستاباي.</string>
-    <string name="instapay_awaiting_title">في انتظار موافقة المضيف</string>
+    <string name="instapay_awaiting_title">في انتظار التأكيد</string>
     <string name="instapay_awaiting_body">لقد أرسلنا لقطة شاشة تحويلك إلى المضيف. سيتم تأكيد حجزك بمجرد موافقته.</string>
     <string name="instapay_note">يتم تأكيد حجزك بعد أن يتحقق المضيف من تحويلك.</string>
     <string name="instapay_for_one_night">لليلة واحدة</string>

@@ -263,14 +263,16 @@ class ListingsViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val listings = SupabaseService.fetchListings(query)
+                // A search that matched nothing is an ANSWER, not a failure. This used to write
+                // the empty copy into `error`, which put it in the error UI behind a Retry button
+                // — and retrying a search that legitimately matched zero stays just runs it again
+                // and returns zero stays. The screen reads `listings.isEmpty()` plus
+                // `query.isActive` to say which kind of empty it is; error stays for real faults.
                 _state.value = _state.value.copy(
                     isLoading = false,
                     listings = listings,
                     query = query,
-                    error = if (listings.isEmpty()) {
-                        if (query.isActive) "No stays match your search. Try different dates or guests."
-                        else "No listings found yet. Seed the database to see stays here."
-                    } else null
+                    error = null
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(

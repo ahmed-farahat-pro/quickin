@@ -107,7 +107,7 @@ fun WishlistScreen(
                 // never mistaken for signed-out (that path falls through to the friendly empty state).
                 !isAuthenticated && state.data.isEmpty -> WishlistSignedOut(onSignIn = onSignIn)
                 state.error != null && state.data.isEmpty -> {
-                    EmptyState(message = state.error, onRetry = onLoad)
+                    ErrorState(message = state.error, onRetry = onLoad)
                 }
                 state.data.isEmpty -> WishlistEmpty()
                 else -> {
@@ -361,9 +361,11 @@ private fun WishlistSignedOut(onSignIn: () -> Unit) {
     }
 }
 
-/** Compact error/empty fallback with a retry button (mirrors the explore empty state). */
+/** Compact failed-load fallback with a retry button (mirrors explore's ErrorState). The
+ *  genuinely-empty wishlist is WishlistEmpty, which offers no Retry — there is nothing to
+ *  retry when the answer is simply "you haven't saved anything". */
 @Composable
-private fun EmptyState(message: String, onRetry: () -> Unit) {
+private fun ErrorState(message: String, onRetry: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(32.dp)

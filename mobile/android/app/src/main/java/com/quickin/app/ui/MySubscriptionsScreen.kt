@@ -37,12 +37,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quickin.app.MySubscriptionsUiState
+import com.quickin.app.R
 import com.quickin.app.ServiceRequest
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -100,7 +102,7 @@ fun MySubscriptionsScreen(
                     Button(
                         onClick = onLoad,
                         colors = ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White)
-                    ) { Text("Retry") }
+                    ) { Text(stringResource(R.string.action_retry)) }
                 }
                 state.requests.isEmpty() -> Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -108,14 +110,14 @@ fun MySubscriptionsScreen(
                 ) {
                     Icon(Icons.Filled.Sailing, contentDescription = null, tint = Burgundy, modifier = Modifier.size(48.dp))
                     Text(
-                        "No subscriptions yet",
+                        stringResource(R.string.subscriptions_empty_title),
                         fontWeight = FontWeight.Bold,
                         color = Ink,
                         fontSize = 18.sp,
                         modifier = Modifier.padding(top = 12.dp)
                     )
                     Text(
-                        "Subscribe to an experience and it'll appear here.",
+                        stringResource(R.string.subscriptions_empty_body),
                         color = Muted,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 8.dp)

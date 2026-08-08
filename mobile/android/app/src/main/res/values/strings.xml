@@ -170,6 +170,17 @@
     <string name="hero_title">Find your boutique escape</string>
     <string name="explore_no_stays">No stays yet.</string>
     <string name="explore_nothing_to_show">Nothing to show yet</string>
+    <string name="explore_empty_title">No stays yet</string>
+    <string name="explore_empty_body">New places are added all the time — check back soon.</string>
+    <string name="explore_empty_filtered_title">No stays match your search</string>
+    <string name="explore_empty_filtered_body">Try different dates, fewer guests, or a wider area.</string>
+    <string name="action_clear_filters">Clear filters</string>
+    <string name="subscriptions_empty_title">No subscriptions yet</string>
+    <string name="subscriptions_empty_body">Subscribe to an experience and it\'ll appear here.</string>
+    <string name="host_requests_empty_title">No subscription requests</string>
+    <string name="host_requests_empty_body">Requests from guests will show up here.</string>
+    <string name="host_services_empty_title">No services yet</string>
+    <string name="host_services_empty_body">Add a service from the \"Add service\" tab.</string>
     <string name="search_where_to">Where to?</string>
     <string name="search_search_stays">Search stays</string>
     <string name="search_anytime">Anytime</string>
@@ -314,7 +325,7 @@
     <string name="instapay_submitting">Submitting…</string>
     <string name="instapay_missing_screenshot">Please add your transfer screenshot.</string>
     <string name="instapay_sign_in">Please sign in to pay by Instapay transfer.</string>
-    <string name="instapay_awaiting_title">Awaiting host approval</string>
+    <string name="instapay_awaiting_title">Awaiting confirmation</string>
     <string name="instapay_awaiting_body">We\'ve sent your transfer screenshot to the host. Your booking is confirmed once they approve it.</string>
     <string name="instapay_note">Your booking is confirmed after the host verifies your transfer.</string>
     <string name="instapay_for_one_night">for 1 night</string>

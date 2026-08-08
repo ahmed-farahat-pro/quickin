@@ -112,6 +112,7 @@ import androidx.compose.ui.unit.sp
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.AvatarImage
 import com.quickin.app.Commission
+import com.quickin.app.ListingGate
 import com.quickin.app.Config
 import com.quickin.app.CreateListingUiState
 import com.quickin.app.HostBooking
@@ -206,7 +207,9 @@ fun HostScreen(
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
-    commission: Commission? = null
+    commission: Commission? = null,
+    /** Whether this host may add a listing; blocks the wizard when not. */
+    listingGate: ListingGate = ListingGate.UNKNOWN
 ) {
     var tab by remember { mutableIntStateOf(0) }
 
@@ -296,7 +299,8 @@ fun HostScreen(
                     onGenerateDescription = onGenerateDescription,
                     onConsumeGeneratedDescription = onConsumeGeneratedDescription,
                     onClearAiWriter = onClearAiWriter,
-                    commission = commission
+                    commission = commission,
+                    listingGate = listingGate
                 )
                 else -> HostListingsScreen(
                     state = listingsState,
@@ -1191,7 +1195,9 @@ fun AddListingScreen(
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
-    commission: Commission? = null
+    commission: Commission? = null,
+    /** Whether this host may add a listing; blocks the wizard when not. */
+    listingGate: ListingGate = ListingGate.UNKNOWN
 ) {
     Scaffold(
         containerColor = CreamPage,
@@ -1221,7 +1227,8 @@ fun AddListingScreen(
                 onGenerateDescription = onGenerateDescription,
                 onConsumeGeneratedDescription = onConsumeGeneratedDescription,
                 onClearAiWriter = onClearAiWriter,
-                commission = commission
+                commission = commission,
+                listingGate = listingGate
             )
         }
     }
@@ -1577,8 +1584,16 @@ private fun AddListingTab(
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
-    commission: Commission? = null
+    commission: Commission? = null,
+    /** Whether this host may list at all. Defaults to allowed so a failed fetch never
+     *  locks a legitimate host out — the server refuses the write regardless. */
+    listingGate: ListingGate = ListingGate.UNKNOWN
 ) {
+    // Refuse up front rather than after a wizard's worth of typing.
+    if (!listingGate.allowed) {
+        ListingGateBlocked(listingGate)
+        return
+    }
     // A created listing replaces the wizard with a success card.
     if (state.created != null) {
         Box(modifier = Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
@@ -2034,6 +2049,45 @@ private fun RegionChip(label: String, selected: Boolean, onClick: () -> Unit) {
                 fontWeight = FontWeight.SemiBold
             )
         }
+    }
+}
+
+/**
+ * Why a host can't add a listing yet, and what to do about it.
+ *
+ * Shown instead of the wizard rather than beside it: letting someone fill in a listing
+ * they cannot submit wastes their time and turns a known rule into a 403 at the end.
+ * The wording is the server's, shared with the website and iOS; only the layout is local.
+ */
+@Composable
+internal fun ListingGateBlocked(gate: ListingGate) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(gate.title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Text(gate.message, fontSize = 14.sp, color = Muted, textAlign = TextAlign.Center)
+        if (gate.code == "verification_rejected" && !gate.reason.isNullOrBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CreamPage, RoundedCornerShape(14.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("Reason given by our team", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(gate.reason, fontSize = 13.sp, color = Muted)
+            }
+        }
+        Text(
+            "Your existing listings are not affected by this.",
+            fontSize = 12.sp,
+            color = Muted,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

@@ -929,6 +929,39 @@ data class HostReview(
 // ---- Money views (Section 9 — all MOCK) -------------------------------------
 
 /**
+ * Whether this host may add a listing, and if not, why (`GET /api/local/host/listing-gate`).
+ *
+ * The create endpoint enforces the same rule and returns the same [code] on 403; this
+ * exists so the app can say so BEFORE the host fills in a whole listing. Switch on
+ * [code], never on [message] — the wording is server-owned and shared with the website,
+ * but the call to action differs per case.
+ */
+data class ListingGate(
+    val allowed: Boolean = true,
+    /** ok | not_host | verification_missing | verification_pending | verification_rejected */
+    val code: String = "ok",
+    /** Shown to the host verbatim. */
+    val message: String = "",
+    /** The reviewer's reason. Present only when the documents were rejected. */
+    val reason: String? = null,
+) {
+    /** A short heading for the blocked state. */
+    val title: String
+        get() = when (code) {
+            "not_host" -> "Become a host first"
+            "verification_pending" -> "We're reviewing your documents"
+            "verification_rejected" -> "Your documents need another look"
+            else -> "Verify your identity to start listing"
+        }
+
+    companion object {
+        /** Assume allowed until told otherwise: a failed fetch must not lock a legitimate
+         *  host out of their own app. The server refuses the write regardless. */
+        val UNKNOWN = ListingGate()
+    }
+}
+
+/**
  * The platform commission (`GET /api/local/host/commission`).
  *
  * QuickIn takes its cut as a MARKUP, not a deduction: a host names the price they want to

@@ -184,6 +184,10 @@ struct AddListingView: View {
     /// guest will actually pay. Advisory only — the server prices the listing
     /// either way — so a failed fetch just leaves the hint hidden.
     @State private var commission: CommissionInfo?
+    /// Whether this host may list at all. Defaults to allowed so a failed fetch
+    /// never locks a legitimate host out of their own app — the server refuses
+    /// the write regardless, and returns the same message.
+    @State private var listingGate: ListingGate = .unknown
 
     // MARK: AI description writer (Section 10)
 
@@ -324,6 +328,18 @@ struct AddListingView: View {
         .tint(.qkBurgundy)
         .onAppear { bindLocationCallback() }
         .task { commission = try? await HostService.shared.fetchCommission() }
+        .task { if let g = try? await HostService.shared.fetchListingGate() { listingGate = g } }
+        // Covers the wizard entirely when the host may not list. The editor is
+        // deliberately NOT gated this way — a host must still be able to fix a
+        // listing they already have.
+        .overlay {
+            if !listingGate.allowed {
+                ZStack {
+                    LinearGradient.qkPageWash.ignoresSafeArea()
+                    ListingGateBlockedView(gate: listingGate)
+                }
+            }
+        }
         // Downscale + encode a freshly-picked ownership document into a data URL.
         .onChange(of: ownershipDocItem) { _, item in
             Task { await processOwnershipDoc(item) }
@@ -1311,6 +1327,62 @@ private struct ReviewStep: View {
         value == value.rounded()
             ? String(Int(value))
             : String(format: "%.2f", value)
+    }
+}
+
+/// Why a host can't add a listing yet, and what to do about it.
+///
+/// Shown instead of the wizard rather than beside it: letting someone fill in
+/// four steps of a listing they cannot submit wastes their time and turns a
+/// known rule into a 403 at the end. The wording is the server's, shared with
+/// the website; only the call to action is chosen locally, by `gate.code`.
+struct ListingGateBlockedView: View {
+    let gate: ListingGate
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: gate.code == "verification_pending" ? "clock.badge.checkmark" : "person.badge.shield.checkmark")
+                .font(.system(size: 42, weight: .light))
+                .foregroundStyle(Color.qkBurgundy)
+
+            Text(gate.title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Color.qkInk)
+                .multilineTextAlignment(.center)
+
+            Text(gate.message)
+                .font(.subheadline)
+                .foregroundStyle(Color.qkMuted)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if gate.code == "verification_rejected", let reason = gate.reason, !reason.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Reason given by our team")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.qkInk)
+                    Text(reason)
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+
+            Text("Your existing listings are not affected by this.")
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+                .padding(.top, 2)
+        }
+        .padding(26)
+        .frame(maxWidth: 460)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(0.07), radius: 18, y: 6)
+        .padding(24)
     }
 }
 

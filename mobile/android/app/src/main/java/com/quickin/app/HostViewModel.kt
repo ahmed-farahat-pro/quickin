@@ -161,6 +161,22 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     private val _commission = MutableStateFlow<Commission?>(null)
     val commission: StateFlow<Commission?> = _commission.asStateFlow()
 
+    /**
+     * Whether this host may add a listing. Defaults to allowed so a failed fetch never
+     * locks a legitimate host out — the server refuses the write regardless.
+     */
+    private val _listingGate = MutableStateFlow(ListingGate.UNKNOWN)
+    val listingGate: StateFlow<ListingGate> = _listingGate.asStateFlow()
+
+    /** Loads the listing gate (`GET /api/local/host/listing-gate`). Silent on failure. */
+    fun loadListingGate() {
+        val token = token() ?: return
+        viewModelScope.launch {
+            runCatching { BookingService.fetchListingGate(token) }
+                .onSuccess { _listingGate.value = it }
+        }
+    }
+
     /** Loads the platform commission (`GET /api/local/host/commission`). Silent on failure. */
     fun loadCommission() {
         if (_commission.value != null) return

@@ -379,6 +379,26 @@ object BookingService {
         }
 
     /**
+     * Whether this host may add a listing, and if not, why
+     * (`GET /api/local/host/listing-gate`, Bearer). The create endpoint enforces the
+     * same rule; this lets the wizard say so before the host fills it in.
+     */
+    suspend fun fetchListingGate(token: String): ListingGate =
+        withContext(Dispatchers.IO) {
+            val o = JSONObject(get(token, "/api/local/host/listing-gate"))
+            // optStringOr / optStringOrNull, never bare optString — Android's
+            // optString hands back the literal "null" for a JSON null, which is
+            // exactly how a missing rejection reason would render as the word
+            // "null" in the blocked panel. See the note at the top of this file.
+            ListingGate(
+                allowed = o.optBoolean("allowed", true),
+                code = o.optStringOr("code", "ok"),
+                message = o.optStringOr("message", ""),
+                reason = o.optStringOrNull("reason"),
+            )
+        }
+
+    /**
      * The platform commission (`GET /api/local/host/commission`, Bearer), so the
      * add/edit-listing screens can tell a host what guests will pay for the price
      * they are typing. Auth-gated server-side: guests see one inclusive price, and

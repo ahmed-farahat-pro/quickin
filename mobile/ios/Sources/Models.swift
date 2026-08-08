@@ -1777,6 +1777,67 @@ struct HostApplicationState: Decodable, Equatable {
 // MARK: - Money — host earnings / payouts
 
 /// A host's earnings + payout summary, returned by
+/// `GET /api/local/host/listing-gate` (Bearer) → `{ allowed, code, message, reason }`.
+///
+/// Whether this host may add a listing, and if not, why. The create endpoint
+/// enforces the same rule and returns the same `code` on 403; this exists so the
+/// app can say so BEFORE the host fills in a whole listing.
+///
+/// Switch on `code`, never on `message` — the wording is server-owned and
+/// shared with the website, but the call to action differs per case.
+struct ListingGate: Decodable, Hashable {
+    let allowed: Bool
+    /// ok | not_host | verification_missing | verification_pending | verification_rejected
+    let code: String
+    /// Shown to the host verbatim.
+    let message: String
+    /// The reviewer's reason. Present only when the documents were rejected.
+    let reason: String?
+
+    /// Assume allowed until told otherwise: a failed gate fetch must not lock a
+    /// legitimate host out of their own app. The server refuses the write anyway.
+    static let unknown = ListingGate(allowed: true, code: "ok", message: "", reason: nil)
+
+    init(allowed: Bool, code: String, message: String, reason: String?) {
+        self.allowed = allowed
+        self.code = code
+        self.message = message
+        self.reason = reason
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        allowed = try c.decodeIfPresent(Bool.self, forKey: .allowed) ?? true
+        code = try c.decodeIfPresent(String.self, forKey: .code) ?? "ok"
+        message = try c.decodeIfPresent(String.self, forKey: .message) ?? ""
+        reason = try c.decodeIfPresent(String.self, forKey: .reason)
+    }
+
+    enum CodingKeys: String, CodingKey { case allowed, code, message, reason }
+
+    /// A short heading for the blocked state.
+    var title: String {
+        switch code {
+        case "not_host": return "Become a host first"
+        case "verification_pending": return "We're reviewing your documents"
+        case "verification_rejected": return "Your documents need another look"
+        default: return "Verify your identity to start listing"
+        }
+    }
+
+    /// The action that actually unblocks this refusal, if there is one.
+    /// `verification_pending` deliberately has none — there is nothing to do but
+    /// wait, and a button would invite resubmissions that reset the queue.
+    var actionTitle: String? {
+        switch code {
+        case "not_host": return "Apply to become a host"
+        case "verification_missing": return "Verify my identity"
+        case "verification_rejected": return "Upload my documents again"
+        default: return nil
+        }
+    }
+}
+
 /// `GET /api/local/host/commission` (Bearer) → `{ rate, percent }`.
 ///
 /// QuickIn takes its cut as a MARKUP, not a deduction: a host names the price

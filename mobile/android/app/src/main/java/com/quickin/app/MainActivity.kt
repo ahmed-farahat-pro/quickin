@@ -340,7 +340,12 @@ private fun MainApp() {
     // The platform commission, so the host price fields can show what a guest will pay.
     // Loaded once (the ViewModel no-ops if it already has it) and null until it arrives.
     val commission by hostViewModel.commission.collectAsState()
-    LaunchedEffect(Unit) { hostViewModel.loadCommission() }
+    // Whether this host may add a listing; the wizard shows the reason when not.
+    val listingGate by hostViewModel.listingGate.collectAsState()
+    LaunchedEffect(Unit) {
+        hostViewModel.loadCommission()
+        hostViewModel.loadListingGate()
+    }
     // The host's full listing edit (every field + photos) — saving re-queues it for admin review.
     val editListingState by hostViewModel.edit.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
@@ -1270,7 +1275,8 @@ private fun MainApp() {
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
             onClearAiWriter = hostViewModel::clearAiWriter,
-            commission = commission
+            commission = commission,
+            listingGate = listingGate
         )
         return
     }
@@ -1318,7 +1324,8 @@ private fun MainApp() {
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
             onClearAiWriter = hostViewModel::clearAiWriter,
-            commission = commission
+            commission = commission,
+            listingGate = listingGate
         )
         return
     }

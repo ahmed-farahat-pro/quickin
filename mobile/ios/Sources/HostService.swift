@@ -473,6 +473,12 @@ struct HostService {
         try await get("\(Config.apiBaseURL)/api/local/host/listings", as: [Listing].self)
     }
 
+    /// Whether this host may add a listing, and if not, why — so the wizard can
+    /// say so before they fill it in. The create endpoint enforces the same rule.
+    func fetchListingGate() async throws -> ListingGate {
+        try await get("\(Config.apiBaseURL)/api/local/host/listing-gate", as: ListingGate.self)
+    }
+
     /// The platform commission, so the add/edit-listing screens can tell a host
     /// what guests will pay for the price they are typing. Auth-gated server-side:
     /// guests see one inclusive price, and the rate divides back out to the raw one.

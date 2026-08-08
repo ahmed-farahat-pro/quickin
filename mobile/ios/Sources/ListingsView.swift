@@ -138,7 +138,10 @@ struct ListingsView: View {
     @ViewBuilder
     private var results: some View {
         if viewModel.listings.isEmpty {
-            emptyState(viewModel.errorMessage ?? loc.t("explore.empty.nothingMsg"))
+            emptyState(
+                viewModel.errorMessage
+                    ?? loc.t(viewModel.anyFilterActive ? "explore.empty.noMatchMsg" : "explore.empty.nothingMsg")
+            )
         } else {
             LazyVStack(spacing: 20) {
                 ForEach(viewModel.listings) { listing in
@@ -165,21 +168,26 @@ struct ListingsView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.qkMuted)
                 .padding(.horizontal, 32)
-            Button {
-                Task {
-                    if viewModel.anyFilterActive { await viewModel.clear() }
-                    else { await viewModel.load() }
+            // A catalogue that is simply empty has nothing to retry and no filter to clear, so
+            // it gets no button. The old one offered "Retry", which re-ran a query that had
+            // already answered correctly.
+            if viewModel.errorMessage != nil || viewModel.anyFilterActive {
+                Button {
+                    Task {
+                        if viewModel.anyFilterActive { await viewModel.clear() }
+                        else { await viewModel.load() }
+                    }
+                } label: {
+                    Text(loc.t(viewModel.anyFilterActive ? "explore.clearSearch" : "common.retry"))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.qkCream)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 11)
+                        .background(LinearGradient.qkBurgundyCTA)
+                        .clipShape(Capsule())
                 }
-            } label: {
-                Text(loc.t(viewModel.anyFilterActive ? "explore.clearSearch" : "common.retry"))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.qkCream)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 11)
-                    .background(LinearGradient.qkBurgundyCTA)
-                    .clipShape(Capsule())
+                .buttonStyle(QKPressStyle())
             }
-            .buttonStyle(QKPressStyle())
         }
         .padding(.top, 50)
     }

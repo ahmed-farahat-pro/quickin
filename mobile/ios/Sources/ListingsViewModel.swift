@@ -204,11 +204,12 @@ final class ListingsViewModel: ObservableObject {
                 amenities: Array(selectedAmenities),
                 bbox: bbox
             )
-            if listings.isEmpty {
-                errorMessage = anyFilterActive
-                    ? "No stays match your filters. Try a different area or clearing them."
-                    : "No listings found yet. Seed the database to see stays here."
-            }
+            // Deliberately NOT setting errorMessage here. A search that matched nothing is an
+            // answer, not a failure, and routing it through the error channel meant the view
+            // could not tell the two apart. It also meant the copy bypassed Localization —
+            // both sentences were hardcoded English, so Arabic, French and Spanish guests read
+            // the empty explore screen in English — and the unfiltered one told them to seed a
+            // database. ListingsView reads `listings.isEmpty` + `anyFilterActive` instead.
         } catch {
             errorMessage = error.localizedDescription
         }

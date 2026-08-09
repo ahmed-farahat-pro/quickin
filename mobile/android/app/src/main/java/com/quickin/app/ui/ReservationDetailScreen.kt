@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -92,6 +93,10 @@ fun ReservationDetailScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onOpenMessages: (() -> Unit)? = null,
+    /** Non-null when this stay can be disputed; opens the report form. */
+    onReportIssue: (() -> Unit)? = null,
+    /** "Report an issue", or the status when one has already been raised. */
+    reportIssueLabel: String = "Report an issue",
     /** When non-null and the reservation is still unpaid, a "Pay now" button opens the mock pay sheet. */
     onPayNow: (() -> Unit)? = null,
     canReview: Boolean = false,
@@ -179,6 +184,8 @@ fun ReservationDetailScreen(
                 state.reservation != null -> ReservationCardContent(
                     reservation = state.reservation,
                     onOpenMessages = onOpenMessages,
+                    onReportIssue = onReportIssue,
+                    reportIssueLabel = reportIssueLabel,
                     onPayNow = onPayNow,
                     canReview = canReview,
                     reviewSubmitting = reviewSubmitting,
@@ -214,6 +221,8 @@ fun ReservationDetailScreen(
 private fun ReservationCardContent(
     reservation: Reservation,
     onOpenMessages: (() -> Unit)?,
+    onReportIssue: (() -> Unit)?,
+    reportIssueLabel: String,
     onPayNow: (() -> Unit)? = null,
     canReview: Boolean = false,
     reviewSubmitting: Boolean = false,
@@ -411,6 +420,25 @@ private fun ReservationCardContent(
                 Icon(Icons.Filled.ChatBubbleOutline, null, tint = Color.White, modifier = Modifier.height(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.reservation_messages), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+
+        // Raise an issue about this stay. Only offered on a confirmed or completed
+        // reservation — `onReportIssue` is null otherwise, and that eligibility is
+        // the server's answer (disputes-core), not a second copy of the rule here.
+        if (onReportIssue != null) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = onReportIssue,
+                shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Burgundy),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Filled.ReportProblem, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(reportIssueLabel, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
 

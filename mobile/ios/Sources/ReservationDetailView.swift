@@ -71,6 +71,10 @@ struct ReservationDetailView: View {
     @StateObject private var viewModel: ReservationDetailViewModel
     @State private var walletLoading = false
     @State private var walletError: String?
+    /// Whether this reservation can be disputed, and the dispute if one exists —
+    /// both resolved by the server in one call (see DisputeService.eligibility).
+    @State private var disputeEligible = false
+    @State private var existingDispute: Dispute?
 
     // Host notes editor (shown only to the listing's host). Seeded from the
     // loaded detail; `notesSaving`/`notesError`/`notesSaved` drive the Save button.
@@ -147,6 +151,16 @@ struct ReservationDetailView: View {
             canReview = await ReviewService.shared.isReviewable(bookingID: viewModel.bookingID)
         }
         .task { await guide.load(bookingID: viewModel.bookingID) }
+        .task {
+            // Whether this stay can be disputed, and any dispute already on it.
+            // One call for both, so the eligibility rule stays server-side.
+            guard let state = try? await DisputeService.eligibility() else { return }
+            disputeEligible = state.eligible.contains(viewModel.bookingID)
+            if state.existing[viewModel.bookingID] != nil,
+               let mine = try? await DisputeService.fetch().disputes {
+                existingDispute = mine.first { $0.bookingID == viewModel.bookingID }
+            }
+        }
         .sheet(item: $guideSheet) { target in
             StayGuideItemSheet(
                 bookingID: viewModel.bookingID,
@@ -243,6 +257,7 @@ struct ReservationDetailView: View {
                     hostNotesEditor(detail)
                     stayGuideEditor(detail)
                     messagesButton
+                    disputeButton(detail)
                     detailsCard(detail)
                     cancellationCard(detail)
                     reviewEntry
@@ -259,6 +274,42 @@ struct ReservationDetailView: View {
     }
 
     // MARK: - Pieces
+
+    /// Raise an issue about this stay, or follow one already raised.
+    ///
+    /// Only offered on a confirmed or completed reservation — the eligibility
+    /// rule lives server-side (disputes-core), and `disputeEligible` is what it
+    /// answered, not a second copy of the rule.
+    @ViewBuilder
+    private func disputeButton(_ detail: ReservationDetail) -> some View {
+        Group { if disputeEligible {
+            NavigationLink {
+                DisputeView(bookingID: viewModel.bookingID, stayTitle: detail.title, existing: existingDispute)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.bubble.fill")
+                        .foregroundStyle(Color.qkBurgundy)
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(existingDispute == nil ? "Report an issue" : "Your reported issue")
+                            .font(.headline)
+                            .foregroundStyle(Color.qkInk)
+                        Text(existingDispute.map { "Status: \($0.statusLabel)" }
+                             ?? "Something wrong before, during or after your stay?")
+                            .font(.caption)
+                            .foregroundStyle(Color.qkMuted)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.qkTan4)
+                }
+                .padding(16)
+                .qkCard()
+            }
+            .buttonStyle(.qkTap)
+        } }
+    }
 
     /// Opens the per-booking chat with the host.
     private var messagesButton: some View {

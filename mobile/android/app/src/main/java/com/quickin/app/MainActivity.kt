@@ -77,6 +77,7 @@ import com.quickin.app.ui.AddListingScreen
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
 import com.quickin.app.ui.ChatScreen
+import com.quickin.app.ui.DisputeScreen
 import com.quickin.app.ui.EditListingScreen
 import com.quickin.app.ui.ForgotPasswordScreen
 import com.quickin.app.ui.HostAnalyticsScreen
@@ -439,6 +440,12 @@ private fun MainApp() {
     var showHostApply by remember { mutableStateOf(false) }
     // Booking whose chat thread (full-screen) is open: (bookingId, title), or null.
     var chatBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    // Booking whose dispute form / status (full-screen) is open: (bookingId, title), or null.
+    var disputeBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
+    // Which bookings can be disputed, and any dispute already on them — one call,
+    // so the eligibility rule stays server-side (disputes-core).
+    var disputeEligible by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var disputeExisting by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     // Pre-booking chat (guest ↔ host) opened from a listing detail's "Message host": (listingId,
     // hostName), or null. Sits above the listing detail so Back returns to it.
     var preBookingChat by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -493,6 +500,20 @@ private fun MainApp() {
     // Multi-currency display (Section 9): load the persisted currency choice + refresh FX rates once.
     // Safe to call on every recomposition — CurrencyManager.init is idempotent.
     LaunchedEffect(Unit) { CurrencyManager.init(context) }
+
+    // Which reservations can be disputed, and which already carry one. Re-read
+    // when a dispute screen closes, so filing one immediately updates the button.
+    LaunchedEffect(authState.isAuthenticated, disputeBooking) {
+        val t = authViewModel.currentToken()
+        if (t.isNullOrEmpty()) {
+            disputeEligible = emptySet(); disputeExisting = emptyMap()
+            return@LaunchedEffect
+        }
+        runCatching { DisputeService.eligibility(t) }.getOrNull()?.let { (eligible, existing) ->
+            disputeEligible = eligible
+            disputeExisting = existing
+        }
+    }
 
     // Wishlist save/heart confirmation: a one-shot Toast ("Added to wishlist" / "Removed from
     // wishlist") on every successful toggle, from whichever screen the heart was tapped.
@@ -753,7 +774,7 @@ private fun MainApp() {
         selectedListing != null ||
         selectedService != null ||
         showMySubscriptions || showProfileSettings || showHostApply || showHostServices ||
-        chatBooking != null || selectedReservationId != null || showHost || showAddListing ||
+        chatBooking != null || disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showMessages || openConversationThread != null ||
         showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
@@ -781,6 +802,7 @@ private fun MainApp() {
                 showHostApply = false
             }
             showHostServices -> showHostServices = false
+            disputeBooking != null -> disputeBooking = null
             chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
@@ -1173,6 +1195,17 @@ private fun MainApp() {
 
     // Per-booking CHAT thread. Full-screen; opened from the reservation detail
     // (guest) or a host request row. Sits above those screens so Back returns to them.
+    val dispute = disputeBooking
+    if (dispute != null) {
+        DisputeScreen(
+            token = authViewModel.currentToken(),
+            bookingId = dispute.first,
+            stayTitle = dispute.second,
+            onBack = { disputeBooking = null },
+        )
+        return
+    }
+
     val chat = chatBooking
     if (chat != null && authState.isAuthenticated) {
         ChatScreen(
@@ -1182,6 +1215,7 @@ private fun MainApp() {
             onStart = chatViewModel::start,
             onRefresh = chatViewModel::refresh,
             onSend = chatViewModel::send,
+            onAcknowledgeWarning = chatViewModel::acknowledgeWarning,
             onBack = { chatBooking = null }
         )
         return
@@ -1201,6 +1235,12 @@ private fun MainApp() {
             onOpenMessages = {
                 chatBooking = reservationId to detailState.reservation?.title
             },
+            onReportIssue = if (disputeEligible.contains(reservationId)) {
+                { disputeBooking = reservationId to detailState.reservation?.title }
+            } else null,
+            reportIssueLabel = disputeExisting[reservationId]
+                ?.let { "Your issue · " + DisputeService.statusLabelOf(it) }
+                ?: "Report an issue",
             // Unpaid reservation → "Pay now" opens the Instapay transfer sheet. The amount to
             // transfer is the reservation's exact total.
             onPayNow = {

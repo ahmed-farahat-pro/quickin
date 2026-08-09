@@ -780,6 +780,10 @@ struct HostService {
             return try JSONDecoder().decode(ChatMessage.self, from: data)
         }
         if http.statusCode == 401 { throw HostError.notSignedIn }
+        // 409 + { policyWarning } — a moderator's warning is waiting to be read.
+        if http.statusCode == 409, let w = PolicyWarningBody.decode(data) {
+            throw HostError.policyWarning(id: w.id, text: w.message)
+        }
         throw HostError.message(Self.decodeError(data) ?? "Couldn't send the message (\(http.statusCode)).")
     }
 
@@ -826,12 +830,51 @@ enum HostError: LocalizedError {
     case notSignedIn
     case forbidden(String)
     case message(String)
+    /// A moderator issued a policy warning the user hasn't read. Chat stays
+    /// closed until they acknowledge it — see `PolicyWarningService`. Carries the
+    /// warning so the composer can show it without a second round trip.
+    case policyWarning(id: String, text: String)
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn:        return "Sign in to continue"
         case let .forbidden(text): return text
         case let .message(text):   return text
+        case let .policyWarning(_, text): return text
+        }
+    }
+}
+
+/// Decodes the `{ error, policyWarning: { id, message } }` body the API answers
+/// with (HTTP 409) while a warning is unacknowledged. Returns nil for any other
+/// body, so callers can fall through to their normal error handling.
+enum PolicyWarningBody {
+    static func decode(_ data: Data) -> (id: String, message: String)? {
+        struct Body: Decodable {
+            struct Warning: Decodable { let id: String; let message: String }
+            let policyWarning: Warning?
+        }
+        guard let w = (try? JSONDecoder().decode(Body.self, from: data))?.policyWarning else { return nil }
+        return (w.id, w.message)
+    }
+}
+
+/// The user's acknowledgement of a policy warning.
+/// `POST {base}/api/local/policy-warning { id }` — until this succeeds every
+/// chat send answers 409 with the same warning.
+enum PolicyWarningService {
+    static func acknowledge(id: String) async throws {
+        let stored = UserDefaults.standard.string(forKey: AuthStore.tokenKey)
+        guard let token = stored, !token.isEmpty else { throw HostError.notSignedIn }
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/policy-warning")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": id])
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw HostError.message("Couldn't save that. Please try again.")
         }
     }
 }

@@ -971,6 +971,10 @@ object BookingService {
             conn.outputStream.use { out -> out.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
             val text = readBody(conn, code)
+            // 409 + { policyWarning } — a moderator's warning is waiting to be read.
+            if (code == PolicyWarningApi.GATE_STATUS) {
+                PolicyWarningApi.parse(text)?.let { (id, message) -> throw PolicyWarningRequired(id, message) }
+            }
             if (code !in 200..299) throw HttpError(code, extractError(text, code))
             return text
         } finally {

@@ -75,6 +75,8 @@ fun ChatScreen(
     onStart: (String) -> Unit,
     onRefresh: () -> Unit,
     onSend: (String) -> Unit,
+    /** Confirms a moderator's policy warning was read, reopening the composer. */
+    onAcknowledgeWarning: () -> Unit = {},
     onBack: () -> Unit
 ) {
     // Bind the thread + first load; re-binds if the bookingId changes.
@@ -179,12 +181,21 @@ fun ChatScreen(
                 }
             }
 
-            ChatInputBar(
-                draft = draft,
-                onDraftChange = { draft = it },
-                isSending = state.isSending,
-                onSend = onSend
-            )
+            val warning = state.pendingWarning
+            if (warning != null) {
+                PolicyWarningBanner(
+                    text = warning.second,
+                    isAcknowledging = state.isAcknowledging,
+                    onAcknowledge = onAcknowledgeWarning,
+                )
+            } else {
+                ChatInputBar(
+                    draft = draft,
+                    onDraftChange = { draft = it },
+                    isSending = state.isSending,
+                    onSend = onSend
+                )
+            }
         }
     }
 }

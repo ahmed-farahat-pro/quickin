@@ -21,7 +21,11 @@ data class ChatUiState(
     /** True while a POST is in flight (disables the Send button + input). */
     val isSending: Boolean = false,
     /** The booking this thread belongs to, so polling/sends target the right id. */
-    val bookingId: String? = null
+    val bookingId: String? = null,
+    /** A moderator's warning that must be acknowledged before sending again.
+     *  While set, the composer is replaced by the acknowledge banner. */
+    val pendingWarning: Pair<String, String>? = null,
+    val isAcknowledging: Boolean = false
 )
 
 /**
@@ -116,11 +120,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val list = BookingService.fetchMessages(token, bookingId)
                 if (_state.value.bookingId != bookingId) return@launch
                 _state.value = _state.value.copy(isSending = false, messages = list)
+            } catch (e: PolicyWarningRequired) {
+                if (_state.value.bookingId != bookingId) return@launch
+                // The draft is held by the screen, so it survives this untouched —
+                // acknowledging reopens the composer with the text still in it.
+                _state.value = _state.value.copy(
+                    isSending = false,
+                    pendingWarning = e.warningId to (e.message ?: "")
+                )
             } catch (e: Exception) {
                 if (_state.value.bookingId != bookingId) return@launch
                 _state.value = _state.value.copy(
                     isSending = false,
                     error = humanError(e, "Couldn't send the message.")
+                )
+            }
+        }
+    }
+
+    /**
+     * Confirm the warning was read, then reopen the composer. The banner only
+     * clears when the server agrees — dropping it locally on a failed call would
+     * just bounce the next message off the same 409 with no explanation.
+     */
+    fun acknowledgeWarning() {
+        val warning = _state.value.pendingWarning ?: return
+        val token = token() ?: return
+        if (_state.value.isAcknowledging) return
+        _state.value = _state.value.copy(isAcknowledging = true)
+        viewModelScope.launch {
+            try {
+                PolicyWarningApi.acknowledge(token, warning.first)
+                _state.value = _state.value.copy(isAcknowledging = false, pendingWarning = null, error = null)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isAcknowledging = false,
+                    error = humanError(e, "Couldn't save that. Please try again.")
                 )
             }
         }

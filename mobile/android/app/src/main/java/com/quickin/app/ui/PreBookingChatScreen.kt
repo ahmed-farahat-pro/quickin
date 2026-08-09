@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.ChatLine
 import com.quickin.app.ChatThreadService
+import com.quickin.app.PolicyWarningApi
+import com.quickin.app.PolicyWarningRequired
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
@@ -149,6 +151,10 @@ private fun ChatThreadScreen(
     var error by remember(stateKey) { mutableStateOf<String?>(null) }
     var draft by remember(stateKey) { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
+    // A moderator's warning that must be acknowledged before sending again. While
+    // set, the composer is replaced by the acknowledge banner.
+    var pendingWarning by remember(stateKey) { mutableStateOf<Pair<String, String>?>(null) }
+    var isAcknowledging by remember(stateKey) { mutableStateOf(false) }
 
     // Open (or reuse) the conversation, then load its first page of messages.
     LaunchedEffect(token, stateKey) {
@@ -199,11 +205,33 @@ private fun ChatThreadScreen(
                 // Optimistic append; the next poll reconciles with the server list.
                 messages = messages + sent
                 draft = ""
+            } catch (e: PolicyWarningRequired) {
+                // `draft` untouched: acknowledging reopens the composer with it intact.
+                pendingWarning = e.warningId to (e.message ?: "")
             } catch (e: Exception) {
                 // Keep the typed text so a rejected message (e.g. a phone number) isn't lost.
                 error = humanError(e, "Couldn't send your message.")
             } finally {
                 isSending = false
+            }
+        }
+    }
+
+    val doAcknowledge: () -> Unit = ack@{
+        val warning = pendingWarning ?: return@ack
+        if (isAcknowledging) return@ack
+        isAcknowledging = true
+        scope.launch {
+            try {
+                PolicyWarningApi.acknowledge(token, warning.first)
+                // Only drop the gate once the server agrees — clearing it locally
+                // would just bounce the next message off the same 409.
+                pendingWarning = null
+                error = null
+            } catch (e: Exception) {
+                error = humanError(e, "Couldn't save that. Please try again.")
+            } finally {
+                isAcknowledging = false
             }
         }
     }
@@ -283,13 +311,22 @@ private fun ChatThreadScreen(
                 }
             }
 
-            PreChatInputBar(
-                draft = draft,
-                onDraftChange = { draft = it },
-                isSending = isSending,
-                enabled = conversationId != null,
-                onSend = doSend
-            )
+            val warning = pendingWarning
+            if (warning != null) {
+                PolicyWarningBanner(
+                    text = warning.second,
+                    isAcknowledging = isAcknowledging,
+                    onAcknowledge = doAcknowledge,
+                )
+            } else {
+                PreChatInputBar(
+                    draft = draft,
+                    onDraftChange = { draft = it },
+                    isSending = isSending,
+                    enabled = conversationId != null,
+                    onSend = doSend
+                )
+            }
         }
     }
 }

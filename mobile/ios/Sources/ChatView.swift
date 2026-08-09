@@ -9,6 +9,10 @@ final class ChatViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isSending = false
     @Published var errorMessage: String?
+    /// A moderator's warning that must be acknowledged before sending again.
+    /// While set, the composer is replaced by the acknowledge banner.
+    @Published var pendingWarning: (id: String, text: String)?
+    @Published var isAcknowledging = false
 
     let bookingID: String
 
@@ -59,9 +63,28 @@ final class ChatViewModel: ObservableObject {
             // Only clear the draft once the send actually succeeded.
             draft = ""
             await load(silent: true)
+        } catch let HostError.policyWarning(id, text) {
+            // `draft` untouched: acknowledging reopens the composer with it intact.
+            pendingWarning = (id, text)
         } catch {
             // Surface the server's reason (phone-number block, etc.) and leave
             // `draft` untouched so nothing the user typed is lost.
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Confirm the warning was read, then reopen the composer. Only clears the
+    /// banner when the server agrees — otherwise the next send bounces off the
+    /// same 409 with no explanation.
+    func acknowledgeWarning() async {
+        guard let warning = pendingWarning else { return }
+        isAcknowledging = true
+        defer { isAcknowledging = false }
+        do {
+            try await PolicyWarningService.acknowledge(id: warning.id)
+            pendingWarning = nil
+            errorMessage = nil
+        } catch {
             errorMessage = error.localizedDescription
         }
     }
@@ -170,6 +193,13 @@ struct ChatView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
             }
+            if let warning = viewModel.pendingWarning {
+                PolicyWarningBanner(
+                    text: warning.text,
+                    isAcknowledging: viewModel.isAcknowledging,
+                    onAcknowledge: { Task { await viewModel.acknowledgeWarning() } }
+                )
+            } else {
             HStack(spacing: 10) {
                 TextField("Message", text: $viewModel.draft, axis: .vertical)
                     .lineLimit(1...4)
@@ -221,6 +251,7 @@ struct ChatView: View {
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .padding(.bottom, 10)
+            }
         }
         .background(Color.qkTan.opacity(0.6))
     }

@@ -111,6 +111,10 @@ struct ConversationService {
             throw HostError.message("Invalid response from the server.")
         }
         if http.statusCode == 401 { throw HostError.notSignedIn }
+        // 409 + { policyWarning } — a moderator's warning is waiting to be read.
+        if http.statusCode == 409, let w = PolicyWarningBody.decode(data) {
+            throw HostError.policyWarning(id: w.id, text: w.message)
+        }
         guard (200...299).contains(http.statusCode) else {
             throw HostError.message(Self.decodeError(data) ?? "Couldn't send the message (\(http.statusCode)).")
         }

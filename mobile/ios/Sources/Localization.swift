@@ -100,6 +100,8 @@ enum L {
 enum Strings {
     static let en: [String: String] = [
         "chat.send": "Send message",
+        "chat.warningTitle": "A note from QuickIn",
+        "chat.warningAck": "I understand",
         "listing.report": "Report listing",
         // Tabs — guest
         "tab.explore": "Explore",
@@ -927,6 +929,8 @@ enum Strings {
 
     static let ar: [String: String] = [
         "chat.send": "إرسال الرسالة",
+        "chat.warningTitle": "رسالة من QuickIn",
+        "chat.warningAck": "فهمت",
         "listing.report": "الإبلاغ عن العقار",
         // Tabs — guest
         "tab.explore": "استكشف",
@@ -1744,6 +1748,8 @@ enum Strings {
     /// French (machine-translated, reviewable). LTR.
     static let fr: [String: String] = [
         "chat.send": "Envoyer le message",
+        "chat.warningTitle": "Un message de QuickIn",
+        "chat.warningAck": "J'ai compris",
         "listing.report": "Signaler l'annonce",
         "tab.explore": "Explorer",
         "tab.services": "Services",
@@ -2475,6 +2481,8 @@ enum Strings {
     /// Spanish (machine-translated, reviewable). LTR.
     static let es: [String: String] = [
         "chat.send": "Enviar mensaje",
+        "chat.warningTitle": "Un mensaje de QuickIn",
+        "chat.warningAck": "Entendido",
         "listing.report": "Reportar el alojamiento",
         "tab.explore": "Explorar",
         "tab.services": "Servicios",

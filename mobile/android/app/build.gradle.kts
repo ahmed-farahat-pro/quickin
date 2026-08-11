@@ -15,8 +15,15 @@ android {
         applicationId = "com.quickin.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        // Play rejects a versionCode that has EVER been used ("Version code N has already
+        // been used"), and it can only ever increase — you can never go back down. Codes
+        // 1 and 2 are burned. Rather than incrementing one at a time and burning an upload
+        // per collision, this switches to a derived scheme: MAJOR*10000 + MINOR*100 + PATCH.
+        // 1.2.0 → 10200. Every future bump follows the same formula from versionName, so a
+        // collision is impossible as long as versionName goes up.
+        versionCode = 10200
+        // Kept in step with the iOS MARKETING_VERSION in mobile/ios/project.yml.
+        versionName = "1.2.0"
 
         // Google Maps API key for the (optional) Google Maps Explore map. Defaults to "" so the
         // app builds and runs with the osmdroid price-pill fallback when no key is provided.

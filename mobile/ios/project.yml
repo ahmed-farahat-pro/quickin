@@ -91,9 +91,17 @@ targets:
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        MARKETING_VERSION: "1.0.0"
-        # Build 3 was rejected for the missing location string; next upload is build 4.
-        CURRENT_PROJECT_VERSION: "4"
+        # BOTH 1.0.0 and 1.1.0 are APPROVED, CLOSED trains on App Store Connect.
+        # Uploading to a closed train fails with 90186 ("train version is closed") and
+        # 90062 (CFBundleShortVersionString must exceed the last approved version).
+        # Every upload needs a marketing version HIGHER than anything already approved —
+        # check App Store Connect → App Store → the version list before bumping, rather
+        # than incrementing blindly and burning another upload.
+        MARKETING_VERSION: "1.2.0"
+        # Build number must be unique within its train. 1-4 were the 1.0.0 train, 5 the
+        # 1.1.0 train; 6 opens 1.2.0. Bump for EVERY upload, even a re-upload of the
+        # same marketing version.
+        CURRENT_PROJECT_VERSION: "6"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.quickin.ahmed

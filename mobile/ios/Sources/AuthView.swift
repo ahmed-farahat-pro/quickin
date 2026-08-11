@@ -26,6 +26,7 @@ struct AuthView: View {
     private struct OTPSession: Identifiable {
         let email: String
         let referralCode: String?
+        let devCode: String?
         var id: String { email }
     }
 
@@ -106,7 +107,7 @@ struct AuthView: View {
         // OTP verification step. Presented after a `pending` signup or when a
         // login reports the email still needs verification.
         .fullScreenCover(item: $otpSession) { session in
-            OTPVerificationView(email: session.email, referralCode: session.referralCode) {
+            OTPVerificationView(email: session.email, referralCode: session.referralCode, devCode: session.devCode) {
                 // Verified: AuthStore now holds the session. Dismiss the OTP
                 // cover; the parent sheet auto-dismisses on `isAuthenticated`.
                 otpSession = nil
@@ -479,7 +480,7 @@ struct AuthView: View {
             }
             // Non-deferred path: session is already live; the presenting sheet
             // dismisses on `auth.isAuthenticated`. Nothing to do.
-        case .needsVerification(let verifyEmail):
+        case .needsVerification(let verifyEmail, let devCode):
             // For an unverified-email login, send a fresh code before showing
             // the OTP screen (signup already emailed one). Errors surface via
             // `auth.errorMessage`.
@@ -491,7 +492,8 @@ struct AuthView: View {
             let trimmedReferral = referralCode.trimmingCharacters(in: .whitespaces)
             otpSession = OTPSession(
                 email: verifyEmail,
-                referralCode: (isSignUp && !trimmedReferral.isEmpty) ? trimmedReferral : nil
+                referralCode: (isSignUp && !trimmedReferral.isEmpty) ? trimmedReferral : nil,
+                devCode: devCode
             )
         case .failed:
             break

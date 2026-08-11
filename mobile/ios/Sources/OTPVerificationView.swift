@@ -21,6 +21,9 @@ struct OTPVerificationView: View {
     /// unverified-login path (where no signup referral was entered).
     var referralCode: String? = nil
 
+    /// Fallback code returned by the backend when SMTP delivery failed.
+    var devCode: String? = nil
+
     /// Called once verification succeeds and a session is established, so the
     /// presenter (e.g. `AuthView`) can dismiss this screen.
     var onVerified: () -> Void = {}
@@ -43,6 +46,15 @@ struct OTPVerificationView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     header
+                    if let devCode {
+                        Text("Email couldn't be delivered. Use code: \(devCode)")
+                            .font(.footnote)
+                            .foregroundStyle(Color.qkBurgundy)
+                            .multilineTextAlignment(.center)
+                            .padding(12)
+                            .background(Color.qkBurgundy.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                     codeCard
                     if let error = auth.errorMessage {
                         Text(error)

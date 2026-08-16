@@ -6,6 +6,27 @@ APP_IDENTIFIER = "com.quickin.ahmed".freeze
 XCODEPROJ      = "QuickIn.xcodeproj".freeze
 SCHEME         = "QuickIn".freeze
 
+# GitHub materialises an *unset* secret as an empty string rather than leaving
+# the variable out, so ENV.fetch happily returns "" and the failure surfaces
+# much later as `invalid curve name` from OpenSSL. Check up front, and report
+# every missing name at once instead of one per run.
+def require_env!(*keys)
+  missing = keys.flatten.select { |key| ENV[key].to_s.empty? }
+  return if missing.empty?
+
+  UI.user_error!(
+    "Missing or empty: #{missing.join(', ')}. " \
+    "On CI these come from repository secrets; locally, export them in the " \
+    "same shell that runs fastlane."
+  )
+end
+
+SIGNING_ENV = %w[
+  APPLE_TEAM_ID
+  MATCH_GIT_URL MATCH_GIT_USER MATCH_GIT_TOKEN MATCH_PASSWORD
+  APP_STORE_KEY_ID APP_STORE_ISSUER_ID APP_STORE_API_KEY_P8
+].freeze
+
 def asc_api_key
   app_store_connect_api_key(
     key_id: ENV.fetch("APP_STORE_KEY_ID"),
@@ -32,20 +53,7 @@ platform :ios do
   desc "match repo. Run from a Mac with the same env vars CI uses. Needs an"
   desc "Admin / App Manager API key — it writes to the portal and the repo."
   lane :bootstrap_signing do
-    # Report every missing variable at once. Without this the lane dies on the
-    # first ENV.fetch it reaches, so a half-exported shell costs one failed run
-    # per variable instead of one.
-    missing = %w[
-      APPLE_TEAM_ID
-      MATCH_GIT_URL MATCH_GIT_USER MATCH_GIT_TOKEN MATCH_PASSWORD
-      APP_STORE_KEY_ID APP_STORE_ISSUER_ID APP_STORE_API_KEY_P8
-    ].select { |key| ENV[key].to_s.empty? }
-    unless missing.empty?
-      UI.user_error!(
-        "Not set in this shell: #{missing.join(', ')}. " \
-        "Export them and run this lane from the same shell."
-      )
-    end
+    require_env!(SIGNING_ENV)
 
     match(
       type: "appstore",
@@ -73,6 +81,8 @@ platform :ios do
 
   desc "Build QuickIn and upload it to TestFlight"
   lane :beta do
+    require_env!(SIGNING_ENV)
+
     # Creates a throwaway keychain (fastlane_tmp_keychain, empty password) and
     # unlocks it, so match can import the certificate without a UI prompt.
     setup_ci if ENV["CI"]

@@ -1,0 +1,10 @@
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier(["com.quickin.ahmed"])
+
+# Hard-coded (unlike the Appfile, which reads APPLE_TEAM_ID) so a bare
+# `fastlane match` from a Mac — the bootstrap that seeds this app's profile
+# into the repo — works without exporting anything first. The Fastfile passes
+# team_id explicitly on CI, which takes precedence over this.
+team_id("97DNR5Y3Y5")

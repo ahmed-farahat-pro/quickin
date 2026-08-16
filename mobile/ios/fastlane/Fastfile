@@ -1,0 +1,171 @@
+require "base64"
+
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.quickin.ahmed".freeze
+XCODEPROJ      = "QuickIn.xcodeproj".freeze
+SCHEME         = "QuickIn".freeze
+
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("APP_STORE_KEY_ID"),
+    issuer_id: ENV.fetch("APP_STORE_ISSUER_ID"),
+    # Raw .p8 contents, NOT base64 — fastlane has reverted base64 .p8 decoding
+    # in the transporter path before, and upload_to_testflight regenerates a
+    # .p8 file from this. GitHub secrets preserve the multi-line PEM fine.
+    key_content: ENV.fetch("APP_STORE_API_KEY_P8"),
+    is_key_content_base64: false,
+    in_house: false
+  )
+end
+
+# match clones the repo over HTTPS, so it needs basic-auth credentials rather
+# than the ambient SSH key a developer's Mac would use.
+def match_git_auth
+  Base64.strict_encode64(
+    "#{ENV.fetch('MATCH_GIT_USER')}:#{ENV.fetch('MATCH_GIT_TOKEN')}"
+  )
+end
+
+platform :ios do
+  desc "One-time bootstrap: seed this app's App Store profile into the shared"
+  desc "match repo. Run from a Mac with the same env vars CI uses. Needs an"
+  desc "Admin / App Manager API key — it writes to the portal and the repo."
+  lane :bootstrap_signing do
+    # Report every missing variable at once. Without this the lane dies on the
+    # first ENV.fetch it reaches, so a half-exported shell costs one failed run
+    # per variable instead of one.
+    missing = %w[
+      APPLE_TEAM_ID
+      MATCH_GIT_URL MATCH_GIT_USER MATCH_GIT_TOKEN MATCH_PASSWORD
+      APP_STORE_KEY_ID APP_STORE_ISSUER_ID APP_STORE_API_KEY_P8
+    ].select { |key| ENV[key].to_s.empty? }
+    unless missing.empty?
+      UI.user_error!(
+        "Not set in this shell: #{missing.join(', ')}. " \
+        "Export them and run this lane from the same shell."
+      )
+    end
+
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      readonly: false,
+      api_key: asc_api_key,
+      git_basic_authorization: match_git_auth
+    )
+    UI.success("Seeded #{APP_IDENTIFIER} into the match repo. CI can run readonly now.")
+  end
+
+  desc "Diagnostic: list the certificates this API key can see on the portal."
+  desc "Tells a revoked certificate apart from a key pointed at another team."
+  lane :list_certs do
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**asc_api_key)
+    certs = Spaceship::ConnectAPI::Certificate.all
+    UI.important("#{certs.count} certificate(s) visible to this key:")
+    certs.each do |cert|
+      UI.message(
+        "#{cert.id}  #{cert.certificate_type}  #{cert.name}  expires #{cert.expiration_date}"
+      )
+    end
+  end
+
+  desc "Build QuickIn and upload it to TestFlight"
+  lane :beta do
+    # Creates a throwaway keychain (fastlane_tmp_keychain, empty password) and
+    # unlocks it, so match can import the certificate without a UI prompt.
+    setup_ci if ENV["CI"]
+
+    api_key = asc_api_key
+    team_id = ENV.fetch("APPLE_TEAM_ID")
+
+    # Signing assets come from droob's match repo, which QuickIn shares rather
+    # than forking: both apps live in Apple team 97DNR5Y3Y5, so both reuse the
+    # single distribution certificate stored there.
+    #
+    # (Tawazon and mafeshsho8l are in the same Apple team but each got its own
+    # match repo and therefore its own certificate — the fragmentation this
+    # sharing exists to stop. Folding them in here would be a net win.)
+    #
+    # An Apple Distribution certificate is per-TEAM, not per-app, and Apple caps
+    # how many a team may hold at once. A clean runner has no private key, so
+    # `cert`/`sigh` would mint a BRAND NEW certificate on every run and burn
+    # through that cap within a handful of builds. readonly: true makes that
+    # impossible: CI can only consume what a human already seeded from a Mac
+    # (`fastlane match appstore --readonly false`), and every app in the team
+    # reuses the one certificate in the repo.
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      team_id: team_id,
+      readonly: true,
+      api_key: api_key,
+      git_basic_authorization: match_git_auth
+    )
+
+    # match publishes the profile it installed as sigh_<app id>_<type>_profile-name.
+    # The fallback is match's own deterministic name, for the case where a future
+    # fastlane stops exporting that variable.
+    profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"] ||
+                   "match AppStore #{APP_IDENTIFIER}"
+
+    # project.yml pins CODE_SIGN_STYLE Automatic under the *development* team so
+    # the app builds on a Mac. CI archives for distribution instead, so flip the
+    # regenerated project to manual signing under the distribution team.
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: XCODEPROJ,
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: APP_IDENTIFIER,
+      profile_name: profile_name,
+      targets: [SCHEME]
+    )
+
+    # Apple scopes build-number uniqueness to the marketing-version train, but
+    # latest_testflight_build_number reports the newest upload across all trains,
+    # which can sit below the number this train already holds. Take the higher of
+    # the two so the next number is free here and never goes backwards overall.
+    marketing_version = get_version_number(
+      xcodeproj: XCODEPROJ,
+      target: SCHEME,
+      configuration: "Release"
+    )
+    latest_any_train = latest_testflight_build_number(
+      app_identifier: APP_IDENTIFIER,
+      api_key: api_key,
+      initial_build_number: 0
+    )
+    latest_this_train = latest_testflight_build_number(
+      app_identifier: APP_IDENTIFIER,
+      api_key: api_key,
+      version: marketing_version,
+      initial_build_number: 0
+    )
+    increment_build_number(
+      build_number: [latest_any_train.to_i, latest_this_train.to_i].max + 1,
+      xcodeproj: XCODEPROJ
+    )
+
+    build_app(
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "QuickIn",
+      clean: true,
+      export_options: {
+        teamID: team_id,
+        signingStyle: "manual",
+        provisioningProfiles: { APP_IDENTIFIER => profile_name }
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true
+    )
+  end
+end

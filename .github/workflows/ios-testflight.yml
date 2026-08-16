@@ -57,7 +57,10 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          # >= 3.3, because Gemfile.lock resolves excon 1.7.0 which requires it.
+          # Keep this at or above whatever the lockfile's floor is after a
+          # `bundle update` — the failure is at `bundle install`, not at runtime.
+          ruby-version: '3.4'
           bundler-cache: true
           working-directory: mobile/ios
 

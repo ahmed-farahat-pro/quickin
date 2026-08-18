@@ -386,20 +386,13 @@ final class AuthStore: ObservableObject {
 
     /// Verify the 6-digit code emailed after signup. On success stores the
     /// returned `{ token, user }` and completes login.
-    ///
-    /// `referralCode` (optional) is forwarded as `referral_code` so a new account
-    /// is credited to the friend who referred them.
     @discardableResult
-    func verifyOTP(email: String, code: String, referralCode: String? = nil) async -> AuthOutcome {
+    func verifyOTP(email: String, code: String) async -> AuthOutcome {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
-        var body = ["email": email, "code": code]
-        if let referral = referralCode?.trimmingCharacters(in: .whitespacesAndNewlines), !referral.isEmpty {
-            body["referral_code"] = referral
-        }
-        let result = await send(path: "/api/auth/verify-otp", body: body)
+        let result = await send(path: "/api/auth/verify-otp", body: ["email": email, "code": code])
 
         switch result {
         case .success(let data):

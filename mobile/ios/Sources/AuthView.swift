@@ -12,20 +12,34 @@ struct AuthView: View {
         case signUp
     }
 
+    /// The text fields we track focus for, so leaving the email field can flip
+    /// its validation hint on.
+    private enum Field: Hashable { case name, email }
+
     @State private var mode: Mode = .signIn
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
-    /// Optional referral code entered at signup, forwarded to OTP verification.
-    @State private var referralCode = ""
+    /// Sign-up only: the password typed a second time. A new account whose
+    /// password holds a typo can't be signed into at all, so we ask twice.
+    @State private var confirmPassword = ""
+    @State private var showConfirmPassword = false
+
+    @FocusState private var focusedField: Field?
+
+    /// Set once the user has left the email field (or hit return on it) with
+    /// something typed. Until then we stay quiet — nagging about a malformed
+    /// address while it's still being typed reads as broken.
+    @State private var emailTouched = false
+
+    /// The same arming for the name field: a half-typed "L" is not yet a wrong
+    /// answer, so the hint waits until focus leaves (or submit is attempted).
+    @State private var nameTouched = false
 
     /// Identifiable wrapper so the OTP email can drive a `fullScreenCover(item:)`.
-    /// Carries an optional `referralCode` captured at signup so it survives the
-    /// hand-off to the OTP screen.
     private struct OTPSession: Identifiable {
         let email: String
-        let referralCode: String?
         var id: String { email }
     }
 
@@ -56,12 +70,45 @@ struct AuthView: View {
         !isSignUp && biometricKind != .none && hasStoredBiometric
     }
 
+    /// The inline hint under the email field: shown only once the user has
+    /// committed a non-empty, malformed address.
+    private var emailError: String? {
+        guard emailTouched, !EmailRules.normalized(email).isEmpty, !EmailRules.isValid(email) else {
+            return nil
+        }
+        return loc.t("auth.email.invalid")
+    }
+
+    /// The inline hint under the name field, armed the same way as the email's:
+    /// `12345` is not a name, and the server refuses it, so say so here first.
+    private var nameError: String? {
+        guard isSignUp, nameTouched, !NameRules.normalized(name).isEmpty,
+              let problem = NameRules.problem(with: name) else {
+            return nil
+        }
+        return loc.t(problem.messageKey)
+    }
+
+    /// The inline hint under the confirm field, armed the same way as the others:
+    /// it waits until something has been typed there before calling it a mismatch.
+    private var confirmError: String? {
+        guard isSignUp, !confirmPassword.isEmpty, confirmPassword != password else {
+            return nil
+        }
+        return loc.t("password.mismatch")
+    }
+
     private var canSubmit: Bool {
-        guard !email.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        // A malformed address can never sign in or sign up — gate the button on
+        // the format, not just on the field being non-empty.
+        guard EmailRules.isValid(email) else { return false }
         if isSignUp {
-            // New account: require a name + a password that clears the strength bar.
-            return !name.trimmingCharacters(in: .whitespaces).isEmpty
+            // New account: a real name + a password that clears the strength bar,
+            // typed identically twice. Non-empty is not the test — `12345` is
+            // non-empty and is not a name.
+            return NameRules.isValid(name)
                 && PasswordRules.meetsMin(password)
+                && confirmPassword == password
         }
         // Sign-in just needs a non-empty password; strength is enforced at signup.
         return password.count >= 1
@@ -103,14 +150,34 @@ struct AuthView: View {
         .tint(.qkBurgundy)
         .animation(.easeInOut(duration: 0.2), value: mode)
         .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
+        // Switching modes hides the confirm field; drop what was typed there so
+        // coming back to sign-up starts from a clean, un-armed hint.
+        .onChange(of: mode) { _, _ in confirmPassword = "" }
+        // Leaving a field (tapping the next one, hitting return, dismissing the
+        // keyboard) is what arms that field's hint.
+        .onChange(of: focusedField) { _, newValue in
+            if newValue != .email && !EmailRules.normalized(email).isEmpty {
+                emailTouched = true
+            }
+            if newValue != .name && !NameRules.normalized(name).isEmpty {
+                nameTouched = true
+            }
+        }
         // OTP verification step. Presented after a `pending` signup or when a
         // login reports the email still needs verification.
         .fullScreenCover(item: $otpSession) { session in
-            OTPVerificationView(email: session.email, referralCode: session.referralCode) {
-                // Verified: AuthStore now holds the session. Dismiss the OTP
-                // cover; the parent sheet auto-dismisses on `isAuthenticated`.
-                otpSession = nil
-            }
+            OTPVerificationView(
+                email: session.email,
+                // Backed out without verifying: return to this form. Not a dead
+                // end — the account exists but is unverified, so signing up or
+                // signing in again re-issues a code and comes back here.
+                onBack: { otpSession = nil },
+                onVerified: {
+                    // Verified: AuthStore now holds the session. Dismiss the OTP
+                    // cover; the parent sheet auto-dismisses on `isAuthenticated`.
+                    otpSession = nil
+                }
+            )
             .environmentObject(auth)
         }
         // Forgot-password reset flow (request code → reset). On success it
@@ -201,7 +268,9 @@ struct AuthView: View {
                     text: $name,
                     placeholder: loc.t("auth.fullName.placeholder"),
                     systemImage: "person",
-                    contentType: .name
+                    contentType: .name,
+                    focusTag: .name,
+                    errorMessage: nameError
                 )
             }
             field(
@@ -210,7 +279,9 @@ struct AuthView: View {
                 placeholder: "layla@email.com",
                 systemImage: "envelope",
                 contentType: .emailAddress,
-                keyboard: .emailAddress
+                keyboard: .emailAddress,
+                focusTag: .email,
+                errorMessage: emailError
             )
             secureField(
                 title: loc.t("auth.password"),
@@ -222,11 +293,13 @@ struct AuthView: View {
             if isSignUp {
                 PasswordStrengthView(password: password)
                     .animation(.easeInOut(duration: 0.25), value: password.isEmpty)
-                field(
-                    title: loc.t("referral.signupField"),
-                    text: $referralCode,
-                    placeholder: loc.t("referral.signupPlaceholder"),
-                    systemImage: "gift"
+                secureField(
+                    title: loc.t("auth.confirmPassword"),
+                    text: $confirmPassword,
+                    placeholder: "••••••••",
+                    systemImage: "checkmark.shield",
+                    isRevealed: $showConfirmPassword,
+                    errorMessage: confirmError
                 )
             }
             if !isSignUp {
@@ -253,7 +326,9 @@ struct AuthView: View {
         placeholder: String,
         systemImage: String,
         contentType: UITextContentType? = nil,
-        keyboard: UIKeyboardType = .default
+        keyboard: UIKeyboardType = .default,
+        focusTag: Field,
+        errorMessage: String? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -261,7 +336,7 @@ struct AuthView: View {
                 .foregroundStyle(Color.qkMuted)
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(Color.qkMuted)
+                    .foregroundStyle(errorMessage == nil ? Color.qkMuted : Color.qkBurgundy)
                     .frame(width: 18)
                 TextField(placeholder, text: text)
                     .textContentType(contentType)
@@ -269,6 +344,8 @@ struct AuthView: View {
                     .textInputAutocapitalization(keyboard == .emailAddress ? .never : .words)
                     .autocorrectionDisabled(keyboard == .emailAddress)
                     .foregroundStyle(Color.qkInk)
+                    .focused($focusedField, equals: focusTag)
+                    .submitLabel(.next)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -276,9 +353,21 @@ struct AuthView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(
+                        errorMessage == nil ? Color.qkInk.opacity(0.1) : Color.qkBurgundy.opacity(0.55),
+                        lineWidth: errorMessage == nil ? 1 : 1.5
+                    )
             )
+            // Inline validation hint (the name and email fields use it).
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
     }
 
     private func secureField(
@@ -286,7 +375,8 @@ struct AuthView: View {
         text: Binding<String>,
         placeholder: String,
         systemImage: String,
-        isRevealed: Binding<Bool>
+        isRevealed: Binding<Bool>,
+        errorMessage: String? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -294,7 +384,7 @@ struct AuthView: View {
                 .foregroundStyle(Color.qkMuted)
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(Color.qkMuted)
+                    .foregroundStyle(errorMessage == nil ? Color.qkMuted : Color.qkBurgundy)
                     .frame(width: 18)
                 Group {
                     if isRevealed.wrappedValue {
@@ -323,9 +413,21 @@ struct AuthView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(
+                        errorMessage == nil ? Color.qkInk.opacity(0.1) : Color.qkBurgundy.opacity(0.55),
+                        lineWidth: errorMessage == nil ? 1 : 1.5
+                    )
             )
+            // Inline validation hint (the confirm-password field uses it).
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
     }
 
     // MARK: - Primary button
@@ -446,7 +548,27 @@ struct AuthView: View {
     // MARK: - Actions
 
     private func submit() async {
+        // Guard again at the call site: the button is disabled for a malformed
+        // address, but the keyboard's return key / a future caller shouldn't be
+        // able to slip one past. Send the trimmed form.
+        let email = EmailRules.normalized(self.email)
+        guard EmailRules.isValid(email) else {
+            emailTouched = true
+            return
+        }
+
         if isSignUp {
+            // Same guard as the address: the button is disabled for `12345`, but
+            // the return key shouldn't be able to slip one past. Send the
+            // collapsed form, which is what the server stores.
+            let name = NameRules.normalized(self.name)
+            guard NameRules.isValid(name) else {
+                nameTouched = true
+                return
+            }
+            // Same again for the confirmation: the button is disabled on a
+            // mismatch, but the return key shouldn't be able to slip one past.
+            guard confirmPassword == password else { return }
             let outcome = await auth.signup(name: name, email: email, password: password)
             await handle(outcome, session: nil)
             return
@@ -486,13 +608,7 @@ struct AuthView: View {
             if !isSignUp {
                 await auth.resendOTP(email: verifyEmail)
             }
-            // Carry the referral code only on the signup path (an unverified
-            // login never entered one).
-            let trimmedReferral = referralCode.trimmingCharacters(in: .whitespaces)
-            otpSession = OTPSession(
-                email: verifyEmail,
-                referralCode: (isSignUp && !trimmedReferral.isEmpty) ? trimmedReferral : nil
-            )
+            otpSession = OTPSession(email: verifyEmail)
         case .failed:
             break
         }

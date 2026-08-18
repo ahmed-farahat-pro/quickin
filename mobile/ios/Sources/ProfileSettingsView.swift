@@ -1,14 +1,24 @@
 import SwiftUI
 import PhotosUI
 
-/// Loads + edits the signed-in user's profile (full name, age, ID/passport,
-/// phone, bio, avatar) via `GET`/`PATCH /api/local/profile`. Reachable from
-/// `ProfileView`'s "Edit profile" row.
+/// Loads + edits the signed-in user's profile (full name, age, phone, bio, avatar)
+/// via `GET`/`PATCH /api/local/profile`. Reachable from `ProfileView`'s "Edit
+/// profile" row.
+///
+/// The ID/passport number is shown here but NOT edited. It used to be an ordinary
+/// text field, which meant anyone could rewrite their own identity number whenever
+/// they liked with nobody reviewing it. Changing it now means filing a request with a
+/// photo of the document, which an operator approves — see `IDChangeRequestView` and
+/// `ProfileService.requestIDChange`.
 @MainActor
 final class ProfileSettingsViewModel: ObservableObject {
     @Published var fullName = ""
     @Published var ageText = ""
+    /// Read-only: the approved number on the profile. Kept as state so the row can
+    /// update the moment a request is approved without a full reload.
     @Published var idDocument = ""
+    /// The latest request to change it, and whether a new one may be filed.
+    @Published var idChange: IDChangeState?
     @Published var phone = ""
     @Published var bio = ""
     /// Current avatar as a `data:`/`http` URL string (nil → initials fallback).
@@ -27,13 +37,25 @@ final class ProfileSettingsViewModel: ObservableObject {
     // Change-password section.
     @Published var currentPassword = ""
     @Published var newPassword = ""
+    @Published var confirmPassword = ""
     @Published var isChangingPassword = false
     @Published var passwordError: String?
     @Published var didChangePassword = false
 
-    /// Both fields filled and the new one clearing the strength bar to submit.
+    /// Whether the confirmation matches the new password. Empty counts as a
+    /// match so the hint stays quiet until the user has actually typed there.
+    var passwordsMatch: Bool {
+        confirmPassword.isEmpty || confirmPassword == newPassword
+    }
+
+    /// All three fields filled, the new one clearing the strength bar, and the
+    /// confirmation matching it — the password is only changed once the user has
+    /// typed the same thing twice.
     var canChangePassword: Bool {
-        !currentPassword.isEmpty && PasswordRules.meetsMin(newPassword) && !isChangingPassword
+        !currentPassword.isEmpty
+            && PasswordRules.meetsMin(newPassword)
+            && confirmPassword == newPassword
+            && !isChangingPassword
     }
 
     /// Parsed age (nil when empty/invalid → cleared on save).
@@ -53,6 +75,23 @@ final class ProfileSettingsViewModel: ObservableObject {
         } catch {
             loadError = error.localizedDescription
         }
+        // Fetched separately and allowed to fail quietly: a profile that loaded is
+        // still fully editable without it, and the ID row falls back to showing the
+        // stored number with no request state rather than blocking the whole screen.
+        await loadIDChange()
+    }
+
+    /// Refresh the ID row's request state. Silent on failure — see `load()`.
+    func loadIDChange() async {
+        idChange = try? await ProfileService.shared.fetchIDChangeState()
+        if let current = idChange?.current { idDocument = current }
+    }
+
+    /// Withdraw a request that is still waiting for review.
+    func cancelIDChange() async {
+        guard let updated = try? await ProfileService.shared.cancelIDChangeRequest() else { return }
+        idChange = updated
+        idDocument = updated.current ?? ""
     }
 
     /// Wipe every field + flags so a different account never momentarily shows
@@ -62,11 +101,13 @@ final class ProfileSettingsViewModel: ObservableObject {
         fullName = ""
         ageText = ""
         idDocument = ""
+        idChange = nil
         phone = ""
         bio = ""
         avatarURL = nil
         currentPassword = ""
         newPassword = ""
+        confirmPassword = ""
         loadError = nil
         saveError = nil
         passwordError = nil
@@ -84,7 +125,6 @@ final class ProfileSettingsViewModel: ObservableObject {
             let updated = try await ProfileService.shared.updateProfile(
                 fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
                 age: age,
-                idDocument: idDocument.trimmingCharacters(in: .whitespacesAndNewlines),
                 phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
                 bio: bio.trimmingCharacters(in: .whitespacesAndNewlines),
                 avatarURL: avatarURL
@@ -132,6 +172,7 @@ final class ProfileSettingsViewModel: ObservableObject {
             // Clear the fields on success and show the confirmation note.
             currentPassword = ""
             newPassword = ""
+            confirmPassword = ""
             didChangePassword = true
         } catch {
             passwordError = error.localizedDescription
@@ -141,7 +182,10 @@ final class ProfileSettingsViewModel: ObservableObject {
     private func apply(_ profile: Profile) {
         fullName = profile.fullName ?? ""
         ageText = profile.age.map(String.init) ?? ""
-        idDocument = profile.idDocument ?? ""
+        // Only overwritten when the server actually reported one. `updateProfile`'s
+        // fallback echo carries no id_document (the field is not sent any more), so
+        // assigning it unconditionally would blank the row after every save.
+        if let stored = profile.idDocument { idDocument = stored }
         phone = profile.phone ?? ""
         bio = profile.bio ?? ""
         avatarURL = profile.avatarURL
@@ -156,6 +200,10 @@ struct ProfileSettingsView: View {
 
     @State private var showCurrentPassword = false
     @State private var showNewPassword = false
+    @State private var showConfirmPassword = false
+
+    /// Presents the ID-change request sheet — the only way to alter the ID number.
+    @State private var showIDChangeSheet = false
 
     /// The photo selected in the avatar `PhotosPicker`, processed in
     /// `viewModel.handlePickedPhoto` into a `data:` URL on change.
@@ -192,6 +240,15 @@ struct ProfileSettingsView: View {
             .onChange(of: auth.user?.id) { _, _ in
                 viewModel.resetForAccountChange()
                 Task { await viewModel.load() }
+            }
+            .sheet(isPresented: $showIDChangeSheet) {
+                IDChangeRequestView(currentValue: viewModel.idDocument) { state in
+                    // The sheet hands back the server's new state, so the row shows
+                    // "waiting for review" the moment it closes rather than after a
+                    // round trip the user has to wait through.
+                    viewModel.idChange = state
+                }
+                .environmentObject(loc)
             }
     }
 
@@ -249,13 +306,7 @@ struct ProfileSettingsView: View {
                 keyboard: .numberPad
             )
             Divider()
-            field(
-                loc.t("settings.id"),
-                systemImage: "creditcard.fill",
-                placeholder: loc.t("settings.id.placeholder"),
-                text: $viewModel.idDocument,
-                capitalization: .characters
-            )
+            idDocumentRow
 
             Divider()
             field(
@@ -271,6 +322,85 @@ struct ProfileSettingsView: View {
         }
         .padding(18)
         .qkCard(lifts: false)
+    }
+
+    /// The ID / passport number — SHOWN, never edited here.
+    ///
+    /// This was an ordinary text field until it became clear that meant any account
+    /// could rewrite its own identity number at will, reviewed by nobody. It now reads
+    /// as a value with a status underneath it, and the only way to change it is a
+    /// request an operator decides on. The row is deliberately not styled to look
+    /// disabled-but-editable: it is a fact about the account, not a field someone is
+    /// being stopped from typing in.
+    private var idDocumentRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(loc.t("settings.id"), systemImage: "creditcard.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+
+            HStack(spacing: 10) {
+                Text(viewModel.idDocument.isEmpty ? loc.t("settings.id.none") : viewModel.idDocument)
+                    .font(.system(size: 15, weight: viewModel.idDocument.isEmpty ? .regular : .semibold))
+                    .foregroundStyle(viewModel.idDocument.isEmpty ? Color.qkMuted : Color.qkInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if viewModel.idChange?.canRequest == false {
+                    Text(loc.t("idChange.status.pending"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.qkTan.opacity(0.6))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(Color.qkTan.opacity(0.35))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            // A rejection is only useful if the reason travels with it — otherwise the
+            // user resubmits the same thing and is refused again.
+            if let request = viewModel.idChange?.request,
+               request.status == .rejected,
+               let note = request.notes, !note.isEmpty {
+                Text(String(format: loc.t("idChange.rejected.reason"), note))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if viewModel.idChange?.canRequest == false, let request = viewModel.idChange?.request {
+                // Waiting: show what was asked for and offer to take it back, so a
+                // number typed in error is not stuck until someone reviews it.
+                Text(String(format: loc.t("idChange.pending.detail"), request.requestedValue))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(loc.t("idChange.withdraw")) {
+                    Task { await viewModel.cancelIDChange() }
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.qkBurgundy)
+            } else {
+                Button {
+                    showIDChangeSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(loc.t("idChange.request"))
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.qkBurgundy)
+                }
+                .buttonStyle(.plain)
+                Text(loc.t("idChange.explainer"))
+                    .font(.caption2)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     /// Multiline "about me" editor. Uses a vertically-growing `TextField` styled
@@ -428,6 +558,31 @@ struct ProfileSettingsView: View {
             PasswordStrengthView(password: viewModel.newPassword)
                 .animation(.easeInOut(duration: 0.25), value: viewModel.newPassword.isEmpty)
 
+            Divider()
+            secureField(
+                loc.t("settings.confirmPassword"),
+                systemImage: "checkmark.shield",
+                placeholder: loc.t("settings.confirmPassword"),
+                text: $viewModel.confirmPassword,
+                contentType: .newPassword,
+                isRevealed: $showConfirmPassword
+            )
+
+            // A typo in the new password would otherwise lock the account out
+            // silently, so the button stays disabled until both entries agree.
+            // The hint waits for the user to have typed something here — an
+            // empty confirmation is not yet a wrong answer.
+            if !viewModel.passwordsMatch {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(Color.qkBurgundy)
+                    Text(loc.t("password.mismatch"))
+                        .font(.footnote)
+                        .foregroundStyle(Color.qkBurgundy)
+                }
+                .transition(.opacity)
+            }
+
             if let passwordError = viewModel.passwordError {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -453,6 +608,7 @@ struct ProfileSettingsView: View {
         .qkCard(lifts: false)
         .animation(.easeInOut(duration: 0.2), value: viewModel.didChangePassword)
         .animation(.easeInOut(duration: 0.2), value: viewModel.passwordError)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.passwordsMatch)
     }
 
     private var updatePasswordButton: some View {

@@ -382,6 +382,10 @@ private fun MainApp() {
     val hostProfileState by trustViewModel.hostProfile.collectAsState()
     val reportState by trustViewModel.report.collectAsState()
 
+    // The host's payout method — where QuickIn sends their earnings (Profile tab).
+    val payoutViewModel: PayoutViewModel = viewModel()
+    val payoutState by payoutViewModel.payout.collectAsState()
+
     // Wishlist (saved stays/experiences) + reviews (listing reviews + leave-a-review).
     val wishlistViewModel: WishlistViewModel = viewModel()
     val wishlistState by wishlistViewModel.state.collectAsState()
@@ -709,6 +713,8 @@ private fun MainApp() {
             profileSettingsViewModel.clear()
             // Drop the cached verification status so the next account starts from its own state.
             trustViewModel.clearVerification()
+            // Same for the payout method — it is one account's bank details, never a shared cache.
+            payoutViewModel.clear()
             // Drop cached earnings/receipts so the next account never sees the prior one's money.
             moneyViewModel.clear()
             // Leave any host / reservation-detail / chat / notifications / services screen on sign-out.
@@ -759,6 +765,9 @@ private fun MainApp() {
             "Profile" -> if (authState.isAuthenticated) {
                 profileSettingsViewModel.load()
                 trustViewModel.loadVerification()
+                // Hosts only in practice — the server answers 403 for a guest and the
+                // card hides itself, so this is safe to call unconditionally.
+                payoutViewModel.load()
             }
         }
     }
@@ -1125,16 +1134,22 @@ private fun MainApp() {
         return
     }
 
-    // Profile settings (edit full name / age / ID-passport / phone). Full-screen; opened from Profile.
+    // Profile settings (edit full name / age / phone / bio). Full-screen; opened from Profile.
+    // The ID number is shown but not editable — changing it goes through onRequestIdChange.
     if (showProfileSettings && authState.isAuthenticated) {
         ProfileSettingsScreen(
             state = profileSettingsState,
             onBack = { showProfileSettings = false },
             onLoad = profileSettingsViewModel::load,
-            onSave = { fullName, age, idDocument, phone, bio, avatarUrl ->
-                profileSettingsViewModel.save(fullName, age, idDocument, phone, bio, avatarUrl)
+            onSave = { fullName, age, phone, bio, avatarUrl ->
+                profileSettingsViewModel.save(fullName, age, phone, bio, avatarUrl)
             },
             onSavedAck = profileSettingsViewModel::acknowledgeSaved,
+            onRequestIdChange = { value, docType, front, back, reason ->
+                profileSettingsViewModel.requestIdChange(value, docType, front, back, reason)
+            },
+            onCancelIdChange = profileSettingsViewModel::cancelIdChange,
+            onClearIdChangeError = profileSettingsViewModel::clearIdChangeError,
             onChangePassword = { current, next ->
                 profileSettingsViewModel.changePassword(current, next)
             },
@@ -1447,8 +1462,8 @@ private fun MainApp() {
             // Unified account: one account per person, no "sign in/register as host". The backend
             // returns the account's is_host flag, and a user becomes a host in-app from their profile.
             onLogin = { email, password -> authViewModel.login(email, password) },
-            onSignup = { name, email, password, referralCode ->
-                authViewModel.signup(name, email, password, referralCode)
+            onSignup = { name, email, password ->
+                authViewModel.signup(name, email, password)
             },
             onGoogleLaunch = { _, _ ->
                 val ctx = activity ?: return@AuthScreen
@@ -1602,6 +1617,9 @@ private fun MainApp() {
                         onSubmitVerification = { front, back, selfie, idNumber ->
                             trustViewModel.submitVerification(front, back, selfie, idNumber)
                         },
+                        payoutState = payoutState,
+                        onSavePayout = { draft -> payoutViewModel.save(draft) },
+                        onRemovePayout = { payoutViewModel.remove() },
                         // Unified account: "Become a host" (or "Apply again" after a rejection)
                         // opens the application form — hosting is granted by an admin approval,
                         // never by the tap itself. The card renders the server's host_status.

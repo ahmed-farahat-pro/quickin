@@ -111,6 +111,12 @@ fun ProfileScreen(
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
     /** Submits the picked FRONT + BACK ID photos + SELFIE (and an optional id number). */
     onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit = { _, _, _, _ -> },
+    /** Payout-method state for the host's "Payment information" card. */
+    payoutState: com.quickin.app.PayoutUiState = com.quickin.app.PayoutUiState(),
+    /** Saves (or replaces) where QuickIn sends this host's earnings. */
+    onSavePayout: (com.quickin.app.PayoutDraft) -> Unit = {},
+    /** Removes the host's payout method. */
+    onRemovePayout: () -> Unit = {},
     /** Opens the "Apply to host" form (a first application, or a re-application after a rejection). */
     onOpenHostApplication: () -> Unit = {},
     onOpenHost: () -> Unit = {},
@@ -260,6 +266,18 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(12.dp))
+
+        // "Payment information" — where QuickIn sends this host's earnings. Hosts
+        // only; a guest has none, and the card hides itself if the server says so.
+        if (isHost) {
+            PayoutMethodCard(
+                state = payoutState,
+                onSave = onSavePayout,
+                onRemove = onRemovePayout,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         SettingsRow(
             icon = Icons.Filled.Settings,

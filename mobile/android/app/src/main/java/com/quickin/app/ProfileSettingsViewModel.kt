@@ -24,7 +24,18 @@ data class ProfileSettingsUiState(
     /** Inline error for the password section only (e.g. wrong current password). */
     val passwordError: String? = null,
     /** One-shot flag: true right after a successful password change (drives a "Saved" note). */
-    val passwordChanged: Boolean = false
+    val passwordChanged: Boolean = false,
+    // ---- ID number (read-only here; changed only by request) ----
+    /**
+     * The ID number on file and the state of any request to change it. Null until the
+     * separate id-change fetch lands — the profile is fully editable without it, so the
+     * row falls back to showing the stored number with no request state.
+     */
+    val idChange: IdChangeState? = null,
+    /** True while a request is being filed or withdrawn. */
+    val isIdChangeBusy: Boolean = false,
+    /** Inline error for the ID section only — carries the server's own validation wording. */
+    val idChangeError: String? = null
 )
 
 /**
@@ -61,6 +72,7 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                     profile = profile,
                     error = null
                 )
+                loadIdChange()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -76,7 +88,7 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
      * the (possibly newly-picked) avatar source — an `http(s)` URL or a `data:image/...` data URL,
      * or null to clear the photo.
      */
-    fun save(fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?) {
+    fun save(fullName: String, age: String, phone: String, bio: String, avatarUrl: String?) {
         if (_state.value.isSaving) return
         val token = token() ?: run {
             _state.value = _state.value.copy(error = "Please sign in.")
@@ -89,7 +101,6 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                     token = token,
                     fullName = fullName,
                     age = age.trim().toIntOrNull()?.takeIf { it in 1..130 },
-                    idDocument = idDocument,
                     phone = phone,
                     bio = bio,
                     avatarUrl = avatarUrl
@@ -178,6 +189,90 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                 )
             }
         }
+    }
+
+    /**
+     * Refreshes the ID row's request state. Failure is swallowed: the rest of the screen works
+     * without it, and an error banner for a section the user may not even be looking at is worse
+     * than the row simply showing the stored number.
+     */
+    fun loadIdChange() {
+        val token = token() ?: return
+        viewModelScope.launch {
+            runCatching { ProfileService.fetchIdChangeState(token) }
+                .onSuccess { _state.value = _state.value.copy(idChange = it) }
+        }
+    }
+
+    /**
+     * Files a request to change the ID number. [front] is a `data:image/...` data URL of the
+     * document; the server refuses the request without one, because there would be nothing for
+     * the reviewer to check the typed number against.
+     *
+     * The number itself is NOT validated here — those rules live in one shared core the mobile
+     * API and the admin console both read, so a 400 carries that core's own wording straight to
+     * [ProfileSettingsUiState.idChangeError].
+     */
+    fun requestIdChange(
+        requestedValue: String,
+        docType: String,
+        front: String,
+        back: String?,
+        reason: String,
+        onDone: () -> Unit = {}
+    ) {
+        if (_state.value.isIdChangeBusy) return
+        val token = token() ?: run {
+            _state.value = _state.value.copy(idChangeError = "Please sign in.")
+            return
+        }
+        _state.value = _state.value.copy(isIdChangeBusy = true, idChangeError = null)
+        viewModelScope.launch {
+            try {
+                val updated = ProfileService.requestIdChange(
+                    token = token,
+                    requestedValue = requestedValue,
+                    docType = docType,
+                    front = front,
+                    back = back,
+                    reason = reason
+                )
+                _state.value = _state.value.copy(
+                    isIdChangeBusy = false,
+                    idChange = updated,
+                    idChangeError = null
+                )
+                onDone()
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isIdChangeBusy = false,
+                    idChangeError = humanError(e, "Couldn't send your request.")
+                )
+            }
+        }
+    }
+
+    /** Withdraws a request that is still awaiting review. */
+    fun cancelIdChange() {
+        if (_state.value.isIdChangeBusy) return
+        val token = token() ?: return
+        _state.value = _state.value.copy(isIdChangeBusy = true, idChangeError = null)
+        viewModelScope.launch {
+            try {
+                val updated = ProfileService.cancelIdChange(token)
+                _state.value = _state.value.copy(isIdChangeBusy = false, idChange = updated)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isIdChangeBusy = false,
+                    idChangeError = humanError(e, "Couldn't withdraw your request.")
+                )
+            }
+        }
+    }
+
+    /** Clears the ID section's inline error once it has been shown. */
+    fun clearIdChangeError() {
+        _state.value = _state.value.copy(idChangeError = null)
     }
 
     /** Clears the one-shot "password changed" flag once its confirmation has been shown. */

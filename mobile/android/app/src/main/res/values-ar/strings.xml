@@ -46,6 +46,7 @@
     <string name="signup_country_none">لم يتم العثور على بلدان</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>
+    <string name="auth_confirm_password">تأكيد كلمة المرور</string>
     <string name="auth_forgot_password">نسيت كلمة المرور؟</string>
     <string name="auth_continue_google">المتابعة عبر جوجل</string>
     <string name="auth_or">أو</string>
@@ -132,6 +133,8 @@
     <string name="settings_password_caption">استخدم 6 أحرف على الأقل.</string>
     <string name="settings_current_password">كلمة المرور الحالية</string>
     <string name="settings_new_password">كلمة المرور الجديدة</string>
+    <string name="settings_confirm_password">تأكيد كلمة المرور الجديدة</string>
+    <string name="password_mismatch">كلمتا المرور غير متطابقتين</string>
     <string name="settings_update_password">تحديث كلمة المرور</string>
     <string name="settings_password_updated">تم تحديث كلمة المرور</string>
     <string name="settings_delete_account">حذف الحساب</string>
@@ -590,7 +593,6 @@
     <string name="referral_none">لا توجد إحالات بعد. شارك رمزك للبدء.</string>
     <string name="referral_loading">جارٍ تحميل إحالاتك…</string>
     <string name="referral_error">تعذّر تحميل إحالاتك.</string>
-    <string name="referral_signup_field">رمز الإحالة (اختياري)</string>
     <string name="referral_share_message">انضم إليّ على QuickIn! استخدم رمز الإحالة %1$s عند التسجيل.</string>
 
     <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
@@ -743,6 +745,7 @@
     <string name="host_type_brokerage">مكتب عقاري</string>
     <string name="host_apply_submit">إرسال الطلب</string>
     <string name="host_apply_required">أضف اسمك والرقم القومي ورقم الهاتف والعنوان للمتابعة.</string>
+    <string name="host_apply_error_full_name_letters">يرجى كتابة اسمك بالحروف، وليس بالأرقام فقط.</string>
     <string name="host_apply_error">تعذّر إرسال طلبك. يرجى المحاولة مرة أخرى.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -777,4 +780,68 @@
     <string name="stay_guide_move_up">تحريك لأعلى</string>
     <string name="stay_guide_move_down">تحريك لأسفل</string>
     <string name="cd_place_qr">رمز QR لـ %1$s</string>
+    <!-- Host payout method — where QuickIn sends a host's earnings -->
+    <string name="payout_title">معلومات الدفع</string>
+    <string name="payout_subtitle_empty">أضِف وسيلة استلام الأرباح ليتمكّن QuickIn من إرسال أرباحك إليك.</string>
+    <string name="payout_subtitle_set">هنا يُرسل QuickIn أرباحك.</string>
+    <string name="payout_choose_method">كيف تريد أن تستلم أموالك</string>
+    <string name="payout_badge_added">تمت الإضافة</string>
+    <string name="payout_method_instapay">إنستاباي</string>
+    <string name="payout_method_wallet">محفظة</string>
+    <string name="payout_wallet_vodafone_cash">فودافون كاش</string>
+    <string name="payout_wallet_etisalat_cash">اتصالات كاش</string>
+    <string name="payout_wallet_orange_money">أورنج موني</string>
+    <string name="payout_wallet_we_pay">WE Pay</string>
+    <string name="payout_wallet_other">محفظة أخرى</string>
+    <string name="payout_field_account_name">الاسم على الحساب</string>
+    <string name="payout_field_bank">البنك</string>
+    <string name="payout_field_instapay_address">عنوان إنستاباي</string>
+    <string name="payout_field_wallet_provider">المحفظة</string>
+    <string name="payout_field_wallet_number">رقم المحفظة</string>
+    <string name="payout_instapay_hint">عنوانك على إنستاباي، مثل name@instapay أو name@banquemisr.</string>
+    <string name="payout_save">حفظ وسيلة الاستلام</string>
+    <string name="payout_saving">جارٍ الحفظ…</string>
+    <string name="payout_change">تغيير وسيلة الاستلام</string>
+    <string name="payout_remove">حذف وسيلة الاستلام</string>
+    <string name="payout_removing">جارٍ الحذف…</string>
+    <string name="payout_method_bank_account">حساب بنكي</string>
+    <string name="payout_field_iban">رقم الآيبان (IBAN)</string>
+    <string name="payout_field_account_number">رقم الحساب</string>
+    <string name="payout_field_swift">كود السويفت (SWIFT/BIC)</string>
+    <string name="payout_field_swift_optional">كود السويفت (اختياري)</string>
+    <string name="payout_field_branch">الفرع</string>
+    <string name="payout_field_branch_optional">الفرع (اختياري)</string>
+    <string name="payout_placeholder_iban">EG38 0019 0005 0000 0000 2631 8000 2</string>
+    <string name="payout_placeholder_account_number">رقم حسابك البنكي</string>
+    <string name="payout_placeholder_swift">مثال: NBEGEGCX</string>
+    <string name="payout_placeholder_branch">مثال: الزمالك</string>
+    <string name="payout_bank_hint">أدخل رقم الآيبان أو رقم الحساب — أحدهما يكفي، وكلاهما أفضل.</string>
+    <string name="payout_placeholder_account_name">كما يظهر على الحساب</string>
+    <string name="payout_placeholder_bank">مثال: بنك مصر</string>
+    <string name="payout_placeholder_instapay_address">name@instapay</string>
+    <string name="payout_placeholder_wallet_number">01XXXXXXXXX</string>
+    <string name="settings_id_none">غير مسجّل</string>
+    <string name="id_change_request">طلب تغيير</string>
+    <string name="id_change_explainer">لا يمكن تغيير رقم الهوية إلا بطلب، مع صورة من المستند.</string>
+    <string name="id_change_status_pending">قيد المراجعة</string>
+    <string name="id_change_pending_detail">طلبت تغييره إلى %1$s. سنُعلمك بمجرد مراجعته.</string>
+    <string name="id_change_rejected_reason">تم رفض طلبك الأخير: %1$s</string>
+    <string name="id_change_withdraw">سحب الطلب</string>
+    <string name="id_change_title">تغيير رقم الهوية</string>
+    <string name="id_change_intro">أخبرنا بالرقم الصحيح وأرفق صورة من المستند الذي يظهر فيه. سيراجعه أحد الموظفين قبل تحديث ملفك.</string>
+    <string name="id_change_current">المسجّل حاليًا: %1$s</string>
+    <string name="id_change_doc_type">المستند</string>
+    <string name="id_change_doc_national">الرقم القومي</string>
+    <string name="id_change_doc_passport">جواز السفر</string>
+    <string name="id_change_doc_residence">تصريح الإقامة</string>
+    <string name="id_change_new_number">الرقم الجديد</string>
+    <string name="id_change_photos">صورة المستند</string>
+    <string name="id_change_front">إضافة الوجه الأمامي</string>
+    <string name="id_change_front_added">تمت إضافة الأمام</string>
+    <string name="id_change_back">إضافة الخلف (اختياري)</string>
+    <string name="id_change_back_added">تمت إضافة الخلف</string>
+    <string name="id_change_photos_hint">صورة الوجه الأمامي مطلوبة — بدونها لا يوجد ما يُقارَن به الرقم.</string>
+    <string name="id_change_reason">السبب (اختياري)</string>
+    <string name="id_change_reason_hint">لماذا يحتاج هذا إلى التغيير؟</string>
+    <string name="id_change_submit">إرسال الطلب</string>
 </resources>

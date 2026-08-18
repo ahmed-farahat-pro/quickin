@@ -70,6 +70,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.AvatarImage
+import com.quickin.app.IdChangeState
+import com.quickin.app.IdDocumentType
 import com.quickin.app.ProfileSettingsUiState
 import com.quickin.app.R
 import kotlinx.coroutines.Dispatchers
@@ -87,8 +89,13 @@ private val SettingsSuccessGreen = Color(0xFF2E7D32)
 
 /**
  * Profile-settings screen (reached from the Profile tab's "Edit profile" entry). Loads the
- * signed-in user's profile via `GET /api/local/profile` and edits full name / age / ID-passport /
- * phone, saving via `PATCH /api/local/profile`. Styled to match the host wizard fields.
+ * signed-in user's profile via `GET /api/local/profile` and edits full name / age / phone / bio,
+ * saving via `PATCH /api/local/profile`. Styled to match the host wizard fields.
+ *
+ * The ID / passport number is SHOWN here but not edited. It used to be an ordinary text field,
+ * which meant any account could rewrite its own identity number at will with nobody reviewing it.
+ * Changing it now means filing a request with a photo of the document, which an operator approves
+ * — see [IdChangeRequestDialog] and `ProfileService.requestIdChange`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,10 +103,22 @@ fun ProfileSettingsScreen(
     state: ProfileSettingsUiState,
     onBack: () -> Unit,
     onLoad: () -> Unit,
-    onSave: (fullName: String, age: String, idDocument: String, phone: String, bio: String, avatarUrl: String?) -> Unit,
+    onSave: (fullName: String, age: String, phone: String, bio: String, avatarUrl: String?) -> Unit,
     onSavedAck: () -> Unit,
     onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
     onPasswordChangedAck: () -> Unit,
+    /** Files a request to change the ID number: value, doc type, front data URL, optional back, reason. */
+    onRequestIdChange: (
+        requestedValue: String,
+        docType: String,
+        front: String,
+        back: String?,
+        reason: String
+    ) -> Unit = { _, _, _, _, _ -> },
+    /** Withdraws a request that is still awaiting review. */
+    onCancelIdChange: () -> Unit = {},
+    /** Clears the ID section's inline error once it has been shown. */
+    onClearIdChangeError: () -> Unit = {},
     /** True while the account deletion is in flight (disables the confirm button + shows a spinner). */
     deletingAccount: Boolean = false,
     /** Confirmed account deletion: permanently deletes the account, then signs out. */
@@ -114,7 +133,6 @@ fun ProfileSettingsScreen(
     // (initial load or a successful save returning the canonical row).
     var fullName by remember(state.profile) { mutableStateOf(state.profile.fullName) }
     var age by remember(state.profile) { mutableStateOf(state.profile.age?.toString() ?: "") }
-    var idDocument by remember(state.profile) { mutableStateOf(state.profile.idDocument) }
     var phone by remember(state.profile) { mutableStateOf(state.profile.phone) }
     var bio by remember(state.profile) { mutableStateOf(state.profile.bio) }
     // Avatar source to save: starts as the loaded avatar_url; replaced with a data URL when a new
@@ -124,6 +142,9 @@ fun ProfileSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var processingPhoto by remember { mutableStateOf(false) }
+
+    /** Presents the ID-change request dialog — the only way to alter the ID number. */
+    var showIdChangeDialog by remember { mutableStateOf(false) }
 
     // Photo picker: load the picked image, downscale + JPEG-compress to a small data URL off the
     // main thread, then stage it as the avatar (saved with the rest of the profile).
@@ -209,7 +230,16 @@ fun ProfileSettingsScreen(
                         Icons.Filled.Cake,
                         keyboardType = KeyboardType.Number
                     )
-                    SettingsField(idDocument, { idDocument = it }, stringResource(R.string.settings_id_passport), Icons.Filled.Badge)
+                    IdDocumentRow(
+                        // The id-change fetch is the fresher source once it lands; before that
+                        // the profile row is all there is.
+                        current = state.idChange?.current?.takeIf { it.isNotBlank() }
+                            ?: state.profile.idDocument,
+                        idChange = state.idChange,
+                        busy = state.isIdChangeBusy,
+                        onRequest = { showIdChangeDialog = true },
+                        onWithdraw = onCancelIdChange
+                    )
                     SettingsField(
                         phone,
                         { phone = it },
@@ -239,7 +269,7 @@ fun ProfileSettingsScreen(
                     GradientButton(
                         onClick = {
                             onSavedAck()
-                            onSave(fullName, age, idDocument, phone, bio, avatarUrl)
+                            onSave(fullName, age, phone, bio, avatarUrl)
                         },
                         enabled = !state.isSaving,
                         pulse = !state.isSaving,
@@ -281,12 +311,38 @@ fun ProfileSettingsScreen(
             }
         }
     }
+
+    if (showIdChangeDialog) {
+        IdChangeRequestDialog(
+            current = state.idChange?.current?.takeIf { it.isNotBlank() } ?: state.profile.idDocument,
+            busy = state.isIdChangeBusy,
+            error = state.idChangeError,
+            onDismiss = {
+                showIdChangeDialog = false
+                onClearIdChangeError()
+            },
+            onSubmit = { value, docType, front, back, reason ->
+                onRequestIdChange(value, docType, front, back, reason)
+            }
+        )
+
+        // Closed on SUCCESS, not on submit. The server is what validates the number
+        // ("A national ID number is 14 digits"), so dismissing the moment the button is
+        // tapped would throw that message away and leave the user with a form that
+        // silently did nothing. A filed request is the one unambiguous success signal:
+        // canRequest goes false because one is now waiting.
+        LaunchedEffect(state.idChange?.canRequest) {
+            if (state.idChange?.canRequest == false) showIdChangeDialog = false
+        }
+    }
 }
 
 /**
- * "Change password" block on the profile-settings screen. Current + new password fields (both with
- * the AuthScreen eye-toggle), an "Update password" button (POST /api/local/change-password), an
- * inline server error on 400, and a green confirmation on success — after which the fields clear.
+ * "Change password" block on the profile-settings screen. Current + new + confirm password fields
+ * (all with the AuthScreen eye-toggle), an "Update password" button (POST
+ * /api/local/change-password), an inline server error on 400, and a green confirmation on success —
+ * after which the fields clear. The new password is asked for twice because a typo in it would lock
+ * the account out silently; the button stays disabled until both entries agree.
  */
 @Composable
 private fun ChangePasswordSection(
@@ -296,6 +352,10 @@ private fun ChangePasswordSection(
 ) {
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+
+    // An empty confirmation is not yet a wrong answer — the hint waits until something is typed.
+    val passwordsMismatch = confirmPassword.isNotEmpty() && confirmPassword != newPassword
 
     // On a successful change, clear the entered passwords. The "Password updated" note stays put
     // (it's only acked when the user starts another change, mirroring the profile-save flow below).
@@ -303,6 +363,7 @@ private fun ChangePasswordSection(
         if (state.passwordChanged) {
             currentPassword = ""
             newPassword = ""
+            confirmPassword = ""
         }
     }
 
@@ -327,6 +388,19 @@ private fun ChangePasswordSection(
     )
     Spacer(Modifier.height(12.dp))
     PasswordStrength(password = newPassword)
+
+    Spacer(Modifier.height(14.dp))
+    PasswordField(
+        value = confirmPassword,
+        onValueChange = { confirmPassword = it },
+        label = stringResource(R.string.settings_confirm_password),
+        enabled = !state.isChangingPassword,
+        isError = passwordsMismatch
+    )
+    if (passwordsMismatch) {
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.password_mismatch), color = SettingsErrorRed, fontSize = 13.sp)
+    }
 
     if (state.passwordError != null) {
         Spacer(Modifier.height(10.dp))
@@ -353,7 +427,8 @@ private fun ChangePasswordSection(
             onChangePassword(currentPassword, newPassword)
         },
         enabled = !state.isChangingPassword &&
-            currentPassword.isNotBlank() && passwordMeetsMin(newPassword),
+            currentPassword.isNotBlank() && passwordMeetsMin(newPassword) &&
+            confirmPassword == newPassword,
         modifier = Modifier.fillMaxWidth()
     ) {
         if (state.isChangingPassword) {
@@ -530,7 +605,8 @@ private fun PasswordField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    enabled: Boolean
+    enabled: Boolean,
+    isError: Boolean = false
 ) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
@@ -538,6 +614,7 @@ private fun PasswordField(
         onValueChange = onValueChange,
         label = { Text(label) },
         enabled = enabled,
+        isError = isError,
         singleLine = true,
         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = Burgundy) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -551,6 +628,284 @@ private fun PasswordField(
                 )
             }
         },
+        shape = RoundedCornerShape(18.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Burgundy,
+            unfocusedBorderColor = Tan,
+            focusedLabelColor = Burgundy,
+            cursorColor = Burgundy,
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White
+        ),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
+ * The ID / passport number — SHOWN, never edited here.
+ *
+ * This was an ordinary [SettingsField] until it became clear that meant any account could rewrite
+ * its own identity number at will, reviewed by nobody. It now reads as a value with its status
+ * underneath, and the only way to change it is a request an operator decides on. Deliberately not
+ * styled as a disabled text field: it is a fact about the account, not a field the user is being
+ * stopped from typing into.
+ */
+@Composable
+private fun IdDocumentRow(
+    current: String,
+    idChange: IdChangeState?,
+    busy: Boolean,
+    onRequest: () -> Unit,
+    onWithdraw: () -> Unit
+) {
+    // Null state means the request fetch has not landed; treat it as "you may ask", which is
+    // true for everyone who has no request waiting — the server refuses a second one anyway.
+    val waiting = idChange?.canRequest == false
+    val request = idChange?.request
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Badge, contentDescription = null, tint = Burgundy, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(
+                stringResource(R.string.settings_id_passport),
+                color = Muted,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(Tan.copy(alpha = 0.35f))
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Text(
+                text = current.ifBlank { stringResource(R.string.settings_id_none) },
+                color = if (current.isBlank()) Muted else Ink,
+                fontSize = 15.sp,
+                fontWeight = if (current.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            if (waiting) {
+                Text(
+                    stringResource(R.string.id_change_status_pending),
+                    color = Burgundy,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // A rejection is only useful if the reason travels with it — otherwise the user
+        // resubmits the same thing and is refused again.
+        if (request != null && request.status == "rejected" && request.notes.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.id_change_rejected_reason, request.notes),
+                color = Burgundy,
+                fontSize = 12.sp
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+        if (waiting && request != null) {
+            Text(
+                stringResource(R.string.id_change_pending_detail, request.requestedValue),
+                color = Muted,
+                fontSize = 12.sp
+            )
+            TextButton(onClick = onWithdraw, enabled = !busy) {
+                Text(stringResource(R.string.id_change_withdraw), color = Burgundy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            }
+        } else {
+            TextButton(onClick = onRequest, enabled = !busy) {
+                Text(stringResource(R.string.id_change_request), color = Burgundy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            }
+            Text(stringResource(R.string.id_change_explainer), color = Muted, fontSize = 12.sp)
+        }
+    }
+}
+
+/**
+ * The request form: which document, the new number, a photo of it, and an optional reason.
+ *
+ * The front photo is required and the submit button stays disabled without it — the server
+ * refuses the request anyway, because a reviewer with no document has nothing to check the typed
+ * number against. The number itself is NOT validated here: those rules live in one shared core
+ * the API and the admin console both read, so the server's 400 carries the wording to show.
+ */
+@Composable
+private fun IdChangeRequestDialog(
+    current: String,
+    busy: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onSubmit: (requestedValue: String, docType: String, front: String, back: String?, reason: String) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var docType by remember { mutableStateOf(IdDocumentType.NATIONAL_ID) }
+    var newNumber by remember { mutableStateOf("") }
+    var reason by remember { mutableStateOf("") }
+    var frontDataUrl by remember { mutableStateOf<String?>(null) }
+    var backDataUrl by remember { mutableStateOf<String?>(null) }
+    var pickingFront by remember { mutableStateOf(true) }
+    var processing by remember { mutableStateOf(false) }
+
+    val docPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            processing = true
+            val wantFront = pickingFront
+            scope.launch {
+                // 1280px, not the avatar default: a document number has to stay legible to
+                // the person reviewing it.
+                val dataUrl = withContext(Dispatchers.IO) {
+                    AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1280)
+                }
+                if (dataUrl != null) {
+                    if (wantFront) frontDataUrl = dataUrl else backDataUrl = dataUrl
+                }
+                processing = false
+            }
+        }
+    }
+
+    val canSubmit = frontDataUrl != null && newNumber.isNotBlank() && !busy && !processing
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        title = { Text(stringResource(R.string.id_change_title), color = Ink, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(stringResource(R.string.id_change_intro), color = Muted, fontSize = 13.sp)
+                if (current.isNotBlank()) {
+                    Text(stringResource(R.string.id_change_current, current), color = Muted, fontSize = 12.sp)
+                }
+
+                Text(stringResource(R.string.id_change_doc_type), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IdDocumentType.entries.forEach { type ->
+                        TextButton(onClick = { docType = type }) {
+                            Text(
+                                stringResource(type.labelRes),
+                                color = if (docType == type) Burgundy else Muted,
+                                fontWeight = if (docType == type) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                SettingsField(
+                    value = newNumber,
+                    onValueChange = { input ->
+                        // A national ID is digits; the other two are alphanumeric.
+                        newNumber = if (docType == IdDocumentType.NATIONAL_ID) {
+                            input.filter { it.isDigit() }.take(14)
+                        } else {
+                            input.take(24)
+                        }
+                    },
+                    label = stringResource(R.string.id_change_new_number),
+                    icon = Icons.Filled.Badge,
+                    keyboardType = if (docType == IdDocumentType.NATIONAL_ID) KeyboardType.Number else KeyboardType.Text
+                )
+
+                Text(stringResource(R.string.id_change_photos), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            pickingFront = true
+                            docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        enabled = !processing
+                    ) {
+                        Text(
+                            if (frontDataUrl != null) stringResource(R.string.id_change_front_added)
+                            else stringResource(R.string.id_change_front),
+                            color = if (frontDataUrl != null) SettingsSuccessGreen else Burgundy,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            pickingFront = false
+                            docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        enabled = !processing
+                    ) {
+                        Text(
+                            if (backDataUrl != null) stringResource(R.string.id_change_back_added)
+                            else stringResource(R.string.id_change_back),
+                            color = if (backDataUrl != null) SettingsSuccessGreen else Muted,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                Text(stringResource(R.string.id_change_photos_hint), color = Muted, fontSize = 11.sp)
+
+                BioFieldLike(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = stringResource(R.string.id_change_reason),
+                    hint = stringResource(R.string.id_change_reason_hint)
+                )
+
+                if (error != null) {
+                    Text(error, color = SettingsErrorRed, fontSize = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { frontDataUrl?.let { onSubmit(newNumber, docType.key, it, backDataUrl, reason) } },
+                enabled = canSubmit,
+                colors = ButtonDefaults.buttonColors(containerColor = Burgundy)
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(stringResource(R.string.id_change_submit), color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel), color = Muted)
+            }
+        }
+    )
+}
+
+/** A multiline field with a caller-supplied label — [BioField] with the copy passed in. */
+@Composable
+private fun BioFieldLike(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    hint: String
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(hint, color = Muted) },
+        singleLine = false,
+        minLines = 2,
+        maxLines = 4,
         shape = RoundedCornerShape(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Burgundy,

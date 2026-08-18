@@ -107,9 +107,19 @@ fun HostApplyScreen(
         if (state.submitted) onSubmitted()
     }
 
+    // A name has to be a name, not just non-empty: an operator reads this against the ID photos,
+    // and "12345" is not one. One letter in any script passes — Char.isLetter() covers Arabic as
+    // readily as Latin — which is the rule the API applies too (name-policy.ts, and NameRules.swift
+    // on iOS). Digits are fine alongside letters: Franco-Arabic spells real names with them
+    // (Ma7moud, 3omar). The API's finer refusals (under two letters, over 60 characters) come back
+    // as a message in the banner; this catches the one a guest actually hits.
+    val nameHasLetters = fullName.any { it.isLetter() }
+    // Only complain once they've typed something; an untouched field is not an error.
+    val showNameError = fullName.isNotBlank() && !nameHasLetters
+
     // Everything the backend validates as required; the button stays disabled until they're filled
     // so an incomplete form never costs the user a round-trip.
-    val ready = fullName.isNotBlank() && nationalId.isNotBlank() &&
+    val ready = fullName.isNotBlank() && nameHasLetters && nationalId.isNotBlank() &&
         phone.isNotBlank() && address.isNotBlank()
 
     Scaffold(
@@ -161,7 +171,13 @@ fun HostApplyScreen(
                     onValueChange = { fullName = it },
                     label = stringResource(R.string.host_apply_full_name),
                     icon = Icons.Filled.Person,
-                    enabled = !state.isSubmitting
+                    enabled = !state.isSubmitting,
+                    isError = showNameError,
+                    errorText = if (showNameError) {
+                        stringResource(R.string.host_apply_error_full_name_letters)
+                    } else {
+                        null
+                    }
                 )
                 HostApplyField(
                     value = nationalId,
@@ -288,7 +304,10 @@ private fun HostApplyField(
     label: String,
     icon: ImageVector,
     enabled: Boolean,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
+    /** Shown under the field when [isError]; the reason, not just a red border. */
+    errorText: String? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -296,6 +315,10 @@ private fun HostApplyField(
         label = { Text(label) },
         singleLine = true,
         enabled = enabled,
+        isError = isError,
+        supportingText = errorText?.let {
+            { Text(it, color = HostApplyErrorRed, fontSize = 12.sp, lineHeight = 16.sp) }
+        },
         leadingIcon = { Icon(icon, contentDescription = null, tint = Burgundy) },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(18.dp),
@@ -305,7 +328,11 @@ private fun HostApplyField(
             focusedLabelColor = Burgundy,
             cursorColor = Burgundy,
             focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White
+            unfocusedContainerColor = Color.White,
+            errorBorderColor = HostApplyErrorRed,
+            errorLabelColor = HostApplyErrorRed,
+            errorCursorColor = HostApplyErrorRed,
+            errorContainerColor = Color.White
         ),
         modifier = Modifier.fillMaxWidth()
     )

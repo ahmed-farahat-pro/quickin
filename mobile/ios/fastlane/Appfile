@@ -1,0 +1,6 @@
+app_identifier("com.quickin.ahmed")
+
+# Auth is the App Store Connect API key (see Fastfile), so no apple_id/username
+# is set here — the team comes from the APPLE_TEAM_ID secret.
+team_id(ENV["APPLE_TEAM_ID"])
+itc_team_id(ENV["APPLE_TEAM_ID"])

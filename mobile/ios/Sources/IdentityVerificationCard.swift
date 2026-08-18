@@ -8,7 +8,11 @@ import UIKit
 /// camera. Used by the ID-verification flow when the user taps "Take photo".
 /// The selfie slot defaults to the FRONT camera (matching the web's
 /// `capture="user"`).
-private struct IDCameraPicker: UIViewControllerRepresentable {
+///
+/// Internal rather than private so `IDChangeRequestView` can reuse it — that screen
+/// captures the same kind of document photo, and a second copy of this wrapper would
+/// be two places to fix the next time the picker needs changing.
+struct IDCameraPicker: UIViewControllerRepresentable {
     var useFrontCamera: Bool = false
     var onImage: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss

@@ -86,9 +86,19 @@ mobile/android/captures/
 *.jks
 *.apk
 *.aab
+# ...but keep the debug APKs CI publishes here
+# (see .github/workflows/android-publish-apk.yml).
+!publishs/*.apk
 
 # mobile — iOS / Xcode
 mobile/ios/build/
+# fastlane's gems install into the project (BUNDLE_PATH), not into the system
+# ruby, so `bundle install` works without touching /opt/homebrew.
+mobile/ios/.bundle/
+mobile/ios/vendor/bundle/
+mobile/ios/fastlane/report.xml
+mobile/ios/fastlane/Preview.html
+mobile/ios/fastlane/test_output/
 **/xcuserdata/
 *.xcuserstate
 *.ipa

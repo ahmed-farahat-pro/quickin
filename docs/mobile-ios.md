@@ -27,6 +27,8 @@ All files are flat in `Sources/` (no subfolders). Grouped by role:
 - `BiometricAuth.swift` — Face ID / Touch ID + Keychain session store.
 - `BiometricEnableSheet.swift` — on-brand "Enable Face ID?" sheet.
 - `PasswordStrengthView.swift` — strength meter + `PasswordRules`.
+- `EmailRules.swift` — `EmailRules.isValid` / `.normalized`: the email-format gate behind the sign-in / sign-up submit button and its inline "enter a valid email" hint.
+- `PhoneRules.swift` — `PhoneRules.capped` / `.isValid` / `.normalized`: the Egyptian phone-number gate (Swift twin of the web's `EG_MOBILE_REGEX` / `EG_LANDLINE_REGEX`). `capped` stops the host-application phone field accepting digits past a full number; `normalized` files it as `+20…`.
 - `SignInCTAView.swift` — guest sign-in prompt shown in gated tabs.
 - `CountryPicker.swift` — signup country field.
 
@@ -37,7 +39,13 @@ All files are flat in `Sources/` (no subfolders). Grouped by role:
 - `HostService.swift` — host listings, bookings, services, earnings, analytics, become-host.
 - `ReviewService.swift` / `GuestReviewViews.swift` — reviews (both directions).
 - `WishlistService.swift` / `WishlistStore.swift` — saved favorites (network + in-memory store).
-- `ProfileService.swift` — profile read/update, change password.
+- `ProfileService.swift` — profile read/update, change password, and the ID-number change request.
+- `IDChangeRequestView.swift` — the request form for changing the ID number. That number is
+  READ-ONLY on `ProfileSettingsView`: it used to be an ordinary text field, which meant any
+  account could rewrite its own identity number with nobody reviewing it. Changing it now means
+  filing a request with a photo of the document, decided by an operator in `/ops`
+  (`GET`/`POST`/`DELETE /api/local/profile/id-change`). The profile `PATCH` no longer sends
+  `id_document` and the server refuses any value that differs from what is stored.
 - `NotificationService.swift` — register device token, list/read notifications.
 - `AIService.swift` / `AITravelChatService.swift` — AI search + travel chat.
 - `EgyptianIDScanService.swift` — POSTs ID photo to the **local OCR server** (`Config.idOcrBaseURL`, NOT the backend).

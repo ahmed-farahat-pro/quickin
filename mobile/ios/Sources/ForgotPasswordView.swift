@@ -14,6 +14,7 @@ import SwiftUI
 /// `AuthView` and `OTPVerificationView`.
 struct ForgotPasswordView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
 
     /// Pre-fill the email with whatever the user already typed on the sign-in
@@ -33,7 +34,17 @@ struct ForgotPasswordView: View {
     @State private var code = ""
     @State private var newPassword = ""
     @State private var showPassword = false
+    /// The new password typed a second time. A typo here would lock the account
+    /// out with no way back except another reset, so it's asked for twice.
+    @State private var confirmPassword = ""
+    @State private var showConfirmPassword = false
     @FocusState private var codeFocused: Bool
+    @FocusState private var emailFocused: Bool
+
+    /// Set once the user has left the email field with something typed. Until
+    /// then we stay quiet — nagging about a malformed address while it's still
+    /// being typed reads as broken. Same behaviour as `AuthView`.
+    @State private var emailTouched = false
 
     init(initialEmail: String, onReset: @escaping () -> Void = {}) {
         self.initialEmail = initialEmail
@@ -41,12 +52,32 @@ struct ForgotPasswordView: View {
         _email = State(initialValue: initialEmail)
     }
 
+    /// The inline hint under the email field: shown only once the user has
+    /// committed a non-empty, malformed address.
+    private var emailError: String? {
+        guard emailTouched, !EmailRules.normalized(email).isEmpty, !EmailRules.isValid(email) else {
+            return nil
+        }
+        return loc.t("auth.email.invalid")
+    }
+
     private var canSend: Bool {
-        !email.trimmingCharacters(in: .whitespaces).isEmpty && !auth.isLoading
+        // A malformed address can never receive a reset code — gate the button
+        // on the format, not just on the field being non-empty.
+        EmailRules.isValid(email) && !auth.isLoading
     }
 
     private var canReset: Bool {
-        code.count == codeLength && PasswordRules.meetsMin(newPassword) && !auth.isLoading
+        code.count == codeLength
+            && PasswordRules.meetsMin(newPassword)
+            && confirmPassword == newPassword
+            && !auth.isLoading
+    }
+
+    /// True while the confirmation contradicts the new password. Empty is not a
+    /// mismatch — the hint waits until the user has typed something there.
+    private var passwordsMismatch: Bool {
+        !confirmPassword.isEmpty && confirmPassword != newPassword
     }
 
     var body: some View {
@@ -93,6 +124,13 @@ struct ForgotPasswordView: View {
                 }
             }
             .tint(.qkBurgundy)
+            // Leaving the email field (tapping elsewhere, hitting return,
+            // dismissing the keyboard) is what arms the format hint.
+            .onChange(of: emailFocused) { _, focused in
+                if !focused && !EmailRules.normalized(email).isEmpty {
+                    emailTouched = true
+                }
+            }
             .animation(.easeInOut(duration: 0.2), value: step)
             .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
         }
@@ -128,7 +166,7 @@ struct ForgotPasswordView: View {
                     .foregroundStyle(Color.qkMuted)
                 HStack(spacing: 10) {
                     Image(systemName: "envelope")
-                        .foregroundStyle(Color.qkMuted)
+                        .foregroundStyle(emailError == nil ? Color.qkMuted : Color.qkBurgundy)
                         .frame(width: 18)
                     TextField("layla@email.com", text: $email)
                         .textContentType(.emailAddress)
@@ -136,12 +174,31 @@ struct ForgotPasswordView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
                         .foregroundStyle(Color.qkInk)
+                        .focused($emailFocused)
+                        .submitLabel(.send)
+                        .onSubmit { Task { await primaryAction() } }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(Color.qkCream)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(
+                            emailError == nil ? Color.clear : Color.qkBurgundy.opacity(0.55),
+                            lineWidth: emailError == nil ? 0 : 1.5
+                        )
+                )
+                // Inline validation hint, matching AuthView's email field.
+                if let emailError {
+                    Text(emailError)
+                        .font(.caption)
+                        .foregroundStyle(Color.qkBurgundy)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: emailError)
         }
         .padding(18)
         .background(Color.white)
@@ -186,47 +243,97 @@ struct ForgotPasswordView: View {
 
             // New password with an eye toggle, matching AuthView.
             VStack(alignment: .leading, spacing: 6) {
-                Text("New password")
-                    .font(.caption).fontWeight(.semibold)
-                    .foregroundStyle(Color.qkMuted)
-                HStack(spacing: 10) {
-                    Image(systemName: "lock")
-                        .foregroundStyle(Color.qkMuted)
-                        .frame(width: 18)
-                    Group {
-                        if showPassword {
-                            TextField("At least 8 characters", text: $newPassword)
-                        } else {
-                            SecureField("At least 8 characters", text: $newPassword)
-                        }
-                    }
-                    .textContentType(.newPassword)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .foregroundStyle(Color.qkInk)
-                    Button {
-                        showPassword.toggle()
-                    } label: {
-                        Image(systemName: showPassword ? "eye.slash" : "eye")
-                            .foregroundStyle(Color.qkMuted)
-                            .frame(width: 18)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(showPassword ? "Hide password" : "Show password")
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(Color.qkCream)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                passwordField(
+                    title: "New password",
+                    placeholder: "At least 8 characters",
+                    systemImage: "lock",
+                    text: $newPassword,
+                    isRevealed: $showPassword
+                )
 
                 PasswordStrengthView(password: newPassword)
                     .animation(.easeInOut(duration: 0.25), value: newPassword.isEmpty)
             }
+
+            // Typed again, because a typo in a password the user has never used
+            // before locks them out until they run this whole flow a second time.
+            VStack(alignment: .leading, spacing: 6) {
+                passwordField(
+                    title: loc.t("auth.confirmPassword"),
+                    placeholder: loc.t("auth.confirmPassword"),
+                    systemImage: "checkmark.shield",
+                    text: $confirmPassword,
+                    isRevealed: $showConfirmPassword,
+                    isError: passwordsMismatch
+                )
+
+                if passwordsMismatch {
+                    Text(loc.t("password.mismatch"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkBurgundy)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: passwordsMismatch)
         }
         .padding(18)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
+    }
+
+    /// A labelled password box with the AuthView eye toggle. `isError` tints the
+    /// border burgundy for the confirm field's mismatch state.
+    private func passwordField(
+        title: String,
+        placeholder: String,
+        systemImage: String,
+        text: Binding<String>,
+        isRevealed: Binding<Bool>,
+        isError: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption).fontWeight(.semibold)
+                .foregroundStyle(Color.qkMuted)
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(isError ? Color.qkBurgundy : Color.qkMuted)
+                    .frame(width: 18)
+                Group {
+                    if isRevealed.wrappedValue {
+                        TextField(placeholder, text: text)
+                    } else {
+                        SecureField(placeholder, text: text)
+                    }
+                }
+                .textContentType(.newPassword)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .foregroundStyle(Color.qkInk)
+                Button {
+                    isRevealed.wrappedValue.toggle()
+                } label: {
+                    Image(systemName: isRevealed.wrappedValue ? "eye.slash" : "eye")
+                        .foregroundStyle(Color.qkMuted)
+                        .frame(width: 18)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isRevealed.wrappedValue ? "Hide password" : "Show password")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.qkCream)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        isError ? Color.qkBurgundy.opacity(0.55) : Color.clear,
+                        lineWidth: 1.5
+                    )
+            )
+        }
     }
 
     private func digitBox(at index: Int) -> some View {
@@ -289,14 +396,19 @@ struct ForgotPasswordView: View {
     private func primaryAction() async {
         switch step {
         case .request:
-            let sent = await auth.forgotPassword(email: email.trimmingCharacters(in: .whitespaces))
+            // Guard again at the call site: the button is disabled for a
+            // malformed address, but the keyboard's return key shouldn't be
+            // able to slip one past. Surface the hint instead of calling out.
+            guard let email = validatedEmail() else { return }
+            let sent = await auth.forgotPassword(email: email)
             if sent {
                 step = .reset
                 codeFocused = true
             }
         case .reset:
+            guard let email = validatedEmail() else { return }
             let outcome = await auth.resetPassword(
-                email: email.trimmingCharacters(in: .whitespaces),
+                email: email,
                 code: code,
                 password: newPassword
             )
@@ -308,11 +420,24 @@ struct ForgotPasswordView: View {
     }
 
     private func resend() async {
-        let sent = await auth.forgotPassword(email: email.trimmingCharacters(in: .whitespaces))
+        guard let email = validatedEmail() else { return }
+        let sent = await auth.forgotPassword(email: email)
         if sent {
             code = ""
             codeFocused = true
         }
+    }
+
+    /// The trimmed address to send, or `nil` when it's malformed — in which
+    /// case the inline hint is armed so the user sees why nothing happened.
+    private func validatedEmail() -> String? {
+        let trimmed = EmailRules.normalized(email)
+        guard EmailRules.isValid(trimmed) else {
+            emailTouched = true
+            emailFocused = true
+            return nil
+        }
+        return trimmed
     }
 }
 

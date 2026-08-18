@@ -116,13 +116,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     val forgot: StateFlow<ForgotPasswordUiState> = _forgot.asStateFlow()
 
     /**
-     * Optional referral code entered on the sign-up form, held until the OTP step so it can be
-     * forwarded to `verify-otp` (the backend credits the referrer on first verification). Cleared
-     * once verification completes or is abandoned.
-     */
-    private var pendingReferralCode: String? = null
-
-    /**
      * Set to the freshly-completed session right after an email/password-derived login (password,
      * OTP verify, or password reset) so the auth screen can offer "Enable biometric sign-in". Null
      * the rest of the time — and never set for a biometric restore (no point re-offering). Consumed
@@ -141,19 +134,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Registers a normal account and moves to OTP verification — there is no host registration; a
-     * user can become a host in-app later. An optional [referralCode] is remembered (not sent yet)
-     * and forwarded to `verify-otp` once the user confirms the emailed code, so a valid referrer
-     * gets credited.
+     * user can become a host in-app later.
      */
-    fun signup(
-        name: String,
-        email: String,
-        password: String,
-        referralCode: String? = null
-    ) {
-        pendingReferralCode = referralCode?.trim()?.takeUnless { it.isBlank() }
+    fun signup(name: String, email: String, password: String) =
         runOutcome { AuthService.signup(name.trim(), email.trim(), password) }
-    }
 
     // ---- Authoritative host state (the source of truth on every launch) --------
 
@@ -290,8 +274,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     /** Verifies the 6-digit [code] for the pending email and completes login on success. */
     fun verifyOtp(code: String) {
         val email = _state.value.pendingEmail ?: return
-        val referral = pendingReferralCode
-        runAuth({ AuthService.verifyOtp(email, code.trim(), referral) }, viaPassword = true)
+        runAuth({ AuthService.verifyOtp(email, code.trim()) }, viaPassword = true)
     }
 
     /** Requests a fresh OTP for the pending email (no-op if nothing is pending). */
@@ -326,7 +309,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Abandons the pending OTP step and returns the user to the sign-in form. */
     fun cancelVerification() {
-        pendingReferralCode = null
         _state.value = _state.value.copy(pendingEmail = null, error = null, isLoading = false)
     }
 
@@ -514,8 +496,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * published on [biometricEnrollOffer] so the auth screen can offer to enable biometric sign-in.
      */
     private fun persistSession(result: AuthResult, viaPassword: Boolean = false) {
-        // The referral code (if any) has now been forwarded via verify-otp; drop it.
-        pendingReferralCode = null
         prefs.edit()
             .putString(KEY_TOKEN, result.token)
             .putString(KEY_USER_ID, result.userId)

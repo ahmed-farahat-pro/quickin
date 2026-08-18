@@ -44,7 +44,7 @@ mobile/android/
             ├── ReviewService.kt            # listing reviews + two-way (host↔guest) reviews
             ├── WishlistService.kt          # saved listings/services
             ├── TrustService.kt             # ID verification, host badges, host profile, reports
-            ├── ProfileService.kt           # editable profile load/save, change password
+            ├── ProfileService.kt           # editable profile load/save, change password, ID-change requests
             ├── NotificationService.kt      # in-app notifications feed + device-token register
             ├── AITravelChatService.kt      # AI travel concierge (public, no auth)
             ├── IDScanService.kt            # Egyptian National ID OCR (local Python :8000 server)
@@ -68,6 +68,10 @@ mobile/android/
                 ├── ServicesScreen.kt, ReservationsScreen.kt, ReservationDetailScreen.kt
                 ├── HostScreen.kt, HostServicesScreen.kt, AnalyticsScreen.kt, MoneyScreens.kt
                 ├── ProfileScreen.kt, ProfileSettingsScreen.kt, HostProfileScreen.kt
+            │     ProfileSettingsScreen SHOWS the ID number but does not edit it — changing
+            │     it is a request with a photo of the document that an operator approves
+            │     (IdChangeRequestDialog → /api/local/profile/id-change). It used to be an
+            │     ordinary field, so any account could rewrite its own identity number.
                 ├── WishlistScreen.kt, NotificationsScreen.kt, ChatScreen.kt, AiTravelChatScreen.kt
                 ├── EgyptianIDScanScreen.kt, TrustUi.kt, PaymentSheet.kt, MySubscriptionsScreen.kt
                 ├── UiKit.kt (GradientButton, qkSwap, helpers), Skeletons.kt, theme/Theme.kt

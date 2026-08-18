@@ -16,10 +16,11 @@ struct OTPVerificationView: View {
     /// The email the code was sent to. Fixed for the lifetime of the screen.
     let email: String
 
-    /// An optional referral code captured at signup, forwarded to `verifyOTP`
-    /// so the new account is credited to the referring friend. `nil` for the
-    /// unverified-login path (where no signup referral was entered).
-    var referralCode: String? = nil
+    /// Called when the user backs out without verifying, so the presenter can
+    /// dismiss this screen. This is presented as a `fullScreenCover`, which has
+    /// no swipe-to-dismiss and no navigation bar of its own — without this the
+    /// user is stranded here. When nil, no back control is shown.
+    var onBack: (() -> Void)?
 
     /// Called once verification succeeds and a session is established, so the
     /// presenter (e.g. `AuthView`) can dismiss this screen.
@@ -42,6 +43,7 @@ struct OTPVerificationView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    if onBack != nil { backRow }
                     header
                     codeCard
                     if let error = auth.errorMessage {
@@ -68,6 +70,32 @@ struct OTPVerificationView: View {
         .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
         .animation(.easeInOut(duration: 0.2), value: didResend)
         .onAppear { fieldFocused = true }
+    }
+
+    // MARK: - Back
+
+    /// Leading "Back" control. A `fullScreenCover` brings no navigation bar and
+    /// no swipe-to-dismiss, so this is the user's only way out of the screen
+    /// short of entering a valid code.
+    private var backRow: some View {
+        HStack {
+            Button {
+                fieldFocused = false
+                auth.errorMessage = nil
+                onBack?()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.backward")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(loc.t("common.back"))
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(Color.qkBurgundy)
+                .contentShape(Rectangle())
+            }
+            Spacer()
+        }
+        .padding(.bottom, -8)
     }
 
     // MARK: - Header
@@ -199,7 +227,7 @@ struct OTPVerificationView: View {
     // MARK: - Actions
 
     private func verify() async {
-        let outcome = await auth.verifyOTP(email: email, code: code, referralCode: referralCode)
+        let outcome = await auth.verifyOTP(email: email, code: code)
         if outcome == .authenticated {
             onVerified()
         }
@@ -229,7 +257,7 @@ struct OTPVerificationView: View {
 }
 
 #Preview {
-    OTPVerificationView(email: "layla@email.com")
+    OTPVerificationView(email: "layla@email.com", onBack: {})
         .environmentObject(AuthStore())
         .environmentObject(LocalizationManager.shared)
 }

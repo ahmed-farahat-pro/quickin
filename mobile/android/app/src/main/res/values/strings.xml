@@ -53,6 +53,7 @@
     <string name="signup_country_none">No countries found</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
+    <string name="auth_confirm_password">Confirm password</string>
     <string name="auth_forgot_password">Forgot password?</string>
     <string name="auth_continue_google">Continue with Google</string>
     <string name="auth_or">or</string>
@@ -139,6 +140,8 @@
     <string name="settings_password_caption">Use at least 6 characters.</string>
     <string name="settings_current_password">Current password</string>
     <string name="settings_new_password">New password</string>
+    <string name="settings_confirm_password">Confirm new password</string>
+    <string name="password_mismatch">Passwords don\'t match</string>
     <string name="settings_update_password">Update password</string>
     <string name="settings_password_updated">Password updated</string>
     <string name="settings_delete_account">Delete account</string>
@@ -595,7 +598,6 @@
     <string name="referral_none">No referrals yet. Share your code to get started.</string>
     <string name="referral_loading">Loading your referrals…</string>
     <string name="referral_error">Couldn\'t load your referrals.</string>
-    <string name="referral_signup_field">Referral code (optional)</string>
     <string name="referral_share_message">Join me on QuickIn! Use my referral code %1$s when you sign up.</string>
 
     <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
@@ -742,6 +744,7 @@
     <string name="host_type_brokerage">Brokerage</string>
     <string name="host_apply_submit">Submit application</string>
     <string name="host_apply_required">Add your name, national ID, phone and address to continue.</string>
+    <string name="host_apply_error_full_name_letters">Please use letters in your name, not only numbers.</string>
     <string name="host_apply_error">Couldn\'t submit your application. Please try again.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -776,4 +779,68 @@
     <string name="stay_guide_move_up">Move up</string>
     <string name="stay_guide_move_down">Move down</string>
     <string name="cd_place_qr">QR code for %1$s</string>
+    <!-- Host payout method — where QuickIn sends a host's earnings -->
+    <string name="payout_title">Payment information</string>
+    <string name="payout_subtitle_empty">Add a payout method so QuickIn can send you your earnings.</string>
+    <string name="payout_subtitle_set">This is where QuickIn sends your earnings.</string>
+    <string name="payout_choose_method">How you want to be paid</string>
+    <string name="payout_badge_added">Added</string>
+    <string name="payout_method_instapay">InstaPay</string>
+    <string name="payout_method_wallet">Wallet</string>
+    <string name="payout_wallet_vodafone_cash">Vodafone Cash</string>
+    <string name="payout_wallet_etisalat_cash">Etisalat Cash</string>
+    <string name="payout_wallet_orange_money">Orange Money</string>
+    <string name="payout_wallet_we_pay">WE Pay</string>
+    <string name="payout_wallet_other">Other wallet</string>
+    <string name="payout_field_account_name">Name on the account</string>
+    <string name="payout_field_bank">Bank</string>
+    <string name="payout_field_instapay_address">InstaPay address</string>
+    <string name="payout_field_wallet_provider">Wallet</string>
+    <string name="payout_field_wallet_number">Wallet number</string>
+    <string name="payout_instapay_hint">Your InstaPay address, for example name@instapay or name@banquemisr.</string>
+    <string name="payout_save">Save payout method</string>
+    <string name="payout_saving">Saving…</string>
+    <string name="payout_change">Change payout method</string>
+    <string name="payout_remove">Remove payout method</string>
+    <string name="payout_removing">Removing…</string>
+    <string name="payout_method_bank_account">Bank account</string>
+    <string name="payout_field_iban">IBAN</string>
+    <string name="payout_field_account_number">Account number</string>
+    <string name="payout_field_swift">SWIFT / BIC</string>
+    <string name="payout_field_swift_optional">SWIFT / BIC (optional)</string>
+    <string name="payout_field_branch">Branch</string>
+    <string name="payout_field_branch_optional">Branch (optional)</string>
+    <string name="payout_placeholder_iban">EG38 0019 0005 0000 0000 2631 8000 2</string>
+    <string name="payout_placeholder_account_number">Your bank account number</string>
+    <string name="payout_placeholder_swift">e.g. NBEGEGCX</string>
+    <string name="payout_placeholder_branch">e.g. Zamalek</string>
+    <string name="payout_bank_hint">Enter your IBAN or your account number — either one is enough, and both is better.</string>
+    <string name="payout_placeholder_account_name">As it appears on the account</string>
+    <string name="payout_placeholder_bank">e.g. Banque Misr</string>
+    <string name="payout_placeholder_instapay_address">name@instapay</string>
+    <string name="payout_placeholder_wallet_number">01XXXXXXXXX</string>
+    <string name="settings_id_none">Not on file</string>
+    <string name="id_change_request">Request a change</string>
+    <string name="id_change_explainer">Your ID number can only be changed by request, with a photo of the document.</string>
+    <string name="id_change_status_pending">Awaiting review</string>
+    <string name="id_change_pending_detail">You asked to change it to %1$s. We’ll let you know once it’s reviewed.</string>
+    <string name="id_change_rejected_reason">Your last request was rejected: %1$s</string>
+    <string name="id_change_withdraw">Withdraw request</string>
+    <string name="id_change_title">Change ID number</string>
+    <string name="id_change_intro">Tell us the correct number and attach a photo of the document it appears on. Someone will check it before your profile is updated.</string>
+    <string name="id_change_current">Currently on file: %1$s</string>
+    <string name="id_change_doc_type">Document</string>
+    <string name="id_change_doc_national">National ID</string>
+    <string name="id_change_doc_passport">Passport</string>
+    <string name="id_change_doc_residence">Residence permit</string>
+    <string name="id_change_new_number">New number</string>
+    <string name="id_change_photos">Photo of the document</string>
+    <string name="id_change_front">Add front</string>
+    <string name="id_change_front_added">Front added</string>
+    <string name="id_change_back">Add back (optional)</string>
+    <string name="id_change_back_added">Back added</string>
+    <string name="id_change_photos_hint">The front is required — without it there is nothing to check the number against.</string>
+    <string name="id_change_reason">Reason (optional)</string>
+    <string name="id_change_reason_hint">Why does this need to change?</string>
+    <string name="id_change_submit">Send request</string>
 </resources>

@@ -123,20 +123,11 @@ object AuthService {
         )
     }
 
-    /**
-     * Verifies the emailed 6-digit [code]; returns the session on success. An optional
-     * [referralCode] (entered on the sign-up form) is forwarded so the backend can credit the
-     * referrer — it's only honoured on a first verification and ignored when blank.
-     */
-    suspend fun verifyOtp(
-        email: String,
-        code: String,
-        referralCode: String? = null
-    ): AuthResult = withContext(Dispatchers.IO) {
+    /** Verifies the emailed 6-digit [code]; returns the session on success. */
+    suspend fun verifyOtp(email: String, code: String): AuthResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("email", email)
             put("code", code)
-            if (!referralCode.isNullOrBlank()) put("referral_code", referralCode.trim())
         }
         val (status, text) = request("/api/auth/verify-otp", body)
         if (status !in 200..299) {

@@ -48,6 +48,11 @@ struct ProfileView: View {
                                 hostApplicationSection
                             }
                             IdentityVerificationCard()
+                            // Payment information — where QuickIn sends this
+                            // host's earnings. Hosts only; a guest has none.
+                            if isHost {
+                                HostPayoutCard()
+                            }
                             GuestReviewsAboutMeSection(guestID: auth.user?.id)
                             settingsEntry
                             receiptsEntry
@@ -826,7 +831,10 @@ private struct HostApplicationSheet: View {
                 text: $draft.phone,
                 field: .phone,
                 contentType: .telephoneNumber,
-                keyboard: .phonePad
+                keyboard: .phonePad,
+                // Stop at a full Egyptian number rather than accepting digits
+                // an operator could never dial.
+                sanitize: PhoneRules.capped
             )
             Divider()
             field(
@@ -898,6 +906,8 @@ private struct HostApplicationSheet: View {
 
     /// One labelled text field. `field` names the validation slot so a failed
     /// check can outline the offending input (nil for the optional ones).
+    /// `sanitize`, when given, rewrites what the guest types as they type it —
+    /// used by the phone field to refuse over-long input at the keyboard.
     private func field(
         _ label: String,
         systemImage: String,
@@ -906,7 +916,8 @@ private struct HostApplicationSheet: View {
         field: Field?,
         contentType: UITextContentType? = nil,
         keyboard: UIKeyboardType = .default,
-        capitalization: TextInputAutocapitalization = .sentences
+        capitalization: TextInputAutocapitalization = .sentences,
+        sanitize: ((String) -> String)? = nil
     ) -> some View {
         let isInvalid = field != nil && field == invalidField
         return VStack(alignment: .leading, spacing: 6) {
@@ -917,6 +928,11 @@ private struct HostApplicationSheet: View {
                 .textContentType(contentType)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(capitalization)
+                .onChange(of: text.wrappedValue) { _, newValue in
+                    guard let sanitize else { return }
+                    let cleaned = sanitize(newValue)
+                    if cleaned != newValue { text.wrappedValue = cleaned }
+                }
                 .foregroundStyle(Color.qkInk)
                 .padding(.horizontal, 14)
                 .frame(height: 48)
@@ -1033,8 +1049,12 @@ private struct HostApplicationSheet: View {
 
         isSubmitting = true
         defer { isSubmitting = false }
+        // Send the phone in one canonical `+20…` form, so the same number typed
+        // as `01001234567` and `+20 100 123 4567` is filed identically.
+        var payload = draft
+        payload.phone = PhoneRules.normalized(draft.phone)
         do {
-            try await HostService.shared.submitHostApplication(draft)
+            try await HostService.shared.submitHostApplication(payload)
             onSubmitted(draft.hostType)
             didSubmit = true
         } catch {
@@ -1045,7 +1065,7 @@ private struct HostApplicationSheet: View {
         }
     }
 
-    /// The first empty required field and the message key that explains it.
+    /// The first required field that fails, and the message key that explains it.
     /// Mirrors the backend's own validation so the round-trip is rarely needed.
     private func firstValidationFailure() -> (Field, String)? {
         let checks: [(slot: Field, value: String, messageKey: String)] = [
@@ -1057,6 +1077,18 @@ private struct HostApplicationSheet: View {
         for check in checks
         where check.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return (check.slot, check.messageKey)
+        }
+        // Non-empty is not enough for the name: an operator reads it against the
+        // ID photos, and "12345" is not a name. Same rule and same sentences as
+        // sign-up — `NameRules` is the Swift twin of the API's name-policy.ts.
+        if let problem = NameRules.problem(with: draft.fullName) {
+            return (.fullName, problem.messageKey)
+        }
+        // The field already refuses over-long input, but a short or malformed
+        // number still has to be caught before an operator tries to call it.
+        // `PhoneRules` is the Swift twin of the web's EG_MOBILE/LANDLINE regex.
+        if !PhoneRules.isValid(draft.phone) {
+            return (.phone, "hostApply.error.phoneFormat")
         }
         return nil
     }

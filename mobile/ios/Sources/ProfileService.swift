@@ -111,15 +111,19 @@ struct ProfileService {
 
     // MARK: - Update
 
-    /// Save the editable fields. Sends `{ full_name, age, id_document, phone,
-    /// bio, avatar_url }`; `age`/`bio`/`avatar_url` are sent as JSON null when
-    /// cleared. Returns the updated profile when the backend echoes one,
-    /// otherwise the values just sent.
+    /// Save the editable fields. Sends `{ full_name, age, phone, bio, avatar_url }`;
+    /// `age`/`bio`/`avatar_url` are sent as JSON null when cleared. Returns the
+    /// updated profile when the backend echoes one, otherwise the values just sent.
+    ///
+    /// `id_document` is deliberately NOT sent. It is identity, and the endpoint now
+    /// refuses any value that differs from what is stored — changing it goes through
+    /// `requestIDChange` and an operator's approval. Sending the unchanged value would
+    /// be accepted, but there is no reason to put a person's ID number on the wire on
+    /// every bio edit.
     @discardableResult
     func updateProfile(
         fullName: String,
         age: Int?,
-        idDocument: String,
         phone: String,
         bio: String,
         avatarURL: String?
@@ -135,7 +139,6 @@ struct ProfileService {
 
         var body: [String: Any] = [
             "full_name": fullName,
-            "id_document": idDocument,
             "phone": phone,
         ]
         // Send the age as a number when set, explicit null when cleared.
@@ -158,10 +161,12 @@ struct ProfileService {
         if let updated = try? JSONDecoder().decode(Profile.self, from: data) {
             return updated
         }
+        // The echo is what carries id_document back; without one there is nothing
+        // truthful to put here, so it stays nil rather than inventing a value.
         return Profile(
             fullName: fullName,
             age: age,
-            idDocument: idDocument,
+            idDocument: nil,
             phone: phone,
             email: nil,
             bio: bio.isEmpty ? nil : bio,
@@ -205,6 +210,194 @@ struct ProfileService {
     private static func decodeError(_ data: Data) -> String? {
         struct ErrorBody: Decodable { let error: String }
         return (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
+    }
+
+    // MARK: - ID change requests
+
+    /// The current ID number and the state of any request to change it
+    /// (`GET /api/local/profile/id-change` (Bearer)).
+    func fetchIDChangeState() async throws -> IDChangeState {
+        guard let token else { throw ProfileError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/profile/id-change")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ProfileError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw ProfileError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            throw ProfileError.message(Self.decodeError(data) ?? "Couldn't load your ID request (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(IDChangeState.self, from: data)
+    }
+
+    /// Ask for the ID number on the profile to be changed
+    /// (`POST /api/local/profile/id-change` (Bearer)
+    /// `{ requested_value, doc_type, front, back?, reason? }`).
+    ///
+    /// The front image is required by the server: without a document the reviewer has
+    /// nothing to check the typed number against. Resubmitting replaces a request that
+    /// is still waiting rather than queueing a second one.
+    @discardableResult
+    func requestIDChange(
+        requestedValue: String,
+        docType: String,
+        front: String,
+        back: String?,
+        reason: String
+    ) async throws -> IDChangeState {
+        guard let token else { throw ProfileError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/profile/id-change")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        var body: [String: Any] = [
+            "requested_value": requestedValue,
+            "doc_type": docType,
+            "front": front,
+        ]
+        if let back, !back.isEmpty { body["back"] = back }
+        let trimmedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedReason.isEmpty { body["reason"] = trimmedReason }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ProfileError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw ProfileError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            // A 400 here carries the core's own wording ("A national ID number is 14
+            // digits"), which is exactly what the user needs to see.
+            throw ProfileError.message(Self.decodeError(data) ?? "Couldn't send your request (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(IDChangeState.self, from: data)
+    }
+
+    /// Withdraw a request that is still awaiting review
+    /// (`DELETE /api/local/profile/id-change` (Bearer)).
+    @discardableResult
+    func cancelIDChangeRequest() async throws -> IDChangeState {
+        guard let token else { throw ProfileError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/profile/id-change")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ProfileError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw ProfileError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            throw ProfileError.message(Self.decodeError(data) ?? "Couldn't withdraw your request (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(IDChangeState.self, from: data)
+    }
+}
+
+// MARK: - ID change models
+
+/// Where a request to change the profile's ID number has got to.
+enum IDChangeStatus: String, Codable {
+    case pending, approved, rejected
+}
+
+/// One request to change the ID number, as the server reports it back.
+struct IDChangeRequest: Codable, Equatable {
+    var id: String
+    var status: IDChangeStatus
+    var requestedValue: String
+    var currentValue: String?
+    var docType: String
+    var reason: String?
+    /// The operator's note. On a rejection this is the reason to show the user.
+    var notes: String?
+    var submittedAt: String?
+    var reviewedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, status, reason, notes
+        case requestedValue = "requested_value"
+        case currentValue = "current_value"
+        case docType = "doc_type"
+        case submittedAt = "submitted_at"
+        case reviewedAt = "reviewed_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        // An unknown status is treated as pending: it is the state that shows the
+        // safest thing (waiting, action hidden) rather than offering a resubmit that
+        // the server would refuse. Decoded via the raw string so a value this build
+        // does not know about degrades instead of failing the whole response.
+        let rawStatus = try c.decodeIfPresent(String.self, forKey: .status)
+        status = rawStatus.flatMap(IDChangeStatus.init(rawValue:)) ?? .pending
+        requestedValue = try c.decodeIfPresent(String.self, forKey: .requestedValue) ?? ""
+        currentValue = try c.decodeIfPresent(String.self, forKey: .currentValue)
+        docType = try c.decodeIfPresent(String.self, forKey: .docType) ?? "national_id"
+        reason = try c.decodeIfPresent(String.self, forKey: .reason)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        submittedAt = try c.decodeIfPresent(String.self, forKey: .submittedAt)
+        reviewedAt = try c.decodeIfPresent(String.self, forKey: .reviewedAt)
+    }
+}
+
+/// The ID number on the profile plus whatever became of the latest request for it.
+struct IDChangeState: Codable, Equatable {
+    /// The value on the profile right now — the only one that counts.
+    var current: String?
+    var request: IDChangeRequest?
+    /// False only while a request is waiting; the screen hides the action on false.
+    var canRequest: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case current, request
+        case canRequest = "can_request"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        current = try c.decodeIfPresent(String.self, forKey: .current)
+        request = try c.decodeIfPresent(IDChangeRequest.self, forKey: .request)
+        canRequest = try c.decodeIfPresent(Bool.self, forKey: .canRequest) ?? true
+    }
+
+    init(current: String?, request: IDChangeRequest?, canRequest: Bool) {
+        self.current = current
+        self.request = request
+        self.canRequest = canRequest
+    }
+}
+
+/// The identity documents a change request may be filed against. Mirrors DOC_TYPES
+/// in the backend's host-verification-core.ts, so a request and a verification always
+/// mean the same thing by 'passport'.
+enum IDDocumentType: String, CaseIterable, Identifiable {
+    case nationalID = "national_id"
+    case passport
+    case residencePermit = "residence_permit"
+
+    var id: String { rawValue }
+
+    var labelKey: String {
+        switch self {
+        case .nationalID:      return "idChange.docType.nationalId"
+        case .passport:        return "idChange.docType.passport"
+        case .residencePermit: return "idChange.docType.residencePermit"
+        }
     }
 }
 

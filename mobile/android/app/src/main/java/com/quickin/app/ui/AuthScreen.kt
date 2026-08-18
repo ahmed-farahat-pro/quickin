@@ -79,7 +79,7 @@ private val ErrorRed = Color(0xFFB3261E)
 fun AuthScreen(
     state: AuthUiState,
     onLogin: (email: String, password: String) -> Unit,
-    onSignup: (name: String, email: String, password: String, referralCode: String?) -> Unit,
+    onSignup: (name: String, email: String, password: String) -> Unit,
     onGoogleLaunch: (nonce: String, state: String) -> Unit,
     onGoogleNotConfigured: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -96,8 +96,13 @@ fun AuthScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    // Optional referral code (sign-up only); forwarded to verify-otp to credit the referrer.
-    var referralCode by remember { mutableStateOf("") }
+    // Sign-up only: the password typed a second time. A new account whose password holds a typo
+    // can't be signed into at all, so we ask twice. Cleared by the mode toggle below — switching
+    // modes hides the field, so coming back to sign-up starts from a clean, un-armed hint.
+    var confirmPassword by remember { mutableStateOf("") }
+
+    // An empty confirmation is not yet a wrong answer — the hint waits until something is typed.
+    val passwordsMismatch = isSignUp && confirmPassword.isNotEmpty() && confirmPassword != password
 
     val loading = state.isLoading
 
@@ -153,7 +158,10 @@ fun AuthScreen(
             ModeToggle(
                 isSignUp = isSignUp,
                 enabled = !loading,
-                onSelect = { isSignUp = it }
+                onSelect = {
+                    isSignUp = it
+                    confirmPassword = ""
+                }
             )
 
             Spacer(Modifier.height(24.dp))
@@ -191,14 +199,26 @@ fun AuthScreen(
                 Spacer(Modifier.height(12.dp))
                 PasswordStrength(password = password)
 
-                // Optional referral code — a friend's code credits them on verification.
                 Spacer(Modifier.height(14.dp))
                 AuthField(
-                    value = referralCode,
-                    onValueChange = { referralCode = it },
-                    label = stringResource(R.string.referral_signup_field),
-                    enabled = !loading
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = stringResource(R.string.auth_confirm_password),
+                    enabled = !loading,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    isError = passwordsMismatch
                 )
+                if (passwordsMismatch) {
+                    Text(
+                        stringResource(R.string.password_mismatch),
+                        color = ErrorRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    )
+                }
             }
 
             // "Forgot password?" — sign-in mode only. Opens the standalone reset route.
@@ -230,11 +250,13 @@ fun AuthScreen(
             Spacer(Modifier.height(22.dp))
 
             // Primary action — burgundy gradient with a pulsing ring (qkPulse).
-            // On sign-up the button stays disabled until the new password meets the minimum bar.
-            val canSubmit = !loading && (!isSignUp || passwordMeetsMin(password))
+            // On sign-up the button stays disabled until the new password meets the minimum bar and
+            // has been typed identically twice.
+            val canSubmit = !loading &&
+                (!isSignUp || (passwordMeetsMin(password) && confirmPassword == password))
             GradientButton(
                 onClick = {
-                    if (isSignUp) onSignup(name, email, password, referralCode.ifBlank { null })
+                    if (isSignUp) onSignup(name, email, password)
                     else onLogin(email, password)
                 },
                 enabled = canSubmit,
@@ -384,7 +406,8 @@ private fun AuthField(
     label: String,
     enabled: Boolean,
     keyboardType: KeyboardType = KeyboardType.Text,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    isError: Boolean = false
 ) {
     // Independent reveal state per field; only meaningful when isPassword.
     var passwordVisible by remember { mutableStateOf(false) }
@@ -393,6 +416,7 @@ private fun AuthField(
         onValueChange = onValueChange,
         label = { Text(label) },
         enabled = enabled,
+        isError = isError,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = if (isPassword && !passwordVisible) {

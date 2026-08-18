@@ -40,10 +40,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.ForgotPasswordUiState
+import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
@@ -85,6 +87,12 @@ fun ForgotPasswordScreen(
     var code by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    // The new password typed a second time. A typo here would lock the account out with no way back
+    // except another reset, so it's asked for twice. An empty confirmation is not yet a wrong
+    // answer — the hint waits until something is typed there.
+    var confirmPassword by remember { mutableStateOf("") }
+    var confirmVisible by remember { mutableStateOf(false) }
+    val passwordsMismatch = confirmPassword.isNotEmpty() && confirmPassword != newPassword
 
     Box(
         modifier = Modifier
@@ -161,6 +169,28 @@ fun ForgotPasswordScreen(
                 )
                 Spacer(Modifier.height(12.dp))
                 PasswordStrength(password = newPassword)
+                Spacer(Modifier.height(14.dp))
+                ResetField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; onClearError() },
+                    label = stringResource(R.string.auth_confirm_password),
+                    enabled = !loading,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    passwordVisible = confirmVisible,
+                    onTogglePassword = { confirmVisible = !confirmVisible },
+                    isError = passwordsMismatch
+                )
+                if (passwordsMismatch) {
+                    Text(
+                        stringResource(R.string.password_mismatch),
+                        color = ForgotErrorRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    )
+                }
             } else {
                 ResetField(
                     value = email,
@@ -185,7 +215,9 @@ fun ForgotPasswordScreen(
             Spacer(Modifier.height(22.dp))
 
             val canSubmit = if (codeStep) {
-                code.length == RESET_CODE_LENGTH && passwordMeetsMin(newPassword)
+                code.length == RESET_CODE_LENGTH &&
+                    passwordMeetsMin(newPassword) &&
+                    confirmPassword == newPassword
             } else {
                 email.isNotBlank()
             }
@@ -237,13 +269,15 @@ private fun ResetField(
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
-    onTogglePassword: (() -> Unit)? = null
+    onTogglePassword: (() -> Unit)? = null,
+    isError: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         enabled = enabled,
+        isError = isError,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = if (isPassword && !passwordVisible) {

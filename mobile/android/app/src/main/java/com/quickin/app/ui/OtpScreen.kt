@@ -117,6 +117,20 @@ fun OtpScreen(
                 modifier = Modifier.padding(top = 12.dp, bottom = 32.dp)
             )
 
+            state.pendingDevCode?.let { devCode ->
+                Text(
+                    "Email couldn't be delivered. Use code: $devCode",
+                    color = Burgundy,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Burgundy.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                        .padding(bottom = 16.dp)
+                )
+            }
+
             OutlinedTextField(
                 value = code,
                 onValueChange = { input ->

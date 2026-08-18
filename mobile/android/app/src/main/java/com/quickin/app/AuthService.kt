@@ -53,7 +53,7 @@ sealed interface AuthOutcome {
     data class Success(val result: AuthResult) : AuthOutcome
 
     /** Email verification is pending: route the user to the OTP screen for [email]. */
-    data class NeedsVerification(val email: String, val role: String?) : AuthOutcome
+    data class NeedsVerification(val email: String, val role: String?, val devCode: String? = null) : AuthOutcome
 }
 
 /**
@@ -117,9 +117,12 @@ object AuthService {
         if (code !in 200..299) {
             throw RuntimeException(extractError(text, code))
         }
+        val devCode = runCatching { JSONObject(text).optString("devCode") }.getOrNull()
+            ?.takeUnless { it.isBlank() }
         AuthOutcome.NeedsVerification(
             email = optEmail(text) ?: email,
-            role = null
+            role = null,
+            devCode = devCode
         )
     }
 

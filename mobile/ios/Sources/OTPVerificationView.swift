@@ -22,6 +22,9 @@ struct OTPVerificationView: View {
     /// user is stranded here. When nil, no back control is shown.
     var onBack: (() -> Void)?
 
+    /// Fallback code returned by the backend when SMTP delivery failed.
+    var devCode: String? = nil
+
     /// Called once verification succeeds and a session is established, so the
     /// presenter (e.g. `AuthView`) can dismiss this screen.
     var onVerified: () -> Void = {}
@@ -45,6 +48,15 @@ struct OTPVerificationView: View {
                 VStack(spacing: 24) {
                     if onBack != nil { backRow }
                     header
+                    if let devCode {
+                        Text("Email couldn't be delivered. Use code: \(devCode)")
+                            .font(.footnote)
+                            .foregroundStyle(Color.qkBurgundy)
+                            .multilineTextAlignment(.center)
+                            .padding(12)
+                            .background(Color.qkBurgundy.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
                     codeCard
                     if let error = auth.errorMessage {
                         Text(error)

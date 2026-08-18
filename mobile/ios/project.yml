@@ -91,12 +91,19 @@ targets:
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        # 1.2.0 is already approved on the App Store, so that train and every
-        # earlier one are closed to new builds — an upload must be strictly
-        # higher. fastlane overrides CURRENT_PROJECT_VERSION at build time from
-        # whatever TestFlight already holds, so the value here is only a floor.
+        # 1.0.0, 1.1.0 AND 1.2.0 are all APPROVED, CLOSED trains on App Store
+        # Connect. Uploading to a closed train fails with 90186 ("train version is
+        # closed") and 90062 (CFBundleShortVersionString must exceed the last
+        # approved version). Every upload needs a marketing version HIGHER than
+        # anything already approved — check App Store Connect → App Store → the
+        # version list before bumping, rather than incrementing blindly and burning
+        # another upload. 1.2.0 closed while a 1.2.0 build was being uploaded, which
+        # is what opened 1.3.0.
         MARKETING_VERSION: "1.3.0"
-        CURRENT_PROJECT_VERSION: "4"
+        # Build number must be unique within its train. fastlane's beta lane
+        # overrides this at build time with max(newest across all trains, newest in
+        # this train) + 1, so the value here only matters for a local Xcode build.
+        CURRENT_PROJECT_VERSION: "6"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.quickin.ahmed

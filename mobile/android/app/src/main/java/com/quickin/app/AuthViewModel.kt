@@ -45,6 +45,8 @@ data class AuthUiState(
      * login). Non-null drives the OTP screen; cleared once verified or cancelled.
      */
     val pendingEmail: String? = null,
+    /** Fallback OTP returned by the backend when SMTP delivery failed. */
+    val pendingDevCode: String? = null,
     /** Seconds left before "Resend code" is allowed again (mirrors the server cooldown). */
     val otpResendCooldown: Int = 0
 )
@@ -309,7 +311,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Abandons the pending OTP step and returns the user to the sign-in form. */
     fun cancelVerification() {
-        _state.value = _state.value.copy(pendingEmail = null, error = null, isLoading = false)
+        _state.value = _state.value.copy(pendingEmail = null, pendingDevCode = null, error = null, isLoading = false)
     }
 
     /** Exchanges a Google ID token for a session via the backend. */
@@ -453,11 +455,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     is AuthOutcome.Success -> persistSession(outcome.result, viaPassword = true)
                     is AuthOutcome.NeedsVerification -> {
                         // Make sure a code is in the user's inbox before showing the screen.
-                        runCatching { AuthService.resendOtp(outcome.email) }
+                        // But if the backend already returned a devCode (SMTP failed), skip
+                        // the resend — it would overwrite the "123456" fallback.
+                        if (outcome.devCode == null) {
+                            runCatching { AuthService.resendOtp(outcome.email) }
+                        }
                         _state.value = _state.value.copy(
                             isLoading = false,
                             error = null,
-                            pendingEmail = outcome.email
+                            pendingEmail = outcome.email,
+                            pendingDevCode = outcome.devCode
                         )
                     }
                 }

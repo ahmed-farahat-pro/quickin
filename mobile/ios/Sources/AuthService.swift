@@ -119,11 +119,12 @@ private struct AuthErrorBody: Decodable {
     let email: String?
 }
 
-/// Shape of a `{ pending: true, email }` response from `/signup` and
+/// Shape of a `{ pending: true, email, devCode? }` response from `/signup` and
 /// `/resend-otp`. No token is issued until the email is verified.
 private struct PendingBody: Decodable {
     let pending: Bool
     let email: String?
+    let devCode: String?
 }
 
 /// Shape of `GET /api/auth/me` → `{ user }`. This is the authoritative account
@@ -143,7 +144,7 @@ enum AuthOutcome: Equatable {
     /// Session established (token stored, user signed in).
     case authenticated
     /// The email needs OTP verification — present the OTP screen for `email`.
-    case needsVerification(email: String)
+    case needsVerification(email: String, devCode: String? = nil)
     /// The request failed; the message is already set on `errorMessage`.
     case failed
 }
@@ -369,9 +370,9 @@ final class AuthStore: ObservableObject {
 
         switch result {
         case .success(let data):
-            // Expected: { pending: true, email } (no token).
+            // Expected: { pending: true, email, devCode? } (no token).
             if let body = try? JSONDecoder().decode(PendingBody.self, from: data), body.pending {
-                return .needsVerification(email: body.email ?? email)
+                return .needsVerification(email: body.email ?? email, devCode: body.devCode)
             }
             // Tolerate a backend that returns a session directly.
             return decodeSession(data)

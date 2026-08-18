@@ -40,6 +40,9 @@ struct AuthView: View {
     /// Identifiable wrapper so the OTP email can drive a `fullScreenCover(item:)`.
     private struct OTPSession: Identifiable {
         let email: String
+        /// Fallback code the backend returns when SMTP delivery failed, so the
+        /// user isn't stranded waiting for an email that never arrives.
+        let devCode: String?
         var id: String { email }
     }
 
@@ -172,6 +175,7 @@ struct AuthView: View {
                 // end — the account exists but is unverified, so signing up or
                 // signing in again re-issues a code and comes back here.
                 onBack: { otpSession = nil },
+                devCode: session.devCode,
                 onVerified: {
                     // Verified: AuthStore now holds the session. Dismiss the OTP
                     // cover; the parent sheet auto-dismisses on `isAuthenticated`.
@@ -601,14 +605,14 @@ struct AuthView: View {
             }
             // Non-deferred path: session is already live; the presenting sheet
             // dismisses on `auth.isAuthenticated`. Nothing to do.
-        case .needsVerification(let verifyEmail):
+        case .needsVerification(let verifyEmail, let devCode):
             // For an unverified-email login, send a fresh code before showing
             // the OTP screen (signup already emailed one). Errors surface via
             // `auth.errorMessage`.
             if !isSignUp {
                 await auth.resendOTP(email: verifyEmail)
             }
-            otpSession = OTPSession(email: verifyEmail)
+            otpSession = OTPSession(email: verifyEmail, devCode: devCode)
         case .failed:
             break
         }

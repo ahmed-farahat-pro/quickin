@@ -63,6 +63,13 @@ targets:
           - CFBundleURLName: com.quickin.ahmed
             CFBundleURLSchemes:
               - quickin
+          # Google OAuth callback. The reversed form of the iOS OAuth client id in
+          # Config.swift (`Config.googleRedirectScheme`) — Google redirects here at
+          # the end of the sign-in flow in SocialSignIn.swift. Keep the two in sync:
+          # changing the client id means changing this scheme too.
+          - CFBundleURLName: com.googleusercontent.apps
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.293984451588-r5agnhcstsb57hbn3eb2u0ie081c4cik
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations:

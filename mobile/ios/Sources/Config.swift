@@ -30,7 +30,7 @@ enum Config {
     /// `id_token` to `/api/auth/google`.
     ///
     /// Example: "1234567890-abcdefg.apps.googleusercontent.com"
-    static let googleClientID = "293984451588-t58dlg9hss3qjk9qmikdu3tv7qln11sb.apps.googleusercontent.com"
+    static let googleClientID = "293984451588-r5agnhcstsb57hbn3eb2u0ie081c4cik.apps.googleusercontent.com"
 
     /// Google Maps iOS SDK key.
     // Set to switch the map to the Google Maps iOS SDK (needs the SDK added via SPM + this key).

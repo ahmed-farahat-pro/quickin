@@ -11,11 +11,14 @@ import java.net.URLEncoder
 /**
  * The signed-in user's identity-verification state (from `GET /api/local/verification`).
  * [status] is "unverified" | "pending" | "verified" | "rejected"; [verifiedAt] is the ISO-8601
- * timestamp the account was verified, or null when it never was.
+ * timestamp the account was verified, or null when it never was. [idNumber] is the number on the
+ * submission we hold, when it carried one — what [IdentityRules] fills the host application's
+ * National ID field from, so a verified user never retypes it.
  */
 data class VerificationState(
     val status: String = "unverified",
-    val verifiedAt: String? = null
+    val verifiedAt: String? = null,
+    val idNumber: String? = null
 )
 
 /**
@@ -23,7 +26,7 @@ data class VerificationState(
  * [ProfileService]: HttpURLConnection + org.json on Dispatchers.IO, bearer-token auth, and an
  * [HttpError] so callers can distinguish 401 (sign in) from 400 (validation).
  *
- *   GET  {base}/api/local/verification                 -> { status, verified_at }
+ *   GET  {base}/api/local/verification                 -> { status, verified_at, id_number }
  *   POST {base}/api/local/verification {front,back,..}  -> { status: "pending" }   (submit ID photos)
  *   GET  {base}/api/local/users/:id                     -> public profile + trust badges (no auth, no PII)
  *   POST {base}/api/local/reports {...}                  -> file a report on a listing/user/review
@@ -35,7 +38,7 @@ object TrustService {
 
     // ---- Identity verification (signed-in user) -------------------------------
 
-    /** Loads the signed-in user's verification status. Throws [HttpError] (401 when signed out). */
+    /** Loads the signed-in user's verification status + ID number. Throws [HttpError] (401 when signed out). */
     suspend fun fetchVerification(token: String): VerificationState = withContext(Dispatchers.IO) {
         val text = get(token, "/api/local/verification")
         parseVerification(JSONObject(text))
@@ -162,7 +165,10 @@ object TrustService {
         val o = raw.optJSONObject("verification") ?: raw
         return VerificationState(
             status = o.optString("status").ifBlank { "unverified" },
-            verifiedAt = o.optString("verified_at").ifBlank { null }
+            verifiedAt = o.optString("verified_at").ifBlank { null },
+            // Older API builds omit it; absent is not an error, it just means
+            // there is nothing to prefill the host application from.
+            idNumber = o.optString("id_number").trim().ifBlank { null }
         )
     }
 

@@ -394,6 +394,18 @@ struct HostService {
         var company: String = ""
         var hostType: HostType = .individual
         var notes: String = ""
+        /// Which document was photographed. The reviewer checks the photo against
+        /// it, which is why the API refuses an unknown value rather than assuming.
+        var docType: IDDocumentType = .nationalID
+        /// Both sides of that document, as `data:image/jpeg;base64,…` URLs.
+        ///
+        /// Nil for an applicant whose identity is already verified or already in
+        /// the reviewer's queue — the server then links this application to the
+        /// submission on file (`IdentityRules.needsIdentityDocuments`). For
+        /// anyone else they are required: an application the reviewer cannot
+        /// check the declared name and national ID against is refused.
+        var idFront: String?
+        var idBack: String?
     }
 
     /// The signed-in account's application + its server-derived status. Used to
@@ -409,6 +421,10 @@ struct HostService {
     /// `pending` for an admin to review in `/ops` and echoes the new
     /// `host_status`. Only that approval flips `is_host`, which the client picks
     /// up from `GET /api/auth/me` (`AuthStore.refreshSession`).
+    ///
+    /// The ID documents travel WITH the application — the reviewer approves host
+    /// status and identity in one decision, and the API refuses an application it
+    /// has no document to review.
     ///
     /// Throws `HostError.message` with the server's text for the documented 4xx
     /// cases (400 validation, 409 "Already a host" / "Application already under
@@ -439,6 +455,13 @@ struct HostService {
         let notes = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty {
             body["notes"] = notes
+        }
+        // Omitted entirely, not sent empty, when the identity is already on file:
+        // their absence is what tells the server to reuse that submission.
+        if let front = draft.idFront, let back = draft.idBack, !front.isEmpty, !back.isEmpty {
+            body["doc_type"] = draft.docType.rawValue
+            body["id_front"] = front
+            body["id_back"] = back
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

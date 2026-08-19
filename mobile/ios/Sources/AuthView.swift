@@ -169,9 +169,23 @@ struct AuthView: View {
         .tint(.qkBurgundy)
         .animation(.easeInOut(duration: 0.2), value: mode)
         .animation(.easeInOut(duration: 0.2), value: auth.errorMessage)
-        // Switching modes hides the confirm field; drop what was typed there so
-        // coming back to sign-up starts from a clean, un-armed hint.
-        .onChange(of: mode) { _, _ in confirmPassword = "" }
+        // Switching modes starts a fresh attempt at a DIFFERENT thing, so nothing secret and
+        // nothing said about the old attempt may survive the toggle: both password fields are
+        // emptied and the server's error ("wrong email or password" from a failed sign-in says
+        // nothing about the account now being created) is dropped. The email is deliberately
+        // kept — someone whose sign-in failed and who decides to register is almost always
+        // registering that same address — and `emailTouched` is kept with it so the stricter
+        // sign-up policy can speak up straight away instead of silently disabling the button.
+        // The name is sign-up-only and never reaches the sign-in form, so an accidental toggle
+        // doesn't throw it away.
+        .onChange(of: mode) { _, _ in
+            password = ""
+            confirmPassword = ""
+            showPassword = false
+            showConfirmPassword = false
+            nameTouched = false
+            auth.errorMessage = nil
+        }
         // Leaving a field (tapping the next one, hitting return, dismissing the
         // keyboard) is what arms that field's hint.
         .onChange(of: focusedField) { _, newValue in

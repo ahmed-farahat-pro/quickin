@@ -35,6 +35,32 @@ android {
     }
 
     signingConfigs {
+        // Debug signing with a keystore that lives IN THE REPO, on purpose.
+        //
+        // Without this, Gradle mints ~/.android/debug.keystore on whatever machine is
+        // building — so every developer, and every fresh CI runner, produced an APK with a
+        // DIFFERENT signing certificate. Google Sign-In authenticates the calling app by
+        // (package name + signing SHA-1) against an OAuth "Android" client registered in the
+        // Google Cloud console, so a fingerprint that changes per build can never be
+        // registered: the picker opens, the account is chosen, and Play services returns
+        // DEVELOPER_ERROR (status 10). That is exactly what the published `publishs/` APKs
+        // did — two builds from the same day were signed with two different debug certs.
+        //
+        // Pinning the keystore here gives every build ONE fingerprint, registered once:
+        //   SHA-1  D1:2E:E0:C1:DB:FD:18:9A:E4:27:54:0A:99:49:53:CF:A6:27:C6:87
+        // Re-read it any time with:
+        //   keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android
+        //
+        // This is a debug key with the conventional android/androiddebugkey credentials — it
+        // signs nothing that ships through Play, and it is no more secret than the stock
+        // Android debug key it replaces. Store-bound builds use the `release` config below.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         create("release") {
             // Release signing for a Play-Store-ready APK/AAB. The bundled
             // app/release.keystore is a self-signed dev keystore (passwords below are the
@@ -63,6 +89,9 @@ android {
             val devApi = (project.findProperty("DEV_API_BASE_URL") as String?)
                 ?: "https://quickin-backend.vercel.app"
             buildConfigField("String", "API_BASE_URL", "\"$devApi\"")
+            // Explicit (AGP would default to this) so it is obvious that debug builds are
+            // signed with the repo's pinned keystore, not a per-machine one — see above.
+            signingConfig = signingConfigs.getByName("debug")
         }
         release {
             // Production API (deployed to Vercel).
@@ -151,4 +180,10 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Plain JVM unit tests (./gradlew :app:testDebugUnitTest). EmailRules/EmailData are pure
+    // value logic with no Android dependency, so the address policy the sign-up button is gated
+    // on can be run on the desktop JVM — the same way the backend twin is covered by
+    // backend/quickin-backend/test/unit/email-core.test.mjs.
+    testImplementation("junit:junit:4.13.2")
 }

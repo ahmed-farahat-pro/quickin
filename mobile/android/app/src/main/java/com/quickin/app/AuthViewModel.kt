@@ -2,13 +2,16 @@ package com.quickin.app
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AuthUiState(
     val isAuthenticated: Boolean = false,
@@ -183,6 +186,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * state moves to the returned status (clearing any previous rejection note) so the profile
      * card switches to "under review" without waiting for the next launch.
      *
+     * [idFront] / [idBack] are the picked photos of the applicant's ID, downscaled off the main
+     * thread to `data:image/jpeg;base64,…` data URLs before they go out. They travel WITH the
+     * application because the server refuses one it has nothing to review the declared name and
+     * national ID against — and they are null, along with [docType], only for an applicant whose
+     * identity is already verified or already in the queue (the form decides that with
+     * [IdentityRules.needsIdentityDocuments]; the server applies the same rule).
+     *
      * The required fields are already gated by the form's submit button; the blank guard here is
      * belt-and-braces. A 409 ("already a host" / "already under review") means our cached state is
      * stale, so we re-read the truth from the server before surfacing the message.
@@ -194,14 +204,29 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         address: String,
         company: String?,
         hostType: String,
-        notes: String?
+        notes: String?,
+        docType: String? = null,
+        idFront: Uri? = null,
+        idBack: Uri? = null
     ) {
         if (_hostApply.value.isSubmitting || !_state.value.isAuthenticated) return
         if (fullName.isBlank() || nationalId.isBlank() || phone.isBlank() || address.isBlank()) return
         val token = currentToken() ?: return
         _hostApply.value = HostApplyUiState(isSubmitting = true)
+        val context = getApplication<Application>().applicationContext
         viewModelScope.launch {
             try {
+                // Decode both photos before the request so a picture we can't read fails as
+                // "couldn't read those photos" rather than as a rejected application.
+                val front = idFront?.let {
+                    withContext(Dispatchers.IO) { AvatarImage.loadDownscaledJpegDataUrl(context, it, maxDim = 1024) }
+                }
+                val back = idBack?.let {
+                    withContext(Dispatchers.IO) { AvatarImage.loadDownscaledJpegDataUrl(context, it, maxDim = 1024) }
+                }
+                if ((idFront != null && front == null) || (idBack != null && back == null)) {
+                    throw IllegalStateException("Couldn't read those photos.")
+                }
                 val status = AuthService.applyToHost(
                     token = token,
                     fullName = fullName,
@@ -210,7 +235,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     address = address,
                     company = company,
                     hostType = hostType,
-                    notes = notes
+                    notes = notes,
+                    docType = docType,
+                    idFront = front,
+                    idBack = back
                 )
                 prefs.edit()
                     .putString(KEY_HOST_STATUS, status)

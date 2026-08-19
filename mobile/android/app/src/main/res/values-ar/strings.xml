@@ -161,7 +161,6 @@
     <string name="account_photo_desc">صورة ملفك الشخصي</string>
 
     <!-- Listings / Explore -->
-    <string name="explore_log_in">دخول</string>
     <string name="hero_eyebrow">الساحل الشمالي · مصر</string>
     <string name="hero_title">اكتشف إقامتك المميزة</string>
     <string name="explore_no_stays">لا توجد إقامات بعد.</string>
@@ -736,6 +735,7 @@
     <string name="host_apply_intro">أخبرنا قليلًا عنك. يراجع فريقنا كل طلب قبل أن تتمكن من الاستضافة.</string>
     <string name="host_apply_full_name">الاسم الكامل</string>
     <string name="host_apply_national_id">الرقم القومي</string>
+    <string name="host_apply_national_id_locked">مأخوذ من الهوية التي تم التحقق منها بالفعل.</string>
     <string name="host_apply_phone">رقم الهاتف</string>
     <string name="host_apply_address">العنوان</string>
     <string name="host_apply_company">الشركة / المكتب العقاري (اختياري)</string>
@@ -838,9 +838,7 @@
     <string name="id_change_new_number">الرقم الجديد</string>
     <string name="id_change_photos">صورة المستند</string>
     <string name="id_change_front">إضافة الوجه الأمامي</string>
-    <string name="id_change_front_added">تمت إضافة الأمام</string>
     <string name="id_change_back">إضافة الخلف (اختياري)</string>
-    <string name="id_change_back_added">تمت إضافة الخلف</string>
     <string name="id_change_photos_hint">صورة الوجه الأمامي مطلوبة — بدونها لا يوجد ما يُقارَن به الرقم.</string>
     <string name="id_change_reason">السبب (اختياري)</string>
     <string name="id_change_reason_hint">لماذا يحتاج هذا إلى التغيير؟</string>
@@ -850,4 +848,32 @@
     <string name="auth_email_bad_tld">«‏.%1$s‏» ليست امتداد نطاق صالحًا.</string>
     <string name="auth_email_did_you_mean">هل تقصد %1$s؟</string>
     <string name="auth_email_disposable">لا يُسمح بعناوين البريد المؤقتة. يُرجى استخدام بريد شخصي أو بريد عمل دائم.</string>
+    <string name="auth_name_required">يُرجى إدخال اسمك</string>
+    <string name="auth_name_no_letters">يُرجى إدخال اسمك — الاسم يحتوي على حروف، وليس أرقامًا فقط</string>
+    <string name="auth_name_too_short">يجب أن يحتوي الاسم على %1$d حرفين على الأقل</string>
+    <string name="auth_name_too_long">يجب ألا يزيد الاسم عن %1$d حرفًا</string>
+
+    <!-- Brand travel header (QkBrandHeader) — eyebrows + subtitles per root tab. -->
+    <string name="home_eyebrow">اكتشف · أقم · استكشف</string>
+    <string name="home_subtitle">إقامات مميّزة في أنحاء مصر.</string>
+    <string name="services_eyebrow">الساحل الشمالي · مصر</string>
+    <string name="services_subtitle">أضف تجارب إلى إقامتك — على الماء، وفي الرمال، وعلى مائدتك.</string>
+    <string name="saved_eyebrow">مجموعتك</string>
+    <string name="saved_subtitle">إقاماتك وتجاربك المفضّلة.</string>
+    <string name="reservations_eyebrow">رحلاتك</string>
+    <string name="reservations_subtitle">كل رحلة حجزتها في مكان واحد.</string>
+    <string name="profile_eyebrow">حسابك</string>
+    <string name="profile_subtitle">الملف الشخصي والإعدادات واللغة.</string>
+    <string name="cd_open_profile">فتح الحساب</string>
+    <string name="cd_sign_in">تسجيل الدخول</string>
+
+    <!-- التقديم كمضيف — مستندات الهوية المرفقة بالطلب. -->
+    <string name="doc_type_national_id">بطاقة الرقم القومي</string>
+    <string name="doc_type_passport">جواز السفر</string>
+    <string name="doc_type_residence_permit">تصريح الإقامة</string>
+    <string name="host_apply_id_section">إثبات الهوية</string>
+    <string name="host_apply_doc_type">ما المستند الذي سترفعه؟</string>
+    <string name="host_apply_id_intro">صوّر وجهي المستند. يراجعه فريقنا مقابل الاسم والرقم القومي المذكورين أعلاه.</string>
+    <string name="host_apply_id_on_file">مستندات هويتك لدينا بالفعل — لا حاجة لرفع أي شيء.</string>
+    <string name="host_apply_required_id">أضف بياناتك وصورتي وجهي هويتك للمتابعة.</string>
 </resources>

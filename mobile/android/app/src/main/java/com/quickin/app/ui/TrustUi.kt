@@ -274,9 +274,12 @@ fun VerificationCard(
  * One ID-photo slot: a tappable rounded box that shows the picked photo's thumbnail (Coil renders
  * the content [uri] directly) or an "Add photo" placeholder with a label (FRONT / BACK). Tapping
  * opens the system Photo Picker via [onPick]; a checkmark overlays a chosen photo.
+ *
+ * Shared with the become-a-host form, which collects the same two photos as part of the
+ * application — one slot, so an ID looks the same wherever the app asks for one.
  */
 @Composable
-private fun IdPhotoSlot(
+internal fun IdPhotoSlot(
     label: String,
     uri: android.net.Uri?,
     enabled: Boolean,

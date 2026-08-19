@@ -335,6 +335,15 @@ object AuthService {
      * application lands in the admin queue and only an approval flips `is_host`. [company] and
      * [notes] are optional and omitted when blank; [hostType] is one of
      * "individual" | "company" | "brokerage". Returns the resulting host_status ("pending").
+     *
+     * The ID documents travel WITH the application, not as a later step: the server refuses an
+     * application it has nothing to review the declared name and national ID against.
+     * [docType] is one of "national_id" | "passport" | "residence_permit" and [idFront] / [idBack]
+     * are `data:image/jpeg;base64,…` data URLs. All three are omitted — and must be — for an
+     * applicant whose identity is already verified or already in the queue
+     * ([IdentityRules.needsIdentityDocuments]); the server then links the application to the
+     * submission already on file.
+     *
      * Throws [HttpError] — 401 (signed out), 400 (validation), 409 (already a host / already
      * under review) — carrying the server's `{error}` message.
      */
@@ -346,7 +355,10 @@ object AuthService {
         address: String,
         company: String?,
         hostType: String,
-        notes: String?
+        notes: String?,
+        docType: String? = null,
+        idFront: String? = null,
+        idBack: String? = null
     ): String = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("full_name", fullName.trim())
@@ -356,6 +368,9 @@ object AuthService {
             if (!company.isNullOrBlank()) put("company", company.trim())
             put("host_type", hostType)
             if (!notes.isNullOrBlank()) put("notes", notes.trim())
+            if (!docType.isNullOrBlank()) put("doc_type", docType)
+            if (!idFront.isNullOrBlank()) put("id_front", idFront)
+            if (!idBack.isNullOrBlank()) put("id_back", idBack)
         }
         val (status, text) = authedSend("POST", "/api/local/host/apply", token, body)
         if (status !in 200..299) {

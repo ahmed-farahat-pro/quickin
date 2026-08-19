@@ -26,18 +26,22 @@ import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +53,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -87,6 +93,9 @@ import java.util.Locale
 /** Muted red used for the "not approved" host-application pill (matches the Trust & Safety red). */
 private val HostRejectedRed = Color(0xFFB3261E)
 
+/** The same red, used for the destructive "Delete account" action under Log out. */
+private val DeleteRed = HostRejectedRed
+
 /**
  * Profile tab: shows the signed-in user's avatar (photo or initials), name, email, an optional
  * bio, a role/provider pill, and a logout button. Styled to match AuthScreen. [profile] carries
@@ -111,7 +120,6 @@ fun ProfileScreen(
     /** Opens the "Apply to host" form (a first application, or a re-application after a rejection). */
     onOpenHostApplication: () -> Unit = {},
     onOpenHost: () -> Unit = {},
-    onOpenMySubscriptions: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
@@ -122,6 +130,14 @@ fun ProfileScreen(
     onOpenEarnings: () -> Unit = {},
     /** Opens the host's analytics dashboard (Section 10, host only). */
     onOpenAnalytics: () -> Unit = {},
+    /** True while the account deletion is in flight (disables the confirm button + shows a spinner). */
+    deletingAccount: Boolean = false,
+    /** Confirmed account deletion: permanently deletes the account, then signs out. */
+    onDeleteAccount: () -> Unit = {},
+    /** Unread notification count for the banner's bell badge. */
+    unreadCount: Int = 0,
+    /** Opens the notifications list from the banner's bell. */
+    onOpenNotifications: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val name = state.userName?.takeUnless { it.isBlank() } ?: stringResource(R.string.profile_guest)
@@ -137,239 +153,429 @@ fun ProfileScreen(
         modifier = modifier
             .fillMaxSize()
             .background(CreamPage)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 32.dp, bottom = 32.dp)
     ) {
-        // Header card: avatar + name + email + role/provider pills, on a white boutique card.
-        BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Avatar — the user's photo (from avatar_url) clipped to a circle, or a
-                // gold-gradient circle with white initials as a fallback, set inside a soft gold ring.
-                Box(
-                    modifier = Modifier
-                        .size(108.dp)
-                        .border(2.dp, Gold.copy(alpha = 0.45f), CircleShape)
-                        .padding(6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ProfileAvatar(
-                        avatarUrl = profile.avatarUrl,
-                        initials = initialsOf(name),
-                        size = 96.dp,
-                        contentDescription = stringResource(R.string.account_photo_desc)
-                    )
-                }
-
-                Text(
-                    name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = Ink,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+        // The QuickIn brand banner, pinned above the scrolling content — this screen has no
+        // Scaffold, so it sits directly over the Column (iOS `ProfileView`).
+        QkBrandHeader(
+            eyebrow = stringResource(R.string.profile_eyebrow),
+            title = stringResource(R.string.tab_profile),
+            subtitle = stringResource(R.string.profile_subtitle)
+        ) {
+            QkHeaderIconButton(
+                icon = Icons.Filled.NotificationsNone,
+                contentDescription = stringResource(R.string.cd_notifications),
+                onClick = onOpenNotifications,
+                badge = unreadCount
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp, bottom = 32.dp)
+        ) {
+            // Header card: avatar + name + email + role/provider pills, on a white boutique card.
+            BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
-                )
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Avatar — the user's photo (from avatar_url) clipped to a circle, or a
+                    // gold-gradient circle with white initials as a fallback, set inside a soft gold ring.
+                    Box(
+                        modifier = Modifier
+                            .size(108.dp)
+                            .border(2.dp, Gold.copy(alpha = 0.45f), CircleShape)
+                            .padding(6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ProfileAvatar(
+                            avatarUrl = profile.avatarUrl,
+                            initials = initialsOf(name),
+                            size = 96.dp,
+                            contentDescription = stringResource(R.string.account_photo_desc)
+                        )
+                    }
 
-                if (email != null) {
                     Text(
-                        email,
-                        color = Muted,
-                        fontSize = 14.sp,
+                        name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = Ink,
                         textAlign = TextAlign.Center,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp)
+                            .padding(top = 16.dp)
                     )
-                }
 
-                // Bio — the user's "about me" blurb, shown only when set.
-                val bio = profile.bio.takeUnless { it.isBlank() }
-                if (bio != null) {
-                    Text(
-                        bio,
-                        color = Ink,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp)
-                    )
-                }
+                    if (email != null) {
+                        Text(
+                            email,
+                            color = Muted,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
+                    }
 
-                // Role + provider pills (e.g. "Host" • "Google").
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    InfoPill(roleLabel)
-                    InfoPill(provider.replaceFirstChar {
-                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
-                    })
+                    // Bio — the user's "about me" blurb, shown only when set.
+                    val bio = profile.bio.takeUnless { it.isBlank() }
+                    if (bio != null) {
+                        Text(
+                            bio,
+                            color = Ink,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp)
+                        )
+                    }
+
+                    // Role + provider pills (e.g. "Host" • "Google").
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        InfoPill(roleLabel)
+                        InfoPill(provider.replaceFirstChar {
+                            if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                        })
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // Become a host — surfaced at the very top so it's the first thing a guest sees instead of
-        // being buried below the settings sections. The card renders whichever of the four
-        // application states the SERVER reports (none / pending / rejected / approved).
-        HostApplicationCard(
-            status = state.hostStatus,
-            reviewNote = state.hostReviewNote,
-            onApply = onOpenHostApplication
-        )
+            // Become a host — surfaced at the very top so it's the first thing a guest sees instead of
+            // being buried below the settings sections. The card renders whichever of the four
+            // application states the SERVER reports (none / pending / rejected / approved).
+            HostApplicationCard(
+                status = state.hostStatus,
+                reviewNote = state.hostReviewNote,
+                onApply = onOpenHostApplication
+            )
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // "Reviews about you" — the reviews this user has received from hosts (two-way reviews).
-        ReviewsAboutYouSection(receivedReviews)
+            // "Reviews about you" — the reviews this user has received from hosts (two-way reviews).
+            ReviewsAboutYouSection(receivedReviews)
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // Account section — settings rows available to everyone.
-        SectionHeader(stringResource(R.string.profile_account), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            // Account section — settings rows available to everyone.
+            SectionHeader(stringResource(R.string.profile_account), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
 
-        // "Verify your identity" — status pill + FRONT/BACK ID photo upload (Trust & Safety).
-        VerificationCard(
-            state = verificationState,
-            onSubmit = onSubmitVerification,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // "Payment information" — where QuickIn sends this host's earnings. Hosts
-        // only; a guest has none, and the card hides itself if the server says so.
-        if (isHost) {
-            PayoutMethodCard(
-                state = payoutState,
-                onSave = onSavePayout,
-                onRemove = onRemovePayout,
+            // "Verify your identity" — status pill + FRONT/BACK ID photo upload (Trust & Safety).
+            VerificationCard(
+                state = verificationState,
+                onSubmit = onSubmitVerification,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
-        }
 
-        SettingsRow(
-            icon = Icons.Filled.Settings,
-            title = stringResource(R.string.profile_edit_profile),
-            subtitle = stringResource(R.string.profile_edit_profile_sub),
-            onClick = onOpenSettings
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        // Saved / wishlist is now a top-level bottom-bar tab, so it's intentionally not
-        // duplicated here as a Profile row.
-        SettingsRow(
-            icon = Icons.Filled.Sailing,
-            title = stringResource(R.string.profile_my_subscriptions),
-            subtitle = stringResource(R.string.profile_my_subscriptions_sub),
-            onClick = onOpenMySubscriptions
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        // "Receipts" — the guest's itemized paid receipts (Section 9 — money views).
-        SettingsRow(
-            icon = Icons.AutoMirrored.Filled.ReceiptLong,
-            title = stringResource(R.string.money_receipts),
-            subtitle = stringResource(R.string.money_receipts_sub),
-            onClick = onOpenReceipts
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        // "Messages" — the guest ↔ host conversation inbox (web /messages parity).
-        SettingsRow(
-            icon = Icons.Filled.ChatBubbleOutline,
-            title = stringResource(R.string.profile_messages),
-            subtitle = stringResource(R.string.profile_messages_sub),
-            onClick = onOpenMessages
-        )
+            // "Payment information" — where QuickIn sends this host's earnings. Hosts
+            // only; a guest has none, and the card hides itself if the server says so.
+            if (isHost) {
+                PayoutMethodCard(
+                    state = payoutState,
+                    onSave = onSavePayout,
+                    onRemove = onRemovePayout,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-        // Currency section — multi-currency display switcher (Section 9 — money views).
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionHeader(stringResource(R.string.money_currency), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-        CurrencyPicker()
+            SettingsRow(
+                icon = Icons.Filled.Settings,
+                title = stringResource(R.string.profile_edit_profile),
+                subtitle = stringResource(R.string.profile_edit_profile_sub),
+                onClick = onOpenSettings
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // Saved / wishlist is now a top-level bottom-bar tab, so it's intentionally not
+            // duplicated here as a Profile row.
+            // "Receipts" — the guest's itemized paid receipts (Section 9 — money views).
+            SettingsRow(
+                icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                title = stringResource(R.string.money_receipts),
+                subtitle = stringResource(R.string.money_receipts_sub),
+                onClick = onOpenReceipts
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // "Messages" — the guest ↔ host conversation inbox (web /messages parity).
+            SettingsRow(
+                icon = Icons.Filled.ChatBubbleOutline,
+                title = stringResource(R.string.profile_messages),
+                subtitle = stringResource(R.string.profile_messages_sub),
+                onClick = onOpenMessages
+            )
 
-        // Hosting section — host management entries. The non-host "Become a host" card now lives at
-        // the top of the profile (above), so this whole section only renders for a host.
-        if (isHost) {
+            // Currency section — multi-currency display switcher (Section 9 — money views).
             Spacer(modifier = Modifier.height(24.dp))
-            SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-            SettingsRow(
-                icon = Icons.Filled.AddHome,
-                title = stringResource(R.string.profile_host_dashboard),
-                subtitle = stringResource(R.string.profile_host_dashboard_sub),
-                onClick = onOpenHost
-            )
+            SectionHeader(stringResource(R.string.money_currency), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            CurrencyPicker()
+
+            // Hosting section — host management entries. The non-host "Become a host" card now lives at
+            // the top of the profile (above), so this whole section only renders for a host.
+            if (isHost) {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+                SettingsRow(
+                    icon = Icons.Filled.AddHome,
+                    title = stringResource(R.string.profile_host_dashboard),
+                    subtitle = stringResource(R.string.profile_host_dashboard_sub),
+                    onClick = onOpenHost
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                // "Earnings & payouts" — host money view (Section 9).
+                SettingsRow(
+                    icon = Icons.Filled.Payments,
+                    title = stringResource(R.string.money_earnings),
+                    subtitle = stringResource(R.string.money_earnings_sub),
+                    onClick = onOpenEarnings,
+                    accent = Gold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                // "Analytics" — host performance dashboard (Section 10).
+                SettingsRow(
+                    icon = Icons.Filled.Insights,
+                    title = stringResource(R.string.analytics_title),
+                    subtitle = stringResource(R.string.analytics_sub),
+                    onClick = onOpenAnalytics,
+                    accent = Burgundy
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsRow(
+                    icon = Icons.Filled.Sailing,
+                    title = stringResource(R.string.profile_host_services),
+                    subtitle = stringResource(R.string.profile_host_services_sub),
+                    onClick = onOpenHostServices
+                )
+            }
+
+            // Language section — in-app English / العربية switch (live RTL).
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(stringResource(R.string.profile_language), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            LanguagePicker()
+
+            // Support & legal — the public web pages, same links as the site footer.
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader(stringResource(R.string.profile_support_legal), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            LegalLinks()
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Log out
+            OutlinedButton(
+                onClick = onLogout,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Tan),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Burgundy
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = Burgundy,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.profile_log_out), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+
+            // Delete account — sits directly under Log out, the other account-level action. It used to
+            // live inside Edit Profile, where nobody looked for it. Required by Google Play's
+            // account-deletion policy.
             Spacer(modifier = Modifier.height(12.dp))
-            // "Earnings & payouts" — host money view (Section 9).
-            SettingsRow(
-                icon = Icons.Filled.Payments,
-                title = stringResource(R.string.money_earnings),
-                subtitle = stringResource(R.string.money_earnings_sub),
-                onClick = onOpenEarnings,
-                accent = Gold
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            // "Analytics" — host performance dashboard (Section 10).
-            SettingsRow(
-                icon = Icons.Filled.Insights,
-                title = stringResource(R.string.analytics_title),
-                subtitle = stringResource(R.string.analytics_sub),
-                onClick = onOpenAnalytics,
-                accent = Burgundy
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            SettingsRow(
-                icon = Icons.Filled.Sailing,
-                title = stringResource(R.string.profile_host_services),
-                subtitle = stringResource(R.string.profile_host_services_sub),
-                onClick = onOpenHostServices
+            DeleteAccountSection(
+                deleting = deletingAccount,
+                onDeleteAccount = onDeleteAccount
             )
         }
+    }
+}
 
-        // Language section — in-app English / العربية switch (live RTL).
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionHeader(stringResource(R.string.profile_language), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-        LanguagePicker()
+/**
+ * "Delete account" block — the destructive counterpart to Log out, shown directly beneath it on
+ * the Profile tab (it used to sit inside Edit Profile, where nobody went looking for it). Tapping
+ * it opens a confirmation [AlertDialog] spelling out that the deletion is permanent (account,
+ * listings, bookings, reviews) before calling [onDeleteAccount]. Required by Google Play's
+ * account-deletion policy.
+ */
+@Composable
+private fun DeleteAccountSection(
+    deleting: Boolean,
+    onDeleteAccount: () -> Unit
+) {
+    var showConfirm by remember { mutableStateOf(false) }
 
-        // Support & legal — the public web pages, same links as the site footer.
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionHeader(stringResource(R.string.profile_support_legal), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-        LegalLinks()
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // Log out
-        OutlinedButton(
-            onClick = onLogout,
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, Tan),
-            colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = Color.White,
-                contentColor = Burgundy
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-        ) {
+    // Outlined like Log out so the two account actions read as a pair, but in red so the
+    // destructive one is never mistaken for the harmless one.
+    OutlinedButton(
+        onClick = { showConfirm = true },
+        enabled = !deleting,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, DeleteRed.copy(alpha = 0.45f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = DeleteRed,
+            disabledContainerColor = Color.White,
+            disabledContentColor = DeleteRed.copy(alpha = 0.5f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+    ) {
+        if (deleting) {
+            CircularProgressIndicator(color = DeleteRed, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+        } else {
             Icon(
-                Icons.AutoMirrored.Filled.Logout,
+                Icons.Filled.DeleteForever,
                 contentDescription = null,
-                tint = Burgundy,
+                tint = DeleteRed,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.profile_log_out), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(
+                stringResource(R.string.settings_delete_account),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
         }
+    }
+
+    Text(
+        stringResource(R.string.settings_delete_account_caption),
+        color = Muted,
+        fontSize = 13.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+    )
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { if (!deleting) showConfirm = false },
+            icon = {
+                // Warning badge: a soft red circle behind a clear warning glyph.
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(DeleteRed.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint = DeleteRed,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(R.string.settings_delete_account_confirm_title),
+                    color = Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        stringResource(R.string.settings_delete_account_confirm_intro),
+                        color = Ink,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_account))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_listings))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_bookings))
+                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_reviews))
+                    }
+                    Text(
+                        stringResource(R.string.settings_delete_account_undone),
+                        color = DeleteRed,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        // Keep the dialog up while deleting so its spinner is visible; the app
+                        // returns to the signed-out state on success (and the dialog leaves with it).
+                        onDeleteAccount()
+                    },
+                    enabled = !deleting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DeleteRed,
+                        contentColor = Color.White,
+                        disabledContainerColor = DeleteRed.copy(alpha = 0.5f),
+                        disabledContentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    if (deleting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.settings_delete_account_deleting),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Text(
+                            stringResource(R.string.settings_delete_account_confirm),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }, enabled = !deleting) {
+                    Text(stringResource(R.string.settings_delete_account_cancel), color = Muted)
+                }
+            },
+            containerColor = Cream
+        )
+    }
+}
+
+/** A single bullet row in the delete-account confirmation list: a red dot + label. */
+@Composable
+private fun DeleteBulletItem(text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(DeleteRed)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(text, color = Ink, fontSize = 14.sp)
     }
 }
 
@@ -383,57 +589,69 @@ fun ProfileSignInCta(
     onSignIn: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(CreamPage)
-            .padding(horizontal = 28.dp, vertical = 40.dp),
-        contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // The guest sees the same banner a signed-in visitor does, so the tab reads as one
+        // screen either way (iOS `SignInCTAView`).
+        QkBrandHeader(
+            eyebrow = stringResource(R.string.profile_eyebrow),
+            title = stringResource(R.string.tab_profile),
+            subtitle = stringResource(R.string.profile_subtitle)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp, vertical = 40.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(R.drawable.logo),
-                contentDescription = "QuickIn",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.height(52.dp)
-            )
-
-            Text(
-                stringResource(R.string.profile_cta_title),
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                color = Ink,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 28.dp)
-            )
-
-            Text(
-                stringResource(R.string.profile_cta_subtitle),
-                color = Muted,
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 28.dp)
-            )
-
-            GradientButton(
-                onClick = onSignIn,
-                pulse = true,
-                radius = 18.dp,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    stringResource(R.string.profile_cta_button),
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
+                Image(
+                    painter = painterResource(R.drawable.logo),
+                    contentDescription = "QuickIn",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.height(52.dp)
                 )
+
+                Text(
+                    stringResource(R.string.profile_cta_title),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Ink,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                )
+
+                Text(
+                    stringResource(R.string.profile_cta_subtitle),
+                    color = Muted,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 28.dp)
+                )
+
+                GradientButton(
+                    onClick = onSignIn,
+                    pulse = true,
+                    radius = 18.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        stringResource(R.string.profile_cta_button),
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                }
             }
         }
     }

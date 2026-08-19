@@ -57,6 +57,23 @@ visible to the web `/ops` console and vice-versa.
   tolerates a disposable domain because they only ever touch an account that
   already exists. The backend draws the same line — see its README, *The address
   has to be one mail can reach*.
+- **Android signing is load-bearing for Google sign-in.** `mobile/android/app/debug.keystore`
+  is committed on purpose (debug creds `android` / `androiddebugkey`) and both `.gitignore`s
+  carry a negation for it. Google Sign-In matches the caller by package name + signing SHA-1
+  against an OAuth *Android* client in the Cloud console, so the fingerprint has to be a
+  constant — before this, Gradle minted a keystore per machine and per CI runner and every
+  published APK had an unregisterable one, which is what "[Android] Sign in with Google Fails"
+  actually was. Don't remove it, don't regenerate it, don't let a build type fall back to
+  `~/.android/debug.keystore`. The pinned value is
+  `D1:2E:E0:C1:DB:FD:18:9A:E4:27:54:0A:99:49:53:CF:A6:27:C6:87`; CI fails the build if it
+  drifts. Release and Play App Signing fingerprints must be registered separately — see
+  `OAUTH-SETUP.md`.
+- **Android unit tests** — `mobile/android/app/src/test/`, plain JVM (JUnit 4), no
+  emulator: `cd mobile/android && ./gradlew testDebugUnitTest`. CI runs them
+  before it builds the APK. `EmailRulesTest` is the Kotlin mirror of the
+  backend's `test/unit/email-core.test.mjs`; the two suites are what keep
+  `EmailRules.kt` and `checkEmail` from drifting apart, so a change to one
+  belongs in both.
 
 ## Auth + OTP contract (shared with the backend)
 

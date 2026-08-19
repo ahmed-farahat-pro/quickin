@@ -89,10 +89,12 @@ fun ServicesScreen(
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
+        // The QuickIn brand banner in place of a stock title bar (iOS `ServicesView`).
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.services_title), color = Ink, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
+            QkBrandHeader(
+                eyebrow = stringResource(R.string.services_eyebrow),
+                title = stringResource(R.string.services_title),
+                subtitle = stringResource(R.string.services_subtitle)
             )
         }
     ) { padding ->

@@ -168,7 +168,6 @@
     <string name="account_photo_desc">Your profile photo</string>
 
     <!-- Listings / Explore -->
-    <string name="explore_log_in">Log in</string>
     <string name="hero_eyebrow">North Coast · Egypt</string>
     <string name="hero_title">Find your boutique escape</string>
     <string name="explore_no_stays">No stays yet.</string>
@@ -737,6 +736,8 @@
     <string name="host_apply_intro">Tell us a little about you. Our team reviews every application before you can start hosting.</string>
     <string name="host_apply_full_name">Full name</string>
     <string name="host_apply_national_id">National ID</string>
+    <!-- Shown under the read-only National ID: it came from an already-verified ID. -->
+    <string name="host_apply_national_id_locked">Taken from the ID we already verified.</string>
     <string name="host_apply_phone">Phone</string>
     <string name="host_apply_address">Address</string>
     <string name="host_apply_company">Company / brokerage (optional)</string>
@@ -839,9 +840,7 @@
     <string name="id_change_new_number">New number</string>
     <string name="id_change_photos">Photo of the document</string>
     <string name="id_change_front">Add front</string>
-    <string name="id_change_front_added">Front added</string>
     <string name="id_change_back">Add back (optional)</string>
-    <string name="id_change_back_added">Back added</string>
     <string name="id_change_photos_hint">The front is required — without it there is nothing to check the number against.</string>
     <string name="id_change_reason">Reason (optional)</string>
     <string name="id_change_reason_hint">Why does this need to change?</string>
@@ -851,4 +850,34 @@
     <string name="auth_email_bad_tld">“.%1$s” isn\'t a valid domain extension.</string>
     <string name="auth_email_did_you_mean">Did you mean %1$s?</string>
     <string name="auth_email_disposable">Temporary or disposable email addresses aren\'t allowed. Please use a permanent personal or work email.</string>
+    <string name="auth_name_required">Please enter your name</string>
+    <string name="auth_name_no_letters">Please enter your name — a name contains letters, not only numbers</string>
+    <string name="auth_name_too_short">Name must contain at least %1$d letters</string>
+    <string name="auth_name_too_long">Name must be at most %1$d characters</string>
+
+    <!-- Brand travel header (QkBrandHeader) — eyebrows + subtitles per root tab.
+         Mirrors the iOS "Brand travel header" block in Localization.swift. -->
+    <string name="home_eyebrow">Discover · Stay · Explore</string>
+    <string name="home_subtitle">Boutique stays across Egypt.</string>
+    <string name="services_eyebrow">North Coast · Egypt</string>
+    <string name="services_subtitle">Add experiences to your stay — on the water, in the sand, at your table.</string>
+    <string name="saved_eyebrow">Your collection</string>
+    <string name="saved_subtitle">Your favorite stays &amp; experiences.</string>
+    <string name="reservations_eyebrow">Your journeys</string>
+    <string name="reservations_subtitle">Every trip you\'ve booked, in one place.</string>
+    <string name="profile_eyebrow">Your account</string>
+    <string name="profile_subtitle">Profile, settings &amp; language.</string>
+    <string name="cd_open_profile">Open profile</string>
+    <string name="cd_sign_in">Sign in</string>
+
+    <!-- Become a host — the ID documents that travel with the application. The server
+         refuses an application it has nothing to review the declared name against. -->
+    <string name="doc_type_national_id">National ID</string>
+    <string name="doc_type_passport">Passport</string>
+    <string name="doc_type_residence_permit">Residence permit</string>
+    <string name="host_apply_id_section">Proof of identity</string>
+    <string name="host_apply_doc_type">Which document are you uploading?</string>
+    <string name="host_apply_id_intro">Photograph both sides of your document. Our team checks it against the name and national ID above.</string>
+    <string name="host_apply_id_on_file">We already have your identity documents — there is nothing to upload.</string>
+    <string name="host_apply_required_id">Add your details and both sides of your ID to continue.</string>
 </resources>

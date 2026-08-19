@@ -89,7 +89,6 @@ import com.quickin.app.ui.HostScreen
 import com.quickin.app.ui.ListingDetailScreen
 import com.quickin.app.ui.HostServicesScreen
 import com.quickin.app.ui.ListingsScreen
-import com.quickin.app.ui.MySubscriptionsScreen
 import com.quickin.app.ui.ReceiptsScreen
 import com.quickin.app.ui.nightsBetween
 import com.quickin.app.ui.NotificationsScreen
@@ -360,7 +359,6 @@ private fun MainApp() {
     val servicesViewModel: ServicesViewModel = viewModel()
     val servicesState by servicesViewModel.services.collectAsState()
     val subscribeState by servicesViewModel.subscribe.collectAsState()
-    val mySubscriptionsState by servicesViewModel.mySubscriptions.collectAsState()
     val hostServicesState by servicesViewModel.host.collectAsState()
     val createServiceState by servicesViewModel.create.collectAsState()
 
@@ -429,8 +427,6 @@ private fun MainApp() {
     var showHost by remember { mutableStateOf(false) }
     // True while the host SERVICES dashboard (full-screen) is open.
     var showHostServices by remember { mutableStateOf(false) }
-    // True while the user's "My subscriptions" screen (full-screen) is open.
-    var showMySubscriptions by remember { mutableStateOf(false) }
     // True while the guest "Receipts" screen (full-screen) is open (Section 9 — money views).
     var showReceipts by remember { mutableStateOf(false) }
     // True while the host "Earnings & payouts" screen (full-screen) is open (Section 9 — money views).
@@ -476,17 +472,18 @@ private fun MainApp() {
     val googleSignInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val (idToken, error) = GoogleSignIn.idTokenFromResult(result.data)
+        val (idToken, error) = GoogleSignIn.idTokenFromResult(activity, result.data)
         when {
             idToken != null -> authViewModel.googleSignIn(idToken)
             error != null -> {
-                // Sign-out so the picker always appears fresh on the next tap, then
-                // surface the real error code so it's visible in the auth UI.
+                // Sign-out so the picker always appears fresh on the next tap, then surface
+                // a message that names the actual cause (DEVELOPER_ERROR carries this build's
+                // signing SHA-1, the value that has to be registered in the Cloud console).
                 activity?.let { GoogleSignIn.signOut(it) }
                 authViewModel.showAuthMessage(error)
             }
             else -> {
-                // User cancelled the picker (resultCode = RESULT_CANCELED, data = null).
+                // User backed out of the picker — no banner, they know what they did.
                 activity?.let { GoogleSignIn.signOut(it) }
             }
         }
@@ -684,7 +681,6 @@ private fun MainApp() {
             // never survive on a stale local flag. A dead session (401) signs out from here.
             authViewModel.refreshSession()
             bookingsViewModel.loadReservations()
-            servicesViewModel.loadMySubscriptions()
             // Prime the bell's unread badge as soon as we have a session.
             notificationsViewModel.load()
             // Saved hearts + reviewable stays so the explore/trip screens reflect them.
@@ -703,7 +699,6 @@ private fun MainApp() {
         } else {
             bookingsViewModel.clearReservations()
             bookingsViewModel.clearReferrals()
-            servicesViewModel.clearMySubscriptions()
             notificationsViewModel.clear()
             wishlistViewModel.clear()
             reviewsViewModel.clear()
@@ -719,7 +714,6 @@ private fun MainApp() {
             // Leave any host / reservation-detail / chat / notifications / services screen on sign-out.
             showHost = false
             showHostServices = false
-            showMySubscriptions = false
             showReceipts = false
             showEarnings = false
             showAnalytics = false
@@ -781,7 +775,7 @@ private fun MainApp() {
         editingListing != null ||
         selectedListing != null ||
         selectedService != null ||
-        showMySubscriptions || showProfileSettings || showHostApply || showHostServices ||
+        showProfileSettings || showHostApply || showHostServices ||
         chatBooking != null || disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showMessages || openConversationThread != null ||
         showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
@@ -803,7 +797,6 @@ private fun MainApp() {
             editingListing != null -> { hostViewModel.resetEdit(); editingListing = null }
             selectedListing != null -> { bookingsViewModel.resetReserve(); selectedListing = null }
             selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
-            showMySubscriptions -> showMySubscriptions = false
             showProfileSettings -> showProfileSettings = false
             showHostApply -> {
                 authViewModel.resetHostApply()
@@ -1090,16 +1083,6 @@ private fun MainApp() {
         return
     }
 
-    // "My subscriptions" (the user's service requests). Full-screen; opened from Profile.
-    if (showMySubscriptions && authState.isAuthenticated) {
-        MySubscriptionsScreen(
-            state = mySubscriptionsState,
-            onBack = { showMySubscriptions = false },
-            onLoad = servicesViewModel::loadMySubscriptions
-        )
-        return
-    }
-
     // "Receipts" (the guest's itemized paid receipts). Full-screen; opened from Profile.
     // Section 9 — money views (MOCK).
     if (showReceipts && authState.isAuthenticated) {
@@ -1152,14 +1135,7 @@ private fun MainApp() {
             onChangePassword = { current, next ->
                 profileSettingsViewModel.changePassword(current, next)
             },
-            onPasswordChangedAck = profileSettingsViewModel::acknowledgePasswordChanged,
-            // Account deletion (Google Play policy): DELETE /api/local/account, then the auth
-            // state flips signed-out — the LaunchedEffect(isAuthenticated) below clears every
-            // per-account view-model and returns to the auth screen. Close this overlay too.
-            deletingAccount = deletingAccount,
-            onDeleteAccount = {
-                authViewModel.deleteAccount(onDeleted = { showProfileSettings = false })
-            }
+            onPasswordChangedAck = profileSettingsViewModel::acknowledgePasswordChanged
         )
         return
     }
@@ -1175,9 +1151,11 @@ private fun MainApp() {
                 authViewModel.resetHostApply()
                 showHostApply = false
             },
-            onSubmit = { fullName, nationalId, phone, address, company, hostType, notes ->
+            onSubmit = { fullName, nationalId, phone, address, company, hostType, notes,
+                         docType, idFront, idBack ->
                 authViewModel.submitHostApplication(
-                    fullName, nationalId, phone, address, company, hostType, notes
+                    fullName, nationalId, phone, address, company, hostType, notes,
+                    docType, idFront, idBack
                 )
             },
             onSubmitted = {
@@ -1185,7 +1163,13 @@ private fun MainApp() {
                 showHostApply = false
             },
             accountName = authState.userName,
-            hostType = authState.hostType
+            hostType = authState.hostType,
+            // One identity, verified once, serving guest and host alike: a verified applicant's
+            // national ID is shown here rather than asked for again, and their ID photos are not
+            // asked for at all. Everyone else uploads them as part of the application, because the
+            // API refuses one it has no document to review.
+            verificationStatus = verificationState.status,
+            verifiedIdNumber = verificationState.idNumber
         )
         return
     }
@@ -1474,9 +1458,15 @@ private fun MainApp() {
                 authViewModel.showAuthMessage(googleNotConfiguredMessage)
             },
             onForgotPassword = {
+                // Leave the sign-in complaint behind with the screen that produced it: the reset
+                // flow speaks through its own inline error, and a stale "wrong email or password"
+                // would otherwise be waiting here again on the way back.
+                authViewModel.clearError()
                 authViewModel.cancelForgotPassword()
                 showForgot = true
             },
+            // Drop a failed sign-in's message when the user flips to "Create account" (and back).
+            onClearError = authViewModel::clearError,
             canBiometricLogin = canBiometricLogin,
             onBiometricLogin = launchBiometricLogin,
             onBack = {
@@ -1578,7 +1568,8 @@ private fun MainApp() {
                     onOpenListing = { listing -> selectedListing = listing },
                     onOpenService = { service -> selectedService = service },
                     onToggleListing = wishlistViewModel::toggleListing,
-                    onToggleService = wishlistViewModel::toggleService
+                    onToggleService = wishlistViewModel::toggleService,
+                    contentPadding = padding
                 )
                 // Guest "Trips" = the user's own bookings. The screen distinguishes signed-out
                 // (sign-in prompt) from signed-in-but-empty (friendly empty state + Explore CTA)
@@ -1624,13 +1615,13 @@ private fun MainApp() {
                         // never by the tap itself. The card renders the server's host_status.
                         onOpenHostApplication = {
                             authViewModel.resetHostApply()
+                            // Re-read the identity we hold, so the form opens with the number on
+                            // an approved ID rather than an empty field the applicant retypes —
+                            // and asks for the ID photos only when we hold none.
+                            trustViewModel.loadVerification()
                             showHostApply = true
                         },
                         onOpenHost = { showHost = true },
-                        onOpenMySubscriptions = {
-                            servicesViewModel.loadMySubscriptions()
-                            showMySubscriptions = true
-                        },
                         onOpenHostServices = {
                             servicesViewModel.loadHost()
                             showHostServices = true
@@ -1651,6 +1642,17 @@ private fun MainApp() {
                         onOpenAnalytics = {
                             hostViewModel.loadAnalytics()
                             showAnalytics = true
+                        },
+                        // Account deletion (Google Play policy): DELETE /api/local/account, then
+                        // the auth state flips signed-out — the LaunchedEffect(isAuthenticated)
+                        // above clears every per-account view-model and returns to the auth screen.
+                        deletingAccount = deletingAccount,
+                        onDeleteAccount = { authViewModel.deleteAccount() },
+                        // The brand banner's bell — the same notifications list Explore opens.
+                        unreadCount = notificationsState.unreadCount,
+                        onOpenNotifications = {
+                            notificationsViewModel.load()
+                            showNotifications = true
                         },
                         modifier = Modifier.padding(padding)
                     )

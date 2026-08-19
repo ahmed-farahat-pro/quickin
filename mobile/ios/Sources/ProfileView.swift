@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 /// The signed-in user's profile: avatar, name, email, provider, and logout.
 struct ProfileView: View {
@@ -717,6 +719,24 @@ private struct HostApplicationSheet: View {
     let onSubmitted: (HostType) -> Void
 
     @State private var draft = HostService.HostApplicationDraft()
+    /// True once the National ID came from an approved document, which makes the
+    /// field read-only (`IdentityRules`).
+    @State private var nationalIDLocked = false
+    /// Whether this applicant still has to photograph their ID. Starts true — the
+    /// safe direction while the verification read is in flight, since the API
+    /// requires the documents from everyone we hold none for; the `.task` below
+    /// clears it for an applicant who verified from the profile already.
+    @State private var needsIdentityDocuments = true
+    /// The staged photos, before they are encoded into the draft on submit.
+    @State private var idFrontImage: UIImage?
+    @State private var idBackImage: UIImage?
+    @State private var idFrontPickerItem: PhotosPickerItem?
+    @State private var idBackPickerItem: PhotosPickerItem?
+    /// Which slot is decoding a picked photo (an iCloud photo has to download
+    /// first, and an empty slot looks like nothing happened).
+    @State private var loadingIDSide: IDSide?
+    /// Set when a camera capture is in progress, naming the slot it fills.
+    @State private var cameraIDSide: IDSide?
     @State private var isSubmitting = false
     @State private var didSubmit = false
     @State private var errorMessage: String?
@@ -725,7 +745,7 @@ private struct HostApplicationSheet: View {
     /// Guards the one-shot seed so a re-appearance never overwrites typing.
     @State private var didPrefill = false
 
-    private enum Field { case fullName, nationalID, phone, address }
+    private enum Field { case fullName, nationalID, phone, address, idDocuments }
 
     var body: some View {
         ZStack {
@@ -753,6 +773,14 @@ private struct HostApplicationSheet: View {
         .tint(.qkBurgundy)
         .interactiveDismissDisabled(isSubmitting)
         .onAppear(perform: prefill)
+        // One identity, verified once from the profile, serves guest and host
+        // alike — so the number on a verified ID is read from what we already
+        // hold instead of being asked for again. Failing silently is right: the
+        // field simply stays empty and editable, exactly as it was before.
+        .task {
+            guard let state = try? await TrustService.shared.fetchVerification() else { return }
+            applyIdentity(state)
+        }
     }
 
     // MARK: - Pieces
@@ -791,7 +819,9 @@ private struct HostApplicationSheet: View {
                 placeholder: loc.t("hostApply.nationalId.placeholder"),
                 text: $draft.nationalID,
                 field: .nationalID,
-                capitalization: .characters
+                capitalization: .characters,
+                isLocked: nationalIDLocked,
+                lockedNote: loc.t("hostApply.nationalId.locked")
             )
             Divider()
             field(
@@ -829,10 +859,133 @@ private struct HostApplicationSheet: View {
                 )
             }
             Divider()
+            identitySection
+            Divider()
             notesField
         }
         .padding(18)
         .qkCard(lifts: false)
+    }
+
+    /// Proof of identity — the document the reviewer reads the name and national
+    /// ID above against. Shown as a settled fact for an applicant who verified
+    /// from the profile already; everyone else photographs both sides here,
+    /// because an application without one is refused by the API.
+    @ViewBuilder
+    private var identitySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(loc.t("hostApply.identity"), systemImage: "person.text.rectangle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            if needsIdentityDocuments {
+                Text(loc.t("hostApply.identity.intro"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Picker(loc.t("hostApply.identity.docType"), selection: $draft.docType) {
+                    ForEach(IDDocumentType.allCases) { type in
+                        Text(loc.t(type.labelKey)).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                HStack(alignment: .top, spacing: 12) {
+                    idPhotoSlot(title: loc.t("hostApply.identity.front"), image: idFrontImage,
+                                pickerItem: $idFrontPickerItem, side: .front)
+                    idPhotoSlot(title: loc.t("hostApply.identity.back"), image: idBackImage,
+                                pickerItem: $idBackPickerItem, side: .back)
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(invalidField == .idDocuments ? Color.qkBurgundy : .clear, lineWidth: 1)
+                        .padding(-6)
+                )
+            } else {
+                Label(loc.t("hostApply.identity.onFile"), systemImage: "checkmark.seal.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .onChange(of: idFrontPickerItem) { _, item in
+            Task { await loadPickedID(item, side: .front) }
+        }
+        .onChange(of: idBackPickerItem) { _, item in
+            Task { await loadPickedID(item, side: .back) }
+        }
+        .fullScreenCover(item: $cameraIDSide) { side in
+            IDCameraPicker { image in setIDImage(image, side: side) }
+                .ignoresSafeArea()
+        }
+    }
+
+    /// One ID-photo slot: the thumbnail (or a placeholder), a "choose from
+    /// library" button and, where there is a camera, a "take photo" one. Mirrors
+    /// the verification card's slot so an ID looks the same wherever we ask.
+    private func idPhotoSlot(
+        title: String,
+        image: UIImage?,
+        pickerItem: Binding<PhotosPickerItem?>,
+        side: IDSide
+    ) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.qkTan)
+                    .frame(height: 88)
+                if loadingIDSide == side {
+                    ProgressView().tint(Color.qkBurgundy)
+                } else if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 88)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    Image(systemName: "creditcard")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(Color.qkBurgundy.opacity(0.5))
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(image != nil ? "\(title) — \(loc.t("hostApply.identity.chosen"))" : title)
+            HStack(spacing: 6) {
+                PhotosPicker(selection: pickerItem, matching: .images, photoLibrary: .shared()) {
+                    Label(loc.t("trust.choose"), systemImage: "photo")
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .foregroundStyle(Color.qkBurgundy)
+                        .background(Color.qkTan)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(QKPressStyle())
+                .accessibilityLabel("\(loc.t("trust.choose")) — \(title)")
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button {
+                        cameraIDSide = side
+                    } label: {
+                        Label(loc.t("trust.takePhoto"), systemImage: "camera.fill")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 34)
+                            .foregroundStyle(Color.qkCream)
+                            .background(Color.qkBurgundy)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(QKPressStyle())
+                    .accessibilityLabel("\(loc.t("trust.takePhoto")) — \(title)")
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .disabled(isSubmitting)
     }
 
     /// Individual / Company / Brokerage — sent as `host_type` (web parity).
@@ -887,7 +1040,9 @@ private struct HostApplicationSheet: View {
         contentType: UITextContentType? = nil,
         keyboard: UIKeyboardType = .default,
         capitalization: TextInputAutocapitalization = .sentences,
-        sanitize: ((String) -> String)? = nil
+        sanitize: ((String) -> String)? = nil,
+        isLocked: Bool = false,
+        lockedNote: String? = nil
     ) -> some View {
         let isInvalid = field != nil && field == invalidField
         return VStack(alignment: .leading, spacing: 6) {
@@ -903,7 +1058,10 @@ private struct HostApplicationSheet: View {
                     let cleaned = sanitize(newValue)
                     if cleaned != newValue { text.wrappedValue = cleaned }
                 }
-                .foregroundStyle(Color.qkInk)
+                // Locked, not removed: the value still travels with the request,
+                // and VoiceOver still reads the field and its number out.
+                .disabled(isLocked)
+                .foregroundStyle(isLocked ? Color.qkMuted : Color.qkInk)
                 .padding(.horizontal, 14)
                 .frame(height: 48)
                 .background(Color.qkCream)
@@ -915,6 +1073,12 @@ private struct HostApplicationSheet: View {
                             lineWidth: isInvalid ? 1.5 : 1
                         )
                 )
+            if isLocked, let lockedNote {
+                Label(lockedNote, systemImage: "checkmark.seal.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -1004,6 +1168,56 @@ private struct HostApplicationSheet: View {
         draft.hostType = HostType(raw: existing?.hostType)
     }
 
+    /// Fold the identity we already hold into the form.
+    ///
+    /// The number on a **verified** ID is the one an admin approved, so it is
+    /// shown and locked — an application contradicting the document beside it in
+    /// /ops leaves the reviewer with two answers and nothing to choose between
+    /// them. Anything else only seeds an empty field and stays editable, which
+    /// is also why passing the current draft as `previousNationalID` is safe:
+    /// the rule hands back what the applicant already typed rather than a
+    /// late-arriving read stamping over it mid-sentence.
+    private func applyIdentity(_ state: VerificationState) {
+        let idField = IdentityRules.nationalID(
+            status: state.status,
+            submittedIDNumber: state.idNumber,
+            previousNationalID: draft.nationalID
+        )
+        draft.nationalID = idField.value
+        nationalIDLocked = idField.locked
+        // The same submission answers the other half: someone whose ID is
+        // approved, or already in the reviewer's queue, does not photograph it
+        // again — the server links this application to the row it already has.
+        needsIdentityDocuments = IdentityRules.needsIdentityDocuments(status: state.status)
+    }
+
+    /// Decode a picked photo into the slot it was chosen for, off the main thread.
+    /// Goes through `QKPhotoPickerLoader` for the same reason the verification card
+    /// does: an iCloud or Live Photo has no data representation to hand over, and
+    /// that failure used to reach the user as a raw `CoreTransferable` error.
+    private func loadPickedID(_ item: PhotosPickerItem?, side: IDSide) async {
+        guard let item else { return }
+        errorMessage = nil
+        loadingIDSide = side
+        defer { if loadingIDSide == side { loadingIDSide = nil } }
+        switch await QKPhotoPickerLoader.loadImage(from: item) {
+        case .success(let image): setIDImage(image, side: side)
+        case .failure(let reason): errorMessage = loc.t(reason.messageKey)
+        }
+    }
+
+    private func setIDImage(_ image: UIImage, side: IDSide) {
+        // Clear any stale complaint, so a slot filled from the camera after a
+        // failed pick doesn't leave the old error reading as a failed submission.
+        errorMessage = nil
+        if invalidField == .idDocuments { invalidField = nil }
+        switch side {
+        case .front: idFrontImage = image
+        case .back: idBackImage = image
+        case .selfie: break
+        }
+    }
+
     /// Validate the required fields client-side (same rules the backend
     /// enforces), then POST. On success flip to the confirmation panel and let
     /// the profile know so its card becomes "under review".
@@ -1023,6 +1237,24 @@ private struct HostApplicationSheet: View {
         // as `01001234567` and `+20 100 123 4567` is filed identically.
         var payload = draft
         payload.phone = PhoneRules.normalized(draft.phone)
+        // Encode the ID photos only for an applicant who has to send them; an
+        // already-verified one sends none, which is how the server knows to reuse
+        // the submission it already holds.
+        if needsIdentityDocuments {
+            guard
+                let front = idFrontImage.flatMap({ QKAvatarImage.makeDataURL(from: $0, maxDimension: 1280, quality: 0.8) }),
+                let back = idBackImage.flatMap({ QKAvatarImage.makeDataURL(from: $0, maxDimension: 1280, quality: 0.8) })
+            else {
+                invalidField = .idDocuments
+                errorMessage = loc.t("hostApply.error.idDocuments")
+                return
+            }
+            payload.idFront = front
+            payload.idBack = back
+        } else {
+            payload.idFront = nil
+            payload.idBack = nil
+        }
         do {
             try await HostService.shared.submitHostApplication(payload)
             onSubmitted(draft.hostType)
@@ -1059,6 +1291,12 @@ private struct HostApplicationSheet: View {
         // `PhoneRules` is the Swift twin of the web's EG_MOBILE/LANDLINE regex.
         if !PhoneRules.isValid(draft.phone) {
             return (.phone, "hostApply.error.phoneFormat")
+        }
+        // An application with no document behind it is refused by the API — there
+        // is nothing for the reviewer to read the name and number above against —
+        // so catch it here rather than spending a round trip on it.
+        if needsIdentityDocuments, idFrontImage == nil || idBackImage == nil {
+            return (.idDocuments, "hostApply.error.idDocuments")
         }
         return nil
     }

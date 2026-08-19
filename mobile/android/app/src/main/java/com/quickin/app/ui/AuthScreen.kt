@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import com.quickin.app.AuthUiState
 import com.quickin.app.GoogleSignIn
 import com.quickin.app.EmailRules
+import com.quickin.app.NameRules
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -86,6 +88,12 @@ fun AuthScreen(
     onGoogleNotConfigured: () -> Unit,
     onForgotPassword: () -> Unit,
     /**
+     * Clears the shared auth error held by the ViewModel. Called when the user switches between
+     * sign-in and sign-up: a "wrong email or password" from a failed sign-in says nothing about
+     * the account the user is now trying to create, so it must not follow them across the toggle.
+     */
+    onClearError: () -> Unit = {},
+    /**
      * True when the device has an enrolled biometric AND a previously-stored biometric session
      * exists, so the "Sign in with fingerprint/face" button should be shown. [onBiometricLogin]
      * launches the system prompt (handled by the caller, which owns the FragmentActivity host).
@@ -106,12 +114,36 @@ fun AuthScreen(
     // An empty confirmation is not yet a wrong answer — the hint waits until something is typed.
     val passwordsMismatch = isSignUp && confirmPassword.isNotEmpty() && confirmPassword != password
 
+    // Armed once the name field has been left, so a name is never called wrong
+    // while it is still being typed. Sign-up only — sign-in has no name field.
+    var nameTouched by remember { mutableStateOf(false) }
+    val nameError = nameFieldError(raw = name, touched = isSignUp && nameTouched)
+
     // Armed once the email field has been left, so an address is never called
     // wrong while it is still being typed. Sign-up is subject to the full rule
     // (temp-mail included); sign-in is not, because it only ever touches an
     // account that already exists. See `emailFieldError`.
     var emailTouched by remember { mutableStateOf(false) }
-    val emailError = emailFieldError(raw = email, touched = emailTouched, fullPolicy = isSignUp)
+    var emailFocused by remember { mutableStateOf(false) }
+
+    // Everything the current mode needs except the address. Doubles as the fallback trigger for
+    // the email hint (see `authEmailHintArmed`) and, on sign-up, as the button's gate.
+    val otherFieldsReady = authOtherFieldsReady(
+        isSignUp = isSignUp,
+        name = name,
+        password = password,
+        confirmPassword = confirmPassword
+    )
+    val emailError = emailFieldError(
+        raw = email,
+        touched = authEmailHintArmed(
+            email = email,
+            touched = emailTouched,
+            focused = emailFocused,
+            otherFieldsReady = otherFieldsReady
+        ),
+        fullPolicy = isSignUp
+    )
     val emailAcceptable = if (isSignUp) {
         EmailRules.isAcceptableForSignup(email)
     } else {
@@ -173,8 +205,25 @@ fun AuthScreen(
                 isSignUp = isSignUp,
                 enabled = !loading,
                 onSelect = {
-                    isSignUp = it
-                    confirmPassword = ""
+                    if (it != isSignUp) {
+                        isSignUp = it
+                        // Switching modes starts a fresh attempt at a DIFFERENT thing, so nothing
+                        // secret and nothing said about the old attempt may survive the toggle.
+                        // The form the user lands on is clean: both password fields are emptied,
+                        // the server's error is dropped, and EVERY inline hint is disarmed —
+                        // "wrong email or password" from a failed sign-in says nothing about the
+                        // account being created, and neither does a complaint about a field the
+                        // user has not touched since arriving. The typed email itself is kept:
+                        // whoever fails to sign in and decides to register is almost always
+                        // registering that same address. It re-arms on the next blur, or by
+                        // itself once it is the only thing left (see `authEmailHintArmed`), so a
+                        // sign-up-only refusal can still never leave the button dead in silence.
+                        password = ""
+                        confirmPassword = ""
+                        nameTouched = false
+                        emailTouched = false
+                        onClearError()
+                    }
                 }
             )
 
@@ -183,10 +232,22 @@ fun AuthScreen(
             if (isSignUp) {
                 AuthField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { name = it; if (nameTouched) nameTouched = false },
                     label = stringResource(R.string.auth_full_name),
-                    enabled = !loading
+                    enabled = !loading,
+                    isError = nameError != null,
+                    onFocusLost = { nameTouched = true }
                 )
+                if (nameError != null) {
+                    Text(
+                        nameError,
+                        color = ErrorRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    )
+                }
                 Spacer(Modifier.height(14.dp))
             }
 
@@ -197,7 +258,8 @@ fun AuthScreen(
                 enabled = !loading,
                 keyboardType = KeyboardType.Email,
                 isError = emailError != null,
-                onFocusLost = { emailTouched = true }
+                onFocusLost = { emailTouched = true },
+                onFocusChange = { emailFocused = it }
             )
             if (emailError != null) {
                 Text(
@@ -211,14 +273,20 @@ fun AuthScreen(
             }
             Spacer(Modifier.height(14.dp))
 
-            AuthField(
-                value = password,
-                onValueChange = { password = it },
-                label = stringResource(R.string.auth_password),
-                enabled = !loading,
-                keyboardType = KeyboardType.Password,
-                isPassword = true
-            )
+            // Keyed on the mode so the toggle gives this field fresh internal state. The
+            // reveal ("eye") toggle lives inside AuthField and would otherwise stay on across
+            // the switch, showing the next mode's password in the clear. The confirm field
+            // below needs no key — it is removed with the `if (isSignUp)` branch and rebuilt.
+            key(isSignUp) {
+                AuthField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = stringResource(R.string.auth_password),
+                    enabled = !loading,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true
+                )
+            }
 
             // Animated strength meter + requirements checklist — sign-up only (a new password).
             if (isSignUp) {
@@ -281,11 +349,12 @@ fun AuthScreen(
             // An address the server would refuse can never sign in or sign up, so
             // the button waits on it too — this screen used to submit anything
             // with an `@` in it and let the user find out from a 400.
-            val canSubmit = !loading && emailAcceptable &&
-                (!isSignUp || (passwordMeetsMin(password) && confirmPassword == password))
+            // `12345` is non-empty and is not a name — the name is held to the
+            // same rule the server applies, not just to being filled in.
+            val canSubmit = !loading && emailAcceptable && (!isSignUp || otherFieldsReady)
             GradientButton(
                 onClick = {
-                    if (isSignUp) onSignup(name, email, password)
+                    if (isSignUp) onSignup(NameRules.normalized(name), email, password)
                     else onLogin(email, password)
                 },
                 enabled = canSubmit,
@@ -438,7 +507,9 @@ private fun AuthField(
     isPassword: Boolean = false,
     isError: Boolean = false,
     /** Called when focus leaves the field — used to arm an inline hint. */
-    onFocusLost: (() -> Unit)? = null
+    onFocusLost: (() -> Unit)? = null,
+    /** Called with the field's focus state on every change — used to keep a hint quiet while typing. */
+    onFocusChange: ((Boolean) -> Unit)? = null
 ) {
     // Independent reveal state per field; only meaningful when isPassword.
     var passwordVisible by remember { mutableStateOf(false) }
@@ -484,6 +555,7 @@ private fun AuthField(
                 // Fire only on the way OUT. An inline hint that appears the
                 // moment you tap the field is telling you your address is wrong
                 // before you have typed it.
+                onFocusChange?.invoke(focus.isFocused)
                 if (focus.isFocused) {
                     wasFocused = true
                 } else if (wasFocused) {

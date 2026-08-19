@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Bathtub
 import androidx.compose.material.icons.filled.BeachAccess
@@ -104,6 +106,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -219,31 +222,71 @@ fun ListingDetailScreen(
         if (reportState.submitted) showReportSheet = false
     }
 
-    Scaffold(containerColor = CreamPage) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = padding.calculateBottomPadding())
-                .background(CreamPage)
-        ) {
-            // Edge-to-edge Ken Burns hero with an overlaid back button, share + heart and a dark
-            // legibility gradient — the boutique detail header.
-            item {
-                DetailHero(
-                    listing,
-                    onBack,
-                    isSaved = isSaved,
-                    onToggleSaved = onToggleSaved,
-                    onShare = {
+    Scaffold(
+        containerColor = CreamPage,
+        // The page-title bar. iOS names this page in its navigation bar
+        // (`ListingDetailView`: `.navigationTitle(listing.title)`, inline) and so does the
+        // sibling `ServiceDetailScreen` here — this screen used to open straight onto the
+        // photo with only frosted overlay controls, so nothing said which stay you were on.
+        // Back / share / save move up here with the title rather than floating on the hero.
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        listing.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Ink,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back),
+                            tint = Ink
+                        )
+                    }
+                },
+                actions = {
+                    // Share this stay's public web link via the system chooser.
+                    IconButton(onClick = {
                         shareText(
                             context = context,
                             text = ShareLinks.listing(listing.id),
                             subject = context.getString(R.string.share_subject, listing.title),
                             chooserTitle = context.getString(R.string.share_chooser_title)
                         )
+                    }) {
+                        Icon(
+                            Icons.Filled.IosShare,
+                            contentDescription = stringResource(R.string.cd_share),
+                            tint = Burgundy
+                        )
                     }
-                )
-            }
+                    IconButton(onClick = onToggleSaved) {
+                        Icon(
+                            Icons.Filled.Favorite,
+                            contentDescription = stringResource(R.string.cd_save),
+                            // Same filled-heart / two-tint convention as `HeartButton`.
+                            tint = if (isSaved) Burgundy else Ink
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(CreamPage)
+        ) {
+            // Ken Burns hero (a swipeable pager when the stay has several photos), sitting
+            // under the title bar. Tapping a photo opens the full-screen lightbox.
+            item { DetailHero(listing) }
             item {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1164,18 +1207,12 @@ private fun ReservationConfirmationDialog(
 /**
  * The boutique detail hero. A single-photo listing gets a slow Ken Burns drift; multi-photo
  * listings keep a swipeable pager with a "2 / 5" indicator. Either way a dark legibility
- * gradient is laid over the bottom, with a frosted circular back button (start) and a springy
- * heart (end) floating on top. Both controls sit below the status bar.
+ * gradient is laid over the bottom so the photo counter reads. Back, share and save live in
+ * the page-title bar above (see [ListingDetailScreen]), not floating on the photo.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailHero(
-    listing: Listing,
-    onBack: () -> Unit,
-    isSaved: Boolean = false,
-    onToggleSaved: () -> Unit = {},
-    onShare: () -> Unit = {}
-) {
+private fun DetailHero(listing: Listing) {
     val urls = listing.sortedImageUrls
     val heroHeight = 320.dp
     // Tapping a hero photo opens the full-screen, zoomable lightbox (below). Shared pager state so
@@ -1226,47 +1263,17 @@ private fun DetailHero(
                     .clickable(enabled = urls.isNotEmpty()) { lightboxOpen = true }
             )
         }
-        // Legibility gradient (top + bottom) so the overlaid controls always read.
+        // Legibility gradient along the bottom, so the "2 / 5" photo counter always reads.
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Ink.copy(alpha = 0.22f),
-                        0.28f to Color.Transparent,
+                        0f to Color.Transparent,
                         1f to Ink.copy(alpha = 0.40f)
                     )
                 )
         )
-        // Frosted circular back button — uses logical TopStart so it mirrors under RTL.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(12.dp)
-                .size(40.dp)
-                .background(Color.White.copy(alpha = 0.92f), CircleShape)
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = Ink, modifier = Modifier.size(20.dp))
-        }
-        // Share + heart sit together at the end edge (RTL-mirrored). Share leads the heart.
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShareButton(onClick = onShare, size = 40.dp)
-            HeartButton(
-                filled = isSaved,
-                onToggle = onToggleSaved,
-                size = 40.dp
-            )
-        }
     }
 
     // Full-screen, zoomable photo lightbox — opens on tapping a hero photo.

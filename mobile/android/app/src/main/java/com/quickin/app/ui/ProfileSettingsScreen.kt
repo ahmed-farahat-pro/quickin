@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.CheckCircle
@@ -31,23 +34,23 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,13 +75,13 @@ import androidx.compose.ui.unit.sp
 import com.quickin.app.AvatarImage
 import com.quickin.app.IdChangeState
 import com.quickin.app.IdDocumentType
+import com.quickin.app.NameRules
 import com.quickin.app.ProfileSettingsUiState
 import com.quickin.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.quickin.app.ui.theme.Burgundy
-import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
@@ -95,7 +98,7 @@ private val SettingsSuccessGreen = Color(0xFF2E7D32)
  * The ID / passport number is SHOWN here but not edited. It used to be an ordinary text field,
  * which meant any account could rewrite its own identity number at will with nobody reviewing it.
  * Changing it now means filing a request with a photo of the document, which an operator approves
- * — see [IdChangeRequestDialog] and `ProfileService.requestIdChange`.
+ * — see [IdChangeRequestSheet] and `ProfileService.requestIdChange`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,11 +121,7 @@ fun ProfileSettingsScreen(
     /** Withdraws a request that is still awaiting review. */
     onCancelIdChange: () -> Unit = {},
     /** Clears the ID section's inline error once it has been shown. */
-    onClearIdChangeError: () -> Unit = {},
-    /** True while the account deletion is in flight (disables the confirm button + shows a spinner). */
-    deletingAccount: Boolean = false,
-    /** Confirmed account deletion: permanently deletes the account, then signs out. */
-    onDeleteAccount: () -> Unit = {}
+    onClearIdChangeError: () -> Unit = {}
 ) {
     // Always reload when the screen opens so edits are always fresh.
     LaunchedEffect(Unit) {
@@ -139,12 +138,21 @@ fun ProfileSettingsScreen(
     // photo is picked, or set to null when removed. Re-seeded whenever a fresh profile arrives.
     var avatarUrl by remember(state.profile) { mutableStateOf(state.profile.avatarUrl) }
 
+    // Set the first time Save is pressed, so a name that was never touched but is still unusable
+    // is explained rather than silently refused. Until then the hint waits for an actual edit —
+    // an account created before the name rule existed may already hold a name that fails it.
+    var didAttemptSave by remember(state.profile) { mutableStateOf(false) }
+    // The name rule, checked here as well as on the server (see NameRules / name-policy.ts). This
+    // field used to ask only that the string be non-empty, so `12345` went through and came back
+    // as a 400 the user read at the bottom of a scrolling form, in the server's English.
+    val nameError = nameFieldError(fullName, didAttemptSave || fullName != state.profile.fullName)
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var processingPhoto by remember { mutableStateOf(false) }
 
-    /** Presents the ID-change request dialog — the only way to alter the ID number. */
-    var showIdChangeDialog by remember { mutableStateOf(false) }
+    /** Presents the ID-change request sheet — the only way to alter the ID number. */
+    var showIdChangeSheet by remember { mutableStateOf(false) }
 
     // Photo picker: load the picked image, downscale + JPEG-compress to a small data URL off the
     // main thread, then stage it as the avatar (saved with the rest of the profile).
@@ -222,7 +230,16 @@ fun ProfileSettingsScreen(
                         )
                     }
 
-                    SettingsField(fullName, { fullName = it }, stringResource(R.string.settings_full_name), Icons.Filled.Person)
+                    SettingsField(
+                        fullName,
+                        { fullName = it },
+                        stringResource(R.string.settings_full_name),
+                        Icons.Filled.Person,
+                        isError = nameError != null
+                    )
+                    if (nameError != null) {
+                        Text(nameError, color = SettingsErrorRed, fontSize = 13.sp)
+                    }
                     SettingsField(
                         age,
                         { input -> age = input.filter { it.isDigit() }.take(3) },
@@ -237,7 +254,7 @@ fun ProfileSettingsScreen(
                             ?: state.profile.idDocument,
                         idChange = state.idChange,
                         busy = state.isIdChangeBusy,
-                        onRequest = { showIdChangeDialog = true },
+                        onRequest = { showIdChangeSheet = true },
                         onWithdraw = onCancelIdChange
                     )
                     SettingsField(
@@ -265,11 +282,22 @@ fun ProfileSettingsScreen(
                         }
                     }
 
+                    // The name is refused beside the button as well as under the field: the field is
+                    // at the top of a scrolling form and Save is at the bottom, so a button whose
+                    // only effect is a hint the user cannot see reads as a button that does nothing.
+                    if (didAttemptSave && nameError != null) {
+                        Text(nameError, color = SettingsErrorRed, fontSize = 14.sp)
+                    }
+
                     Spacer(Modifier.height(4.dp))
                     GradientButton(
                         onClick = {
+                            didAttemptSave = true
+                            if (NameRules.problemWith(fullName) != null) return@GradientButton
                             onSavedAck()
-                            onSave(fullName, age, phone, bio, avatarUrl)
+                            // Normalized the way the server normalizes it, so the name that is
+                            // stored is the name that was judged.
+                            onSave(NameRules.normalized(fullName), age, phone, bio, avatarUrl)
                         },
                         enabled = !state.isSaving,
                         pulse = !state.isSaving,
@@ -298,27 +326,18 @@ fun ProfileSettingsScreen(
                         onChangePassword = onChangePassword,
                         onPasswordChangedAck = onPasswordChangedAck
                     )
-
-                    Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = Tan)
-                    Spacer(Modifier.height(8.dp))
-
-                    DeleteAccountSection(
-                        deleting = deletingAccount,
-                        onDeleteAccount = onDeleteAccount
-                    )
                 }
             }
         }
     }
 
-    if (showIdChangeDialog) {
-        IdChangeRequestDialog(
+    if (showIdChangeSheet) {
+        IdChangeRequestSheet(
             current = state.idChange?.current?.takeIf { it.isNotBlank() } ?: state.profile.idDocument,
             busy = state.isIdChangeBusy,
             error = state.idChangeError,
             onDismiss = {
-                showIdChangeDialog = false
+                showIdChangeSheet = false
                 onClearIdChangeError()
             },
             onSubmit = { value, docType, front, back, reason ->
@@ -332,7 +351,7 @@ fun ProfileSettingsScreen(
         // silently did nothing. A filed request is the one unambiguous success signal:
         // canRequest goes false because one is now waiting.
         LaunchedEffect(state.idChange?.canRequest) {
-            if (state.idChange?.canRequest == false) showIdChangeDialog = false
+            if (state.idChange?.canRequest == false) showIdChangeSheet = false
         }
     }
 }
@@ -439,166 +458,6 @@ private fun ChangePasswordSection(
     }
 }
 
-/**
- * "Delete account" block — a destructive, red entry near the bottom of the settings screen (just
- * below the change-password section, mirroring the Sign out destructive style). Tapping it opens a
- * confirmation [AlertDialog] explaining the deletion is permanent (account, listings, bookings,
- * reviews) before calling [onDeleteAccount]. Required by Google Play's account-deletion policy.
- */
-@Composable
-private fun DeleteAccountSection(
-    deleting: Boolean,
-    onDeleteAccount: () -> Unit
-) {
-    var showConfirm by remember { mutableStateOf(false) }
-
-    SectionHeader(
-        title = stringResource(R.string.settings_delete_account),
-        caption = stringResource(R.string.settings_delete_account_caption)
-    )
-    Spacer(Modifier.height(14.dp))
-
-    Button(
-        onClick = { showConfirm = true },
-        enabled = !deleting,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = SettingsErrorRed,
-            contentColor = Color.White,
-            disabledContainerColor = SettingsErrorRed.copy(alpha = 0.5f),
-            disabledContentColor = Color.White
-        ),
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (deleting) {
-            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-        } else {
-            Icon(
-                Icons.Filled.DeleteForever,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.size(8.dp))
-            Text(
-                stringResource(R.string.settings_delete_account),
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
-        }
-    }
-
-    if (showConfirm) {
-        AlertDialog(
-            onDismissRequest = { if (!deleting) showConfirm = false },
-            icon = {
-                // Warning badge: a soft red circle behind a clear warning glyph.
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(SettingsErrorRed.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.WarningAmber,
-                        contentDescription = null,
-                        tint = SettingsErrorRed,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    stringResource(R.string.settings_delete_account_confirm_title),
-                    color = Ink,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        stringResource(R.string.settings_delete_account_confirm_intro),
-                        color = Ink,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_account))
-                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_listings))
-                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_bookings))
-                        DeleteBulletItem(stringResource(R.string.settings_delete_account_item_reviews))
-                    }
-                    Text(
-                        stringResource(R.string.settings_delete_account_undone),
-                        color = SettingsErrorRed,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        // Keep the dialog up while deleting so its spinner is visible; the screen
-                        // navigates away on success (and the dialog leaves with it).
-                        onDeleteAccount()
-                    },
-                    enabled = !deleting,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SettingsErrorRed,
-                        contentColor = Color.White,
-                        disabledContainerColor = SettingsErrorRed.copy(alpha = 0.5f),
-                        disabledContentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    if (deleting) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.size(8.dp))
-                        Text(
-                            stringResource(R.string.settings_delete_account_deleting),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Text(
-                            stringResource(R.string.settings_delete_account_confirm),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirm = false }, enabled = !deleting) {
-                    Text(stringResource(R.string.settings_delete_account_cancel), color = Muted)
-                }
-            },
-            containerColor = Cream
-        )
-    }
-}
-
-/** A single bullet row in the delete-account confirmation list: a red dot + label. */
-@Composable
-private fun DeleteBulletItem(text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(SettingsErrorRed)
-        )
-        Spacer(Modifier.size(10.dp))
-        Text(text, color = Ink, fontSize = 14.sp)
-    }
-}
-
 /** A password field matching [SettingsField] styling, with an independent reveal toggle. */
 @Composable
 private fun PasswordField(
@@ -691,11 +550,16 @@ private fun IdDocumentRow(
                 modifier = Modifier.weight(1f)
             )
             if (waiting) {
+                // A capsule, not loose text: the wait is a badge on the value, matching iOS.
                 Text(
                     stringResource(R.string.id_change_status_pending),
                     color = Burgundy,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Tan.copy(alpha = 0.6f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 )
             }
         }
@@ -723,6 +587,13 @@ private fun IdDocumentRow(
             }
         } else {
             TextButton(onClick = onRequest, enabled = !busy) {
+                Icon(
+                    Icons.Filled.Autorenew,
+                    contentDescription = null,
+                    tint = Burgundy,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.size(6.dp))
                 Text(stringResource(R.string.id_change_request), color = Burgundy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             }
             Text(stringResource(R.string.id_change_explainer), color = Muted, fontSize = 12.sp)
@@ -733,13 +604,18 @@ private fun IdDocumentRow(
 /**
  * The request form: which document, the new number, a photo of it, and an optional reason.
  *
+ * A bottom sheet rather than an alert, matching the sheet iOS presents (and the report
+ * sheet elsewhere in this app): the form carries two photo tiles and four fields, which an alert's
+ * squeezed width turned into a scrolling column of anonymous text buttons.
+ *
  * The front photo is required and the submit button stays disabled without it — the server
  * refuses the request anyway, because a reviewer with no document has nothing to check the typed
  * number against. The number itself is NOT validated here: those rules live in one shared core
  * the API and the admin console both read, so the server's 400 carries the wording to show.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IdChangeRequestDialog(
+private fun IdChangeRequestSheet(
     current: String,
     busy: Boolean,
     error: String?,
@@ -748,12 +624,17 @@ private fun IdChangeRequestDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var docType by remember { mutableStateOf(IdDocumentType.NATIONAL_ID) }
     var newNumber by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     var frontDataUrl by remember { mutableStateOf<String?>(null) }
     var backDataUrl by remember { mutableStateOf<String?>(null) }
+    // The picked Uri is kept beside the encoded data URL purely so the tile can show a thumbnail —
+    // seeing the photo is how you catch a blurry or wrong-side shot before an operator does.
+    var frontUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var backUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var pickingFront by remember { mutableStateOf(true) }
     var processing by remember { mutableStateOf(false) }
 
@@ -770,7 +651,13 @@ private fun IdChangeRequestDialog(
                     AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1280)
                 }
                 if (dataUrl != null) {
-                    if (wantFront) frontDataUrl = dataUrl else backDataUrl = dataUrl
+                    if (wantFront) {
+                        frontDataUrl = dataUrl
+                        frontUri = uri
+                    } else {
+                        backDataUrl = dataUrl
+                        backUri = uri
+                    }
                 }
                 processing = false
             }
@@ -779,115 +666,155 @@ private fun IdChangeRequestDialog(
 
     val canSubmit = frontDataUrl != null && newNumber.isNotBlank() && !busy && !processing
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
-        title = { Text(stringResource(R.string.id_change_title), color = Ink, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+        sheetState = sheetState,
+        containerColor = CreamPage
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                stringResource(R.string.id_change_title),
+                color = Ink,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            Text(stringResource(R.string.id_change_intro), color = Muted, fontSize = 14.sp)
+            if (current.isNotBlank()) {
+                Text(stringResource(R.string.id_change_current, current), color = Muted, fontSize = 12.sp)
+            }
+
+            FieldLabel(stringResource(R.string.id_change_doc_type))
+            // Fixed height: "Residence permit" wraps to two lines in French and Arabic as well as
+            // English, and a segment that grows on its own leaves the row visibly stepped.
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) {
-                Text(stringResource(R.string.id_change_intro), color = Muted, fontSize = 13.sp)
-                if (current.isNotBlank()) {
-                    Text(stringResource(R.string.id_change_current, current), color = Muted, fontSize = 12.sp)
-                }
-
-                Text(stringResource(R.string.id_change_doc_type), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IdDocumentType.entries.forEach { type ->
-                        TextButton(onClick = { docType = type }) {
-                            Text(
-                                stringResource(type.labelRes),
-                                color = if (docType == type) Burgundy else Muted,
-                                fontWeight = if (docType == type) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                }
-
-                SettingsField(
-                    value = newNumber,
-                    onValueChange = { input ->
-                        // A national ID is digits; the other two are alphanumeric.
-                        newNumber = if (docType == IdDocumentType.NATIONAL_ID) {
-                            input.filter { it.isDigit() }.take(14)
-                        } else {
-                            input.take(24)
-                        }
-                    },
-                    label = stringResource(R.string.id_change_new_number),
-                    icon = Icons.Filled.Badge,
-                    keyboardType = if (docType == IdDocumentType.NATIONAL_ID) KeyboardType.Number else KeyboardType.Text
-                )
-
-                Text(stringResource(R.string.id_change_photos), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            pickingFront = true
-                            docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        enabled = !processing
+                IdDocumentType.entries.forEachIndexed { index, type ->
+                    SegmentedButton(
+                        selected = docType == type,
+                        onClick = { docType = type },
+                        shape = SegmentedButtonDefaults.itemShape(index, IdDocumentType.entries.size),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = Burgundy,
+                            activeContentColor = Color.White,
+                            activeBorderColor = Burgundy,
+                            inactiveContainerColor = Color.White,
+                            inactiveContentColor = Muted,
+                            inactiveBorderColor = Tan
+                        ),
+                        icon = {}
                     ) {
                         Text(
-                            if (frontDataUrl != null) stringResource(R.string.id_change_front_added)
-                            else stringResource(R.string.id_change_front),
-                            color = if (frontDataUrl != null) SettingsSuccessGreen else Burgundy,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            stringResource(type.labelRes),
+                            fontSize = 12.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
                         )
                     }
-                    TextButton(
-                        onClick = {
-                            pickingFront = false
-                            docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        enabled = !processing
-                    ) {
-                        Text(
-                            if (backDataUrl != null) stringResource(R.string.id_change_back_added)
-                            else stringResource(R.string.id_change_back),
-                            color = if (backDataUrl != null) SettingsSuccessGreen else Muted,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-                Text(stringResource(R.string.id_change_photos_hint), color = Muted, fontSize = 11.sp)
-
-                BioFieldLike(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = stringResource(R.string.id_change_reason),
-                    hint = stringResource(R.string.id_change_reason_hint)
-                )
-
-                if (error != null) {
-                    Text(error, color = SettingsErrorRed, fontSize = 13.sp)
                 }
             }
-        },
-        confirmButton = {
-            Button(
+
+            SettingsField(
+                value = newNumber,
+                onValueChange = { input ->
+                    // A national ID is digits; the other two are alphanumeric.
+                    newNumber = if (docType == IdDocumentType.NATIONAL_ID) {
+                        input.filter { it.isDigit() }.take(14)
+                    } else {
+                        input.take(24)
+                    }
+                },
+                label = stringResource(R.string.id_change_new_number),
+                icon = Icons.Filled.Badge,
+                keyboardType = if (docType == IdDocumentType.NATIONAL_ID) KeyboardType.Number else KeyboardType.Text
+            )
+
+            FieldLabel(stringResource(R.string.id_change_photos))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // The same tile the verification card uses, so an ID is asked for the same way
+                // wherever the app asks for one.
+                IdPhotoSlot(
+                    label = stringResource(R.string.id_change_front),
+                    uri = frontUri,
+                    enabled = !processing && !busy,
+                    onPick = {
+                        pickingFront = true
+                        docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                IdPhotoSlot(
+                    label = stringResource(R.string.id_change_back),
+                    uri = backUri,
+                    enabled = !processing && !busy,
+                    onPick = {
+                        pickingFront = false
+                        docPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Text(stringResource(R.string.id_change_photos_hint), color = Muted, fontSize = 12.sp)
+
+            BioFieldLike(
+                value = reason,
+                onValueChange = { reason = it },
+                label = stringResource(R.string.id_change_reason),
+                hint = stringResource(R.string.id_change_reason_hint)
+            )
+
+            if (error != null) {
+                Text(error, color = SettingsErrorRed, fontSize = 13.sp)
+            }
+
+            GradientButton(
                 onClick = { frontDataUrl?.let { onSubmit(newNumber, docType.key, it, backDataUrl, reason) } },
                 enabled = canSubmit,
-                colors = ButtonDefaults.buttonColors(containerColor = Burgundy)
+                radius = 18.dp,
+                height = 52.dp,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                if (busy) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                if (busy || processing) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
-                    Text(stringResource(R.string.id_change_submit), color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        stringResource(R.string.id_change_submit),
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp
+                    )
                 }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel), color = Muted)
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.action_cancel), color = Muted, fontSize = 14.sp)
             }
         }
-    )
+    }
+}
+
+/** The small caption above a field or group, matching the iOS form's section labels. */
+@Composable
+private fun FieldLabel(text: String) {
+    Text(text, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
 }
 
 /** A multiline field with a caller-supplied label — [BioField] with the copy passed in. */
@@ -925,13 +852,16 @@ private fun SettingsField(
     onValueChange: (String) -> Unit,
     label: String,
     icon: ImageVector,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    /** Draws the field in the error colour — pair it with the sentence saying why. */
+    isError: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         singleLine = true,
+        isError = isError,
         leadingIcon = { Icon(icon, contentDescription = null, tint = Burgundy) },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(18.dp),

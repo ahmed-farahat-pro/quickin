@@ -186,20 +186,25 @@ struct TrustService {
 }
 
 /// The verification payload returned by `GET`/`POST /api/local/verification`:
-/// `{ status, verified_at }`. `verifiedAt` is set only once `status` is
-/// "verified".
+/// `{ status, verified_at, id_number }`. `verifiedAt` is set only once `status`
+/// is "verified"; `idNumber` is the number on the submission we hold, when it
+/// carried one, and is what `IdentityRules` fills the host application's
+/// National ID field from.
 struct VerificationState: Decodable, Equatable {
     let statusRaw: String
     let verifiedAt: String?
+    let idNumber: String?
 
     enum CodingKeys: String, CodingKey {
         case statusRaw = "status"
         case verifiedAt = "verified_at"
+        case idNumber = "id_number"
     }
 
-    init(status: String, verifiedAt: String?) {
+    init(status: String, verifiedAt: String?, idNumber: String? = nil) {
         self.statusRaw = status
         self.verifiedAt = verifiedAt
+        self.idNumber = idNumber
     }
 
     init(from decoder: Decoder) throws {
@@ -207,10 +212,75 @@ struct VerificationState: Decodable, Equatable {
         statusRaw = (try c.decodeIfPresent(String.self, forKey: .statusRaw))
             .flatMap { $0.isEmpty ? nil : $0 } ?? "unverified"
         verifiedAt = try c.decodeIfPresent(String.self, forKey: .verifiedAt)
+        // Older builds of the API omit it; an absent number is not an error, it
+        // just means there is nothing to prefill from.
+        idNumber = (try c.decodeIfPresent(String.self, forKey: .idNumber))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// Strongly-typed status.
     var status: VerificationStatus { VerificationStatus(raw: statusRaw) }
+}
+
+/// One identity, verified once from the profile, serving guest and host alike.
+///
+/// The Swift twin of the backend's `nationalIdForApplication`
+/// (`host-verification-core.ts`) and of Android's `IdentityRules.kt`. It decides
+/// what the become-a-host form puts in its National ID field: a **verified**
+/// submission's number is shown and locked, because an admin approved a document
+/// bearing it and an application carrying a different one leaves the reviewer
+/// holding two answers with nothing to say which is the person's. Anything else
+/// is only a seed — a reapply's own answer first, then the number on a
+/// submission still under review — and stays editable, because nothing about it
+/// has been approved yet.
+///
+/// KEEP IN SYNC with `nationalIdForApplication` and `IdentityRules.kt`: the
+/// three forms write the same `host_applications.national_id`, and a field one
+/// client fills in and another asks for is the redundancy this closes.
+enum IdentityRules {
+    /// What the National ID field starts with, and whether it may be edited.
+    struct NationalIDField: Equatable {
+        /// Never nil, so a `TextField` can bind to it directly.
+        let value: String
+        /// True when the value came from an approved ID: show it, don't ask for it.
+        let locked: Bool
+    }
+
+    static func nationalID(
+        status: VerificationStatus,
+        submittedIDNumber: String?,
+        previousNationalID: String? = nil
+    ) -> NationalIDField {
+        let text = { (v: String?) in (v ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+        let submitted = text(submittedIDNumber)
+        if status == .verified, !submitted.isEmpty {
+            return NationalIDField(value: submitted, locked: true)
+        }
+        let previous = text(previousNationalID)
+        return NationalIDField(value: previous.isEmpty ? submitted : previous, locked: false)
+    }
+
+    /// Must someone with this `status` photograph their ID to apply as a host?
+    ///
+    /// The Swift twin of `needsIdentityDocuments` in the backend's
+    /// `host-verification-core.ts`, which `POST /api/local/host/apply` enforces:
+    /// an application with no document behind it gives the reviewer nothing to
+    /// read the declared name and national ID against, so the API refuses it.
+    /// This is what keeps the form from letting an applicant reach that refusal.
+    ///
+    /// `.verified` is already approved and `.pending` is already in the queue —
+    /// it is decided together with the application — so neither uploads again.
+    /// `.rejected` and "no submission" must: a rejection means "these are not
+    /// good enough", and refiling the same row would put the same refused photos
+    /// back in front of the reviewer. An unknown status parses as `.unverified`,
+    /// the safe direction — an upload we did not need costs a photo, a document
+    /// we did need costs the applicant a refused request.
+    ///
+    /// KEEP IN SYNC with `IdentityRules.kt` and the backend rule.
+    static func needsIdentityDocuments(status: VerificationStatus) -> Bool {
+        status != .verified && status != .pending
+    }
 }
 
 /// The three kinds of thing a user can report. Maps 1:1 to the backend's

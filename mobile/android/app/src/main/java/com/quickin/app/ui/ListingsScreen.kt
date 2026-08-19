@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.Dp
 import com.quickin.app.ui.theme.GoldLight
 import kotlin.math.PI
 import kotlin.math.sin
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -82,11 +81,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,8 +92,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
@@ -168,47 +162,14 @@ fun ListingsScreen(
             onDismiss = { showFilters = false }
         )
     }
+    // Explore is one continuous scroll: the brand banner, the discovery chrome and
+    // the listings all move together (matching iOS `ListingsView`), so the banner
+    // scrolls away as the guest digs into the results. Map mode swaps the list for a
+    // full-bleed map, keeping only the List/Map toggle above it.
+    var viewMode by remember { mutableStateOf(ViewMode.List) }
     Scaffold(
         containerColor = CreamPage,
-        modifier = Modifier.padding(contentPadding),
-        topBar = {
-            TopAppBar(
-                title = {
-                    // Brand logo (small) in the Explore top bar.
-                    Image(
-                        painter = painterResource(R.drawable.logo),
-                        contentDescription = "QuickIn",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.height(34.dp)
-                    )
-                },
-                actions = {
-                    if (isAuthenticated) {
-                        // Animated profile avatar → opens the Profile tab.
-                        ProfileAvatarAction(initials = userInitials, onClick = onOpenProfile)
-                        // Messages inbox (guest ↔ host conversations).
-                        IconButton(onClick = onOpenMessages) {
-                            Icon(
-                                Icons.Filled.ChatBubbleOutline,
-                                contentDescription = stringResource(R.string.cd_messages),
-                                tint = Burgundy
-                            )
-                        }
-                        // Notifications bell with an unread badge (signed-in only).
-                        NotificationsBell(
-                            unreadCount = unreadCount,
-                            onClick = onOpenNotifications
-                        )
-                    } else {
-                        // Login entry point right on the Home tab — opens login/signup.
-                        TextButton(onClick = onSignIn) {
-                            Text(stringResource(R.string.explore_log_in), color = Burgundy, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
-            )
-        }
+        modifier = Modifier.padding(contentPadding)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -217,73 +178,61 @@ fun ListingsScreen(
                 .background(CreamPage)
         ) {
             val listState = rememberLazyListState()
-            var viewMode by remember { mutableStateOf(ViewMode.List) }
-            // Collapse the secondary chrome (AI bar + region/sort) so the search +
-            // map/list section fills the screen: hidden while the map is shown, and
-            // as soon as the list scrolls. The brand hero already scrolls inside the list.
-            val collapsed by remember {
-                derivedStateOf {
-                    viewMode == ViewMode.Map ||
-                        listState.firstVisibleItemIndex > 0 ||
-                        listState.firstVisibleItemScrollOffset > 60
-                }
-            }
-
-            // The whole discovery chrome (search + AI bar + region/sort/filters)
-            // collapses as the guest scrolls into the listings, so the cards get the
-            // full screen; it slides back in near the top.
-            AnimatedVisibility(visible = !collapsed) {
-                SearchHeader(
-                    query = state.query,
+            // The banner + search + region/sort + toggle, rendered above every
+            // non-list state and as the first item of the list itself.
+            val chrome: @Composable () -> Unit = {
+                ExploreChrome(
+                    state = state,
+                    isAuthenticated = isAuthenticated,
+                    userInitials = userInitials,
+                    unreadCount = unreadCount,
+                    onSignIn = onSignIn,
+                    onOpenProfile = onOpenProfile,
+                    onOpenMessages = onOpenMessages,
+                    onOpenNotifications = onOpenNotifications,
                     onSearch = onSearch,
                     onClear = onClear,
                     placeSuggestions = placeSuggestions,
                     onPlaceQueryChange = onPlaceQueryChange,
-                    onClearPlaceSuggestions = onClearPlaceSuggestions
+                    onClearPlaceSuggestions = onClearPlaceSuggestions,
+                    onSelectRegion = onSelectRegion,
+                    onSelectSort = onSelectSort,
+                    onOpenFilters = { showFilters = true },
+                    viewMode = viewMode,
+                    onSelectViewMode = { viewMode = it }
                 )
             }
 
-            // Region chips + sort/filters collapse with the rest of the chrome on
-            // scroll-down (returning near the top), so listings own the screen.
-            AnimatedVisibility(visible = !collapsed) {
-                Column {
-                    RegionChipsRow(
-                        regions = state.regions,
-                        selectedRegion = state.query.region,
-                        onSelectRegion = onSelectRegion
-                    )
-                    SortRow(
-                        selected = state.query.sort,
-                        onSelect = onSelectSort,
-                        filterCount = state.query.discoveryFilterCount,
-                        onOpenFilters = { showFilters = true }
+            when {
+                // Map mode overlays the whole screen (iOS renders it as a full-page
+                // overlay above the scroll), so only the toggle stays with it.
+                viewMode == ViewMode.Map -> {
+                    ViewModeToggle(selected = viewMode, onSelect = { viewMode = it })
+                    ListingsMap(
+                        listings = state.listings,
+                        onSelect = onSelect,
+                        onClose = { viewMode = ViewMode.List },
+                        onSearchArea = onSearchArea,
+                        isSearching = state.isLoading,
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-            }
-
-            // List / Map toggle. Defaults to List; both modes render the same searched listings.
-            ViewModeToggle(
-                selected = viewMode,
-                onSelect = { viewMode = it }
-            )
-
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                when {
-                    state.isLoading && state.listings.isEmpty() -> {
-                        // Skeleton cards shaped like real listings shimmer in place of a spinner.
-                        SkeletonListColumn(imageHeight = 220.dp)
-                    }
-                    // A real fault gets Retry; an empty result does not. These were one branch
-                    // until the empty copy stopped travelling in `error`.
-                    state.error != null && state.listings.isEmpty() -> {
+                // Skeleton cards shaped like real listings shimmer in place of a spinner.
+                state.isLoading && state.listings.isEmpty() -> {
+                    chrome()
+                    SkeletonListColumn(imageHeight = 220.dp)
+                }
+                // A real fault gets Retry; an empty result does not. These were one branch
+                // until the empty copy stopped travelling in `error`.
+                state.error != null && state.listings.isEmpty() -> {
+                    chrome()
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         ErrorState(message = state.error, onRetry = onRetry)
                     }
-                    // Keep the empty state for List mode; the Map mode handles "no mappable
-                    // stays" itself, so still render the map when listings exist.
-                    state.listings.isEmpty() && viewMode == ViewMode.List -> {
+                }
+                state.listings.isEmpty() -> {
+                    chrome()
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (state.query.isActive) {
                             EmptyState(
                                 title = stringResource(R.string.explore_empty_filtered_title),
@@ -297,32 +246,27 @@ fun ListingsScreen(
                             )
                         }
                     }
-                    viewMode == ViewMode.Map -> {
-                        ListingsMap(
-                            listings = state.listings,
-                            onSelect = onSelect,
-                            onClose = { viewMode = ViewMode.List },
-                            onSearchArea = onSearchArea,
-                            isSearching = state.isLoading,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    else -> {
-                        LazyColumn(
-                            state = listState,
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(18.dp)
-                        ) {
-                            // Boutique hero atop the list: a Ken Burns cover with a gold
-                            // eyebrow + a Playfair-style italic headline, drawn from the
-                            // first stay's photo (falls back to a tan placeholder).
-                            item {
+                }
+                else -> {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        // The banner and the discovery chrome scroll with the results.
+                        item { chrome() }
+                        // Boutique hero atop the list: a Ken Burns cover with a gold
+                        // eyebrow + a Playfair-style italic headline, drawn from the
+                        // first stay's photo (falls back to a tan placeholder).
+                        item {
+                            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 ListingsHero(
                                     imageUrl = state.listings.firstOrNull()?.sortedImageUrls?.firstOrNull()
                                 )
                             }
-                            items(state.listings) { listing ->
-                                SlideUpOnAppear {
+                        }
+                        items(state.listings) { listing ->
+                            SlideUpOnAppear {
+                                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)) {
                                     ListingCard(
                                         listing = listing,
                                         onClick = { onSelect(listing) },
@@ -336,6 +280,89 @@ fun ListingsScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The Explore banner + discovery chrome: the burgundy brand banner (wordmark, with the
+ * account / messages / notifications accessories restyled for the dark surface), then the
+ * search bar, the region chips, the sort row and the List/Map toggle. It scrolls with the
+ * listings rather than being pinned, mirroring iOS `ListingsView`.
+ */
+@Composable
+private fun ExploreChrome(
+    state: ListingsUiState,
+    isAuthenticated: Boolean,
+    userInitials: String,
+    unreadCount: Int,
+    onSignIn: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenMessages: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onSearch: (ListingQuery) -> Unit,
+    onClear: () -> Unit,
+    placeSuggestions: List<String>,
+    onPlaceQueryChange: (String) -> Unit,
+    onClearPlaceSuggestions: () -> Unit,
+    onSelectRegion: (String?) -> Unit,
+    onSelectSort: (ListingSort) -> Unit,
+    onOpenFilters: () -> Unit,
+    viewMode: ViewMode,
+    onSelectViewMode: (ViewMode) -> Unit
+) {
+    Column {
+        QkBrandHeader(
+            eyebrow = stringResource(R.string.home_eyebrow),
+            subtitle = stringResource(R.string.home_subtitle),
+            wordmark = true
+        ) {
+            // Signed in: profile avatar, the messages inbox and the notifications bell.
+            // Signed out: the account disc alone, which opens login/signup — the same
+            // affordance iOS gives a guest.
+            QkHeaderProfileAction(
+                isAuthenticated = isAuthenticated,
+                initials = userInitials,
+                onOpenProfile = onOpenProfile,
+                onSignIn = onSignIn,
+                contentDescription = stringResource(
+                    if (isAuthenticated) R.string.cd_open_profile else R.string.cd_sign_in
+                )
+            )
+            if (isAuthenticated) {
+                QkHeaderIconButton(
+                    icon = Icons.Filled.ChatBubbleOutline,
+                    contentDescription = stringResource(R.string.cd_messages),
+                    onClick = onOpenMessages
+                )
+                QkHeaderIconButton(
+                    icon = Icons.Filled.NotificationsNone,
+                    contentDescription = stringResource(R.string.cd_notifications),
+                    onClick = onOpenNotifications,
+                    badge = unreadCount
+                )
+            }
+        }
+        SearchHeader(
+            query = state.query,
+            onSearch = onSearch,
+            onClear = onClear,
+            placeSuggestions = placeSuggestions,
+            onPlaceQueryChange = onPlaceQueryChange,
+            onClearPlaceSuggestions = onClearPlaceSuggestions
+        )
+        RegionChipsRow(
+            regions = state.regions,
+            selectedRegion = state.query.region,
+            onSelectRegion = onSelectRegion
+        )
+        SortRow(
+            selected = state.query.sort,
+            onSelect = onSelectSort,
+            filterCount = state.query.discoveryFilterCount,
+            onOpenFilters = onOpenFilters
+        )
+        ViewModeToggle(selected = viewMode, onSelect = onSelectViewMode)
+        Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -517,86 +544,6 @@ internal fun avatarInitials(name: String?, email: String?): String {
         parts.isEmpty() -> "?"
         parts.size == 1 -> parts[0].take(1).uppercase()
         else -> (parts[0].take(1) + parts.last().take(1)).uppercase()
-    }
-}
-
-/**
- * Animated profile avatar for the Explore top bar: it springs in on appear and a
- * soft ring "pings" outward on a loop (a Google-style cue) drawing the eye to the
- * account entry; tapping opens the Profile tab.
- */
-@Composable
-private fun ProfileAvatarAction(initials: String, onClick: () -> Unit) {
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appeared = true }
-    val scale by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0.4f,
-        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow),
-        label = "avatarIn"
-    )
-    val ping = rememberInfiniteTransition(label = "avatarPing")
-    val pingScale by ping.animateFloat(
-        initialValue = 1f, targetValue = 1.7f,
-        animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing), RepeatMode.Restart),
-        label = "pingScale"
-    )
-    val pingAlpha by ping.animateFloat(
-        initialValue = 0.5f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing), RepeatMode.Restart),
-        label = "pingAlpha"
-    )
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.padding(end = 4.dp).size(46.dp)
-    ) {
-        // The expanding "ping" ring.
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .scale(pingScale)
-                .alpha(pingAlpha)
-                .border(2.dp, Burgundy, CircleShape)
-        )
-        IconButton(onClick = onClick, modifier = Modifier.scale(scale)) {
-            GradientAvatar(initials = initials.ifBlank { "?" }, size = 34.dp)
-        }
-    }
-}
-
-/**
- * Bell icon in the Explore top bar with a small burgundy unread badge. The badge
- * (a count, capped at "9+") overlays the bell's top-end corner and is hidden at zero.
- */
-@Composable
-private fun NotificationsBell(unreadCount: Int, onClick: () -> Unit) {
-    Box(contentAlignment = Alignment.Center) {
-        IconButton(onClick = onClick) {
-            Icon(
-                Icons.Filled.NotificationsNone,
-                contentDescription = stringResource(R.string.cd_notifications),
-                tint = Burgundy
-            )
-        }
-        if (unreadCount > 0) {
-            Surface(
-                color = Burgundy,
-                shape = CircleShape,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
-            ) {
-                Text(
-                    text = if (unreadCount > 9) "9+" else unreadCount.toString(),
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier
-                        .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                )
-            }
-        }
     }
 }
 

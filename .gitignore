@@ -89,6 +89,11 @@ mobile/android/captures/
 # ...but keep the debug APKs CI publishes here
 # (see .github/workflows/android-publish-apk.yml).
 !publishs/*.apk
+# ...and keep the DEBUG keystore. It has to be committed: Google Sign-In is keyed to the
+# app's signing SHA-1, so a keystore generated per machine / per CI runner gives every
+# build a fingerprint that no OAuth client can be registered against. Debug credentials
+# only (android / androiddebugkey); the release keystore stays ignored.
+!mobile/android/app/debug.keystore
 
 # mobile — iOS / Xcode
 mobile/ios/build/

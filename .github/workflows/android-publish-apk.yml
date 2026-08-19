@@ -55,11 +55,39 @@ jobs:
         working-directory: mobile/android
         run: chmod +x ./gradlew
 
+      # The JVM unit tests (app/src/test) — currently EmailRulesTest, the Kotlin
+      # mirror of the backend's email-core suite. Runs BEFORE the APK is built so
+      # a build that disagrees with the API about who may open an account never
+      # reaches publishs/.
+      - name: Unit tests
+        working-directory: mobile/android
+        run: ./gradlew testDebugUnitTest --no-daemon
+
       # Debug only: the release signing config expects an app/release.keystore
       # that is deliberately git-ignored, so `assembleRelease` cannot run here.
       - name: Build debug APK
         working-directory: mobile/android
         run: ./gradlew assembleDebug --no-daemon
+
+      # Google Sign-In matches (package name + signing SHA-1) against an OAuth Android
+      # client in the Cloud console, so the published APK's fingerprint has to be a
+      # constant. It used to be whatever keystore Gradle happened to mint on the runner —
+      # a new one every run — which made Google sign-in impossible on every build we
+      # shipped to testers. app/debug.keystore now pins it; this step fails the build if
+      # anything ever un-pins it again, and prints the value to register.
+      - name: Verify the APK's signing fingerprint is the pinned one
+        working-directory: mobile/android
+        run: |
+          EXPECTED="D1:2E:E0:C1:DB:FD:18:9A:E4:27:54:0A:99:49:53:CF:A6:27:C6:87"
+          ACTUAL=$(keytool -list -v -keystore app/debug.keystore -alias androiddebugkey \
+            -storepass android | grep -oE 'SHA1: [0-9A-F:]+' | cut -d' ' -f2)
+          echo "Debug signing SHA-1: $ACTUAL"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Debug signing SHA-1 changed ($ACTUAL != $EXPECTED)." \
+                 "Google Sign-In will fail with DEVELOPER_ERROR until this fingerprint is" \
+                 "registered as an Android OAuth client for com.quickin.app." >&2
+            exit 1
+          fi
 
       - name: Copy APK to publishs/
         run: |

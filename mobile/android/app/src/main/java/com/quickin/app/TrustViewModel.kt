@@ -22,6 +22,9 @@ data class VerificationUiState(
     val loaded: Boolean = false,
     /** "unverified" | "pending" | "verified" | "rejected". */
     val status: String = "unverified",
+    /** The number on the submission we hold, or null. Feeds [IdentityRules] so the
+     *  become-a-host form reuses a verified identity instead of asking for it again. */
+    val idNumber: String? = null,
     /** True while the picked ID photo is being downscaled + uploaded. */
     val isSubmitting: Boolean = false,
     /** Inline error for the verification card, or null. */
@@ -115,6 +118,7 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
                     isLoading = false,
                     loaded = true,
                     status = state.status,
+                    idNumber = state.idNumber,
                     error = null
                 )
             } catch (e: Exception) {
@@ -160,6 +164,7 @@ class TrustViewModel(application: Application) : AndroidViewModel(application) {
                     isSubmitting = false,
                     loaded = true,
                     status = state.status,
+                    idNumber = state.idNumber,
                     error = null
                 )
             } catch (e: Exception) {

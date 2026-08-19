@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,19 +17,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,19 +69,22 @@ fun WishlistScreen(
     onOpenListing: (Listing) -> Unit = {},
     onOpenService: (Service) -> Unit = {},
     onToggleListing: (Listing) -> Unit = {},
-    onToggleService: (Service) -> Unit = {}
+    onToggleService: (Service) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues()
 ) {
     Scaffold(
         containerColor = CreamPage,
+        modifier = Modifier.padding(contentPadding),
+        // The QuickIn brand banner in place of a stock title bar (iOS `SavedView`).
+        // Saved is a tab here, not a pushed screen, so it keeps a back affordance —
+        // a frosted disc on the banner rather than a toolbar arrow.
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.wishlist_title), color = Ink, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back), tint = Ink)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
+            QkBrandHeader(
+                eyebrow = stringResource(R.string.saved_eyebrow),
+                title = stringResource(R.string.wishlist_title),
+                subtitle = stringResource(R.string.saved_subtitle),
+                onBack = onBack,
+                backContentDescription = stringResource(R.string.cd_back)
             )
         }
     ) { padding ->

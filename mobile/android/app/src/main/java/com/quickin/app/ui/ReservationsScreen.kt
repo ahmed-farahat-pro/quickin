@@ -29,8 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,10 +86,14 @@ fun ReservationsScreen(
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
+        // The QuickIn brand banner in place of a stock title bar (iOS `ReservationsView`).
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.reservations_title), color = Ink, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CreamPage)
+            // No trailing action: iOS puts a "My subscriptions" button here, but that
+            // screen has no entry point on Android any more.
+            QkBrandHeader(
+                eyebrow = stringResource(R.string.reservations_eyebrow),
+                title = stringResource(R.string.reservations_title),
+                subtitle = stringResource(R.string.reservations_subtitle)
             )
         }
     ) { padding ->

@@ -95,12 +95,23 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
             _state.value = _state.value.copy(error = "Please sign in.")
             return
         }
+        // The screen already gates on this and says it in the user's language; re-checking here
+        // keeps the one rule in one place, so no caller can save a name the field refused. `12345`
+        // used to reach the server, which is where it was — and still is — turned away.
+        if (NameRules.problemWith(fullName) != null) {
+            _state.value = _state.value.copy(
+                error = "Please enter your name — a name contains letters, not only numbers."
+            )
+            return
+        }
         _state.value = _state.value.copy(isSaving = true, error = null, saved = false)
         viewModelScope.launch {
             try {
                 val updated = ProfileService.updateProfile(
                     token = token,
-                    fullName = fullName,
+                    // Normalized the way the server normalizes it, so the name that is stored is
+                    // the name that was judged.
+                    fullName = NameRules.normalized(fullName),
                     age = age.trim().toIntOrNull()?.takeIf { it in 1..130 },
                     phone = phone,
                     bio = bio,

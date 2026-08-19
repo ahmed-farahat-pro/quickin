@@ -134,7 +134,6 @@
     <string name="account_bio">Bio</string>
     <string name="account_bio_hint">Présentez-vous brièvement aux voyageurs</string>
     <string name="account_photo_desc">Votre photo de profil</string>
-    <string name="explore_log_in">Se connecter</string>
     <string name="hero_eyebrow">Côte Nord · Égypte</string>
     <string name="hero_title">Trouvez votre escapade de charme</string>
     <string name="explore_no_stays">Aucun séjour pour l\'instant.</string>
@@ -638,6 +637,7 @@
     <string name="host_apply_intro">Parlez-nous un peu de vous. Notre équipe examine chaque candidature avant que vous puissiez héberger.</string>
     <string name="host_apply_full_name">Nom complet</string>
     <string name="host_apply_national_id">Numéro d\'identité</string>
+    <string name="host_apply_national_id_locked">Repris de la pièce d\'identité déjà vérifiée.</string>
     <string name="host_apply_phone">Téléphone</string>
     <string name="host_apply_address">Adresse</string>
     <string name="host_apply_company">Société / agence (facultatif)</string>
@@ -740,9 +740,7 @@
     <string name="id_change_new_number">Nouveau numéro</string>
     <string name="id_change_photos">Photo du document</string>
     <string name="id_change_front">Ajouter le recto</string>
-    <string name="id_change_front_added">Recto ajouté</string>
     <string name="id_change_back">Ajouter le verso (facultatif)</string>
-    <string name="id_change_back_added">Verso ajouté</string>
     <string name="id_change_photos_hint">Le recto est obligatoire — sans lui, rien ne permet de vérifier le numéro.</string>
     <string name="id_change_reason">Motif (facultatif)</string>
     <string name="id_change_reason_hint">Pourquoi cette modification est-elle nécessaire ?</string>
@@ -752,4 +750,32 @@
     <string name="auth_email_bad_tld">« .%1$s » n\'est pas une extension de domaine valide.</string>
     <string name="auth_email_did_you_mean">Vouliez-vous dire %1$s ?</string>
     <string name="auth_email_disposable">Les adresses e-mail temporaires ou jetables ne sont pas autorisées. Veuillez utiliser une adresse personnelle ou professionnelle permanente.</string>
+    <string name="auth_name_required">Veuillez saisir votre nom</string>
+    <string name="auth_name_no_letters">Veuillez saisir votre nom : un nom contient des lettres, pas seulement des chiffres</string>
+    <string name="auth_name_too_short">Le nom doit contenir au moins %1$d lettres</string>
+    <string name="auth_name_too_long">Le nom ne doit pas dépasser %1$d caractères</string>
+
+    <!-- Brand travel header (QkBrandHeader) — eyebrows + subtitles per root tab. -->
+    <string name="home_eyebrow">Découvrir · Séjourner · Explorer</string>
+    <string name="home_subtitle">Des séjours de charme partout en Égypte.</string>
+    <string name="services_eyebrow">Côte Nord · Égypte</string>
+    <string name="services_subtitle">Ajoutez des expériences à votre séjour — sur l\'eau, dans le sable, à votre table.</string>
+    <string name="saved_eyebrow">Votre collection</string>
+    <string name="saved_subtitle">Vos séjours et expériences favoris.</string>
+    <string name="reservations_eyebrow">Vos voyages</string>
+    <string name="reservations_subtitle">Tous les voyages que vous avez réservés, au même endroit.</string>
+    <string name="profile_eyebrow">Votre compte</string>
+    <string name="profile_subtitle">Profil, paramètres et langue.</string>
+    <string name="cd_open_profile">Ouvrir le profil</string>
+    <string name="cd_sign_in">Se connecter</string>
+
+    <!-- Demande d'hôte : les pièces d'identité jointes à la demande. -->
+    <string name="doc_type_national_id">Carte d\'identité</string>
+    <string name="doc_type_passport">Passeport</string>
+    <string name="doc_type_residence_permit">Titre de séjour</string>
+    <string name="host_apply_id_section">Justificatif d\'identité</string>
+    <string name="host_apply_doc_type">Quel document allez-vous téléverser ?</string>
+    <string name="host_apply_id_intro">Photographiez le recto et le verso de votre document. Notre équipe le compare au nom et au numéro d\'identité ci-dessus.</string>
+    <string name="host_apply_id_on_file">Nous avons déjà vos pièces d\'identité — rien à téléverser.</string>
+    <string name="host_apply_required_id">Ajoutez vos informations et les deux faces de votre pièce d\'identité pour continuer.</string>
 </resources>

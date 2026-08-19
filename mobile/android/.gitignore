@@ -4,6 +4,10 @@ app/release.keystore
 *.keystore
 *.jks
 keystore.properties
+# The DEBUG keystore is the one exception and MUST be committed: Google Sign-In matches the
+# app's signing SHA-1 against an OAuth Android client, so a per-machine keystore would give
+# every build an unregisterable fingerprint. Debug credentials only — see app/build.gradle.kts.
+!app/debug.keystore
 
 # Gradle / Android build artifacts
 .gradle/

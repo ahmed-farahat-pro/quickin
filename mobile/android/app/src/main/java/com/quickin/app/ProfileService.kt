@@ -270,9 +270,13 @@ object ProfileService {
      */
     private fun parseProfile(raw: JSONObject): Profile {
         val o = raw.optJSONObject("profile") ?: raw.optJSONObject("user") ?: raw
-        val idDoc = o.optString("id_document").ifBlank {
-            o.optString("id_passport").ifBlank { o.optString("passport") }
-        }
+        // optStringOrNull, not optString: an account with no ID on file has `id_document: null`,
+        // and optString hands back the literal "null", which Edit Profile then printed as the
+        // value instead of falling through to "Not on file".
+        val idDoc = o.optStringOrNull("id_document")
+            ?: o.optStringOrNull("id_passport")
+            ?: o.optStringOrNull("passport")
+            ?: ""
         val ageValue = if (o.has("age") && !o.isNull("age")) o.optInt("age").takeIf { it > 0 } else null
         val avatar = if (o.has("avatar_url") && !o.isNull("avatar_url")) {
             o.optStringOrNull("avatar_url")

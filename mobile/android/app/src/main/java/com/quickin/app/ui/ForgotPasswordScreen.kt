@@ -40,10 +40,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.quickin.app.EmailRules
 import com.quickin.app.ForgotPasswordUiState
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
@@ -84,6 +86,13 @@ fun ForgotPasswordScreen(
     val codeStep = state.step == ForgotPasswordUiState.Step.EnterCode
 
     var email by remember { mutableStateOf("") }
+    // Armed once the field has been left, so an address is never called wrong
+    // while it is still being typed. `fullPolicy = false`: a reset only ever
+    // mails an account that already exists, so a disposable domain is tolerated
+    // here — refusing it would strand whoever signed up before the blocklist
+    // without stopping a single new account. Sign-up is where that gate is.
+    var emailTouched by remember { mutableStateOf(false) }
+    val emailError = emailFieldError(raw = email, touched = emailTouched, fullPolicy = false)
     var code by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -194,11 +203,23 @@ fun ForgotPasswordScreen(
             } else {
                 ResetField(
                     value = email,
-                    onValueChange = { email = it; onClearError() },
-                    label = "Email",
+                    onValueChange = { email = it; emailTouched = false; onClearError() },
+                    label = stringResource(R.string.auth_email),
                     enabled = !loading,
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    isError = emailError != null,
+                    onFocusLost = { emailTouched = true }
                 )
+                if (emailError != null) {
+                    Text(
+                        emailError,
+                        color = ForgotErrorRed,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    )
+                }
             }
 
             if (state.error != null) {
@@ -219,7 +240,10 @@ fun ForgotPasswordScreen(
                     passwordMeetsMin(newPassword) &&
                     confirmPassword == newPassword
             } else {
-                email.isNotBlank()
+                // Was `email.isNotBlank()`, which sent `layla@email.con` to the
+                // server and left the user waiting for a code that could never
+                // be delivered.
+                EmailRules.isValid(email)
             }
             GradientButton(
                 onClick = {
@@ -270,8 +294,11 @@ private fun ResetField(
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     onTogglePassword: (() -> Unit)? = null,
-    isError: Boolean = false
+    isError: Boolean = false,
+    /** Called when focus leaves the field — used to arm an inline hint. */
+    onFocusLost: (() -> Unit)? = null
 ) {
+    var wasFocused by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -307,6 +334,17 @@ private fun ResetField(
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focus ->
+                // Fire only on the way OUT — a hint that appears the moment you
+                // tap the field is calling the address wrong before it is typed.
+                if (focus.isFocused) {
+                    wasFocused = true
+                } else if (wasFocused) {
+                    wasFocused = false
+                    onFocusLost?.invoke()
+                }
+            }
     )
 }

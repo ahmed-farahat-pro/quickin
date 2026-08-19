@@ -846,4 +846,9 @@
     <string name="id_change_reason">Reason (optional)</string>
     <string name="id_change_reason_hint">Why does this need to change?</string>
     <string name="id_change_submit">Send request</string>
+    <string name="auth_email_invalid">Enter a valid email address, like layla@email.com</string>
+    <string name="auth_email_too_long">That email address is too long.</string>
+    <string name="auth_email_bad_tld">“.%1$s” isn\'t a valid domain extension.</string>
+    <string name="auth_email_did_you_mean">Did you mean %1$s?</string>
+    <string name="auth_email_disposable">Temporary or disposable email addresses aren\'t allowed. Please use a permanent personal or work email.</string>
 </resources>

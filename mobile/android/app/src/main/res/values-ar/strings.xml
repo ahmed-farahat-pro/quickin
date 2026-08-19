@@ -845,4 +845,9 @@
     <string name="id_change_reason">السبب (اختياري)</string>
     <string name="id_change_reason_hint">لماذا يحتاج هذا إلى التغيير؟</string>
     <string name="id_change_submit">إرسال الطلب</string>
+    <string name="auth_email_invalid">أدخل بريدًا إلكترونيًا صالحًا، مثل layla@email.com</string>
+    <string name="auth_email_too_long">عنوان البريد الإلكتروني طويل جدًا.</string>
+    <string name="auth_email_bad_tld">«‏.%1$s‏» ليست امتداد نطاق صالحًا.</string>
+    <string name="auth_email_did_you_mean">هل تقصد %1$s؟</string>
+    <string name="auth_email_disposable">لا يُسمح بعناوين البريد المؤقتة. يُرجى استخدام بريد شخصي أو بريد عمل دائم.</string>
 </resources>

@@ -53,12 +53,21 @@ struct ForgotPasswordView: View {
     }
 
     /// The inline hint under the email field: shown only once the user has
-    /// committed a non-empty, malformed address.
+    /// committed a non-empty address we would refuse. The sentence names the
+    /// actual problem, so `layla@gmail.con` — which used to sail through and
+    /// leave the user waiting for a code that could never be delivered — comes
+    /// back as "“.con” isn't a valid domain extension. Did you mean
+    /// layla@gmail.com?".
+    ///
+    /// `isValid` tolerates a disposable domain on purpose: a reset only ever
+    /// mails an account that already exists, so refusing one here would strand
+    /// whoever signed up before the blocklist. Sign-up is where that gate is.
     private var emailError: String? {
-        guard emailTouched, !EmailRules.normalized(email).isEmpty, !EmailRules.isValid(email) else {
+        guard emailTouched, !EmailRules.normalized(email).isEmpty,
+              !EmailRules.isValid(email), let problem = EmailRules.problem(with: email) else {
             return nil
         }
-        return loc.t("auth.email.invalid")
+        return EmailRules.message(for: problem, in: email)
     }
 
     private var canSend: Bool {

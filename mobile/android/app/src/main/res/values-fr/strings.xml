@@ -747,4 +747,9 @@
     <string name="id_change_reason">Motif (facultatif)</string>
     <string name="id_change_reason_hint">Pourquoi cette modification est-elle nécessaire ?</string>
     <string name="id_change_submit">Envoyer la demande</string>
+    <string name="auth_email_invalid">Saisissez une adresse e-mail valide, par exemple layla@email.com</string>
+    <string name="auth_email_too_long">Cette adresse e-mail est trop longue.</string>
+    <string name="auth_email_bad_tld">« .%1$s » n\'est pas une extension de domaine valide.</string>
+    <string name="auth_email_did_you_mean">Vouliez-vous dire %1$s ?</string>
+    <string name="auth_email_disposable">Les adresses e-mail temporaires ou jetables ne sont pas autorisées. Veuillez utiliser une adresse personnelle ou professionnelle permanente.</string>
 </resources>

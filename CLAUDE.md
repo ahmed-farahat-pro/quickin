@@ -43,6 +43,20 @@ visible to the web `/ops` console and vice-versa.
 - **Localization** — iOS keeps all four locales in `Sources/Localization.swift`
   (one dictionary per locale, key sets must stay identical). Android uses
   `res/values{,-ar,-fr,-es}/strings.xml`.
+- **Email rules are GENERATED, not hand-written.** `mobile/scripts/gen-email-rules.mjs`
+  reads the backend's `src/lib/local/email-core.ts` — the trusted-provider
+  allowlist, the IANA root zone and the disposable blocklist — and writes
+  `ios/Sources/EmailData.swift` and `android/.../EmailData.kt`. Both are marked
+  DO NOT EDIT. The decision logic beside them (`EmailRules.swift` /
+  `EmailRules.kt`) is hand-written and mirrors `checkEmail` tier for tier, so
+  the phone refuses exactly what the API would refuse, one round trip earlier.
+  Re-run the generator after the root zone is refreshed on the web
+  (`npm run check:tlds`), and commit what it produces.
+  Note the two entry points differ on purpose: sign-up applies the full policy
+  (temp-mail included), while sign-in and password reset use `isValid`, which
+  tolerates a disposable domain because they only ever touch an account that
+  already exists. The backend draws the same line — see its README, *The address
+  has to be one mail can reach*.
 
 ## Auth + OTP contract (shared with the backend)
 

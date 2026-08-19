@@ -73,13 +73,29 @@ struct AuthView: View {
         !isSignUp && biometricKind != .none && hasStoredBiometric
     }
 
+    /// What is wrong with the address, under the rule this mode is subject to.
+    ///
+    /// Sign-up gets the full policy, temp-mail included. Sign-in does not: it
+    /// only ever touches an account that already exists, so refusing a
+    /// disposable domain there would lock out whoever signed up before the
+    /// blocklist without stopping a single new account. The server draws the
+    /// line in the same place (`checkEmail` vs `isValidEmail`).
+    private var emailProblem: EmailRules.Problem? {
+        guard let problem = EmailRules.problem(with: email) else { return nil }
+        if !isSignUp, problem == .disposable { return nil }
+        return problem
+    }
+
     /// The inline hint under the email field: shown only once the user has
-    /// committed a non-empty, malformed address.
+    /// committed a non-empty address we would refuse. The sentence names the
+    /// actual problem — `layla@gmail.con` gets "“.con” isn't a valid domain
+    /// extension. Did you mean layla@gmail.com?", not a generic "invalid".
     private var emailError: String? {
-        guard emailTouched, !EmailRules.normalized(email).isEmpty, !EmailRules.isValid(email) else {
+        guard emailTouched, !EmailRules.normalized(email).isEmpty,
+              let problem = emailProblem else {
             return nil
         }
-        return loc.t("auth.email.invalid")
+        return EmailRules.message(for: problem, in: email)
     }
 
     /// The inline hint under the name field, armed the same way as the email's:
@@ -102,9 +118,9 @@ struct AuthView: View {
     }
 
     private var canSubmit: Bool {
-        // A malformed address can never sign in or sign up — gate the button on
-        // the format, not just on the field being non-empty.
-        guard EmailRules.isValid(email) else { return false }
+        // An address we would refuse can never sign in or sign up — gate the
+        // button on the whole rule, not just on the field being non-empty.
+        guard emailProblem == nil else { return false }
         if isSignUp {
             // New account: a real name + a password that clears the strength bar,
             // typed identically twice. Non-empty is not the test — `12345` is
@@ -556,7 +572,7 @@ struct AuthView: View {
         // address, but the keyboard's return key / a future caller shouldn't be
         // able to slip one past. Send the trimmed form.
         let email = EmailRules.normalized(self.email)
-        guard EmailRules.isValid(email) else {
+        guard emailProblem == nil else {
             emailTouched = true
             return
         }

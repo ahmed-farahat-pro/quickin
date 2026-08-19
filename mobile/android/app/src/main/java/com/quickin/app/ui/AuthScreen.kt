@@ -45,6 +45,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.AuthUiState
 import com.quickin.app.GoogleSignIn
+import com.quickin.app.EmailRules
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -103,6 +105,18 @@ fun AuthScreen(
 
     // An empty confirmation is not yet a wrong answer — the hint waits until something is typed.
     val passwordsMismatch = isSignUp && confirmPassword.isNotEmpty() && confirmPassword != password
+
+    // Armed once the email field has been left, so an address is never called
+    // wrong while it is still being typed. Sign-up is subject to the full rule
+    // (temp-mail included); sign-in is not, because it only ever touches an
+    // account that already exists. See `emailFieldError`.
+    var emailTouched by remember { mutableStateOf(false) }
+    val emailError = emailFieldError(raw = email, touched = emailTouched, fullPolicy = isSignUp)
+    val emailAcceptable = if (isSignUp) {
+        EmailRules.isAcceptableForSignup(email)
+    } else {
+        EmailRules.isValid(email)
+    }
 
     val loading = state.isLoading
 
@@ -178,11 +192,23 @@ fun AuthScreen(
 
             AuthField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it; if (emailTouched) emailTouched = false },
                 label = stringResource(R.string.auth_email),
                 enabled = !loading,
-                keyboardType = KeyboardType.Email
+                keyboardType = KeyboardType.Email,
+                isError = emailError != null,
+                onFocusLost = { emailTouched = true }
             )
+            if (emailError != null) {
+                Text(
+                    emailError,
+                    color = ErrorRed,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                )
+            }
             Spacer(Modifier.height(14.dp))
 
             AuthField(
@@ -252,7 +278,10 @@ fun AuthScreen(
             // Primary action — burgundy gradient with a pulsing ring (qkPulse).
             // On sign-up the button stays disabled until the new password meets the minimum bar and
             // has been typed identically twice.
-            val canSubmit = !loading &&
+            // An address the server would refuse can never sign in or sign up, so
+            // the button waits on it too — this screen used to submit anything
+            // with an `@` in it and let the user find out from a 400.
+            val canSubmit = !loading && emailAcceptable &&
                 (!isSignUp || (passwordMeetsMin(password) && confirmPassword == password))
             GradientButton(
                 onClick = {
@@ -407,10 +436,13 @@ private fun AuthField(
     enabled: Boolean,
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = false,
-    isError: Boolean = false
+    isError: Boolean = false,
+    /** Called when focus leaves the field — used to arm an inline hint. */
+    onFocusLost: (() -> Unit)? = null
 ) {
     // Independent reveal state per field; only meaningful when isPassword.
     var passwordVisible by remember { mutableStateOf(false) }
+    var wasFocused by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -446,7 +478,19 @@ private fun AuthField(
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { focus ->
+                // Fire only on the way OUT. An inline hint that appears the
+                // moment you tap the field is telling you your address is wrong
+                // before you have typed it.
+                if (focus.isFocused) {
+                    wasFocused = true
+                } else if (wasFocused) {
+                    wasFocused = false
+                    onFocusLost?.invoke()
+                }
+            }
     )
 }
 

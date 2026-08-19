@@ -59,7 +59,7 @@ Host: `HostDashboardView.swift`, `HostTabs.swift`, `HostAnalyticsView.swift`, `A
 Services: `ServicesView.swift`, `ServiceDetailView.swift`.
 Profile: `ProfileView.swift`, `ProfileSettingsView.swift`.
 Reviews/trust: `ReviewViews.swift`, `GuestReviewViews.swift`, `TrustBadgesView.swift`, `IdentityVerificationCard.swift`, `EgyptianIDScanView.swift`.
-Growth/AI/misc: `GrowthViews.swift` (referrals etc.), `AITravelChatView.swift`, `ChatView.swift`, `NotificationsView.swift`, `NotificationPrimerView.swift`, `ReportSheet.swift`, `ShareLinks.swift`.
+Growth/AI/misc: `GrowthViews.swift` (length-of-stay + seasonal pricing), `AITravelChatView.swift`, `ChatView.swift`, `NotificationsView.swift`, `NotificationPrimerView.swift`, `ReportSheet.swift`, `ShareLinks.swift`.
 
 ### Design system & support
 - `DesignKit.swift`, `Theme.swift`, `BrandHeader.swift`, `Amenities.swift`, `SkeletonCard.swift`, `PhotoPlaceholder.swift`, `WishlistToast.swift` — boutique palette (burgundy/cream/tan), `qkCard`, `QKPrimaryButtonLabel`, `QKPressStyle`, `QKScreenSwap`, etc.
@@ -138,7 +138,7 @@ The session store. Published: `isAuthenticated`, `user`, `errorMessage`, `isLoad
 - **Host suite** — `HostDashboardView`, `HostTabs`, `HostAnalyticsView`, `AddListingView` (1.2k lines; `LocationPickerMap` pin-picker), `AddServiceView`, `AvailabilityManagerView`, `HostProfileView`. Reached from Profile (unified account — there is no separate host tab set; everyone gets the single 5-tab guest layout).
 - **AI** — `AITravelChatView`/`AITravelChatService` (chat), `AISearchView`/`AIService` (natural-language search), `ChatView`.
 - **Trust/verification** — `EgyptianIDScanView` (camera → OCR), `IdentityVerificationCard`, `TrustBadgesView`.
-- **Growth** — `GrowthViews` (referrals, subscriptions), `MySubscriptionsView`.
+- **Growth** — `GrowthViews` (discounts, seasonal pricing), `MySubscriptionsView`.
 
 **Tab set** (`RootView.guestTabs`, `QuickInApp.swift:164-187`): Explore (0) · Services (1) · Wishlist (2) · Trips (3) · Profile (4). Profile/Wishlist swap to a `SignInCTAView` when signed out.
 

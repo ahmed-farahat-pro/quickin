@@ -328,7 +328,6 @@ private fun MainApp() {
     val reserveState by bookingsViewModel.reserve.collectAsState()
     val detailState by bookingsViewModel.detail.collectAsState()
     val paymentState by bookingsViewModel.payment.collectAsState()
-    val referralState by bookingsViewModel.referrals.collectAsState()
 
     val hostViewModel: HostViewModel = viewModel()
     val hostBookingsState by hostViewModel.bookings.collectAsState()
@@ -1653,8 +1652,6 @@ private fun MainApp() {
                             hostViewModel.loadAnalytics()
                             showAnalytics = true
                         },
-                        referralState = referralState,
-                        onLoadReferrals = bookingsViewModel::loadReferrals,
                         modifier = Modifier.padding(padding)
                     )
                 } else {

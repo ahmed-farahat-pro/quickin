@@ -247,7 +247,7 @@ tab, not a separate tab set — the tab set never changes on role.
 - `ServicesScreen` — public bookable experiences feed.
 - `WishlistScreen` — saved stays + experiences (signed-out → sign-in prompt).
 - `ReservationsScreen` (Trips) — the user's own bookings.
-- `ProfileScreen` — avatar/bio, received reviews, ID verification, "Become a host", referrals, and
+- `ProfileScreen` — avatar/bio, received reviews, ID verification, "Become a host", and
   the entry points to host/settings/subscriptions/receipts/earnings/analytics screens.
 
 **Full-screen overlays** (each an `if (…) return` in precedence order, `:737-1198`):

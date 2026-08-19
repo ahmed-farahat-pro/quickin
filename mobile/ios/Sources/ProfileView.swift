@@ -57,7 +57,6 @@ struct ProfileView: View {
                             settingsEntry
                             receiptsEntry
                             messagesEntry
-                            referralEntry
                             languageEntry
                             currencyEntry
                             legalSection
@@ -225,38 +224,6 @@ struct ProfileView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.qkInk)
                     Text(loc.t("profile.editProfile.subtitle"))
-                        .font(.caption)
-                        .foregroundStyle(Color.qkMuted)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.forward")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.qkTan4)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 15)
-            .contentShape(Rectangle())
-            .qkCard(cornerRadius: 18)
-        }
-        .buttonStyle(.qkTap)
-    }
-
-    /// Entry into the "Refer friends" surface (referral code + stats), wrapped in
-    /// a NavigationLink that mirrors `settingsEntry`'s look.
-    private var referralEntry: some View {
-        NavigationLink {
-            ReferralView()
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "gift.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Color.qkBurgundy)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(loc.t("referral.title"))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.qkInk)
-                    Text(loc.t("referral.subtitle"))
                         .font(.caption)
                         .foregroundStyle(Color.qkMuted)
                 }

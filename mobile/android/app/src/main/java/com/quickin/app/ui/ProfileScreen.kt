@@ -25,11 +25,8 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MailOutline
@@ -41,22 +38,18 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,11 +58,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -131,10 +122,6 @@ fun ProfileScreen(
     onOpenEarnings: () -> Unit = {},
     /** Opens the host's analytics dashboard (Section 10, host only). */
     onOpenAnalytics: () -> Unit = {},
-    /** Referral summary for the "Refer friends" section (code + stats). */
-    referralState: com.quickin.app.ReferralUiState = com.quickin.app.ReferralUiState(),
-    /** Loads the user's referral summary (`GET /api/local/referrals`) when the section appears. */
-    onLoadReferrals: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val name = state.userName?.takeUnless { it.isBlank() } ?: stringResource(R.string.profile_guest)
@@ -248,11 +235,6 @@ fun ProfileScreen(
 
         // "Reviews about you" — the reviews this user has received from hosts (two-way reviews).
         ReviewsAboutYouSection(receivedReviews)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // "Refer friends" — the user's shareable referral code + stats (Growth).
-        ReferFriendsSection(state = referralState, onLoad = onLoadReferrals)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -836,152 +818,6 @@ private fun ReviewsAboutYouSection(state: com.quickin.app.ReceivedReviewsUiState
             else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 state.reviews.forEach { review -> GuestReviewCard(review) }
             }
-        }
-    }
-}
-
-/**
- * "Refer friends" block on the Profile tab (Growth). Loads the user's referral summary
- * (`GET /api/local/referrals`) on first appearance and renders their shareable code (with a
- * copy-to-clipboard + share button), the friends-referred count, total rewards, and the list of
- * referred friends. RTL-safe — rows follow the layout direction and use localized copy.
- */
-@Composable
-private fun ReferFriendsSection(
-    state: com.quickin.app.ReferralUiState,
-    onLoad: () -> Unit
-) {
-    LaunchedEffect(Unit) { onLoad() }
-
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    val summary = state.summary
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 12.dp)
-        ) {
-            Icon(Icons.Filled.CardGiftcard, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            SectionHeader(stringResource(R.string.referral_title), modifier = Modifier.weight(1f))
-        }
-
-        BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
-            Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
-                when {
-                    state.isLoading && summary == null -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text(stringResource(R.string.referral_loading), color = Muted, fontSize = 14.sp)
-                    }
-                    summary == null -> Text(
-                        state.error ?: stringResource(R.string.referral_error),
-                        color = Muted,
-                        fontSize = 14.sp
-                    )
-                    else -> {
-                        Text(stringResource(R.string.referral_intro), color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
-
-                        Spacer(Modifier.height(14.dp))
-                        Text(stringResource(R.string.referral_your_code), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(6.dp))
-                        // The code in a tan tile with copy + share actions.
-                        Surface(color = Tan, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Text(
-                                    summary.code.ifBlank { "—" },
-                                    color = Burgundy,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    letterSpacing = 2.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                if (summary.code.isNotBlank()) {
-                                    IconButton(onClick = {
-                                        clipboard.setText(AnnotatedString(summary.code))
-                                        copied = true
-                                    }) {
-                                        Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.referral_copy), tint = Burgundy, modifier = Modifier.size(20.dp))
-                                    }
-                                    IconButton(onClick = {
-                                        com.quickin.app.shareText(
-                                            context = context,
-                                            text = context.getString(R.string.referral_share_message, summary.code),
-                                            chooserTitle = context.getString(R.string.referral_share)
-                                        )
-                                    }) {
-                                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.referral_share), tint = Burgundy, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                            }
-                        }
-                        if (copied) {
-                            Text(stringResource(R.string.referral_copied), color = Gold, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-                        // Two stat tiles: friends referred + rewards earned.
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                            ReferralStat(
-                                icon = Icons.Filled.Group,
-                                value = summary.count.toString(),
-                                label = stringResource(R.string.referral_invited),
-                                modifier = Modifier.weight(1f)
-                            )
-                            ReferralStat(
-                                icon = Icons.Filled.CardGiftcard,
-                                value = summary.rewardTotalText,
-                                label = stringResource(R.string.referral_reward),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        // The referred-friends list, or a quiet empty line.
-                        Spacer(Modifier.height(16.dp))
-                        if (summary.referred.isEmpty()) {
-                            Text(stringResource(R.string.referral_none), color = Muted, fontSize = 13.sp)
-                        } else {
-                            Text(stringResource(R.string.referral_invited_list), color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(8.dp))
-                            summary.referred.forEachIndexed { index, friend ->
-                                if (index > 0) HorizontalDivider(color = Tan, modifier = Modifier.padding(vertical = 8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Text(friend.name, color = Ink, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    friend.rewardText?.let {
-                                        Text(it, color = Gold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** A small stat tile (icon + value + label) used in the referral summary. */
-@Composable
-private fun ReferralStat(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(color = Cream, shape = RoundedCornerShape(14.dp), modifier = modifier) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(icon, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(value, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text(label, color = Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
         }
     }
 }

@@ -497,6 +497,7 @@
     <string name="approval_submitted_for_review">تم الإرسال للمراجعة</string>
     <string name="approval_pending_note">إعلانك قيد المراجعة وغير متاح للعامة بعد. سنُعلمك بمجرد الموافقة عليه.</string>
     <string name="approval_rejected_note">تم رفض مستند الملكية. أعد رفعه لإرسال إعلانك للمراجعة مرة أخرى.</string>
+    <string name="approval_rejected_reason">سبب عدم الموافقة</string>
     <string name="approval_doc_resubmitted">تم إرسال المستند. إعلانك قيد المراجعة مرة أخرى.</string>
 
     <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->

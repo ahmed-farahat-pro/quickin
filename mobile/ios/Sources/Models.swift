@@ -93,6 +93,14 @@ struct Listing: Codable, Identifiable, Hashable {
     /// `nil` when the backend omits it (older responses). Drives the
     /// "Listed 27 Jul 2026" line on the host's own listing rows.
     let createdAt: String?
+    /// Why staff rejected this listing, from the `review_note` column. `nil` when they
+    /// rejected without writing a reason (the note is optional), on listings rejected
+    /// before the reason was stored at all, and on every guest read — the backend
+    /// returns it only in the host projection, since it is staff-authored text about
+    /// this host. Shown under the "Rejected" badge on the host's own listing rows,
+    /// which fall back to generic guidance when it is nil. Cleared server-side the
+    /// moment the listing goes back into the review queue.
+    let reviewNote: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, location, country, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
@@ -113,6 +121,7 @@ struct Listing: Codable, Identifiable, Hashable {
         case weekendPrice = "weekend_price"
         case monthlyPrices = "monthly_prices"
         case createdAt = "created_at"
+        case reviewNote = "review_note"
     }
 
     init(from decoder: Decoder) throws {
@@ -153,6 +162,11 @@ struct Listing: Codable, Identifiable, Hashable {
         monthlyPrices = (try c.decodeIfPresent([String: Double].self, forKey: .monthlyPrices) ?? [:])
             .filter { $0.value > 0 }
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        // Blank and whitespace-only are the same as absent: the server already
+        // normalizes them to NULL, and treating "" as a reason here would render an
+        // empty box where the generic copy belongs.
+        reviewNote = (try c.decodeIfPresent(String.self, forKey: .reviewNote))
+            .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
     }
 
     /// `true` once the place has at least one review backing a rating.

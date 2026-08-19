@@ -448,7 +448,11 @@ object SupabaseService {
             monthlyPrices = monthlyPrices,
             // When the listing was created (ISO-8601); absent on feeds that don't select the
             // column → null, and the "Listed …" line on the host card simply doesn't render.
-            createdAt = o.optStringOrNull("created_at")
+            createdAt = o.optStringOrNull("created_at"),
+            // The operator's reason for a rejection; absent on guest feeds (the column is
+            // host-projection only) and on rejections left unexplained → null, and the host
+            // card shows its generic "needs changes" copy instead.
+            reviewNote = o.optStringOrNull("review_note")
         )
     }
 }

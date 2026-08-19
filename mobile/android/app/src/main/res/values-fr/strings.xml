@@ -420,6 +420,7 @@
     <string name="approval_submitted_for_review">Soumis pour examen</string>
     <string name="approval_pending_note">Votre annonce est en cours d\'examen et n\'est pas encore publique. Nous vous préviendrons dès qu\'elle sera approuvée.</string>
     <string name="approval_rejected_note">Votre justificatif de propriété a été refusé. Téléversez-le à nouveau pour soumettre votre annonce à un nouvel examen.</string>
+    <string name="approval_rejected_reason">Pourquoi l\'annonce n\'a pas été approuvée</string>
     <string name="approval_doc_resubmitted">Document soumis. Votre annonce est de nouveau en cours d\'examen.</string>
 
     <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->

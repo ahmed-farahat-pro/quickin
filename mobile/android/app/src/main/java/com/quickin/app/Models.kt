@@ -95,7 +95,16 @@ data class Listing(
      * "Listed 27 Jul 2026" line on the host's own listing cards, so a host can tell at a glance
      * when a place went up (and how long a pending one has been waiting).
      */
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    /**
+     * Why staff rejected this listing (parsed from "review_note"); null when they rejected
+     * without writing a reason (the note is optional), on listings rejected before the reason
+     * was stored at all, and on every guest read — the backend returns the column only in the
+     * host projection, since it is staff-authored text about this host. Rendered under the
+     * "Rejected" badge on the host's own listing cards, which fall back to generic guidance
+     * when it is null. Cleared server-side the moment the listing goes back to "pending".
+     */
+    val reviewNote: String? = null
 ) {
     /**
      * Photo URLs sorted by their order. Empty when the listing has no photos — callers

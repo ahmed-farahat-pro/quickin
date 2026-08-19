@@ -81,12 +81,18 @@ struct ListingPhotoDraft: Identifiable, Hashable {
 /// 4-step wizard (Basics → Location → Details → Review) over the same field set
 /// and the same create-listing networking the single-form version used.
 ///
-/// • Step 1 — Basics: title (required), property type, description.
+/// • Step 1 — Basics: title + description (both required), property type.
 /// • Step 2 — Location: Google Maps draggable pin-picker + place search that
 ///   geocodes free text via the Google Geocoding HTTP API and recenters the map.
-///   A pin is required to advance.
-/// • Step 3 — Details: capacity steppers + price (required) + cancellation
-///   policy + an ownership / proof-of-ownership document (PhotosPicker).
+///   The area, the address and a pin are all required to advance.
+/// • Step 3 — Details: capacity steppers + price (required) + at least one photo
+///   (required) + cancellation policy + an ownership / proof-of-ownership
+///   document (PhotosPicker, optional).
+///
+/// Title and price used to be the only two of those the flow insisted on, which
+/// is how listings reached the database with nothing a guest could read, find or
+/// look at. The per-step gates below are the same rule the web enforces in
+/// `listing-completeness-policy.ts` and the API enforces in `createListing`.
 /// • Step 4 — Review: a read-only summary and the "Submit for review" button.
 ///   New listings are created pending + unpublished until an admin approves —
 ///   the success copy reflects that, and the host tracks status on their
@@ -207,11 +213,38 @@ struct AddListingView: View {
 
     // MARK: - Per-step validation
 
-    private var step1Valid: Bool {
+    /// Enough letters to be words, in any script — `@@@@@@` and `12345` are not a
+    /// description however long they are. Mirrors the web's
+    /// `listing-completeness-policy.ts`, which counts letters for the same reason.
+    private func letterCount(_ text: String) -> Int {
+        text.reduce(into: 0) { total, ch in if ch.isLetter { total += 1 } }
+    }
+
+    /// Enough letters to be a description. Same floor as the web (and as the
+    /// dashboard wizard's zod schema before it).
+    static let minDescriptionLetters = 20
+    /// Enough letters to be a place name. `12` is a door number, not an address.
+    static let minLocationLetters = 3
+
+    /// The title on its own. Kept apart from `step1Valid` because it is also what
+    /// gates the AI description writer — folding the description requirement into
+    /// that gate would lock the host out of the button that writes it for them.
+    private var titleValid: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
     }
-    private var step2Valid: Bool { region != nil && coordinate != nil }
-    private var step3Valid: Bool { price > 0 }
+
+    // A listing needed only a title and a price to be created: no description, no
+    // address, no photo. See listing-completeness-policy.ts on the web — these
+    // three gates are the same rule, said in the order the steps are laid out.
+    private var step1Valid: Bool {
+        titleValid && letterCount(description) >= Self.minDescriptionLetters
+    }
+    private var step2Valid: Bool {
+        region != nil
+            && coordinate != nil
+            && letterCount(location) >= Self.minLocationLetters
+    }
+    private var step3Valid: Bool { price > 0 && !photos.isEmpty }
 
     /// Whether the current step's required fields are satisfied (gates Next).
     private var currentStepValid: Bool {
@@ -244,7 +277,7 @@ struct AddListingView: View {
                             propertyType: $propertyType,
                             propertyTypes: propertyTypes,
                             isWritingDescription: isWritingDescription,
-                            canWrite: step1Valid,
+                            canWrite: titleValid,
                             writerError: writerError,
                             onWriteWithAI: { Task { await writeDescription() } }
                         ) }
@@ -740,6 +773,31 @@ private struct LocationStep: View {
                     .foregroundStyle(Color.qkMuted)
                 Spacer()
             }
+        }
+
+        // The pin and the words above it used to be independent: a host could pick
+        // Egypt → North Coast and drop the pin in Germany, and it saved silently.
+        // This says so — and deliberately does not block the step, because a
+        // bounding box must never be the reason a real property can't be listed.
+        // An ignored warning is badged for the operator in /ops. See
+        // ListingGeoPolicy.swift.
+        if let pinProblem = ListingGeoPolicy.check(
+            coordinate: coordinate,
+            country: country,
+            region: region
+        ) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.qkBurgundy)
+                Text(pinProblem.message)
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .background(Color.qkBurgundy.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
 
         FieldLabel("Location (city)", required: locationRequired)
@@ -1684,9 +1742,17 @@ struct EditListingView: View {
 
     // MARK: - Per-step validation (the wizard's rules + the two PATCH requires)
 
+    /// The same floors the create wizard and the API hold — a non-empty check
+    /// passed `ok` as a description and `12` as an address, and the API refuses
+    /// both now, so gating on "not empty" here would just turn a rule the host
+    /// could have been shown into a 400 after they pressed Save.
+    private func letterCount(_ text: String) -> Int {
+        text.reduce(into: 0) { total, ch in if ch.isLetter { total += 1 } }
+    }
+
     private var step1Valid: Bool {
         !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
-            && !draft.description.trimmingCharacters(in: .whitespaces).isEmpty
+            && letterCount(draft.description) >= AddListingView.minDescriptionLetters
     }
     /// The region has to be one the backend accepts — a listing carrying an
     /// older/unknown area has to be re-picked rather than 400 on save.
@@ -1694,7 +1760,7 @@ struct EditListingView: View {
         let region = draft.region?.trimmingCharacters(in: .whitespaces) ?? ""
         return ListingFormOptions.regions.contains { $0.caseInsensitiveCompare(region) == .orderedSame }
             && coordinate != nil
-            && !draft.location.trimmingCharacters(in: .whitespaces).isEmpty
+            && letterCount(draft.location) >= AddListingView.minLocationLetters
     }
     private var step3Valid: Bool { price > 0 }
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.quickin.app.ui.passwordMeetsMin
 
 /** State for the profile-settings screen (`GET` / `PATCH /api/local/profile`). */
 data class ProfileSettingsUiState(
@@ -151,7 +152,8 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
 
     /**
      * Changes the account password (`POST /api/local/change-password`). Validates the new password
-     * length locally (min 6) before hitting the network. On success the `passwordChanged` flag is
+     * locally against [passwordMeetsMin] — the same rules the checklist under the field draws and
+     * the same ones the server enforces — before hitting the network. On success the `passwordChanged` flag is
      * set so the screen can confirm + clear its fields; a 400 (wrong current password) lands in
      * [ProfileSettingsUiState.passwordError].
      */
@@ -165,8 +167,12 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
             _state.value = _state.value.copy(passwordError = "Enter your current password.")
             return
         }
-        if (newPassword.length < 6) {
-            _state.value = _state.value.copy(passwordError = "New password must be at least 6 characters.")
+        // The screen's button already gates on this; re-checking here keeps the one policy in
+        // one place, so no caller can slip a password past the checklist the user was shown.
+        if (!passwordMeetsMin(newPassword)) {
+            _state.value = _state.value.copy(
+                passwordError = "New password must meet all the requirements listed below."
+            )
             return
         }
         _state.value = _state.value.copy(

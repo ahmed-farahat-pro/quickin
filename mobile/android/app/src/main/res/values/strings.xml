@@ -502,6 +502,7 @@
     <string name="approval_submitted_for_review">Submitted for review</string>
     <string name="approval_pending_note">Your listing is under review and isn\'t public yet. We\'ll let you know once it\'s approved.</string>
     <string name="approval_rejected_note">Your ownership document was declined. Re-upload it to submit your listing for review again.</string>
+    <string name="approval_rejected_reason">Why it wasn\'t approved</string>
     <string name="approval_doc_resubmitted">Document submitted. Your listing is under review again.</string>
 
     <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->
@@ -523,6 +524,8 @@
     <string name="listing_edit_needs_description">Add a description.</string>
     <string name="listing_edit_needs_location">Add the location.</string>
     <string name="listing_edit_needs_region">Pick the area your place is in.</string>
+    <string name="listing_edit_needs_pin">Place your listing on the map.</string>
+    <string name="listing_edit_needs_photo">A listing needs at least one photo.</string>
     <string name="listing_edit_needs_price">Price per night must be more than 0.</string>
     <string name="listing_edit_discard_title">Discard your changes?</string>
     <string name="listing_edit_discard_body">Your edits to this listing haven\'t been saved.</string>

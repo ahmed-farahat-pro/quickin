@@ -715,6 +715,15 @@ struct HostListingRow: View {
                 Spacer(minLength: 0)
             }
 
+            // Why it was rejected. A red badge alone tells a host they're blocked
+            // without telling them what to change, which is the one thing the badge
+            // exists to prompt. Driven by the LOCAL `status`, not the decoded one, so
+            // it disappears the instant a re-submit or an edit flips this row back to
+            // "Pending review" — the server has cleared the note by then anyway.
+            if status == .rejected {
+                rejectionReason
+            }
+
             // Every field of the listing (and its photos) is editable from here.
             editButton
 
@@ -751,6 +760,29 @@ struct HostListingRow: View {
     }
 
     // MARK: - Pieces
+
+    /// The operator's reason for rejecting this listing, or generic guidance when
+    /// they left none — `review_note` is nil both when the note was skipped (it is
+    /// optional) and on listings rejected before the reason was stored at all.
+    private var rejectionReason: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(loc.t("approval.rejectedReason"))
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.qkBurgundy)
+            Text(listing.reviewNote ?? loc.t("approval.rejectedNoReason"))
+                .font(.system(size: 13))
+                .foregroundStyle(Color.qkInk)
+                // Staff text of unknown length: let it wrap freely rather than
+                // truncating the one thing the host needs to read.
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
+        .padding(10)
+        .background(Color.qkBurgundy.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 
     /// Opens the full listing editor (every field + photo management). Saving
     /// there sends the listing back for review — the editor warns first.

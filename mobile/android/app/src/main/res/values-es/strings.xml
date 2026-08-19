@@ -420,6 +420,7 @@
     <string name="approval_submitted_for_review">Enviado para revisión</string>
     <string name="approval_pending_note">Su anuncio está en revisión y aún no es público. Le avisaremos en cuanto se apruebe.</string>
     <string name="approval_rejected_note">Su documento de propiedad fue rechazado. Vuelva a subirlo para enviar su anuncio a revisión de nuevo.</string>
+    <string name="approval_rejected_reason">Por qué no se aprobó</string>
     <string name="approval_doc_resubmitted">Documento enviado. Su anuncio está de nuevo en revisión.</string>
 
     <!-- Host listing editor (every field + photos; saving sends the listing back for review) -->

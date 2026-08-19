@@ -48,7 +48,7 @@ import com.quickin.app.ui.theme.Tan
  * grows from the leading edge, so under Arabic everything mirrors automatically.
  */
 
-/** The five password rules we score against, in checklist order. */
+/** The five password rules we score against, in checklist order. All five are required. */
 private enum class PwRule(val labelRes: Int, val test: (String) -> Boolean) {
     MinLength(R.string.pw_rule_length, { it.length >= 8 }),
     Uppercase(R.string.pw_rule_uppercase, { pw -> pw.any { it.isUpperCase() } }),
@@ -58,15 +58,20 @@ private enum class PwRule(val labelRes: Int, val test: (String) -> Boolean) {
 }
 
 /**
- * The minimum bar to enable a "set password" action: length ≥ 8 plus upper, lower and a digit
- * (a special character is bonus that lifts the score, but isn't required). Drives the primary
- * button's enabled state on each new-password screen.
+ * The minimum bar to enable a "set password" action: every rule the checklist above draws —
+ * length ≥ 8 plus upper, lower, a digit and a special character. These are exactly the tick-box
+ * rules the backend's password policy enforces on signup, reset and change-password, so a
+ * password this function accepts is one the server accepts too. Showing a requirement and then
+ * not enforcing it is the worst of both: the user is told the password is incomplete and let
+ * through anyway, only to be refused on submit. Drives the primary button's enabled state on
+ * each new-password screen.
  */
 fun passwordMeetsMin(pw: String): Boolean =
     PwRule.MinLength.test(pw) &&
         PwRule.Uppercase.test(pw) &&
         PwRule.Lowercase.test(pw) &&
-        PwRule.Digit.test(pw)
+        PwRule.Digit.test(pw) &&
+        PwRule.Special.test(pw)
 
 /** Maps a 0..5 [score] to its label + color, per the spec's ramp. */
 private fun strengthLabelRes(score: Int): Int = when {

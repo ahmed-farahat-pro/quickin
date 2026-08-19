@@ -61,6 +61,7 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -112,6 +113,7 @@ import androidx.compose.ui.unit.sp
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.AvatarImage
 import com.quickin.app.Commission
+import com.quickin.app.ListingGeoPolicy
 import com.quickin.app.ListingGate
 import com.quickin.app.Config
 import com.quickin.app.CreateListingUiState
@@ -636,14 +638,32 @@ private fun HostListingCard(
             // Pending / rejected listings get a status note + a (re)upload affordance.
             if (listing.isPendingApproval || listing.isRejected) {
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    stringResource(
-                        if (listing.isRejected) com.quickin.app.R.string.approval_rejected_note
-                        else com.quickin.app.R.string.approval_pending_note
-                    ),
-                    color = Muted,
-                    fontSize = 13.sp
-                )
+                if (listing.isRejected) {
+                    // Why it was rejected. The badge alone tells a host they're blocked without
+                    // telling them what to change, which is the one thing the badge exists to
+                    // prompt. reviewNote is null when the operator wrote no reason (it is
+                    // optional) and on listings rejected before the reason was stored at all —
+                    // both fall back to the generic line this block used to always show.
+                    Text(
+                        stringResource(com.quickin.app.R.string.approval_rejected_reason),
+                        color = Burgundy,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        listing.reviewNote
+                            ?: stringResource(com.quickin.app.R.string.approval_rejected_note),
+                        color = Ink,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                } else {
+                    Text(
+                        stringResource(com.quickin.app.R.string.approval_pending_note),
+                        color = Muted,
+                        fontSize = 13.sp
+                    )
+                }
                 if (justSubmitted) {
                     Text(
                         stringResource(com.quickin.app.R.string.approval_doc_resubmitted),
@@ -1562,6 +1582,17 @@ private const val TOTAL_STEPS = 4
 /** Max device photos a host can attach to a listing (the first is the cover). */
 internal const val MAX_LISTING_PHOTOS = 10
 
+/** Enough letters to be a description. Same floor as the web's
+ *  `listing-completeness-policy.ts`, which is where this rule is written down. */
+internal const val MIN_DESCRIPTION_LETTERS = 20
+
+/** Enough letters to be a place name. `12` is a door number, not an address. */
+internal const val MIN_LOCATION_LETTERS = 3
+
+/** Letters in any script — `@@@@@@` and `12345` are not a description however
+ *  long they are, which is why the floors above count letters, not characters. */
+internal fun letterCount(text: String): Int = text.count { it.isLetter() }
+
 @Composable
 private fun AddListingTab(
     state: CreateListingUiState,
@@ -1721,10 +1752,18 @@ private fun AddListingTab(
     var pickedLatLng by remember { mutableStateOf<LatLng?>(null) }
 
     // Per-step validation of required fields; gates the Next / Publish button.
+    //
+    // A listing needed only a title and a price to be created — no description,
+    // no address, no photo — so listings reached the database with nothing a
+    // guest could read, find or look at. These gates are the same rule the web
+    // enforces in `listing-completeness-policy.ts` and the API enforces in
+    // `createListing`, said in the order the steps are laid out.
     val canAdvance = when (step) {
-        0 -> title.isNotBlank()
-        1 -> region != null && pickedLatLng != null
-        2 -> price.isNotBlank()
+        0 -> title.isNotBlank() && letterCount(description) >= MIN_DESCRIPTION_LETTERS
+        1 -> region != null && pickedLatLng != null && letterCount(location) >= MIN_LOCATION_LETTERS
+        // Price and photos both live on StepDetails; step 3 is the read-only
+        // review, where there is no picker to satisfy a photo rule with.
+        2 -> price.isNotBlank() && photos.isNotEmpty()
         else -> true
     }
 
@@ -2023,6 +2062,25 @@ internal fun StepLocation(
     // Searchable, Egypt-first country picker (parity with web's country dropdown and the
     // iOS CountryPickerField) instead of a free-text field.
     CountrySelector(value = country, onSelect = onCountry, label = "Country")
+
+    // The pin and the words around it used to be independent: a host could pick Egypt →
+    // North Coast and drop the pin in Germany, and it saved silently. This says so — and
+    // deliberately does not gate the step, because a bounding box must never be the reason a
+    // real property can't be listed. An ignored warning is badged for the operator who
+    // approves the listing in /ops. See ListingGeoPolicy.kt.
+    ListingGeoPolicy.check(picked?.latitude, picked?.longitude, country, region)?.let { problem ->
+        Row(
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Burgundy.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            Icon(Icons.Filled.Warning, null, tint = Burgundy, modifier = Modifier.size(18.dp))
+            Text(problem.message, color = Burgundy, fontSize = 13.sp)
+        }
+    }
 }
 
 /** A single-select area pill (Step 2): filled Burgundy when selected, outlined Tan otherwise. */

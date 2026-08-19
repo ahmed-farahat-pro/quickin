@@ -26,6 +26,10 @@ final class IDChangeRequestModel: ObservableObject {
     @Published var backImage: UIImage?
 
     @Published var isSubmitting = false
+    /// Set while a picked photo is decoding (an iCloud original has to download
+    /// first), so the slot can show a spinner instead of looking inert.
+    @Published var loadingFront = false
+    @Published var loadingBack = false
     @Published var errorMessage: String?
 
     var canSubmit: Bool {
@@ -35,24 +39,31 @@ final class IDChangeRequestModel: ObservableObject {
     }
 
     /// Load a `PhotosPickerItem` off the main thread into the staged slot.
+    ///
+    /// Same reasoning as the verification card: `loadTransferable` fails outright on
+    /// iCloud-backed, shared-album and Live Photo assets, so this goes through
+    /// `QKPhotoPickerLoader`, which falls back to an iCloud-aware Photos fetch.
     func loadPicked(_ item: PhotosPickerItem?, isFront: Bool) async {
         guard let item else { return }
         errorMessage = nil
-        do {
-            guard
-                let data = try await item.loadTransferable(type: Data.self),
-                let image = UIImage(data: data)
-            else {
-                errorMessage = L.t("trust.uploadError")
-                return
-            }
+        // Only touch this slot's flag — the other slot may be mid-load of its own.
+        if isFront { loadingFront = true } else { loadingBack = true }
+        defer {
+            if isFront { loadingFront = false } else { loadingBack = false }
+        }
+
+        switch await QKPhotoPickerLoader.loadImage(from: item) {
+        case .success(let image):
             set(image, isFront: isFront)
-        } catch {
-            errorMessage = error.localizedDescription
+        case .failure(let reason):
+            errorMessage = L.t(reason.messageKey)
         }
     }
 
     func set(_ image: UIImage, isFront: Bool) {
+        // Drop a stale error from an earlier failed pick, so filling the slot from
+        // the camera doesn't leave a contradictory complaint on screen.
+        errorMessage = nil
         if isFront { frontImage = image } else { backImage = image }
     }
 
@@ -63,8 +74,11 @@ final class IDChangeRequestModel: ObservableObject {
     /// both the mobile API and the admin console read, and a second copy here would be
     /// a third place for them to drift.
     func submit() async -> IDChangeState? {
-        guard let front = frontImage else { return nil }
         errorMessage = nil
+        guard let front = frontImage else {
+            errorMessage = L.t("trust.needDocumentPhoto")
+            return nil
+        }
         isSubmitting = true
         defer { isSubmitting = false }
 
@@ -247,7 +261,9 @@ struct IDChangeRequestView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.qkTan.opacity(0.4))
-                if let image {
+                if isFront ? model.loadingFront : model.loadingBack {
+                    ProgressView().tint(Color.qkBurgundy)
+                } else if let image {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()

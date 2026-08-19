@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS listings (
   is_published      boolean DEFAULT true,
   approval_status   text DEFAULT 'pending',              -- moderation: 'pending' | 'approved' | 'rejected'. New listings start pending; an admin approves in /ops (flips is_published + notifies the host). NULL/legacy rows treated as approved.
   ownership_doc     text,                                -- proof-of-ownership image the host attaches (data:image/… or https URL). Admin-only — shown in the moderation queue; re-uploading re-queues the listing to 'pending'.
+  review_note       text,                                -- the operator's reason for a rejection, shown to the host on /host and in the listing editor (and on the iOS/Android host dashboards). NULL when they gave none — the note is optional. Cleared whenever the listing goes back to 'pending'.
   listing_code      text,
   lat               double precision,
   lng               double precision,

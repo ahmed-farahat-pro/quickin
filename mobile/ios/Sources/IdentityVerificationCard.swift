@@ -75,6 +75,10 @@ final class IdentityVerificationModel: ObservableObject {
 
     /// True while the staged photos are being encoded + uploaded.
     @Published var isSubmitting = false
+    /// Which slot is currently decoding a picked photo, so it can show a spinner.
+    /// An iCloud photo has to be downloaded first and that is not instant; without
+    /// this the slot just sits empty and looks like nothing happened.
+    @Published var loadingSide: IDSide?
     @Published var errorMessage: String?
 
     var canSubmit: Bool { frontImage != nil && backImage != nil && selfieImage != nil && !isSubmitting }
@@ -93,6 +97,7 @@ final class IdentityVerificationModel: ObservableObject {
         status = .unverified
         hasLoaded = false
         errorMessage = nil
+        loadingSide = nil
         frontImage = nil
         backImage = nil
         selfieImage = nil
@@ -100,24 +105,31 @@ final class IdentityVerificationModel: ObservableObject {
     }
 
     /// Load a `PhotosPickerItem` chosen for the given side off the main thread.
+    ///
+    /// Goes through `QKPhotoPickerLoader` rather than calling `loadTransferable`
+    /// directly: photos kept in iCloud, in a Shared Album, or stored as Live Photos
+    /// have no data representation to hand over and made that call throw a
+    /// `CoreTransferable` error, which used to be shown to the user verbatim.
     func loadPicked(_ item: PhotosPickerItem?, side: IDSide) async {
         guard let item else { return }
         errorMessage = nil
-        do {
-            guard
-                let data = try await item.loadTransferable(type: Data.self),
-                let image = UIImage(data: data)
-            else {
-                errorMessage = L.t("trust.uploadError")
-                return
-            }
+        loadingSide = side
+        defer { if loadingSide == side { loadingSide = nil } }
+
+        switch await QKPhotoPickerLoader.loadImage(from: item) {
+        case .success(let image):
             set(image, side: side)
-        } catch {
-            errorMessage = error.localizedDescription
+        case .failure(let reason):
+            errorMessage = L.t(reason.messageKey)
         }
     }
 
     func set(_ image: UIImage, side: IDSide) {
+        // Clear any stale complaint from an earlier failed pick. Without this a
+        // photo that failed to load left its error sitting under the Submit button
+        // even after the user filled the slot from the camera, which read as the
+        // submission itself having failed.
+        errorMessage = nil
         switch side {
         case .front:  frontImage = image
         case .back:   backImage = image
@@ -127,8 +139,14 @@ final class IdentityVerificationModel: ObservableObject {
 
     /// Encode the staged photos to `data:` URLs and POST them together.
     func submit() async {
-        guard let front = frontImage, let back = backImage, let selfie = selfieImage else { return }
         errorMessage = nil
+        // Checked here rather than only by disabling the button: a tap that does
+        // nothing at all is indistinguishable from a tap that failed, which is how
+        // an unfilled slot got reported as a broken submission.
+        guard let front = frontImage, let back = backImage, let selfie = selfieImage else {
+            errorMessage = L.t("trust.needAllPhotos")
+            return
+        }
         isSubmitting = true
         defer { isSubmitting = false }
         guard
@@ -304,7 +322,9 @@ struct IdentityVerificationCard: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.qkTan)
                     .frame(height: 96)
-                if let image {
+                if model.loadingSide == side {
+                    ProgressView().tint(Color.qkBurgundy)
+                } else if let image {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -318,9 +338,7 @@ struct IdentityVerificationCard: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(image != nil
-                ? "\(title) photo selected"
-                : "No \(title) photo chosen yet")
+            .accessibilityLabel(slotAccessibilityLabel(title: title, image: image, side: side))
 
             HStack(spacing: 6) {
                 PhotosPicker(selection: pickerItem, matching: .images, photoLibrary: .shared()) {
@@ -355,6 +373,11 @@ struct IdentityVerificationCard: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func slotAccessibilityLabel(title: String, image: UIImage?, side: IDSide) -> String {
+        if model.loadingSide == side { return "Loading \(title) photo" }
+        return image != nil ? "\(title) photo selected" : "No \(title) photo chosen yet"
     }
 
     private var idNumberField: some View {
@@ -395,7 +418,10 @@ struct IdentityVerificationCard: View {
             .opacity(model.canSubmit ? 1 : 0.5)
         }
         .buttonStyle(QKPressStyle())
-        .disabled(!model.canSubmit)
+        // Only a submission already in flight blocks the button. Incomplete photos
+        // are reported by `submit()` instead, so tapping tells the user what is
+        // missing rather than appearing to do nothing.
+        .disabled(model.isSubmitting)
     }
 
     // MARK: - Derived values

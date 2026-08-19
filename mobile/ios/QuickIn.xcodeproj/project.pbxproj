@@ -32,6 +32,7 @@
 		3625CCC97E934F5DD1F07DC6 /* HostTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */; };
 		36CD78C15BD27AA964B9504B /* ListingsMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009920185CD3646C275D761 /* ListingsMapView.swift */; };
 		386FD4149BBB3E15F527DD08 /* ReviewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F062E400006FB206A7F4885D /* ReviewService.swift */; };
+		3D17FC92E6ADBED6473EFB62 /* PhotoPickerLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7813E64C89905768E8507B2D /* PhotoPickerLoader.swift */; };
 		456848BB76A1571E669A0C0A /* HostServicesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */; };
 		457BC6A4981F4D6565DEB1DE /* PolicyWarningBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72721440DE7CCA97D228B2C /* PolicyWarningBanner.swift */; };
 		46A238C2BB275EC62166B56B /* NameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE81DC7A9A24389432D10CD3 /* NameRules.swift */; };
@@ -89,6 +90,7 @@
 		D88BF05687971D7367071E90 /* Amenities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A0CCF74AC12A50E823919B /* Amenities.swift */; };
 		D9069263C88E3E5284662497 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE1D8CE6B16E466244F0371 /* ChatView.swift */; };
 		DC2D49FD32DBFD8A2D6D09AF /* PhoneRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */; };
+		DFB1243FA53554A6D74E9C4E /* ListingGeoPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */; };
 		E299D2E215B27D451B7C7C8D /* ServiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86E6F924C0C3C2D119DA208D /* ServiceService.swift */; };
 		E29B72F943F69F30EA7C41EF /* ReservationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F061FB35515C4DB0267C1C79 /* ReservationDetailView.swift */; };
 		E30D3682DF8EF2BC9FE7136A /* LocationSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB97E79A8CE410E8011FA91C /* LocationSearch.swift */; };
@@ -141,12 +143,14 @@
 		76154C296EF8A3926F0BB45E /* DisputeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisputeService.swift; sourceTree = "<group>"; };
 		7666B3950D4FF4B2CDADBCA8 /* MySubscriptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MySubscriptionsView.swift; sourceTree = "<group>"; };
 		77523CB04274A6B5EA4FF2BE /* ShareLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareLinks.swift; sourceTree = "<group>"; };
+		7813E64C89905768E8507B2D /* PhotoPickerLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPickerLoader.swift; sourceTree = "<group>"; };
 		7A1DB343FBE39B4090D683BF /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		7A80DBB0DD863A9BB50E90BB /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddServiceView.swift; sourceTree = "<group>"; };
 		869EC528CD5922050D913E0E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		86E6F924C0C3C2D119DA208D /* ServiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceService.swift; sourceTree = "<group>"; };
 		8817D5DCCE26F954A93F06E3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingGeoPolicy.swift; sourceTree = "<group>"; };
 		8DC9CD43DD80B4E326D6879B /* HostProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostProfileView.swift; sourceTree = "<group>"; };
 		92F84FD7E76AA5A28B6D546A /* AvailabilityManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvailabilityManagerView.swift; sourceTree = "<group>"; };
 		94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
@@ -245,6 +249,7 @@
 				534A1FBDA698E580073B5474 /* IDChangeRequestView.swift */,
 				D726EF27316C30A43919B02D /* IdentityVerificationCard.swift */,
 				2B64B52903D80D34CB25CB57 /* ListingDetailView.swift */,
+				8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */,
 				2009920185CD3646C275D761 /* ListingsMapView.swift */,
 				6194B50F23543B7BD6ED9848 /* ListingsView.swift */,
 				38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */,
@@ -265,6 +270,7 @@
 				42DF93A288577203F495EEF5 /* PaymentSheet.swift */,
 				2ACC8BD9BD5635CCB854D12E /* PayoutMethodView.swift */,
 				C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */,
+				7813E64C89905768E8507B2D /* PhotoPickerLoader.swift */,
 				2C5C74C359EB22F26E201790 /* PhotoPlaceholder.swift */,
 				A72721440DE7CCA97D228B2C /* PolicyWarningBanner.swift */,
 				1DA9DEB1B3F64E19C8E6B115 /* ProfileService.swift */,
@@ -432,6 +438,7 @@
 				22E6E80C1811D262F135C0C0 /* IDChangeRequestView.swift in Sources */,
 				CD5AC268E002E6587EE37408 /* IdentityVerificationCard.swift in Sources */,
 				7FA570807B8E74483CF88830 /* ListingDetailView.swift in Sources */,
+				DFB1243FA53554A6D74E9C4E /* ListingGeoPolicy.swift in Sources */,
 				36CD78C15BD27AA964B9504B /* ListingsMapView.swift in Sources */,
 				0EBCC2FF2EFB4774BA1F7246 /* ListingsView.swift in Sources */,
 				66CAD1DFE7591439F89A387F /* ListingsViewModel.swift in Sources */,
@@ -451,6 +458,7 @@
 				972B9A14617E75E6981E1577 /* PaymentSheet.swift in Sources */,
 				BD012D249ED95C87C11CDF3D /* PayoutMethodView.swift in Sources */,
 				DC2D49FD32DBFD8A2D6D09AF /* PhoneRules.swift in Sources */,
+				3D17FC92E6ADBED6473EFB62 /* PhotoPickerLoader.swift in Sources */,
 				22D302DB560411F03AE6107C /* PhotoPlaceholder.swift in Sources */,
 				457BC6A4981F4D6565DEB1DE /* PolicyWarningBanner.swift in Sources */,
 				A73C074F1B75FF3423F4EE3A /* ProfileService.swift in Sources */,
@@ -554,10 +562,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 8;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -565,7 +573,6 @@
 				);
 				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -633,10 +640,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 8;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 6;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -644,7 +651,6 @@
 				);
 				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

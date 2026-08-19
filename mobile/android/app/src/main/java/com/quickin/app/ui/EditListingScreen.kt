@@ -251,11 +251,21 @@ fun EditListingScreen(
 
     // Why Save is unavailable, in the order a host would fix it. Null = ready to save. Mirrors the
     // backend's own rules on a PATCH, so a save can't bounce on something we could have said here.
+    // The floors are letter counts, not `isBlank()`: `ok` cleared a non-empty
+    // check and `12` passed as an address, and the PATCH refuses both now, so a
+    // blank check here would turn a rule we could show into a 400 after Save.
+    // The pin and the photo set are on this list for the same reason — a host can
+    // clear either from this screen, and the backend refuses a listing left
+    // without one. See listing-completeness-policy.ts in the web/backend repos.
     val blocker: String? = when {
         title.isBlank() -> stringResource(R.string.listing_edit_needs_title)
-        description.isBlank() -> stringResource(R.string.listing_edit_needs_description)
-        location.isBlank() -> stringResource(R.string.listing_edit_needs_location)
+        letterCount(description) < MIN_DESCRIPTION_LETTERS ->
+            stringResource(R.string.listing_edit_needs_description)
+        letterCount(location) < MIN_LOCATION_LETTERS ->
+            stringResource(R.string.listing_edit_needs_location)
         region == null -> stringResource(R.string.listing_edit_needs_region)
+        pickedLatLng == null -> stringResource(R.string.listing_edit_needs_pin)
+        photosChanged && photos.isEmpty() -> stringResource(R.string.listing_edit_needs_photo)
         (price.toDoubleOrNull() ?: 0.0) <= 0.0 -> stringResource(R.string.listing_edit_needs_price)
         !hasChanges -> stringResource(R.string.listing_edit_no_changes)
         else -> null

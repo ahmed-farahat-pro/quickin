@@ -12,7 +12,17 @@ import PhotosUI
 /// `ProfileService.requestIDChange`.
 @MainActor
 final class ProfileSettingsViewModel: ObservableObject {
-    @Published var fullName = ""
+    @Published var fullName = "" {
+        didSet {
+            // A save refused for the name is stale the moment the name is fixed.
+            // The banner sits by the button, far from the field, so leaving it up
+            // while the inline hint has already gone reads as "still broken".
+            if refusedForName, NameRules.problem(with: fullName) == nil {
+                refusedForName = false
+                saveError = nil
+            }
+        }
+    }
     @Published var ageText = ""
     /// Read-only: the approved number on the profile. Kept as state so the row can
     /// update the moment a request is approved without a full reload.
@@ -58,6 +68,33 @@ final class ProfileSettingsViewModel: ObservableObject {
             && !isChangingPassword
     }
 
+    /// The name as it arrived from the server, so the inline hint can stay quiet
+    /// until the field has actually been edited (or Save pressed). An account
+    /// created before the rule existed may already hold a name that fails it —
+    /// shouting at someone the moment they open Edit profile, about something they
+    /// did not just do, is not how they find out.
+    private var loadedFullName = ""
+
+    /// Set the first time Save is pressed, so a name that was never touched but is
+    /// still unusable is explained rather than silently refused.
+    @Published var didAttemptSave = false
+
+    /// Whether the banner currently showing is the one the name gate put there —
+    /// so a network error is not cleared by typing in a different field.
+    private var refusedForName = false
+
+    /// The inline hint under the name field, or nil when there is nothing to say.
+    ///
+    /// `NameRules` is the Swift twin of the API's `name-policy.ts` — the same rule
+    /// the server now enforces on `PATCH /api/local/profile`, checked here first so
+    /// the answer arrives at the field instead of after a round trip. `12345` is
+    /// non-empty, which is all this screen used to ask of a name.
+    var nameError: String? {
+        guard didAttemptSave || fullName != loadedFullName else { return nil }
+        guard let problem = NameRules.problem(with: fullName) else { return nil }
+        return L.t(problem.messageKey)
+    }
+
     /// Parsed age (nil when empty/invalid → cleared on save).
     private var age: Int? {
         let trimmed = ageText.trimmingCharacters(in: .whitespaces)
@@ -99,6 +136,9 @@ final class ProfileSettingsViewModel: ObservableObject {
     /// new session. Called when `auth.user?.id` changes.
     func resetForAccountChange() {
         fullName = ""
+        loadedFullName = ""
+        didAttemptSave = false
+        refusedForName = false
         ageText = ""
         idDocument = ""
         idChange = nil
@@ -119,11 +159,24 @@ final class ProfileSettingsViewModel: ObservableObject {
     func save() async {
         saveError = nil
         didSave = false
+        didAttemptSave = true
+        // Refused here rather than by the server: the name field is at the top of a
+        // scrolling form and Save is at the bottom, so the banner beside the button
+        // says the same sentence the field does — otherwise the button appears to do
+        // nothing for anyone who cannot see the hint they just triggered.
+        if let problem = NameRules.problem(with: fullName) {
+            saveError = L.t(problem.messageKey)
+            refusedForName = true
+            return
+        }
+        refusedForName = false
         isSaving = true
         defer { isSaving = false }
         do {
             let updated = try await ProfileService.shared.updateProfile(
-                fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
+                // Normalized the way the server normalizes it, so the name that is
+                // stored is the name that was judged.
+                fullName: NameRules.normalized(fullName),
                 age: age,
                 phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
                 bio: bio.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -181,6 +234,7 @@ final class ProfileSettingsViewModel: ObservableObject {
 
     private func apply(_ profile: Profile) {
         fullName = profile.fullName ?? ""
+        loadedFullName = fullName
         ageText = profile.age.map(String.init) ?? ""
         // Only overwritten when the server actually reported one. `updateProfile`'s
         // fallback echo carries no id_document (the field is not sent any more), so
@@ -295,7 +349,8 @@ struct ProfileSettingsView: View {
                 placeholder: loc.t("settings.fullName.placeholder"),
                 text: $viewModel.fullName,
                 contentType: .name,
-                capitalization: .words
+                capitalization: .words,
+                errorMessage: viewModel.nameError
             )
             Divider()
             field(
@@ -475,6 +530,9 @@ struct ProfileSettingsView: View {
         .qkCard(lifts: false)
     }
 
+    /// A labelled text field, optionally carrying an inline validation hint under
+    /// it. The hint is styled exactly as `AuthView`'s — burgundy border, burgundy
+    /// caption — because it is the same rule being explained in the same words.
     private func field(
         _ label: String,
         systemImage: String,
@@ -482,12 +540,13 @@ struct ProfileSettingsView: View {
         text: Binding<String>,
         contentType: UITextContentType? = nil,
         keyboard: UIKeyboardType = .default,
-        capitalization: TextInputAutocapitalization = .sentences
+        capitalization: TextInputAutocapitalization = .sentences,
+        errorMessage: String? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(label, systemImage: systemImage)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
+                .foregroundStyle(errorMessage == nil ? Color.qkMuted : Color.qkBurgundy)
             TextField(placeholder, text: text)
                 .textContentType(contentType)
                 .keyboardType(keyboard)
@@ -499,9 +558,20 @@ struct ProfileSettingsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(
+                            errorMessage == nil ? Color.qkInk.opacity(0.1) : Color.qkBurgundy.opacity(0.55),
+                            lineWidth: errorMessage == nil ? 1 : 1.5
+                        )
                 )
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: errorMessage)
     }
 
     private var saveButton: some View {

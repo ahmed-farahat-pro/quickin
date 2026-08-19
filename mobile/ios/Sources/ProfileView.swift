@@ -593,6 +593,9 @@ struct ProfileView: View {
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.qkInk)
+                // The titles name the flow ("Host application under review"), so
+                // let them wrap next to the pill instead of truncating on small screens.
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             Text(badge)
                 .font(.system(size: 11, weight: .bold))

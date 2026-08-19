@@ -8,9 +8,11 @@ import SwiftUI
 
 // MARK: - Rules engine
 
-/// The five rules we score a password against. `length` / `upper` / `lower` /
-/// `number` are required for a usable password; `special` is a strength bonus.
-/// Pure value logic so it's trivially testable and usable off the main actor.
+/// The five rules we score a password against. All five are required — they are
+/// exactly the tick-box rules the backend's password policy enforces on signup,
+/// reset and change-password, so a password this file accepts is one the server
+/// accepts too. Pure value logic so it's trivially testable and usable off the
+/// main actor.
 enum PasswordRules {
     /// Minimum length required for a valid password.
     static let minLength = 8
@@ -38,10 +40,12 @@ enum PasswordRules {
         return s
     }
 
-    /// The bar to clear before a primary button enables: length + upper + lower
-    /// + number (special is a bonus, not a gate).
+    /// The bar to clear before a primary button enables: every rule the checklist
+    /// draws. A rule shown as a requirement and then not enforced is the worst of
+    /// both — the user is told the password is incomplete and let through anyway,
+    /// only for the server (which does require a symbol) to refuse it on submit.
     static func meetsMin(_ pw: String) -> Bool {
-        hasMinLength(pw) && hasUppercase(pw) && hasLowercase(pw) && hasNumber(pw)
+        hasMinLength(pw) && hasUppercase(pw) && hasLowercase(pw) && hasNumber(pw) && hasSpecial(pw)
     }
 }
 

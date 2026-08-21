@@ -880,4 +880,30 @@
     <string name="host_apply_id_intro">Photograph both sides of your document. Our team checks it against the name and national ID above.</string>
     <string name="host_apply_id_on_file">We already have your identity documents — there is nothing to upload.</string>
     <string name="host_apply_required_id">Add your details and both sides of your ID to continue.</string>
+
+    <!-- Host pricing calendar (per-day rates + day-level availability) -->
+    <string name="calendar_title">Pricing calendar</string>
+    <string name="calendar_open">Pricing calendar</string>
+    <string name="calendar_subtitle">Your base rate is %1$s %2$s a night. Select days to charge something different — weekends, holidays, a quiet week.</string>
+    <string name="calendar_select_month">Select month</string>
+    <string name="calendar_nights_selected">%1$d nights selected</string>
+    <string name="calendar_clear">Clear</string>
+    <string name="calendar_price_placeholder">Nightly price</string>
+    <string name="calendar_guests_pay">Guests will see %1$s %2$s</string>
+    <string name="calendar_set_price">Set price</string>
+    <string name="calendar_reset_price">Reset to default</string>
+    <string name="calendar_block">Block</string>
+    <string name="calendar_unblock">Open</string>
+    <string name="calendar_saving">Saving…</string>
+    <string name="calendar_saved">%1$d days updated.</string>
+    <string name="calendar_saved_with_skips">%1$d days updated. %2$d booked days were skipped.</string>
+    <string name="calendar_legend_default">Default price</string>
+    <string name="calendar_legend_custom">Custom price</string>
+    <string name="calendar_legend_blocked">Blocked</string>
+    <string name="calendar_legend_booked">Booked</string>
+    <string name="calendar_error_price_required">Enter a nightly price first.</string>
+    <string name="calendar_error_price_invalid">Nightly price must be a number greater than 0.</string>
+    <string name="calendar_error_save_failed">Couldn’t save those dates. Please try again.</string>
+    <string name="calendar_error_sign_in">Sign in as a host to manage your calendar.</string>
+    <string name="calendar_nightly_prices">Nightly prices</string>
 </resources>

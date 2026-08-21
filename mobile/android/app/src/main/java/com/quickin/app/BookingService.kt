@@ -501,6 +501,80 @@ object BookingService {
         currency = o.optStringOr("currency", "EGP")
     )
 
+    // ---- Host calendar (per-date pricing + day-level availability) -------------
+
+    /**
+     * A listing's day-by-day calendar (`GET /api/local/listings/:id/calendar?start=&end=`),
+     * INCLUSIVE of both ends. [start]/[end] are yyyy-MM-dd.
+     *
+     * The bearer token decides the money: the listing's host gets their RAW nightly rates plus a
+     * `guest_price` companion, everyone else only the commission-inclusive figure. Passing the
+     * token is therefore not optional for a host — without it they would see, and then edit, the
+     * marked-up price as if it were their own. Throws [HttpError] on a non-2xx.
+     */
+    suspend fun fetchCalendar(
+        token: String,
+        listingId: String,
+        start: String,
+        end: String
+    ): ListingCalendar = withContext(Dispatchers.IO) {
+        val text = get(token, "/api/local/listings/$listingId/calendar?start=$start&end=$end")
+        SupabaseService.parseListingCalendar(JSONObject(text))
+    }
+
+    /**
+     * Applies one edit to a set of days (`PUT /api/local/listings/:id/calendar`).
+     *
+     *  • [price] = [CalendarPriceChange.Set] pins that nightly rate on every selected day.
+     *  • [price] = [CalendarPriceChange.Reset] DELETES those days' pinned rates so they fall back
+     *    to the listing's weekend / month / base pricing. Not the same as writing the base price,
+     *    which would stop tracking it the moment the host edited the listing.
+     *  • [price] = [CalendarPriceChange.Unchanged] leaves prices alone (block/unblock only).
+     *  • [blocked] closes or opens the days; null leaves availability alone.
+     *
+     * Days already held by a reservation come back in `skipped` rather than failing the request —
+     * a host sweeping across a month will cross a booking routinely, and refusing the whole edit
+     * would make the calendar unusable. Throws [HttpError] (401 not signed in, 403 not the host,
+     * 400 on validation).
+     */
+    suspend fun updateCalendar(
+        token: String,
+        listingId: String,
+        dates: List<String>,
+        price: CalendarPriceChange = CalendarPriceChange.Unchanged,
+        blocked: Boolean? = null,
+        note: String? = null
+    ): CalendarUpdateResult = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("dates", org.json.JSONArray(dates))
+            // The API reads `price` with `in`, not truthiness: JSONObject.NULL is "reset" and an
+            // absent key is "don't touch prices". Those are different edits.
+            when (price) {
+                is CalendarPriceChange.Unchanged -> Unit
+                is CalendarPriceChange.Reset -> put("price", JSONObject.NULL)
+                is CalendarPriceChange.Set -> put("price", price.amount)
+            }
+            if (blocked != null) put("blocked", blocked)
+            if (!note.isNullOrBlank()) put("note", note)
+        }
+        val text = send("PUT", token, "/api/local/listings/$listingId/calendar", body)
+        val o = JSONObject(text)
+        val skippedArr = o.optJSONArray("skipped")
+        val skipped = ArrayList<CalendarUpdateResult.SkippedDay>(skippedArr?.length() ?: 0)
+        for (i in 0 until (skippedArr?.length() ?: 0)) {
+            val sk = skippedArr?.optJSONObject(i) ?: continue
+            val date = sk.optStringOrNull("date") ?: continue
+            skipped += CalendarUpdateResult.SkippedDay(date, sk.optStringOr("reason", "booked"))
+        }
+        CalendarUpdateResult(
+            updated = o.optInt("updated", 0),
+            skipped = skipped,
+            calendar = SupabaseService.parseListingCalendar(
+                o.optJSONObject("calendar") ?: JSONObject()
+            )
+        )
+    }
+
     // ---- Availability (host-managed blocks) -----------------------------------
 
     /**

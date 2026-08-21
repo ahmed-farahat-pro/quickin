@@ -778,4 +778,30 @@
     <string name="host_apply_id_intro">Photographiez le recto et le verso de votre document. Notre équipe le compare au nom et au numéro d\'identité ci-dessus.</string>
     <string name="host_apply_id_on_file">Nous avons déjà vos pièces d\'identité — rien à téléverser.</string>
     <string name="host_apply_required_id">Ajoutez vos informations et les deux faces de votre pièce d\'identité pour continuer.</string>
+
+    <!-- Host pricing calendar (per-day rates + day-level availability) -->
+    <string name="calendar_title">Calendrier des tarifs</string>
+    <string name="calendar_open">Calendrier des tarifs</string>
+    <string name="calendar_subtitle">Votre tarif de base est de %1$s %2$s par nuit. Sélectionnez les jours à tarifer différemment.</string>
+    <string name="calendar_select_month">Sélectionner le mois</string>
+    <string name="calendar_nights_selected">%1$d nuits sélectionnées</string>
+    <string name="calendar_clear">Effacer</string>
+    <string name="calendar_price_placeholder">Tarif par nuit</string>
+    <string name="calendar_guests_pay">Les voyageurs verront %1$s %2$s</string>
+    <string name="calendar_set_price">Définir le tarif</string>
+    <string name="calendar_reset_price">Rétablir le tarif par défaut</string>
+    <string name="calendar_block">Bloquer</string>
+    <string name="calendar_unblock">Ouvrir</string>
+    <string name="calendar_saving">Enregistrement…</string>
+    <string name="calendar_saved">%1$d jours mis à jour.</string>
+    <string name="calendar_saved_with_skips">%1$d jours mis à jour. %2$d jours réservés ont été ignorés.</string>
+    <string name="calendar_legend_default">Tarif par défaut</string>
+    <string name="calendar_legend_custom">Tarif personnalisé</string>
+    <string name="calendar_legend_blocked">Bloqué</string>
+    <string name="calendar_legend_booked">Réservé</string>
+    <string name="calendar_error_price_required">Saisissez d’abord un tarif par nuit.</string>
+    <string name="calendar_error_price_invalid">Le tarif par nuit doit être un nombre supérieur à 0.</string>
+    <string name="calendar_error_save_failed">Impossible d’enregistrer ces dates. Veuillez réessayer.</string>
+    <string name="calendar_error_sign_in">Connectez-vous en tant qu’hôte pour gérer votre calendrier.</string>
+    <string name="calendar_nightly_prices">Tarifs par nuit</string>
 </resources>

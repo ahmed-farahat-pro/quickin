@@ -488,6 +488,98 @@ struct BookingService {
         return try JSONDecoder().decode(StayQuote.self, from: data)
     }
 
+    // MARK: - Host calendar (per-date pricing + day-level availability)
+
+    /// A listing's day-by-day calendar via
+    /// `GET /api/local/listings/:id/calendar?start=&end=`, INCLUSIVE of both ends.
+    ///
+    /// The bearer token decides the money: the listing's host gets their RAW
+    /// nightly rates plus a `guestPrice` companion; everyone else gets only the
+    /// commission-inclusive figure. Sending the token when we have one is
+    /// therefore not optional — without it a host would see, and then edit, the
+    /// marked-up price as if it were their own.
+    ///
+    /// `start`/`end` are `yyyy-MM-dd`. Public (no auth required).
+    func fetchCalendar(listingID: String, start: String, end: String) async throws -> ListingCalendar {
+        let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
+        var components = URLComponents(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)/calendar")!
+        components.queryItems = [
+            URLQueryItem(name: "start", value: start),
+            URLQueryItem(name: "end", value: end),
+        ]
+        var request = URLRequest(url: components.url!)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw BookingError.message(Self.decodeError(data) ?? "Couldn't load the calendar (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(ListingCalendar.self, from: data)
+    }
+
+    /// Apply one edit to a set of days, via `PUT /api/local/listings/:id/calendar`.
+    ///
+    /// - `price: .set(n)` pins that nightly rate on every selected day.
+    /// - `price: .reset` DELETES those days' pinned rates so they fall back to
+    ///   the listing's weekend / month / base pricing. Not the same as setting
+    ///   the base price, which would stop tracking it the moment the host edited
+    ///   the listing.
+    /// - `price: .unchanged` leaves prices alone (use it to only block/unblock).
+    /// - `blocked: true/false` closes or opens the days; `nil` leaves
+    ///   availability alone.
+    ///
+    /// Days already held by a reservation come back in `skipped` rather than
+    /// failing the request — a host sweeping across a month will cross a booking
+    /// routinely, and refusing the whole edit would make the calendar unusable.
+    /// Host-only: 401 → `.notSignedIn`, 403 → `.message`.
+    @discardableResult
+    func updateCalendar(
+        listingID: String,
+        dates: [String],
+        price: CalendarPriceChange = .unchanged,
+        blocked: Bool? = nil,
+        note: String? = nil
+    ) async throws -> CalendarUpdateResult {
+        guard let token else { throw BookingError.notSignedIn }
+        guard !dates.isEmpty else { throw BookingError.message("Select at least one date.") }
+
+        let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)/calendar")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        var body: [String: Any] = ["dates": dates]
+        // The API reads `price` with `in`, not truthiness: NSNull is "reset" and
+        // an absent key is "don't touch prices". Those are different edits.
+        switch price {
+        case .unchanged: break
+        case .reset: body["price"] = NSNull()
+        case .set(let amount): body["price"] = amount
+        }
+        if let blocked { body["blocked"] = blocked }
+        if let note = note?.trimmingCharacters(in: .whitespacesAndNewlines), !note.isEmpty {
+            body["note"] = note
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode(CalendarUpdateResult.self, from: data)
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        throw BookingError.message(Self.decodeError(data) ?? "Couldn't save those dates (\(http.statusCode)).")
+    }
+
     // MARK: - Availability (host)
 
     /// Block a date range on a listing the signed-in user hosts, via

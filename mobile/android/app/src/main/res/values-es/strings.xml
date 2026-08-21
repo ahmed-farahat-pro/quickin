@@ -778,4 +778,30 @@
     <string name="host_apply_id_intro">Fotografía ambas caras del documento. Nuestro equipo lo comprueba con el nombre y el número de identidad de arriba.</string>
     <string name="host_apply_id_on_file">Ya tenemos tus documentos de identidad: no hace falta subir nada.</string>
     <string name="host_apply_required_id">Añade tus datos y ambas caras de tu documento para continuar.</string>
+
+    <!-- Host pricing calendar (per-day rates + day-level availability) -->
+    <string name="calendar_title">Calendario de precios</string>
+    <string name="calendar_open">Calendario de precios</string>
+    <string name="calendar_subtitle">Tu tarifa base es de %1$s %2$s por noche. Selecciona los días que quieras cobrar de otra forma.</string>
+    <string name="calendar_select_month">Seleccionar mes</string>
+    <string name="calendar_nights_selected">%1$d noches seleccionadas</string>
+    <string name="calendar_clear">Borrar</string>
+    <string name="calendar_price_placeholder">Precio por noche</string>
+    <string name="calendar_guests_pay">Los huéspedes verán %1$s %2$s</string>
+    <string name="calendar_set_price">Fijar precio</string>
+    <string name="calendar_reset_price">Restablecer al precio base</string>
+    <string name="calendar_block">Bloquear</string>
+    <string name="calendar_unblock">Abrir</string>
+    <string name="calendar_saving">Guardando…</string>
+    <string name="calendar_saved">%1$d días actualizados.</string>
+    <string name="calendar_saved_with_skips">%1$d días actualizados. Se omitieron %2$d días reservados.</string>
+    <string name="calendar_legend_default">Precio base</string>
+    <string name="calendar_legend_custom">Precio personalizado</string>
+    <string name="calendar_legend_blocked">Bloqueado</string>
+    <string name="calendar_legend_booked">Reservado</string>
+    <string name="calendar_error_price_required">Introduce primero un precio por noche.</string>
+    <string name="calendar_error_price_invalid">El precio por noche debe ser un número mayor que 0.</string>
+    <string name="calendar_error_save_failed">No se pudieron guardar esas fechas. Inténtalo de nuevo.</string>
+    <string name="calendar_error_sign_in">Inicia sesión como anfitrión para gestionar tu calendario.</string>
+    <string name="calendar_nightly_prices">Precios por noche</string>
 </resources>

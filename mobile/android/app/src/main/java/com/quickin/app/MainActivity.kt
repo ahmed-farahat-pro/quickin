@@ -87,6 +87,7 @@ import com.quickin.app.ui.HostProfileScreen
 import com.quickin.app.ui.avatarInitials
 import com.quickin.app.ui.HostScreen
 import com.quickin.app.ui.ListingDetailScreen
+import com.quickin.app.ui.HostCalendarScreen
 import com.quickin.app.ui.HostServicesScreen
 import com.quickin.app.ui.ListingsScreen
 import com.quickin.app.ui.ReceiptsScreen
@@ -397,6 +398,8 @@ private fun MainApp() {
     // Live availability for the open listing: greyed days in the guest picker (guest state) +
     // the host's block/unblock manager (host state).
     val availabilityViewModel: AvailabilityViewModel = viewModel()
+    val hostCalendarViewModel: HostCalendarViewModel = viewModel()
+    val hostCalendarState by hostCalendarViewModel.state.collectAsState()
     val availabilityGuestState by availabilityViewModel.guest.collectAsState()
     val availabilityHostState by availabilityViewModel.host.collectAsState()
 
@@ -427,6 +430,10 @@ private fun MainApp() {
     var showHost by remember { mutableStateOf(false) }
     // True while the host SERVICES dashboard (full-screen) is open.
     var showHostServices by remember { mutableStateOf(false) }
+
+    /** The listing whose pricing calendar is open, or null. Host-only; opened from the
+     *  listing detail and sitting above it, so Back returns there. */
+    var calendarListing by remember { mutableStateOf<Listing?>(null) }
     // True while the guest "Receipts" screen (full-screen) is open (Section 9 — money views).
     var showReceipts by remember { mutableStateOf(false) }
     // True while the host "Earnings & payouts" screen (full-screen) is open (Section 9 — money views).
@@ -772,6 +779,7 @@ private fun MainApp() {
     val forgotOpen = showForgot && !authState.isAuthenticated
     val authOpen = showAuth && !authState.isAuthenticated
     val anyOverlay = pendingPayment != null || hostProfile != null || preBookingChat != null ||
+        calendarListing != null ||
         editingListing != null ||
         selectedListing != null ||
         selectedService != null ||
@@ -802,6 +810,7 @@ private fun MainApp() {
                 authViewModel.resetHostApply()
                 showHostApply = false
             }
+            calendarListing != null -> calendarListing = null
             showHostServices -> showHostServices = false
             disputeBooking != null -> disputeBooking = null
             chatBooking != null -> chatBooking = null
@@ -967,6 +976,32 @@ private fun MainApp() {
     }
 
     val current = selectedListing
+    // Host pricing calendar. Full-screen and ABOVE the listing detail, so Back returns to the
+    // listing the host opened it from rather than to the explore list.
+    val calendarTarget = calendarListing
+    if (calendarTarget != null && authState.isAuthenticated) {
+        HostCalendarScreen(
+            listing = calendarTarget,
+            state = hostCalendarState,
+            onBack = {
+                calendarListing = null
+                // The host may have blocked days or changed nightly rates; refresh the greyed-out
+                // days underneath so the guest picker isn't offering a night that just closed.
+                availabilityViewModel.loadForListing(calendarTarget.id)
+            },
+            onOpen = hostCalendarViewModel::open,
+            onLoadMonth = hostCalendarViewModel::loadMonth,
+            onToggleDay = hostCalendarViewModel::toggle,
+            onSweep = hostCalendarViewModel::sweep,
+            onToggleMonth = hostCalendarViewModel::toggleMonth,
+            onClearSelection = hostCalendarViewModel::clearSelection,
+            onSave = { price, blocked -> hostCalendarViewModel.save(price, blocked) },
+            onGuestPreview = hostCalendarViewModel::guestPreview,
+            isEditable = hostCalendarViewModel::isEditable
+        )
+        return
+    }
+
     // The detail view is full-screen (no bottom bar); everything else is in the Scaffold.
     if (current != null) {
         // Load this listing's reviews (public) + the host's other stays ("More from this host")
@@ -1044,6 +1079,7 @@ private fun MainApp() {
             isOwnHost = isOwnHost,
             hostAvailabilityState = availabilityHostState,
             onLoadHostAvailability = { availabilityViewModel.loadHost(current.id) },
+            onOpenCalendar = { calendarListing = current },
             onAddBlock = { start, end, note -> availabilityViewModel.addBlock(current.id, start, end, note) },
             onRemoveBlock = { blockId -> availabilityViewModel.removeBlock(current.id, blockId) },
             // Host-only: open the full editor over this detail (Back returns here).

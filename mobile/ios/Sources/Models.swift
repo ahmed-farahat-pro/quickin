@@ -262,12 +262,21 @@ struct StayQuote: Decodable, Hashable {
     let nightlyAvg: Double
     /// Base currency the amounts are denominated in (always "EGP").
     let currency: String
-    /// `true` when the quote reflects a weekend / per-month seasonal rate (rather
-    /// than a flat `pricePerNight × nights`). Lets the UI label it accordingly.
+    /// `true` when the quote reflects a weekend / per-month seasonal rate, or a
+    /// night the host pinned on their calendar — anything that makes the stay
+    /// something other than a flat `pricePerNight × nights`.
     let hasSeasonalPricing: Bool
+    /// Every night of the stay, priced and labelled — what the booking summary
+    /// itemises. Empty on a backend that predates the host calendar, which is
+    /// why the UI falls back to the flat line rather than showing an empty list.
+    let nightsBreakdown: [QuoteNight]
+    /// `true` when at least one night was pinned on the host's calendar.
+    let hasCustomNights: Bool
 
     enum CodingKeys: String, CodingKey {
         case nights, subtotal, discountPercent, total, nightlyAvg, currency, hasSeasonalPricing
+        case nightsBreakdown = "nights_breakdown"
+        case hasCustomNights
     }
 
     init(from decoder: Decoder) throws {
@@ -280,6 +289,8 @@ struct StayQuote: Decodable, Hashable {
         currency = (try c.decodeIfPresent(String.self, forKey: .currency))
             .flatMap { $0.isEmpty ? nil : $0 } ?? "EGP"
         hasSeasonalPricing = try c.decodeIfPresent(Bool.self, forKey: .hasSeasonalPricing) ?? false
+        nightsBreakdown = try c.decodeIfPresent([QuoteNight].self, forKey: .nightsBreakdown) ?? []
+        hasCustomNights = try c.decodeIfPresent(Bool.self, forKey: .hasCustomNights) ?? false
     }
 
     /// `true` when a length-of-stay discount shaved money off the subtotal.
@@ -2429,4 +2440,156 @@ struct AISearchResult: Decodable {
         filters = (try c.decodeIfPresent(AISearchFilters.self, forKey: .filters)) ?? .empty
         listings = try c.decodeIfPresent([Listing].self, forKey: .listings) ?? []
     }
+}
+
+// MARK: - Host calendar (per-date pricing + day-level availability)
+
+
+/// One priced night inside a `StayQuote` — what the booking summary itemises.
+/// `price` is commission-inclusive, like every other figure on the quote.
+struct QuoteNight: Decodable, Identifiable, Hashable {
+    /// `yyyy-MM-dd`. The night STARTS on this day; a stay never includes the
+    /// checkout day, so a guest is not charged for the morning they leave.
+    let date: String
+    let price: Double
+    /// Which rung priced it — `custom` means the host pinned this exact night.
+    let source: PriceSource
+
+    var id: String { date }
+}
+
+/// Which rung of the pricing ladder set a night's rate. The host calendar pins a
+/// price to an exact day, and that pin beats every seasonal rule:
+///
+///     custom → weekend → that month's rate → base price
+enum PriceSource: String, Decodable, Hashable {
+    /// Pinned by the host on this exact day.
+    case custom
+    /// The listing's weekend rate.
+    case weekend
+    /// That month's rate.
+    case monthly
+    /// `price_per_night` — the listing's default.
+    case base
+
+    /// An unknown value from a newer backend reads as `base` rather than failing
+    /// to decode: a calendar that won't parse is worse than one rung mislabelled.
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PriceSource(rawValue: raw) ?? .base
+    }
+}
+
+/// Whether the host may still edit a day.
+enum DayStatus: String, Decodable, Hashable {
+    /// Sellable, and the host may price or close it.
+    case available
+    /// Closed by the host. Still editable — that is how they reopen it.
+    case blocked
+    /// Held by a reservation. Read-only: the price a guest agreed to is
+    /// snapshotted on their booking and must not be restated underneath them.
+    case booked
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = DayStatus(rawValue: raw) ?? .available
+    }
+}
+
+/// One night of one listing's calendar. `price` is the host's RAW rate when the
+/// caller is the listing's host (with `guestPrice` alongside), and the
+/// commission-inclusive figure for anyone else — decided by the server from the
+/// bearer token, exactly like the listing projections.
+struct CalendarDay: Decodable, Identifiable, Hashable {
+    /// `yyyy-MM-dd`. Doubles as the identity — one row per day.
+    let date: String
+    let price: Double
+    /// What a guest pays for this night. Present only on a host read.
+    let guestPrice: Double?
+    let source: PriceSource
+    let status: DayStatus
+    /// The host's note on the block covering this day. Host reads only.
+    let note: String?
+
+    var id: String { date }
+
+    /// The host may act on any day that is not held by a reservation.
+    var isEditable: Bool { status != .booked }
+
+    enum CodingKeys: String, CodingKey {
+        case date, price, source, status, note
+        case guestPrice = "guest_price"
+    }
+}
+
+/// A listing's calendar over a window, as returned by
+/// `GET /api/local/listings/:id/calendar?start=&end=`.
+struct ListingCalendar: Decodable, Hashable {
+    let listingID: String
+    let currency: String
+    /// The platform markup in force, as a fraction (0.1 = 10%).
+    let commissionRate: Double
+    /// `price_per_night`, in the same raw/guest terms as `days[].price`.
+    let basePrice: Double
+    let start: String
+    /// INCLUSIVE — the last day in `days`, not a half-open bound.
+    let end: String
+    let days: [CalendarDay]
+
+    enum CodingKeys: String, CodingKey {
+        case currency, start, end, days
+        case listingID = "listing_id"
+        case commissionRate = "commission_rate"
+        case basePrice = "base_price"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        listingID = try c.decodeIfPresent(String.self, forKey: .listingID) ?? ""
+        currency = (try c.decodeIfPresent(String.self, forKey: .currency))
+            .flatMap { $0.isEmpty ? nil : $0 } ?? "EGP"
+        commissionRate = try c.decodeIfPresent(Double.self, forKey: .commissionRate) ?? 0
+        basePrice = try c.decodeIfPresent(Double.self, forKey: .basePrice) ?? 0
+        start = try c.decodeIfPresent(String.self, forKey: .start) ?? ""
+        end = try c.decodeIfPresent(String.self, forKey: .end) ?? ""
+        days = try c.decodeIfPresent([CalendarDay].self, forKey: .days) ?? []
+    }
+}
+
+/// What one calendar edit did, from `PUT …/calendar`.
+struct CalendarUpdateResult: Decodable {
+    /// Days actually written.
+    let updated: Int
+    /// Days the host selected that we refused, and why. Never silent: a day left
+    /// unchanged without saying so is one the host believes they priced.
+    let skipped: [SkippedDay]
+    /// The calendar after the edit, over the days that were selected.
+    let calendar: ListingCalendar
+
+    struct SkippedDay: Decodable, Hashable {
+        let date: String
+        /// Currently only `"booked"`.
+        let reason: String
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        updated = try c.decodeIfPresent(Int.self, forKey: .updated) ?? 0
+        skipped = try c.decodeIfPresent([SkippedDay].self, forKey: .skipped) ?? []
+        calendar = try c.decode(ListingCalendar.self, forKey: .calendar)
+    }
+
+    enum CodingKeys: String, CodingKey { case updated, skipped, calendar }
+}
+
+/// What a calendar edit does to the selected days' prices. Three states, because
+/// "set 3,500", "clear the pin" and "don't touch prices" are three different
+/// edits and a plain `Double?` can only express two of them.
+enum CalendarPriceChange {
+    /// Leave prices as they are (used when only blocking or unblocking).
+    case unchanged
+    /// Delete the pinned rates so the days follow the listing's normal pricing.
+    case reset
+    /// Pin this raw nightly rate on every selected day.
+    case set(Double)
 }

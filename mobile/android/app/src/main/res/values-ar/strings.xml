@@ -876,4 +876,30 @@
     <string name="host_apply_id_intro">صوّر وجهي المستند. يراجعه فريقنا مقابل الاسم والرقم القومي المذكورين أعلاه.</string>
     <string name="host_apply_id_on_file">مستندات هويتك لدينا بالفعل — لا حاجة لرفع أي شيء.</string>
     <string name="host_apply_required_id">أضف بياناتك وصورتي وجهي هويتك للمتابعة.</string>
+
+    <!-- Host pricing calendar (per-day rates + day-level availability) -->
+    <string name="calendar_title">تقويم الأسعار</string>
+    <string name="calendar_open">تقويم الأسعار</string>
+    <string name="calendar_subtitle">سعرك الأساسي %1$s %2$s في الليلة. اختر الأيام التي تريد تسعيرها بشكل مختلف.</string>
+    <string name="calendar_select_month">اختيار الشهر</string>
+    <string name="calendar_nights_selected">%1$d ليلة محددة</string>
+    <string name="calendar_clear">مسح</string>
+    <string name="calendar_price_placeholder">سعر الليلة</string>
+    <string name="calendar_guests_pay">سيرى الضيوف %1$s %2$s</string>
+    <string name="calendar_set_price">تحديد السعر</string>
+    <string name="calendar_reset_price">إعادة للسعر الافتراضي</string>
+    <string name="calendar_block">إغلاق</string>
+    <string name="calendar_unblock">إتاحة</string>
+    <string name="calendar_saving">جارٍ الحفظ…</string>
+    <string name="calendar_saved">تم تحديث %1$d يوم.</string>
+    <string name="calendar_saved_with_skips">تم تحديث %1$d يوم. تم تخطي %2$d يوم محجوز.</string>
+    <string name="calendar_legend_default">السعر الافتراضي</string>
+    <string name="calendar_legend_custom">سعر مخصص</string>
+    <string name="calendar_legend_blocked">مغلق</string>
+    <string name="calendar_legend_booked">محجوز</string>
+    <string name="calendar_error_price_required">أدخل سعر الليلة أولًا.</string>
+    <string name="calendar_error_price_invalid">يجب أن يكون سعر الليلة رقمًا أكبر من 0.</string>
+    <string name="calendar_error_save_failed">تعذر حفظ هذه التواريخ. حاول مرة أخرى.</string>
+    <string name="calendar_error_sign_in">سجّل الدخول كمضيف لإدارة التقويم.</string>
+    <string name="calendar_nightly_prices">أسعار الليالي</string>
 </resources>

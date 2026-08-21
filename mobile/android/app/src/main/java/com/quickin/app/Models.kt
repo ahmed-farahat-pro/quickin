@@ -170,11 +170,146 @@ data class StayQuote(
     val total: Double,
     val nightlyAvg: Double,
     val currency: String = "EGP",
-    val hasSeasonalPricing: Boolean = false
+    val hasSeasonalPricing: Boolean = false,
+    /**
+     * Every night of the stay, priced and labelled — what the booking summary itemises. Empty on
+     * a backend that predates the host calendar, which is why the UI falls back to the single
+     * blended line rather than showing an empty list.
+     */
+    val nightsBreakdown: List<QuoteNight> = emptyList(),
+    /** True when at least one night was pinned on the host's calendar. */
+    val hasCustomNights: Boolean = false
 ) {
     /** True when a length-of-stay discount actually reduced this quote. */
     val hasDiscount: Boolean
         get() = discountPercent > 0
+
+    /**
+     * Whether the nights are priced differently from one another — the only case where listing
+     * them adds anything. A stay at one flat rate reads better as the blended line alone than as
+     * the same number repeated.
+     */
+    val nightlyPricesVary: Boolean
+        get() = nightsBreakdown.isNotEmpty() && nightsBreakdown.any { it.price != nightsBreakdown[0].price }
+}
+
+/**
+ * One priced night inside a [StayQuote]. [price] is commission-inclusive, like every other figure
+ * on the quote. [date] is `yyyy-MM-dd` and the night STARTS on it — a stay never includes the
+ * checkout day, so a guest is not charged for the morning they leave.
+ */
+data class QuoteNight(
+    val date: String,
+    val price: Double,
+    val source: PriceSource
+)
+
+/**
+ * Which rung of the pricing ladder set a night's rate. A price the host pinned on an exact day
+ * beats every seasonal rule:
+ *
+ *     CUSTOM → WEEKEND → that month's rate → BASE
+ */
+enum class PriceSource(val apiValue: String) {
+    /** Pinned by the host on this exact day. */
+    CUSTOM("custom"),
+    /** The listing's weekend rate. */
+    WEEKEND("weekend"),
+    /** That month's rate. */
+    MONTHLY("monthly"),
+    /** `price_per_night` — the listing's default. */
+    BASE("base");
+
+    companion object {
+        /**
+         * An unknown value from a newer backend reads as [BASE] rather than throwing: a calendar
+         * that won't parse is worse than one rung mislabelled.
+         */
+        fun from(raw: String?): PriceSource =
+            entries.firstOrNull { it.apiValue.equals(raw, ignoreCase = true) } ?: BASE
+    }
+}
+
+/** Whether the host may still edit a day on the calendar. */
+enum class DayStatus(val apiValue: String) {
+    /** Sellable, and the host may price or close it. */
+    AVAILABLE("available"),
+    /** Closed by the host. Still editable — that is how they reopen it. */
+    BLOCKED("blocked"),
+    /**
+     * Held by a reservation. Read-only: the price a guest agreed to is snapshotted on their
+     * booking and must not be restated underneath them.
+     */
+    BOOKED("booked");
+
+    companion object {
+        fun from(raw: String?): DayStatus =
+            entries.firstOrNull { it.apiValue.equals(raw, ignoreCase = true) } ?: AVAILABLE
+    }
+}
+
+/**
+ * One night of one listing's calendar. [price] is the host's RAW rate when the caller is the
+ * listing's host (with [guestPrice] alongside), and the commission-inclusive figure for anyone
+ * else — decided by the server from the bearer token, exactly like the listing projections.
+ */
+data class CalendarDay(
+    /** `yyyy-MM-dd`. Doubles as the identity — one row per day. */
+    val date: String,
+    val price: Double,
+    /** What a guest pays for this night. Null unless the caller is the host. */
+    val guestPrice: Double? = null,
+    val source: PriceSource = PriceSource.BASE,
+    val status: DayStatus = DayStatus.AVAILABLE,
+    /** The host's note on the block covering this day. Host reads only. */
+    val note: String? = null
+) {
+    /** The host may act on any day that is not held by a reservation. */
+    val isEditable: Boolean
+        get() = status != DayStatus.BOOKED
+}
+
+/** A listing's calendar over a window, from `GET /api/local/listings/:id/calendar?start=&end=`. */
+data class ListingCalendar(
+    val listingId: String,
+    val currency: String = "EGP",
+    /** The platform markup in force, as a fraction (0.1 = 10%). */
+    val commissionRate: Double = 0.0,
+    /** `price_per_night`, in the same raw/guest terms as [days]. */
+    val basePrice: Double = 0.0,
+    val start: String = "",
+    /** INCLUSIVE — the last day in [days], not a half-open bound. */
+    val end: String = "",
+    val days: List<CalendarDay> = emptyList()
+)
+
+/** What one calendar edit did, from `PUT …/calendar`. */
+data class CalendarUpdateResult(
+    /** Days actually written. */
+    val updated: Int,
+    /**
+     * Days the host selected that we refused, and why. Never silent: a day left unchanged without
+     * saying so is one the host believes they priced.
+     */
+    val skipped: List<SkippedDay>,
+    /** The calendar after the edit, over the days that were selected. */
+    val calendar: ListingCalendar
+) {
+    data class SkippedDay(val date: String, val reason: String)
+}
+
+/**
+ * What a calendar edit does to the selected days' prices. Three states, because "set 3,500",
+ * "clear the pin" and "don't touch prices" are three different edits and a plain `Double?` can
+ * only express two of them.
+ */
+sealed interface CalendarPriceChange {
+    /** Leave prices as they are (used when only blocking or unblocking). */
+    data object Unchanged : CalendarPriceChange
+    /** Delete the pinned rates so the days follow the listing's normal pricing. */
+    data object Reset : CalendarPriceChange
+    /** Pin this raw nightly rate on every selected day. */
+    data class Set(val amount: Double) : CalendarPriceChange
 }
 
 /**

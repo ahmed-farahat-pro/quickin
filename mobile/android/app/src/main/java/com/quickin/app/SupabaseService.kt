@@ -245,8 +245,63 @@ object SupabaseService {
         total = o.optDouble("total", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         nightlyAvg = o.optDouble("nightlyAvg", 0.0).takeUnless { it.isNaN() } ?: 0.0,
         currency = o.optString("currency").ifBlank { "EGP" },
-        hasSeasonalPricing = o.optBoolean("hasSeasonalPricing", false)
+        hasSeasonalPricing = o.optBoolean("hasSeasonalPricing", false),
+        nightsBreakdown = parseQuoteNights(o.optJSONArray("nights_breakdown")),
+        hasCustomNights = o.optBoolean("hasCustomNights", false)
     )
+
+    /**
+     * The per-night rows behind a quote. Absent on a backend that predates the host calendar, and
+     * an empty list is what the UI treats as "nothing worth itemising" — so a missing array
+     * degrades to the old single blended line rather than an error.
+     */
+    private fun parseQuoteNights(arr: org.json.JSONArray?): List<QuoteNight> {
+        if (arr == null) return emptyList()
+        val out = ArrayList<QuoteNight>(arr.length())
+        for (i in 0 until arr.length()) {
+            val n = arr.optJSONObject(i) ?: continue
+            val date = n.optStringOrNull("date") ?: continue
+            out += QuoteNight(
+                date = date,
+                price = n.optDouble("price", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+                source = PriceSource.from(n.optStringOrNull("source"))
+            )
+        }
+        return out
+    }
+
+    /**
+     * Parses a `{ listing_id, currency, commission_rate, base_price, start, end, days[] }` calendar.
+     * Internal so [BookingService] can share one definition of the shape.
+     */
+    internal fun parseListingCalendar(o: org.json.JSONObject): ListingCalendar {
+        val arr = o.optJSONArray("days")
+        val days = ArrayList<CalendarDay>(arr?.length() ?: 0)
+        for (i in 0 until (arr?.length() ?: 0)) {
+            val d = arr?.optJSONObject(i) ?: continue
+            val date = d.optStringOrNull("date") ?: continue
+            days += CalendarDay(
+                date = date,
+                price = d.optDouble("price", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+                // Absent for a public reader, where it would only repeat `price`.
+                guestPrice = if (d.has("guest_price") && !d.isNull("guest_price")) {
+                    d.optDouble("guest_price", 0.0).takeUnless { it.isNaN() }
+                } else null,
+                source = PriceSource.from(d.optStringOrNull("source")),
+                status = DayStatus.from(d.optStringOrNull("status")),
+                note = d.optStringOrNull("note")
+            )
+        }
+        return ListingCalendar(
+            listingId = o.optStringOr("listing_id", ""),
+            currency = o.optString("currency").ifBlank { "EGP" },
+            commissionRate = o.optDouble("commission_rate", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+            basePrice = o.optDouble("base_price", 0.0).takeUnless { it.isNaN() } ?: 0.0,
+            start = o.optStringOr("start", ""),
+            end = o.optStringOr("end", ""),
+            days = days
+        )
+    }
 
     /**
      * Static FX rates for multi-currency display (`GET /api/local/currencies`), e.g.

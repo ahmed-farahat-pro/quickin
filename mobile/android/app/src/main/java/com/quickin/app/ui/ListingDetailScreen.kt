@@ -170,6 +170,8 @@ fun ListingDetailScreen(
     hostAvailabilityState: com.quickin.app.HostAvailabilityUiState = com.quickin.app.HostAvailabilityUiState(),
     /** Loads the host's availability for this listing (called when the manager sheet opens). */
     onLoadHostAvailability: () -> Unit = {},
+    /** Host-only: opens the pricing calendar (per-day rates + day-level blocking). */
+    onOpenCalendar: () -> Unit = {},
     /** Host blocks [start, end) (yyyy-MM-dd, half-open) on this listing. */
     onAddBlock: (start: String, end: String, note: String?) -> Unit = { _, _, _ -> },
     /** Host removes a block by id. */
@@ -416,6 +418,7 @@ fun ListingDetailScreen(
                         isOwnHost = isOwnHost,
                         hostAvailabilityState = hostAvailabilityState,
                         onLoadHostAvailability = onLoadHostAvailability,
+                        onOpenCalendar = onOpenCalendar,
                         onAddBlock = onAddBlock,
                         onRemoveBlock = onRemoveBlock,
                         onEditListing = onEditListing,
@@ -741,6 +744,7 @@ private fun ReservePanel(
     isOwnHost: Boolean = false,
     hostAvailabilityState: com.quickin.app.HostAvailabilityUiState = com.quickin.app.HostAvailabilityUiState(),
     onLoadHostAvailability: () -> Unit = {},
+    onOpenCalendar: () -> Unit = {},
     onAddBlock: (start: String, end: String, note: String?) -> Unit = { _, _, _ -> },
     onRemoveBlock: (blockId: String) -> Unit = {},
     onEditListing: () -> Unit = {},
@@ -905,6 +909,25 @@ private fun ReservePanel(
                         ),
                         value = com.quickin.app.CurrencyManager.format(q.subtotal)
                     )
+                    // The nightly prices behind that average, when they actually differ from one
+                    // another. A stay at one flat rate reads better as the average line alone than
+                    // as the same number repeated; a stay crossing the host's custom prices does
+                    // not, and this is exactly where a guest would otherwise have no way to see
+                    // where the total came from.
+                    if (q.nightlyPricesVary) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            q.nightsBreakdown.forEach { night ->
+                                QuoteLine(
+                                    label = nightLabel(night.date),
+                                    value = com.quickin.app.CurrencyManager.format(night.price),
+                                    valueColor = if (night.source == com.quickin.app.PriceSource.CUSTOM) Ink else Muted
+                                )
+                            }
+                        }
+                    }
                     if (q.hasDiscount) {
                         QuoteLine(
                             label = stringResource(R.string.growth_discount_off_label, q.discountPercent),
@@ -1016,8 +1039,25 @@ private fun ReservePanel(
                 }
             }
 
-            // Host of this listing: a calendar manager to block / unblock date ranges. Opening
-            // it loads the listing's current spans (booked read-only + blocked removable).
+            // Host of this listing: the pricing calendar, where day-to-day rates and
+            // availability are set. Listed above the range-based manager because pricing the
+            // coming weekend is the errand a host opens their own listing to do.
+            if (isOwnHost) {
+                OutlinedButton(
+                    onClick = onOpenCalendar,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Burgundy),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Icon(Icons.Filled.DateRange, contentDescription = null, tint = Burgundy, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.calendar_open), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                }
+            }
+
+            // Host of this listing: a manager to block / unblock date RANGES. Opening it loads
+            // the listing's current spans (booked read-only + blocked removable).
             if (isOwnHost) {
                 OutlinedButton(
                     onClick = {
@@ -1036,6 +1076,19 @@ private fun ReservePanel(
             }
         }
     }
+}
+
+/**
+ * "Sat 15 Aug" for a `yyyy-MM-dd` night, in the device's language. Parsed and formatted in UTC so
+ * a device east or west of the listing can't name the day before.
+ */
+private fun nightLabel(date: String): String {
+    val parser = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+    val parsed = runCatching { parser.parse(date) }.getOrNull() ?: return date
+    val out = java.text.SimpleDateFormat("EEE d MMM", java.util.Locale.getDefault())
+        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+    return out.format(parsed)
 }
 
 /**

@@ -47,6 +47,10 @@ struct ListingDetailView: View {
     /// the host of this listing).
     @State private var showingAvailabilityManager = false
 
+    /// Presents the host pricing calendar (per-day rates + day-level blocking).
+    /// Same gate as the availability manager: host of this listing only.
+    @State private var showingCalendar = false
+
     // Reserve flow state
     @State private var isReserving = false
     @State private var reserveError: String?
@@ -220,6 +224,16 @@ struct ListingDetailView: View {
             Task { await loadAvailability() }
         }) {
             AvailabilityManagerView(listing: listing)
+                .environmentObject(auth)
+                .environmentObject(loc)
+        }
+        .sheet(isPresented: $showingCalendar, onDismiss: {
+            // The host may have blocked days or changed nightly rates — reload
+            // both the greyed-out days and the quote so the reserve panel below
+            // stops showing a price that is no longer on offer.
+            Task { await loadAvailability() }
+        }) {
+            HostCalendarView(listing: listing)
                 .environmentObject(auth)
                 .environmentObject(loc)
         }
@@ -824,8 +838,35 @@ struct ListingDetailView: View {
 
     // MARK: - Reserve panel
 
-    /// Host entry into the availability manager (block / unblock dates). Renders
-    /// as a tan secondary row inside the reserve panel.
+    /// Host entry into the pricing calendar (per-day rates + day-level blocking).
+    /// Sits above the availability manager because day-to-day pricing is the
+    /// thing a host opens their own listing to do; blocking a whole range is the
+    /// rarer errand.
+    private var pricingCalendarButton: some View {
+        Button {
+            showingCalendar = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 16, weight: .semibold))
+                Text(loc.t("calendar.open"))
+                    .fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.forward")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity)
+            .background(Color.qkTan)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.qkTap)
+    }
+
+    /// Host entry into the availability manager (block / unblock date RANGES,
+    /// plus the cancellation policy and seasonal rates).
     private var manageAvailabilityButton: some View {
         Button {
             showingAvailabilityManager = true
@@ -864,6 +905,25 @@ struct ListingDetailView: View {
                     value: currency.format(quote.subtotal),
                     bold: false
                 )
+                // The nightly prices behind that average, when they actually
+                // differ from each other. A stay at one flat rate reads better
+                // as the average line alone than as the same number repeated;
+                // a stay crossing a host's custom prices does not, and this is
+                // exactly where a guest would otherwise have no way to see
+                // where the total came from.
+                if nightlyPricesVary(quote) {
+                    VStack(spacing: 5) {
+                        ForEach(quote.nightsBreakdown) { night in
+                            breakdownRow(
+                                label: nightLabel(night.date),
+                                value: currency.format(night.price),
+                                bold: false,
+                                tint: night.source == .custom ? Color.qkInk : Color.qkMuted
+                            )
+                        }
+                    }
+                    .padding(.leading, 8)
+                }
                 // Length-of-stay discount, when the quote applied one.
                 if quote.hasDiscount {
                     breakdownRow(
@@ -891,6 +951,26 @@ struct ListingDetailView: View {
                     .tint(.qkBurgundy)
             }
         }
+    }
+
+    /// Whether the stay's nights are priced differently from one another — the
+    /// only case where listing them adds anything. `nightsBreakdown` is empty on
+    /// a backend that predates the host calendar, which reads as "no variation"
+    /// and leaves the old single-line summary exactly as it was.
+    private func nightlyPricesVary(_ quote: StayQuote) -> Bool {
+        guard let first = quote.nightsBreakdown.first else { return false }
+        return quote.nightsBreakdown.contains { $0.price != first.price }
+    }
+
+    /// "Sat 15 Aug" for a `yyyy-MM-dd` night, in the app's language. Parsed and
+    /// formatted in UTC so the row can't name the day before.
+    private func nightLabel(_ date: String) -> String {
+        guard let parsed = AvailabilityRange.isoFormatter.date(from: date) else { return date }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: loc.lang.localeIdentifier)
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return f.string(from: parsed)
     }
 
     /// "3 nights" / "1 night" — localized, pluralized.
@@ -938,9 +1018,10 @@ struct ListingDetailView: View {
                     .foregroundStyle(Color.qkInk)
             }
 
-            // Host-only: manage this listing's blocked dates. Shown when the
-            // signed-in account owns the listing.
+            // Host-only: price and open/close this listing day by day. Shown
+            // when the signed-in account owns the listing.
             if isHostOfThisListing {
+                pricingCalendarButton
                 manageAvailabilityButton
             }
 

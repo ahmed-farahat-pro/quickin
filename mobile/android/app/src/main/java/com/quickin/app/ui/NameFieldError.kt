@@ -17,6 +17,7 @@ import com.quickin.app.R
 @Composable
 fun nameProblemMessage(problem: NameRules.Problem): String = when (problem) {
     is NameRules.Problem.Required -> stringResource(R.string.auth_name_required)
+    is NameRules.Problem.InvalidCharacters -> stringResource(R.string.auth_name_invalid_characters)
     is NameRules.Problem.NoLetters -> stringResource(R.string.auth_name_no_letters)
     is NameRules.Problem.TooShort -> stringResource(R.string.auth_name_too_short, NameRules.MIN_LETTERS)
     is NameRules.Problem.TooLong -> stringResource(R.string.auth_name_too_long, NameRules.MAX_LENGTH)

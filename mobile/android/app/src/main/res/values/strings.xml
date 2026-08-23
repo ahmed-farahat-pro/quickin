@@ -310,6 +310,14 @@
     <string name="pay_processing_body">Payment is processing — we\'ll update your reservation shortly.</string>
     <!-- Instapay bank transfer (replaces Paymob card checkout) -->
     <string name="instapay_subtitle">Transfer via Instapay, then upload your screenshot.</string>
+    <!-- The transfer destinations a guest can choose between (Instapay, bank account). -->
+    <string name="pay_methods_subtitle">Transfer the amount, then upload your screenshot.</string>
+    <string name="pay_methods_instapay">Instapay</string>
+    <string name="pay_methods_bank_transfer">Bank transfer</string>
+    <string name="pay_methods_bank_name">Bank</string>
+    <string name="pay_methods_account_name">Account holder</string>
+    <string name="pay_methods_account_number">Account number</string>
+    <string name="pay_methods_iban">IBAN</string>
     <string name="instapay_amount_to_send">Amount to transfer</string>
     <string name="instapay_for_nights">for %1$s</string>
     <string name="instapay_send_to">Send the transfer to</string>
@@ -317,7 +325,7 @@
     <string name="instapay_copied">Copied</string>
     <string name="instapay_loading">Loading transfer details…</string>
     <string name="instapay_load_error">Couldn\'t load the transfer details. Please try again.</string>
-    <string name="instapay_no_handle">The host hasn\'t set up Instapay yet — please contact them.</string>
+    <string name="instapay_no_handle">No payment method is set up yet — please contact us.</string>
     <string name="instapay_scan_hint">Scan with your banking app</string>
     <string name="instapay_open">Open in Instapay</string>
     <string name="instapay_open_failed">Couldn\'t open that link.</string>
@@ -473,7 +481,7 @@
     <string name="cancel_flexible">Flexible</string>
     <string name="cancel_flexible_desc">Full refund if cancelled at least 1 day before check-in, otherwise no refund.</string>
     <string name="cancel_moderate">Moderate</string>
-    <string name="cancel_moderate_desc">Full refund if cancelled at least 5 days before check-in, otherwise 50%.</string>
+    <string name="cancel_moderate_desc">Full refund if cancelled at least 5 days before check-in, otherwise 50%. No refund on the check-in day or later.</string>
     <string name="cancel_strict">Strict</string>
     <string name="cancel_strict_desc">50% refund if cancelled at least 7 days before check-in, otherwise no refund.</string>
     <string name="cancel_policy_save">Save policy</string>
@@ -748,7 +756,6 @@
     <string name="host_type_brokerage">Brokerage</string>
     <string name="host_apply_submit">Submit application</string>
     <string name="host_apply_required">Add your name, national ID, phone and address to continue.</string>
-    <string name="host_apply_error_full_name_letters">Please use letters in your name, not only numbers.</string>
     <string name="host_apply_error">Couldn\'t submit your application. Please try again.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -851,7 +858,8 @@
     <string name="auth_email_did_you_mean">Did you mean %1$s?</string>
     <string name="auth_email_disposable">Temporary or disposable email addresses aren\'t allowed. Please use a permanent personal or work email.</string>
     <string name="auth_name_required">Please enter your name</string>
-    <string name="auth_name_no_letters">Please enter your name — a name contains letters, not only numbers</string>
+    <string name="auth_name_invalid_characters">Please use letters only — a name has no numbers or symbols in it</string>
+    <string name="auth_name_no_letters">Please enter your name — a name contains letters</string>
     <string name="auth_name_too_short">Name must contain at least %1$d letters</string>
     <string name="auth_name_too_long">Name must be at most %1$d characters</string>
 

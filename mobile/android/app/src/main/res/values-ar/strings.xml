@@ -303,6 +303,13 @@
     <string name="pay_processing_body">جارٍ معالجة الدفع — سنحدّث حجزك قريبًا.</string>
     <!-- Instapay bank transfer (replaces Paymob card checkout) -->
     <string name="instapay_subtitle">حوّل عبر إنستاباي، ثم ارفع لقطة الشاشة.</string>
+    <string name="pay_methods_subtitle">حوّل المبلغ، ثم ارفع لقطة الشاشة.</string>
+    <string name="pay_methods_instapay">إنستاباي</string>
+    <string name="pay_methods_bank_transfer">تحويل بنكي</string>
+    <string name="pay_methods_bank_name">البنك</string>
+    <string name="pay_methods_account_name">اسم صاحب الحساب</string>
+    <string name="pay_methods_account_number">رقم الحساب</string>
+    <string name="pay_methods_iban">رقم الآيبان</string>
     <string name="instapay_amount_to_send">المبلغ المطلوب تحويله</string>
     <string name="instapay_for_nights">لمدة %1$s</string>
     <string name="instapay_send_to">أرسل التحويل إلى</string>
@@ -310,7 +317,7 @@
     <string name="instapay_copied">تم النسخ</string>
     <string name="instapay_loading">جارٍ تحميل تفاصيل التحويل…</string>
     <string name="instapay_load_error">تعذّر تحميل تفاصيل التحويل. حاول مرة أخرى.</string>
-    <string name="instapay_no_handle">لم يقم المضيف بإعداد إنستاباي بعد — يرجى التواصل معه.</string>
+    <string name="instapay_no_handle">لم يتم إعداد أي وسيلة دفع بعد — يرجى التواصل معنا.</string>
     <string name="instapay_scan_hint">امسح الرمز بتطبيق البنك</string>
     <string name="instapay_open">افتح في إنستاباي</string>
     <string name="instapay_open_failed">تعذّر فتح الرابط.</string>
@@ -468,7 +475,7 @@
     <string name="cancel_flexible">مرنة</string>
     <string name="cancel_flexible_desc">استرداد كامل عند الإلغاء قبل تسجيل الوصول بيوم واحد على الأقل، وإلا فلا يوجد استرداد.</string>
     <string name="cancel_moderate">معتدلة</string>
-    <string name="cancel_moderate_desc">استرداد كامل عند الإلغاء قبل تسجيل الوصول بـ ٥ أيام على الأقل، وإلا فاسترداد ٥٠٪.</string>
+    <string name="cancel_moderate_desc">استرداد كامل عند الإلغاء قبل تسجيل الوصول بـ ٥ أيام على الأقل، وإلا فاسترداد ٥٠٪. لا استرداد في يوم الوصول أو بعده.</string>
     <string name="cancel_strict">صارمة</string>
     <string name="cancel_strict_desc">استرداد ٥٠٪ عند الإلغاء قبل تسجيل الوصول بـ ٧ أيام على الأقل، وإلا فلا يوجد استرداد.</string>
     <string name="cancel_policy_save">حفظ السياسة</string>
@@ -746,7 +753,6 @@
     <string name="host_type_brokerage">مكتب عقاري</string>
     <string name="host_apply_submit">إرسال الطلب</string>
     <string name="host_apply_required">أضف اسمك والرقم القومي ورقم الهاتف والعنوان للمتابعة.</string>
-    <string name="host_apply_error_full_name_letters">يرجى كتابة اسمك بالحروف، وليس بالأرقام فقط.</string>
     <string name="host_apply_error">تعذّر إرسال طلبك. يرجى المحاولة مرة أخرى.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -849,7 +855,8 @@
     <string name="auth_email_did_you_mean">هل تقصد %1$s؟</string>
     <string name="auth_email_disposable">لا يُسمح بعناوين البريد المؤقتة. يُرجى استخدام بريد شخصي أو بريد عمل دائم.</string>
     <string name="auth_name_required">يُرجى إدخال اسمك</string>
-    <string name="auth_name_no_letters">يُرجى إدخال اسمك — الاسم يحتوي على حروف، وليس أرقامًا فقط</string>
+    <string name="auth_name_invalid_characters">من فضلك استخدم الحروف فقط — الاسم لا يحتوي على أرقام أو رموز</string>
+    <string name="auth_name_no_letters">يُرجى إدخال اسمك — الاسم يحتوي على حروف</string>
     <string name="auth_name_too_short">يجب أن يحتوي الاسم على %1$d حرفين على الأقل</string>
     <string name="auth_name_too_long">يجب ألا يزيد الاسم عن %1$d حرفًا</string>
 

@@ -146,9 +146,10 @@ struct BookingService {
         return try JSONDecoder().decode(PaymentConfig.self, from: data)
     }
 
-    /// Upload the guest's Instapay transfer screenshot as proof of payment for
+    /// Upload the guest's transfer screenshot as proof of payment for
     /// `bookingId` via `POST /api/local/bookings/:id/payment-proof`
-    /// `{ image, method: "instapay" }` (Bearer). `imageDataURL` is a
+    /// `{ image, method }` (Bearer). `method` is the destination the guest picked,
+    /// which is how the reviewer knows which account to check. `imageDataURL` is a
     /// `data:image/jpeg;base64,…` URL (produced by `QKAvatarImage.makeDataURL`).
     /// The booking's `payment_status` flips to "submitted" — awaiting the host's
     /// approval — and re-uploading is allowed (a host-rejected booking reopens).
@@ -158,7 +159,11 @@ struct BookingService {
     /// screenshot, 403/404 when the booking isn't the caller's). The updated
     /// `Booking` is returned best-effort; the caller only needs the 2xx to advance.
     @discardableResult
-    func submitPaymentProof(bookingId: String, imageDataURL: String) async throws -> Booking? {
+    func submitPaymentProof(
+        bookingId: String,
+        imageDataURL: String,
+        method: PaymentMethod = .instapay
+    ) async throws -> Booking? {
         guard let token else { throw BookingError.notSignedIn }
 
         let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
@@ -170,7 +175,7 @@ struct BookingService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "image": imageDataURL,
-            "method": "instapay",
+            "method": method.rawValue,
         ])
 
         let (data, response) = try await session.data(for: request)
@@ -687,13 +692,70 @@ enum BookingError: LocalizedError {
     }
 }
 
-/// The Instapay transfer destination shown to the guest at checkout, from
-/// `GET /api/local/payment-config` →
-/// `{ instapay_handle, instructions, instapay_link, instapay_qr_image, qr_payload }`.
-/// `handle` is the Instapay address the guest sends money to; `instructions` is
-/// free-text guidance from the host/admin (may be empty). The number, the QR and
-/// the deep link are all admin-editable via `/api/local/admin/settings/instapay`
-/// (web `/ops/payments`); any of them may be blank.
+/// The ways a guest can pay. Mirrors the server's `PAYMENT_METHODS`, and the
+/// raw value is what goes back as `method` on the payment proof.
+enum PaymentMethod: String, Decodable, Hashable, CaseIterable {
+    case instapay
+    case bankTransfer = "bank_transfer"
+
+    /// Localization key for the picker label.
+    var titleKey: String {
+        switch self {
+        case .instapay: return "payMethods.instapay"
+        case .bankTransfer: return "payMethods.bankTransfer"
+        }
+    }
+}
+
+/// The bank account half of the destination — an ordinary transfer, offered
+/// alongside Instapay. All four values are admin-set in web `/ops/payments`.
+///
+/// The account number and IBAN are carried and shown WHOLE, never masked: they
+/// exist to be typed into a banking app.
+struct BankTransferConfig: Decodable, Hashable {
+    let bankName: String
+    /// The beneficiary. Egyptian banking apps check it against the account.
+    let accountName: String
+    let accountNumber: String
+    /// Optional — the account number plus the bank is enough for a domestic transfer.
+    let iban: String
+    /// `iban` in groups of four, as the server formats it, for display only.
+    let ibanFormatted: String
+    let instructions: String
+
+    enum CodingKeys: String, CodingKey {
+        case bankName = "bank_name"
+        case accountName = "account_name"
+        case accountNumber = "account_number"
+        case iban
+        case ibanFormatted = "iban_formatted"
+        case instructions
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bankName = (try c.decodeIfPresent(String.self, forKey: .bankName)) ?? ""
+        accountName = (try c.decodeIfPresent(String.self, forKey: .accountName)) ?? ""
+        accountNumber = (try c.decodeIfPresent(String.self, forKey: .accountNumber)) ?? ""
+        iban = (try c.decodeIfPresent(String.self, forKey: .iban)) ?? ""
+        let formatted = (try c.decodeIfPresent(String.self, forKey: .ibanFormatted)) ?? ""
+        ibanFormatted = formatted.isEmpty ? iban : formatted
+        instructions = (try c.decodeIfPresent(String.self, forKey: .instructions)) ?? ""
+    }
+
+    /// The empty destination a pre-bank API response decodes to.
+    static let empty = BankTransferConfig()
+
+    private init() {
+        bankName = ""; accountName = ""; accountNumber = ""
+        iban = ""; ibanFormatted = ""; instructions = ""
+    }
+}
+
+/// Every transfer destination shown to the guest at checkout, from
+/// `GET /api/local/payment-config`: the Instapay handle/QR/link and the bank
+/// account, each with its own admin toggle, plus the derived `availableMethods`.
+/// All of it is admin-editable in web `/ops/payments`; any field may be blank.
 struct PaymentConfig: Decodable, Hashable {
     /// The Instapay handle/address the guest transfers to (may be empty if unset).
     let handle: String
@@ -705,6 +767,12 @@ struct PaymentConfig: Decodable, Hashable {
     let qrImage: String
     /// What to encode when we draw the QR ourselves: the link if set, else the handle.
     let qrPayload: String
+    let bank: BankTransferConfig
+    /// Which methods to offer, in order. **The server's decision** — it already
+    /// accounts for both the toggles and whether each destination is complete, so
+    /// this list is rendered as-is rather than being re-derived here. That is what
+    /// keeps an admin's toggle meaningful on a build that shipped months ago.
+    let availableMethods: [PaymentMethod]
 
     enum CodingKeys: String, CodingKey {
         case handle = "instapay_handle"
@@ -712,12 +780,16 @@ struct PaymentConfig: Decodable, Hashable {
         case link = "instapay_link"
         case qrImage = "instapay_qr_image"
         case qrPayload = "qr_payload"
+        case instapayEnabled = "instapay_enabled"
+        case bank
+        case availableMethods = "available_methods"
     }
 
     /// Every field is optional so a build running against an API that predates the
-    /// QR/link keys still decodes — a missing key reads as empty rather than
-    /// failing the whole response. `qrPayload` is derived the same way the server
-    /// derives it when the response omits it.
+    /// QR/link/bank keys still decodes — a missing key reads as empty rather than
+    /// failing the whole response. `qrPayload` and `availableMethods` are derived
+    /// the same way the server derives them when the response omits them, which is
+    /// what lets this app talk to an older deployment.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         handle = (try c.decodeIfPresent(String.self, forKey: .handle)) ?? ""
@@ -726,14 +798,27 @@ struct PaymentConfig: Decodable, Hashable {
         qrImage = (try c.decodeIfPresent(String.self, forKey: .qrImage)) ?? ""
         let payload = (try c.decodeIfPresent(String.self, forKey: .qrPayload)) ?? ""
         qrPayload = payload.isEmpty ? (link.isEmpty ? handle : link) : payload
+        bank = (try c.decodeIfPresent(BankTransferConfig.self, forKey: .bank)) ?? .empty
+
+        // An unknown method from a newer server is dropped rather than failing the
+        // decode: this app can't render a destination it has no UI for, but it can
+        // still offer the ones it knows.
+        let raw = (try c.decodeIfPresent([String].self, forKey: .availableMethods))
+        if let raw {
+            availableMethods = raw.compactMap(PaymentMethod.init(rawValue:))
+        } else {
+            // Pre-`available_methods` server: Instapay was the only method, and it
+            // was offered whenever it had a destination.
+            let hasInstapay = !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let enabled = (try c.decodeIfPresent(Bool.self, forKey: .instapayEnabled)) ?? true
+            availableMethods = (hasInstapay && enabled) ? [.instapay] : []
+        }
     }
 
-    /// False until an admin has set a destination — the UI blocks payment when
-    /// there is neither a handle nor a link to send money to.
-    var isConfigured: Bool {
-        !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || !link.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    /// False until an admin has set up at least one way to pay — the UI blocks
+    /// payment when there is nowhere to send money.
+    var isConfigured: Bool { !availableMethods.isEmpty }
 
     /// The deep link as a URL, when it is a well-formed web link. http(s) only —
     /// the server validates the same way, so anything else is treated as unset.

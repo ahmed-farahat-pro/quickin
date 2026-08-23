@@ -77,20 +77,23 @@ private val ErrorRed = Color(0xFFB3261E)
 
 /**
  * Payment sheet shown after a guest creates a booking (and from an unpaid reservation's "Pay now").
- * Mirrors the website + iOS: a single **Instapay bank-transfer** flow (Paymob card checkout was
- * removed). The guest sends the booking amount to the host's Instapay handle
- * (`GET /api/local/payment-config`), uploads a screenshot of the transfer
- * (`POST /api/local/bookings/:id/payment-proof`), and the host confirms the booking after checking
- * it. A [ModalBottomSheet] hosts the whole flow; on submission it shows an "Awaiting host approval"
- * confirmation whose Done button calls [onPaid].
+ * Mirrors the website + iOS: a **manual transfer** flow (Paymob card checkout was removed). The
+ * guest sends the booking amount to one of QuickIn's accounts (`GET /api/local/payment-config`),
+ * uploads a screenshot of the transfer (`POST /api/local/bookings/:id/payment-proof`), and it is
+ * confirmed after being checked. A [ModalBottomSheet] hosts the whole flow; on submission it shows
+ * an "Awaiting host approval" confirmation whose Done button calls [onPaid].
  *
- * @param total the booking total in EGP — the exact amount the guest transfers via Instapay.
+ * There are two destinations — **Instapay** and a **bank account** — each with its own admin
+ * toggle. Which appear comes from `availableMethods`, never from a list hardcoded here, and the
+ * picker is hidden when only one is offered because a single-option choice is not a choice.
+ *
+ * @param total the booking total in EGP — the exact amount the guest transfers.
  * @param nights number of nights (for the "for N nights" caption).
  * @param bookingId the booking being paid (target of `payment-proof`).
  * @param token the bearer token, or null when signed out (the body then surfaces a sign-in note).
- * @param state retained for call-site compatibility; unused by the Instapay flow.
- * @param onValidatePromo retained for call-site compatibility; unused by the Instapay flow.
- * @param onClearPromo retained for call-site compatibility; unused by the Instapay flow.
+ * @param state retained for call-site compatibility; unused by the transfer flow.
+ * @param onValidatePromo retained for call-site compatibility; unused by the transfer flow.
+ * @param onClearPromo retained for call-site compatibility; unused by the transfer flow.
  * @param onPaid called once the transfer screenshot is submitted (awaiting approval) to dismiss + continue.
  * @param onDismiss called when the sheet is dismissed (drag-down / scrim) before submitting.
  */
@@ -122,7 +125,7 @@ fun PaymentSheet(
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            InstapayPayBody(
+            TransferPayBody(
                 total = total,
                 nights = nights,
                 token = token,
@@ -134,14 +137,71 @@ fun PaymentSheet(
 }
 
 /**
- * The Instapay bank-transfer body. Shows the amount to transfer, fetches the transfer destination
- * (`getPaymentConfig`), displays the Instapay handle with a copy button + the host's instructions,
- * lets the guest pick a transfer screenshot from the gallery (Photo Picker → downscaled base64 data
- * URL), then submits it via `submitPaymentProof`. On success it switches to an "Awaiting host
- * approval" confirmation whose Done button calls [onPaid]. Emitted directly into [PaymentSheet]'s Column.
+ * One "label / value / Copy" line in the bank destination. Renders nothing for a blank value, so
+ * the optional IBAN simply doesn't appear when the admin left it out.
+ *
+ * [copyValue] is what lands on the clipboard, which is not always what is on screen: the IBAN is
+ * displayed in groups of four and copied compact.
  */
 @Composable
-private fun InstapayPayBody(
+private fun BankField(
+    label: String,
+    value: String,
+    mono: Boolean = false,
+    copyValue: String? = null
+) {
+    if (value.isBlank()) return
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(label, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                value,
+                color = Ink,
+                fontWeight = FontWeight.Bold,
+                fontSize = if (mono) 16.sp else 15.sp,
+                fontFamily = if (mono) androidx.compose.ui.text.font.FontFamily.Monospace else null,
+                modifier = Modifier.weight(1f)
+            )
+            if (!copyValue.isNullOrBlank()) {
+                OutlinedButton(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(copyValue))
+                        android.widget.Toast
+                            .makeText(context, context.getString(R.string.instapay_copied), android.widget.Toast.LENGTH_SHORT)
+                            .show()
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy)
+                ) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.instapay_copy), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.instapay_copy), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The manual-transfer body. Shows the amount to transfer, fetches the destinations
+ * (`getPaymentConfig`), lets the guest pick between the offered methods and shows that one's
+ * details, lets them pick a transfer screenshot from the gallery (Photo Picker → downscaled base64
+ * data URL), then submits it via `submitPaymentProof` along with the method they chose. On success
+ * it switches to an "Awaiting host approval" confirmation whose Done button calls [onPaid].
+ * Emitted directly into [PaymentSheet]'s Column.
+ */
+@Composable
+private fun TransferPayBody(
     total: Int,
     nights: Int,
     token: String?,
@@ -157,6 +217,10 @@ private fun InstapayPayBody(
     // transient "couldn't load" before LaunchedEffect runs.
     var loadingConfig by remember { mutableStateOf(token != null) }
     var configError by remember { mutableStateOf(false) }
+    // The destination the guest tapped. Null until they choose, so the shown method can fall back
+    // to whatever the server offers first — that way "the admin switched Instapay off" needs no
+    // special case here.
+    var pickedMethod by remember { mutableStateOf<BookingService.PaymentMethod?>(null) }
 
     // Picked screenshot: the content Uri drives the thumbnail; the data URL is uploaded.
     var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -214,7 +278,7 @@ private fun InstapayPayBody(
             fontSize = 22.sp,
             modifier = Modifier.padding(top = 4.dp)
         )
-        Text(stringResource(R.string.instapay_subtitle), color = Muted, fontSize = 14.sp)
+        Text(stringResource(R.string.pay_methods_subtitle), color = Muted, fontSize = 14.sp)
     }
 
     if (token == null) {
@@ -263,6 +327,41 @@ private fun InstapayPayBody(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Segmented pills, one per offered method — rendered from the server's list, so a
+            // method the admin switched off simply isn't here. Hidden entirely for a single one.
+            val offered = config?.availableMethods.orEmpty()
+            val shownMethod = pickedMethod?.takeIf { offered.contains(it) } ?: offered.firstOrNull()
+            if (offered.size > 1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    offered.forEach { m ->
+                        val on = m == shownMethod
+                        val pillShape = RoundedCornerShape(12.dp)
+                        Text(
+                            stringResource(
+                                if (m == BookingService.PaymentMethod.BANK_TRANSFER)
+                                    R.string.pay_methods_bank_transfer
+                                else R.string.pay_methods_instapay
+                            ),
+                            color = if (on) Color.White else Ink,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(pillShape)
+                                .background(if (on) Burgundy else Color.White, pillShape)
+                                .border(1.dp, if (on) Burgundy else Tan, pillShape)
+                                .clickable { pickedMethod = m }
+                                .padding(vertical = 12.dp)
+                        )
+                    }
+                }
+                HorizontalDivider(color = Tan)
+            }
+
             Text(
                 stringResource(R.string.instapay_send_to),
                 color = Muted,
@@ -282,6 +381,30 @@ private fun InstapayPayBody(
                 }
                 !config!!.isConfigured -> {
                     Text(stringResource(R.string.instapay_no_handle), color = Ink, fontSize = 14.sp)
+                }
+                shownMethod == BookingService.PaymentMethod.BANK_TRANSFER -> {
+                    val bank = config!!.bank
+                    // Nothing is masked — a masked account number is one nobody can send money to.
+                    BankField(stringResource(R.string.pay_methods_bank_name), bank.bankName)
+                    BankField(stringResource(R.string.pay_methods_account_name), bank.accountName)
+                    BankField(
+                        stringResource(R.string.pay_methods_account_number),
+                        bank.accountNumber,
+                        mono = true,
+                        copyValue = bank.accountNumber
+                    )
+                    // Shown in groups of four the way a bank prints one, but copied compact —
+                    // that is the form a banking app's field wants.
+                    BankField(
+                        stringResource(R.string.pay_methods_iban),
+                        bank.ibanFormatted,
+                        mono = true,
+                        copyValue = bank.iban
+                    )
+                    if (bank.instructions.isNotBlank()) {
+                        HorizontalDivider(color = Tan)
+                        Text(bank.instructions, color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
+                    }
                 }
                 else -> {
                     val cfg = config!!
@@ -464,7 +587,17 @@ private fun InstapayPayBody(
             submitting = true
             scope.launch {
                 try {
-                    BookingService.submitPaymentProof(token, bookingId, img)
+                    BookingService.submitPaymentProof(
+                        token,
+                        bookingId,
+                        img,
+                        // The server validates this against its own vocabulary; falling back to
+                        // Instapay here only matters if the config never loaded, and the button
+                        // is disabled in that case.
+                        pickedMethod?.takeIf { config?.availableMethods?.contains(it) == true }
+                            ?: config?.availableMethods?.firstOrNull()
+                            ?: BookingService.PaymentMethod.INSTAPAY
+                    )
                     submitted = true
                 } catch (e: BookingService.HttpError) {
                     submitError = when (e.code) {
@@ -481,9 +614,11 @@ private fun InstapayPayBody(
                 }
             }
         },
-        // Require a valid transfer destination too — don't let the guest "submit a transfer" when
-        // the Instapay handle never loaded / isn't set.
-        enabled = imageDataUrl != null && !submitting && !encoding && config?.instapayHandle?.isNotBlank() == true,
+        // Require a loaded, offered destination too — don't let the guest "submit a transfer"
+        // when the config never loaded, or when the admin has switched every method off. This
+        // used to test the Instapay handle specifically, which would have blocked a bank-only
+        // destination.
+        enabled = imageDataUrl != null && !submitting && !encoding && config?.isConfigured == true,
         modifier = Modifier.fillMaxWidth(),
         height = 54.dp
     ) {

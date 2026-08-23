@@ -669,6 +669,8 @@ struct HostListingRow: View {
     @State private var errorMessage: String?
     /// Presents the full listing editor.
     @State private var showingEditor = false
+    /// Presents the day-by-day pricing calendar for this listing.
+    @State private var showingCalendar = false
 
     init(listing: Listing, onChanged: @escaping () -> Void) {
         self.listing = listing
@@ -724,6 +726,11 @@ struct HostListingRow: View {
                 rejectionReason
             }
 
+            // Day-by-day rates and availability. Above the editor on purpose:
+            // this is the routine errand, and unlike a full edit it does NOT
+            // send the listing back to the admin queue.
+            calendarButton
+
             // Every field of the listing (and its photos) is editable from here.
             editButton
 
@@ -748,6 +755,10 @@ struct HostListingRow: View {
         .qkCard(cornerRadius: 18)
         .onChange(of: docItem) { _, item in
             Task { await resubmit(item) }
+        }
+        .sheet(isPresented: $showingCalendar) {
+            HostCalendarView(listing: listing)
+                .environmentObject(loc)
         }
         .sheet(isPresented: $showingEditor) {
             EditListingView(listing: listing) { updated in
@@ -782,6 +793,35 @@ struct HostListingRow: View {
         .padding(10)
         .background(Color.qkBurgundy.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// Opens the pricing calendar: per-day rates, and opening/closing days.
+    /// Styled as editButton's quieter twin — same geometry, tinted fill — because
+    /// the two sit together and only differ in how consequential they are.
+    private var calendarButton: some View {
+        Button {
+            showingCalendar = true
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 13, weight: .semibold))
+                Text(loc.t("calendar.open"))
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .background(Color.qkBurgundy.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.qkBurgundy.opacity(0.25), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.qkTap)
+        .disabled(isSubmitting)
     }
 
     /// Opens the full listing editor (every field + photo management). Saving

@@ -1,8 +1,8 @@
 package com.quickin.app
 
 /**
- * Name validation for every screen that takes a person's name — sign-up today,
- * the host application and profile settings next.
+ * Name validation for every screen that takes a person's name — sign-up, the
+ * host application and profile settings.
  *
  * The Kotlin twin of the backend's `name-policy.ts` and of iOS's
  * `NameRules.swift`. The sign-up form here asked nothing of the field at all:
@@ -18,11 +18,18 @@ package com.quickin.app
  * verification time. `layla@gmail.com` silently becoming the guest "layla" is
  * not the same thing as a guest telling us who they are.
  *
- * The rule that does the work is [Problem.NoLetters]: a name must contain
- * letters. Deliberately not "must contain no digits" — Franco-Arabic writes
- * real names with numerals (`Ma7moud`, `3omar`), and refusing those would turn
- * away exactly the guests this app is built for. What it refuses is a name with
- * no letters *at all*: `12345`, `0100`, `٠١٢٣`, `----`.
+ * The rule that does the work is [Problem.InvalidCharacters]: a name is made of
+ * letters and nothing else. Letters in any script — Arabic, Latin, Cyrillic and
+ * the CJK ideographs alike — plus the marks that sit on top of them (harakat, a
+ * Devanagari matra, the accent of a decomposed `José`), plus the three
+ * characters that hold a real name together: the space between its parts, the
+ * hyphen in `Jean-Luc`, the apostrophe in `O'Brien`. Digits, `@`, `.`, `_`,
+ * emoji and every other symbol are refused.
+ *
+ * This is stricter than the rule that shipped first, which asked only that a
+ * name contain *some* letter and so accepted Franco-Arabic spellings like
+ * `Ma7moud` and `3omar`. Those are refused now — the field is matched against
+ * an ID document at verification, and `Ma7moud` is not what the document says.
  *
  * KEEP IN SYNC with `name-policy.ts` and `NameRules.swift` — all three create
  * accounts in the same `users` table, and a rule that only holds on one of the
@@ -41,7 +48,9 @@ object NameRules {
     /** What is wrong with a name, in the order the checks run. */
     sealed interface Problem {
         object Required : Problem
-        /** Letters in no script at all — `12345`, `----`. */
+        /** Something in there is not a letter — `Layla2`, `Ma7moud`, `j.doe`, an emoji. */
+        object InvalidCharacters : Problem
+        /** Letters in no script at all, from characters that are otherwise legal — `----`. */
         object NoLetters : Problem
         object TooShort : Problem
         object TooLong : Problem
@@ -62,6 +71,29 @@ object NameRules {
     // Kotlin's `Char.isWhitespace` is `Character.isWhitespace || isSpaceChar`,
     // which is exactly the set the server's `\s+/gu` matches — the non-breaking
     // spaces a paste from a document carries in included.
+
+    // The characters a name may hold that are not letters: the space between its
+    // parts, the apostrophe of `O'Brien`, the hyphen of `Jean-Luc`.
+    //
+    // Both punctuation marks are listed twice because the keyboard does not send
+    // the one on the keycap: smart punctuation rewrites `'` to `’` (U+2019) as
+    // it is typed, and a name pasted from a document carries the typographic
+    // hyphens (U+2010, U+2011) with it. Refusing those would refuse `O’Brien`
+    // for a substitution the guest never made and cannot see.
+    //
+    // Only U+0020 is listed for the space because [normalized] runs first and
+    // has already collapsed every other kind of whitespace into it.
+    private val ALLOWED_PUNCTUATION = setOf(' ', '\'', '\u2019', '-', '\u2010', '\u2011')
+
+    // The combining marks: a harakat over an Arabic letter, a Devanagari matra,
+    // the accent of a `José` a keyboard sent decomposed as `e` + U+0301. None of
+    // them is a letter to `Character.isLetter`, and refusing them would refuse
+    // the scripts this rule exists to serve. The server spells this `\p{M}`.
+    private val MARK_TYPES = setOf(
+        Character.NON_SPACING_MARK.toInt(),
+        Character.COMBINING_SPACING_MARK.toInt(),
+        Character.ENCLOSING_MARK.toInt(),
+    )
 
     /**
      * What we send to the backend: invisibles dropped, every run of whitespace
@@ -88,15 +120,50 @@ object NameRules {
         return out.toString()
     }
 
+    /**
+     * Walk [name] one code point at a time, handing each to [action]. Iterating
+     * `Char` would split a letter outside the BMP into two halves, neither of
+     * which is a letter — the server sees one character there, so this has to
+     * as well.
+     */
+    private inline fun forEachCodePoint(name: String, action: (Int) -> Unit) {
+        var i = 0
+        while (i < name.length) {
+            val cp = name.codePointAt(i)
+            action(cp)
+            i += Character.charCount(cp)
+        }
+    }
+
+    private fun isNamePart(cp: Int): Boolean =
+        Character.isLetter(cp) ||
+            Character.getType(cp) in MARK_TYPES ||
+            (Character.charCount(cp) == 1 && cp.toChar() in ALLOWED_PUNCTUATION)
+
     /** How many letters the name actually contains, in any script. */
-    private fun letterCount(name: String): Int = name.count { it.isLetter() }
+    private fun letterCount(name: String): Int {
+        var count = 0
+        forEachCodePoint(name) { if (Character.isLetter(it)) count++ }
+        return count
+    }
+
+    /** True when every code point of [name] belongs in a name. */
+    private fun isAllLetters(name: String): Boolean {
+        var ok = true
+        forEachCodePoint(name) { if (!isNamePart(it)) ok = false }
+        return ok
+    }
 
     /**
      * The problem with [raw], or null when it is usable as a name.
      *
-     * Order matters: [Problem.NoLetters] is decided before [Problem.TooShort],
-     * so `5` is told the thing that is actually wrong with it ("a name contains
-     * letters") rather than being sent back to type a second digit.
+     * Order matters: [Problem.InvalidCharacters] is decided before
+     * [Problem.NoLetters] and [Problem.TooShort], so `5` and `A1` are told the
+     * thing that is actually wrong with them ("a name is letters only") rather
+     * than being sent back to type another character. [Problem.NoLetters]
+     * survives that for the names made entirely of the punctuation this rule
+     * does allow — `----` — which are legal characters arranged into something
+     * that is still not a name.
      */
     fun problemWith(raw: String): Problem? {
         val name = normalized(raw)
@@ -105,6 +172,7 @@ object NameRules {
         // whoever typed it, and a name of 60 Arabic characters must not read as
         // 120. This is what the server counts too.
         if (name.codePointCount(0, name.length) > MAX_LENGTH) return Problem.TooLong
+        if (!isAllLetters(name)) return Problem.InvalidCharacters
 
         val letters = letterCount(name)
         if (letters == 0) return Problem.NoLetters

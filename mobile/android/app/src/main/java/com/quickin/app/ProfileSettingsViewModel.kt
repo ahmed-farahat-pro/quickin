@@ -97,10 +97,12 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
         }
         // The screen already gates on this and says it in the user's language; re-checking here
         // keeps the one rule in one place, so no caller can save a name the field refused. `12345`
-        // used to reach the server, which is where it was — and still is — turned away.
+        // used to reach the server, which is where it was — and still is — turned away. This
+        // sentence is the unlocalized backstop for a caller that somehow got past the field, so it
+        // states the rule itself rather than the particular problem the field would have named.
         if (NameRules.problemWith(fullName) != null) {
             _state.value = _state.value.copy(
-                error = "Please enter your name — a name contains letters, not only numbers."
+                error = "Please enter your name using letters only."
             )
             return
         }

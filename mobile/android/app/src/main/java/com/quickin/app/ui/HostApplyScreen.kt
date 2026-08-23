@@ -59,6 +59,7 @@ import com.quickin.app.HostApplyUiState
 import com.quickin.app.HostType
 import com.quickin.app.IdDocType
 import com.quickin.app.IdentityRules
+import com.quickin.app.NameRules
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.CreamPage
@@ -149,19 +150,19 @@ fun HostApplyScreen(
     }
 
     // A name has to be a name, not just non-empty: an operator reads this against the ID photos,
-    // and "12345" is not one. One letter in any script passes — Char.isLetter() covers Arabic as
-    // readily as Latin — which is the rule the API applies too (name-policy.ts, and NameRules.swift
-    // on iOS). Digits are fine alongside letters: Franco-Arabic spells real names with them
-    // (Ma7moud, 3omar). The API's finer refusals (under two letters, over 60 characters) come back
-    // as a message in the banner; this catches the one a guest actually hits.
-    val nameHasLetters = fullName.any { it.isLetter() }
+    // and "12345" is not one. [NameRules] is the same rule the API applies (name-policy.ts, and
+    // NameRules.swift on iOS) — letters in any script and nothing else, so the reason a guest is
+    // given here is the reason the server would have given after the round trip. This screen used
+    // to keep its own thinner copy of the rule (any letter anywhere), which let a name the API
+    // refuses reach it.
+    val nameProblem = NameRules.problemWith(fullName)
     // Only complain once they've typed something; an untouched field is not an error.
-    val showNameError = fullName.isNotBlank() && !nameHasLetters
+    val showNameError = fullName.isNotBlank() && nameProblem != null
 
     // Everything the backend validates as required — the documents included — so the button stays
     // disabled until they're filled and an incomplete form never costs the user a round-trip.
     val idReady = !needsId || (idFront != null && idBack != null)
-    val ready = fullName.isNotBlank() && nameHasLetters && nationalId.isNotBlank() &&
+    val ready = nameProblem == null && nationalId.isNotBlank() &&
         phone.isNotBlank() && address.isNotBlank() && idReady
 
     Scaffold(
@@ -215,8 +216,10 @@ fun HostApplyScreen(
                     icon = Icons.Filled.Person,
                     enabled = !state.isSubmitting,
                     isError = showNameError,
-                    errorText = if (showNameError) {
-                        stringResource(R.string.host_apply_error_full_name_letters)
+                    // The shared sentence for the problem, so this screen, sign-up and Edit
+                    // profile cannot disagree about how the same name reads.
+                    errorText = if (showNameError && nameProblem != null) {
+                        nameProblemMessage(nameProblem)
                     } else {
                         null
                     }

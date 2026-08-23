@@ -48,31 +48,82 @@ class NameRulesTest {
         }
     }
 
-    // ---- A name has to contain letters ------------------------------------
+    // ---- A name is letters and nothing else --------------------------------
 
     @Test
     fun `digits alone are not a name`() {
         // `12345` used to become a real display name — the one a host reads next
         // to a booking request and an operator matches against an ID document.
-        for (raw in listOf("12345", "0100", "٠١٢٣", "----", "...", "42")) {
+        for (raw in listOf("12345", "0100", "٠١٢٣", "...", "42")) {
+            assertTrue(raw, problem(raw) is NameRules.Problem.InvalidCharacters)
+            assertFalse(raw, NameRules.isValid(raw))
+        }
+    }
+
+    @Test
+    fun `one digit is enough to refuse an otherwise ordinary name`() {
+        // The rule is not "mostly letters" — the field is matched against an ID
+        // document, and `Layla2` is not what the document says.
+        for (raw in listOf("Layla2", "Ahmed01", "Layla Hassan 2", "محمد2")) {
+            assertTrue(raw, problem(raw) is NameRules.Problem.InvalidCharacters)
+            assertFalse(raw, NameRules.isValid(raw))
+        }
+    }
+
+    @Test
+    fun `Franco-Arabic spellings are refused - this is the rule that changed`() {
+        // These were deliberately accepted by the first version of this policy,
+        // which asked only that a name contain some letter. A guest who writes
+        // `Ma7moud` is now asked for `Mahmoud`, the spelling on the ID.
+        for (raw in listOf("Ma7moud", "3omar", "Mo7amed Ali", "7abiba")) {
+            assertTrue(raw, problem(raw) is NameRules.Problem.InvalidCharacters)
+            assertFalse(raw, NameRules.isValid(raw))
+        }
+    }
+
+    @Test
+    fun `symbols, punctuation and emoji are refused`() {
+        for (raw in listOf("j.doe", "Layla_Hassan", "layla@mail.com", "😀😀", "Layla 😀", "<b>Layla</b>")) {
+            assertTrue(raw, problem(raw) is NameRules.Problem.InvalidCharacters)
+            assertFalse(raw, NameRules.isValid(raw))
+        }
+    }
+
+    @Test
+    fun `a name of legal punctuation only has no letters in it`() {
+        // The one case InvalidCharacters cannot catch: every character is
+        // allowed, and there is no name in there anyway.
+        for (raw in listOf("----", "'''", "- '")) {
             assertTrue(raw, problem(raw) is NameRules.Problem.NoLetters)
             assertFalse(raw, NameRules.isValid(raw))
         }
     }
 
     @Test
-    fun `Franco-Arabic names with numerals are accepted`() {
-        // Deliberately NOT "no digits": `Ma7moud` and `3omar` are how real names
-        // are written by exactly the guests this app is built for.
-        for (raw in listOf("Ma7moud", "3omar", "Mo7amed Ali", "7abiba")) {
+    fun `letters in any script count`() {
+        for (raw in listOf("ليلى حسن", "Ольга", "李雷", "Ægir", "Zoë")) {
             assertNull(raw, problem(raw))
             assertTrue(raw, NameRules.isValid(raw))
         }
     }
 
     @Test
-    fun `letters in any script count`() {
-        for (raw in listOf("ليلى حسن", "Ольга", "李雷", "Ægir", "Zoë")) {
+    fun `the accent and the harakat travel as combining marks, and belong in a name`() {
+        // A keyboard can send `José` as `e` + U+0301 rather than as `é`, and
+        // Arabic typed with diacritics carries a mark after most letters.
+        // Neither is a letter to Character.isLetter, and refusing them would
+        // refuse the scripts this rule exists to serve.
+        for (raw in listOf("José Ángel", "مُحَمَّد")) {
+            assertNull(raw, problem(raw))
+            assertTrue(raw, NameRules.isValid(raw))
+        }
+    }
+
+    @Test
+    fun `the hyphen and apostrophe a keyboard actually sends`() {
+        // Smart punctuation rewrites `'` to `’` as it is typed, and a name
+        // pasted from a document carries the typographic hyphens with it.
+        for (raw in listOf("Jean-Luc", "O'Brien", "O’Brien", "Jean‐Luc", "Jean‑Luc")) {
             assertNull(raw, problem(raw))
             assertTrue(raw, NameRules.isValid(raw))
         }
@@ -97,19 +148,24 @@ class NameRulesTest {
 
     @Test
     fun `a name is measured in code points, not UTF-16 units`() {
-        // An emoji is one character to whoever typed it; counting UTF-16 units
-        // would make a 60-character Arabic name read as 120 and refuse it.
+        // A letter outside the BMP is one character to whoever typed it;
+        // counting UTF-16 units would make a 60-character name read as 120 and
+        // refuse it — and would split that letter into two halves, neither of
+        // which is a letter at all.
         val sixty = "a".repeat(NameRules.MAX_LENGTH)
         assertNull(sixty, problem(sixty))
         assertTrue(problem("a".repeat(NameRules.MAX_LENGTH + 1)) is NameRules.Problem.TooLong)
-        assertNull(problem("😀".repeat(NameRules.MAX_LENGTH - 2) + "Jo"))
+        val gothic = "𐌰".repeat(NameRules.MAX_LENGTH)
+        assertNull(gothic, problem(gothic))
+        assertTrue(problem(gothic + "𐌰") is NameRules.Problem.TooLong)
     }
 
     @Test
-    fun `the no-letters verdict is reached before the too-short one`() {
+    fun `the character verdict is reached before the too-short one`() {
         // Order matters: `5` is told the thing that is actually wrong with it,
         // not sent back to type a second digit.
-        assertTrue(problem("5") is NameRules.Problem.NoLetters)
+        assertTrue(problem("5") is NameRules.Problem.InvalidCharacters)
+        assertTrue(problem("A1") is NameRules.Problem.InvalidCharacters)
     }
 
     // ---- Normalization: what actually gets sent ----------------------------

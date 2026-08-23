@@ -259,6 +259,13 @@
     <string name="pay_processing_body">Le paiement est en cours — nous mettrons à jour votre réservation sous peu.</string>
     <!-- Instapay bank transfer (replaces Paymob card checkout) -->
     <string name="instapay_subtitle">Effectuez le virement via Instapay, puis téléchargez votre capture d\'écran.</string>
+    <string name="pay_methods_subtitle">Effectuez le virement du montant, puis téléchargez votre capture d\'écran.</string>
+    <string name="pay_methods_instapay">Instapay</string>
+    <string name="pay_methods_bank_transfer">Virement bancaire</string>
+    <string name="pay_methods_bank_name">Banque</string>
+    <string name="pay_methods_account_name">Titulaire du compte</string>
+    <string name="pay_methods_account_number">Numéro de compte</string>
+    <string name="pay_methods_iban">IBAN</string>
     <string name="instapay_amount_to_send">Montant à transférer</string>
     <string name="instapay_for_nights">pour %1$s</string>
     <string name="instapay_send_to">Envoyez le virement à</string>
@@ -266,7 +273,7 @@
     <string name="instapay_copied">Copié</string>
     <string name="instapay_loading">Chargement des détails du virement…</string>
     <string name="instapay_load_error">Impossible de charger les détails du virement. Veuillez réessayer.</string>
-    <string name="instapay_no_handle">L\'hôte n\'a pas encore configuré Instapay — veuillez le contacter.</string>
+    <string name="instapay_no_handle">Aucun moyen de paiement n\'est encore configuré — veuillez nous contacter.</string>
     <string name="instapay_scan_hint">Scannez avec votre application bancaire</string>
     <string name="instapay_open">Ouvrir dans Instapay</string>
     <string name="instapay_open_failed">Impossible d\'ouvrir ce lien.</string>
@@ -393,7 +400,7 @@
     <string name="cancel_flexible">Flexible</string>
     <string name="cancel_flexible_desc">Remboursement intégral en cas d\'annulation au moins 1 jour avant l\'arrivée, sinon aucun remboursement.</string>
     <string name="cancel_moderate">Modérée</string>
-    <string name="cancel_moderate_desc">Remboursement intégral en cas d\'annulation au moins 5 jours avant l\'arrivée, sinon 50 %.</string>
+    <string name="cancel_moderate_desc">Remboursement intégral en cas d\'annulation au moins 5 jours avant l\'arrivée, sinon 50 %. Aucun remboursement le jour de l’arrivée ou après.</string>
     <string name="cancel_strict">Stricte</string>
     <string name="cancel_strict_desc">Remboursement de 50 % en cas d\'annulation au moins 7 jours avant l\'arrivée, sinon aucun remboursement.</string>
     <string name="cancel_policy_save">Enregistrer les conditions</string>
@@ -648,7 +655,6 @@
     <string name="host_type_brokerage">Agence</string>
     <string name="host_apply_submit">Envoyer la candidature</string>
     <string name="host_apply_required">Ajoutez votre nom, votre numéro d\'identité, votre téléphone et votre adresse pour continuer.</string>
-    <string name="host_apply_error_full_name_letters">Veuillez saisir votre nom en lettres, pas uniquement en chiffres.</string>
     <string name="host_apply_error">Impossible d\'envoyer votre candidature. Veuillez réessayer.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -751,7 +757,8 @@
     <string name="auth_email_did_you_mean">Vouliez-vous dire %1$s ?</string>
     <string name="auth_email_disposable">Les adresses e-mail temporaires ou jetables ne sont pas autorisées. Veuillez utiliser une adresse personnelle ou professionnelle permanente.</string>
     <string name="auth_name_required">Veuillez saisir votre nom</string>
-    <string name="auth_name_no_letters">Veuillez saisir votre nom : un nom contient des lettres, pas seulement des chiffres</string>
+    <string name="auth_name_invalid_characters">Veuillez utiliser uniquement des lettres — un nom ne contient ni chiffres ni symboles</string>
+    <string name="auth_name_no_letters">Veuillez saisir votre nom : un nom contient des lettres</string>
     <string name="auth_name_too_short">Le nom doit contenir au moins %1$d lettres</string>
     <string name="auth_name_too_long">Le nom ne doit pas dépasser %1$d caractères</string>
 

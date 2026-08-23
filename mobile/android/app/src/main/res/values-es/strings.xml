@@ -259,6 +259,13 @@
     <string name="pay_processing_body">El pago se está procesando: actualizaremos tu reserva en breve.</string>
     <!-- Instapay bank transfer (replaces Paymob card checkout) -->
     <string name="instapay_subtitle">Transfiere por Instapay y luego sube tu captura de pantalla.</string>
+    <string name="pay_methods_subtitle">Transfiere el importe y luego sube tu captura de pantalla.</string>
+    <string name="pay_methods_instapay">Instapay</string>
+    <string name="pay_methods_bank_transfer">Transferencia bancaria</string>
+    <string name="pay_methods_bank_name">Banco</string>
+    <string name="pay_methods_account_name">Titular de la cuenta</string>
+    <string name="pay_methods_account_number">Número de cuenta</string>
+    <string name="pay_methods_iban">IBAN</string>
     <string name="instapay_amount_to_send">Importe a transferir</string>
     <string name="instapay_for_nights">por %1$s</string>
     <string name="instapay_send_to">Envía la transferencia a</string>
@@ -266,7 +273,7 @@
     <string name="instapay_copied">Copiado</string>
     <string name="instapay_loading">Cargando los datos de la transferencia…</string>
     <string name="instapay_load_error">No se pudieron cargar los datos de la transferencia. Inténtalo de nuevo.</string>
-    <string name="instapay_no_handle">El anfitrión aún no ha configurado Instapay; ponte en contacto con él.</string>
+    <string name="instapay_no_handle">Aún no hay ningún método de pago configurado; ponte en contacto con nosotros.</string>
     <string name="instapay_scan_hint">Escanea con tu app bancaria</string>
     <string name="instapay_open">Abrir en Instapay</string>
     <string name="instapay_open_failed">No se pudo abrir el enlace.</string>
@@ -393,7 +400,7 @@
     <string name="cancel_flexible">Flexible</string>
     <string name="cancel_flexible_desc">Reembolso completo si se cancela al menos 1 día antes de la llegada; de lo contrario, sin reembolso.</string>
     <string name="cancel_moderate">Moderada</string>
-    <string name="cancel_moderate_desc">Reembolso completo si se cancela al menos 5 días antes de la llegada; de lo contrario, el 50 %.</string>
+    <string name="cancel_moderate_desc">Reembolso completo si se cancela al menos 5 días antes de la llegada; de lo contrario, el 50 %. Sin reembolso el día de la llegada o después.</string>
     <string name="cancel_strict">Estricta</string>
     <string name="cancel_strict_desc">Reembolso del 50 % si se cancela al menos 7 días antes de la llegada; de lo contrario, sin reembolso.</string>
     <string name="cancel_policy_save">Guardar política</string>
@@ -648,7 +655,6 @@
     <string name="host_type_brokerage">Agencia</string>
     <string name="host_apply_submit">Enviar solicitud</string>
     <string name="host_apply_required">Añade tu nombre, documento de identidad, teléfono y dirección para continuar.</string>
-    <string name="host_apply_error_full_name_letters">Escribe tu nombre con letras, no solo con números.</string>
     <string name="host_apply_error">No se pudo enviar tu solicitud. Inténtalo de nuevo.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
@@ -751,7 +757,8 @@
     <string name="auth_email_did_you_mean">¿Querías decir %1$s?</string>
     <string name="auth_email_disposable">No se admiten direcciones de correo temporales o desechables. Usa un correo personal o de trabajo permanente.</string>
     <string name="auth_name_required">Introduce tu nombre</string>
-    <string name="auth_name_no_letters">Introduce tu nombre: un nombre contiene letras, no solo números</string>
+    <string name="auth_name_invalid_characters">Usa solo letras — un nombre no lleva números ni símbolos</string>
+    <string name="auth_name_no_letters">Introduce tu nombre: un nombre contiene letras</string>
     <string name="auth_name_too_short">El nombre debe contener al menos %1$d letras</string>
     <string name="auth_name_too_long">El nombre debe tener como máximo %1$d caracteres</string>
 

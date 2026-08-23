@@ -114,28 +114,61 @@ object BookingService {
     // ---- Instapay bank transfer (manual proof-of-payment) ---------------------
 
     /**
-     * The transfer destination + notes for the Instapay bank-transfer flow
-     * (`GET /api/local/payment-config`, Bearer): the [instapayHandle] the guest sends money to and
-     * free-text [instructions] to show alongside it, plus the admin-configured
-     * [instapayLink] (a deep link that opens Instapay) and [instapayQrImage] (an uploaded QR as a
-     * base64 data URL). All four are set in the web ops panel and any of them may be blank.
+     * A way to pay. Mirrors the server's `PAYMENT_METHODS`; [wire] is what goes back as `method`
+     * on the payment proof, which is how the reviewer knows which account to check.
+     */
+    enum class PaymentMethod(val wire: String) {
+        INSTAPAY("instapay"),
+        BANK_TRANSFER("bank_transfer");
+
+        companion object {
+            /** null for a method this build has no UI for — see [PaymentConfig.availableMethods]. */
+            fun fromWire(v: String): PaymentMethod? = entries.firstOrNull { it.wire == v }
+        }
+    }
+
+    /**
+     * The bank-account half of the destination — an ordinary transfer offered alongside Instapay.
+     * All of it is admin-set in the web ops panel and any field may be blank.
+     *
+     * [accountNumber] and [iban] are carried and shown WHOLE, never masked: they exist to be typed
+     * into a banking app. [ibanFormatted] is the same IBAN in groups of four, for display only —
+     * copy [iban].
+     */
+    data class BankTransferConfig(
+        val bankName: String = "",
+        val accountName: String = "",
+        val accountNumber: String = "",
+        val iban: String = "",
+        val ibanFormatted: String = "",
+        val instructions: String = ""
+    )
+
+    /**
+     * Every transfer destination shown to the guest at checkout (`GET /api/local/payment-config`,
+     * Bearer): the [instapayHandle] the guest sends money to with free-text [instructions], the
+     * admin-configured [instapayLink] (a deep link that opens Instapay) and [instapayQrImage] (an
+     * uploaded QR as a base64 data URL), and the [bank] account.
      *
      * [qrPayload] is what a client encodes when drawing the QR itself — the link when there is
      * one, else the handle.
+     *
+     * [availableMethods] is **the server's decision**, already accounting for both the admin
+     * toggles and whether each destination is complete. Render it as-is rather than re-deriving
+     * it: that is what keeps a toggle meaningful on a build that shipped months ago.
      */
     data class PaymentConfig(
         val instapayHandle: String,
         val instructions: String,
         val instapayLink: String = "",
         val instapayQrImage: String = "",
-        val qrPayload: String = ""
+        val qrPayload: String = "",
+        val bank: BankTransferConfig = BankTransferConfig(),
+        val availableMethods: List<PaymentMethod> = emptyList()
     ) {
-        /**
-         * True once there is somewhere to send money. A link alone is enough, so a link-only
-         * destination is still payable.
-         */
+        /** True once there is somewhere to send money by any method. */
         val isConfigured: Boolean
-            get() = instapayHandle.isNotBlank() || instapayLink.isNotBlank()
+            get() = availableMethods.isNotEmpty()
 
         /** The deep link when it is a well-formed web link — http(s) only, as the server validates. */
         val linkOrNull: String?
@@ -143,12 +176,13 @@ object BookingService {
     }
 
     /**
-     * Loads the Instapay transfer destination + instructions to show the guest
-     * (`GET /api/local/payment-config`, Bearer). Throws [HttpError] (401 when not signed in).
+     * Loads every transfer destination to show the guest (`GET /api/local/payment-config`,
+     * Bearer). Throws [HttpError] (401 when not signed in).
      *
      * Every field is read with a default so a build running against an API that predates the
-     * QR/link keys still works; [PaymentConfig.qrPayload] is derived the same way the server
-     * derives it when the response omits it.
+     * QR/link/bank keys still works; [PaymentConfig.qrPayload] and
+     * [PaymentConfig.availableMethods] are derived the same way the server derives them when the
+     * response omits them, which is what lets this app talk to an older deployment.
      */
     suspend fun getPaymentConfig(token: String): PaymentConfig = withContext(Dispatchers.IO) {
         val text = get(token, "/api/local/payment-config")
@@ -156,18 +190,47 @@ object BookingService {
         val handle = o.optStringOr("instapay_handle", "")
         val link = o.optStringOr("instapay_link", "")
         val payload = o.optStringOr("qr_payload", "")
+
+        val b = o.optJSONObject("bank")
+        val iban = b?.optStringOr("iban", "") ?: ""
+        val bank = BankTransferConfig(
+            bankName = b?.optStringOr("bank_name", "") ?: "",
+            accountName = b?.optStringOr("account_name", "") ?: "",
+            accountNumber = b?.optStringOr("account_number", "") ?: "",
+            iban = iban,
+            ibanFormatted = (b?.optStringOr("iban_formatted", "") ?: "").ifBlank { iban },
+            instructions = b?.optStringOr("instructions", "") ?: ""
+        )
+
+        val rawMethods = o.optJSONArray("available_methods")
+        val methods = if (rawMethods != null) {
+            // An unknown method from a newer server is dropped rather than failing the parse:
+            // this build can't render a destination it has no UI for, but it can still offer
+            // the ones it knows.
+            (0 until rawMethods.length()).mapNotNull { PaymentMethod.fromWire(rawMethods.optString(it)) }
+        } else {
+            // Pre-`available_methods` server: Instapay was the only method, offered whenever it
+            // had a destination.
+            val hasInstapay = handle.isNotBlank() || link.isNotBlank()
+            if (hasInstapay && o.optBoolean("instapay_enabled", true)) listOf(PaymentMethod.INSTAPAY)
+            else emptyList()
+        }
+
         PaymentConfig(
             instapayHandle = handle,
             instructions = o.optStringOr("instructions", ""),
             instapayLink = link,
             instapayQrImage = o.optStringOr("instapay_qr_image", ""),
-            qrPayload = payload.ifBlank { link.ifBlank { handle } }
+            qrPayload = payload.ifBlank { link.ifBlank { handle } },
+            bank = bank,
+            availableMethods = methods
         )
     }
 
     /**
-     * Uploads the guest's Instapay transfer screenshot as proof of payment for [bookingId]
-     * (`POST /api/local/bookings/:id/payment-proof { image, method:"instapay" }`, Bearer).
+     * Uploads the guest's transfer screenshot as proof of payment for [bookingId]
+     * (`POST /api/local/bookings/:id/payment-proof { image, method }`, Bearer). [method] is the
+     * destination the guest picked, so the reviewer knows which account to check.
      * [imageDataUrl] is a `data:image/jpeg;base64,…` data URL (a raw base64 string is normalized to
      * one defensively). The booking's `payment_status` flips to "submitted" (awaiting host approval);
      * re-uploading is allowed. Returns the updated [Booking]. Throws [HttpError] (401 not signed in,
@@ -176,11 +239,12 @@ object BookingService {
     suspend fun submitPaymentProof(
         token: String,
         bookingId: String,
-        imageDataUrl: String
+        imageDataUrl: String,
+        method: PaymentMethod = PaymentMethod.INSTAPAY
     ): Booking = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("image", asJpegDataUrl(imageDataUrl))
-            put("method", "instapay")
+            put("method", method.wire)
         }
         val text = send("POST", token, "/api/local/bookings/$bookingId/payment-proof", body)
         // The response may be the bare updated booking or wrapped under a "booking" key.

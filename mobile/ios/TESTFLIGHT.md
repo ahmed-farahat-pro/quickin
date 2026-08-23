@@ -61,7 +61,9 @@ xcrun altool --upload-app -t ios -f build/export/QuickIn.ipa \
 ---
 
 ## Notes
-- **Next build:** before uploading again, bump `CURRENT_PROJECT_VERSION` in `project.yml` (1 → 2) — App Store Connect rejects a re-used build number.
+- **Marketing version:** every upload needs a `MARKETING_VERSION` higher than anything already approved on App Store Connect — a train closes for good once its version is approved. The `beta` lane checks this before it archives and fails with the version to bump to, so a closed train costs a second instead of a full build. `1.0.0`–`1.3.0` are closed; `1.4.0` is the open train.
+- **Build numbers:** the `beta` lane picks one for you — the highest number it can find, plus one. It looks at the newest TestFlight upload, the newest upload on this marketing version, a scan of every build on App Store Connect in every processing state, and `CURRENT_PROJECT_VERSION` in `project.yml`. You do not need to bump anything by hand.
+- **If an upload is still rejected as a duplicate** (`ENTITY_ERROR.ATTRIBUTE.INVALID.DUPLICATE`, "the bundle version must be higher than the previously uploaded version: 'N'"), Apple knows about a number no API will report — an upload that went INVALID or expired. Set `CURRENT_PROJECT_VERSION` in `project.yml` to that `N`, commit, and re-run; the lane will use `N + 1`.
 - **Backend:** the app already points at `https://quickin-backend.vercel.app` (see `Sources/Config.swift`). Make sure that backend is live before testers use auth.
 - **Google / Apple sign-in:** when you wire these later, the Apple **App ID** and the **Google iOS client** must use the new bundle id `com.quickin.ahmed` (not the old `com.quickin.app`).
 - I cannot enter Apple credentials or run the signed upload for you — that's the one manual step above.

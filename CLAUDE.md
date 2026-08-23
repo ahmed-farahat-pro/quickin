@@ -12,7 +12,10 @@ Guidance for Claude Code / AI agents working in this repo.
   `SupabaseService.kt` is misnamed legacy — it calls `/api/local/*` like
   everything else. Don't add Supabase calls or assume RLS.
 - **Both apps call `quickin-backend`**, not the website. There is no card
-  gateway: payment is Instapay only (transfer + screenshot + host review).
+  gateway: payment is a manual transfer (transfer + screenshot + review). Two
+  destinations — **Instapay** and a **bank account** — each toggleable from web
+  `/ops/payments`. Which ones a guest sees comes from `available_methods` on
+  `GET /api/local/payment-config`; never hardcode the list in an app.
 
 ## The three codebases
 

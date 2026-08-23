@@ -115,7 +115,7 @@ across projects. See [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) §6 for the full 
 - `DATABASE_URL` — both point at the same Neon DB.
 
 **quickin-frontend extras:** `MAIL_BACKEND_URL` (the backend's URL), `ADMIN_OPS_KEY`
-(the `/ops` gate), `GOOGLE_CLIENT_ID`, `APPLE_CLIENT_ID`, `GEMINI_API_KEY`.
+(the `/ops` gate), `GOOGLE_CLIENT_ID`, `GEMINI_API_KEY`.
 
 **quickin-backend extras:** `SMTP_HOST/PORT/USER/PASS/FROM`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`,
 `OPENAI_API_KEY`, `FIREBASE_SERVICE_ACCOUNT`, `WEB_URL`, Apple Wallet `PASS_*`.

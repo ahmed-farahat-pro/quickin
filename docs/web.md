@@ -92,7 +92,7 @@ There are two parallel UIs. The **standalone unprefixed routes** are the live lo
 ### API routes — `src/app/api/`
 | Group | Routes | Backed by |
 |---|---|---|
-| `api/auth/*` | `signup`, `login`, `verify-otp`, `resend-otp`, `logout`, `me`, `change-password`, `google`, `apple`, `social` | local-stack (`lib/local/*`) |
+| `api/auth/*` | `signup`, `login`, `verify-otp`, `resend-otp`, `logout`, `me`, `change-password`, `google`, `social` | local-stack (`lib/local/*`) |
 | `api/local/*` | `listings`, `bookings/[id]/{pay,cancel}`, `wishlists`, `reviews`, `guest-reviews`, `notifications/*`, `host/{apply,become,bookings}`, `verification`, `promo/validate`, `referrals`, `users/[id]`, `xmaildiag` | local-stack |
 | `api/local/admin/*` | `stats`, `users`, `listings`, `bookings`, `host-applications`, `verifications` | local-stack, **key-gated** (feeds `/ops`) |
 | `api/ai/help-chat`, `api/chat` | AI chat | Gemini |
@@ -118,7 +118,7 @@ routes share the same shapes.
 | `db.ts` | **All reads + mutations** (~1300 lines). Listings, bookings (create/pay/cancel/patch/quote), notifications + push tokens, OTP codes (`createOtpCode`/`verifyOtpCode`/`markEmailVerified`), verification, reviews + guest reviews, host applications, wishlists, profile, host listings/profile, `createListing`, promo, referrals, and the `admin*` helpers (`adminStats`, `adminListUsers/Listings/Bookings`, `adminSetListingPublished`, `adminDelete*`, `adminActivateUser`, `getPendingHostApplications`, `reviewHostApplication`, `getPendingVerifications`, `reviewVerification`). |
 | `auth.ts` | Passwords (scrypt: `hashPassword`/`verifyPassword`), stateless HMAC tokens (`signToken`/`verifyToken`, 30-day TTL, `AUTH_SECRET`), `getUserFromRequest` (Bearer header OR `qk_token` cookie), user ops (`getUserRowByEmail`, `createUser`, `upsertSocialUser`, `becomeHost`, `updatePassword`, `publicUser`), email validation + disposable-domain blocklist, in-memory per-process `rateLimit`, `clientIp`, `generateOtp`, `isAdminKey` (the `/ops` gate). |
 | `email.ts` | `sendOtpEmail(to, code)` — delegates to the **backend mail relay** (`POST {MAIL_BACKEND_URL}/api/mail/send-otp` with `x-relay-secret: MAIL_RELAY_SECRET`). Never throws; logs the code to console when relay env is unset (offline dev). |
-| `oauth.ts` | Real Google/Apple ID-token verification (no SDKs): fetches provider JWKS, verifies RS256 sig + `iss`/`aud`/`exp`. `verifyGoogleIdToken`, `verifyAppleIdToken`. |
+| `oauth.ts` | Real Google ID-token verification (no SDKs): fetches Google's JWKS, verifies RS256 sig + `iss`/`aud`/`exp`. `verifyGoogleIdToken`. |
 
 Schema lives in `local-backend/init.sql` (sibling repo / dir), not in `src/`.
 
@@ -139,7 +139,7 @@ Schema lives in `local-backend/init.sql` (sibling repo / dir), not in `src/`.
 4. **Session** = stateless HMAC `qk_token` (httpOnly, `sameSite=lax`, `secure` in prod, 30-day
    maxAge). `GET /api/auth/me` resolves the user from Bearer header (mobile) or cookie (web).
    `POST /api/auth/logout` clears it.
-5. **OAuth** `POST /api/auth/google|apple` → verifies the provider ID token via `oauth.ts`,
+5. **OAuth** `POST /api/auth/google` → verifies the Google ID token via `oauth.ts`,
    `upsertSocialUser` (created social users are `email_verified=true`), issues token.
 
 `email_verified` is the login gate. The OTP table is `otp_codes` (one row per email, upserted on

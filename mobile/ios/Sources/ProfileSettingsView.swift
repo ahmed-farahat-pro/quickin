@@ -23,7 +23,26 @@ final class ProfileSettingsViewModel: ObservableObject {
             }
         }
     }
-    @Published var ageText = ""
+    /// The age, as typed. Rewritten on every keystroke to the digits it should
+    /// hold: the field is what a phone number was being smuggled through, and a
+    /// number pad that simply stops accepting a fourth digit explains itself
+    /// better than a refusal at the save button four fields further down.
+    ///
+    /// `isApplyingProfile` holds the filter off while `apply(_:)` fills the form,
+    /// so an account that already carries one of those numbers is SHOWN what is
+    /// stored rather than being silently handed the first three digits of it.
+    /// The hint under the field, and the gate in `save()`, say the rest.
+    @Published var ageText = "" {
+        didSet {
+            guard !isApplyingProfile else { return }
+            let cleaned = AgeRules.capped(ageText)
+            if cleaned != ageText { ageText = cleaned }
+            if refusedForAge, AgeRules.problem(with: ageText) == nil {
+                refusedForAge = false
+                saveError = nil
+            }
+        }
+    }
     /// Read-only: the approved number on the profile. Kept as state so the row can
     /// update the moment a request is approved without a full reload.
     @Published var idDocument = ""
@@ -83,6 +102,17 @@ final class ProfileSettingsViewModel: ObservableObject {
     /// so a network error is not cleared by typing in a different field.
     private var refusedForName = false
 
+    /// The same, for the age gate.
+    private var refusedForAge = false
+
+    /// The age as it arrived from the server, so the inline hint stays quiet
+    /// until the field has been edited (or Save pressed) — see `loadedFullName`.
+    private var loadedAgeText = ""
+
+    /// True only while `apply(_:)` is writing the server's values into the form,
+    /// so `ageText`'s filter does not rewrite what was loaded.
+    private var isApplyingProfile = false
+
     /// The inline hint under the name field, or nil when there is nothing to say.
     ///
     /// `NameRules` is the Swift twin of the API's `name-policy.ts` — the same rule
@@ -95,10 +125,25 @@ final class ProfileSettingsViewModel: ObservableObject {
         return L.t(problem.messageKey)
     }
 
-    /// Parsed age (nil when empty/invalid → cleared on save).
+    /// The inline hint under the age field, or nil when there is nothing to say.
+    ///
+    /// `AgeRules` is the Swift twin of the API's `profile-core.ts` — the same
+    /// rule the server now enforces on `PATCH /api/local/profile`, checked here
+    /// first so the answer arrives at the field instead of after a round trip.
+    /// Quiet until the field is touched or Save is pressed, for the reason
+    /// `nameError` is: an account that already holds `1012345678` from before the
+    /// rule existed should not be shouted at for opening the screen.
+    var ageError: String? {
+        guard didAttemptSave || ageText != loadedAgeText else { return nil }
+        guard let problem = AgeRules.problem(with: ageText) else { return nil }
+        return L.t(problem.messageKey)
+    }
+
+    /// Parsed age (nil when empty → cleared on save). Never a phone number:
+    /// `save()` refuses anything `AgeRules` has a problem with before it gets
+    /// this far.
     private var age: Int? {
-        let trimmed = ageText.trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? nil : Int(trimmed)
+        AgeRules.parsed(ageText)
     }
 
     func load() async {
@@ -139,7 +184,9 @@ final class ProfileSettingsViewModel: ObservableObject {
         loadedFullName = ""
         didAttemptSave = false
         refusedForName = false
+        refusedForAge = false
         ageText = ""
+        loadedAgeText = ""
         idDocument = ""
         idChange = nil
         phone = ""
@@ -170,6 +217,15 @@ final class ProfileSettingsViewModel: ObservableObject {
             return
         }
         refusedForName = false
+        // Same gate for the age, and for a sharper reason: the field used to take
+        // any run of digits, so a phone number could be published on the profile
+        // through the one box on this screen the content guard does not read.
+        if let problem = AgeRules.problem(with: ageText) {
+            saveError = L.t(problem.messageKey)
+            refusedForAge = true
+            return
+        }
+        refusedForAge = false
         isSaving = true
         defer { isSaving = false }
         do {
@@ -233,9 +289,12 @@ final class ProfileSettingsViewModel: ObservableObject {
     }
 
     private func apply(_ profile: Profile) {
+        isApplyingProfile = true
+        defer { isApplyingProfile = false }
         fullName = profile.fullName ?? ""
         loadedFullName = fullName
         ageText = profile.age.map(String.init) ?? ""
+        loadedAgeText = ageText
         // Only overwritten when the server actually reported one. `updateProfile`'s
         // fallback echo carries no id_document (the field is not sent any more), so
         // assigning it unconditionally would blank the row after every save.
@@ -358,7 +417,8 @@ struct ProfileSettingsView: View {
                 systemImage: "number",
                 placeholder: loc.t("settings.age.placeholder"),
                 text: $viewModel.ageText,
-                keyboard: .numberPad
+                keyboard: .numberPad,
+                errorMessage: viewModel.ageError
             )
             Divider()
             idDocumentRow

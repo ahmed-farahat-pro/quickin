@@ -52,7 +52,7 @@ import com.quickin.app.ui.theme.Tan
 /**
  * "Saved" screen — the user's wishlist. Lists saved stays and experiences as the redesigned
  * boutique cards (tappable into their detail screens), each with a filled heart that unsaves it.
- * Shows a loading state, an error retry, and a friendly empty state. Reached from Profile.
+ * Shows a loading state, an error retry, and a friendly empty state. A bottom-nav tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,7 +63,6 @@ fun WishlistScreen(
      * distinction: an empty/null wishlist while signed in is an EMPTY state, never a sign-in wall.
      */
     isAuthenticated: Boolean,
-    onBack: () -> Unit,
     onLoad: () -> Unit,
     onSignIn: () -> Unit = {},
     onOpenListing: (Listing) -> Unit = {},
@@ -76,15 +75,13 @@ fun WishlistScreen(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
         // The QuickIn brand banner in place of a stock title bar (iOS `SavedView`).
-        // Saved is a tab here, not a pushed screen, so it keeps a back affordance —
-        // a frosted disc on the banner rather than a toolbar arrow.
+        // Saved is a top-level bottom-nav destination, not a pushed screen, so the banner
+        // carries no back affordance — there is nothing to pop back to.
         topBar = {
             QkBrandHeader(
                 eyebrow = stringResource(R.string.saved_eyebrow),
                 title = stringResource(R.string.wishlist_title),
-                subtitle = stringResource(R.string.saved_subtitle),
-                onBack = onBack,
-                backContentDescription = stringResource(R.string.cd_back)
+                subtitle = stringResource(R.string.saved_subtitle)
             )
         }
     ) { padding ->

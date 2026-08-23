@@ -222,8 +222,7 @@ This document tracks the implementation progress of the Airbnb-style booking pla
 |---------|--------|-------|
 | Google Sign-In UI | ✅ | Button + OAuth flow in auth-modal.tsx |
 | Google Supabase Config | 🔒 | Requires dashboard setup (see docs) |
-| Apple Sign-In UI | ✅ | Button + OAuth flow in auth-modal.tsx |
-| Apple Supabase Config | 🔒 | Requires Apple Developer Program |
+| Apple Sign-In | ❌ Removed | Dropped from web, iOS and Android — email/password + Google only |
 
 ### 5.3 Identity Verification (KYC) 🟡 *In Progress*
 | Feature | Status | Notes |

@@ -123,7 +123,7 @@
     <!-- Profile sign-in CTA -->
     <string name="profile_cta_title">Sign in to manage your trips</string>
     <string name="profile_cta_subtitle">Save favorites, book stays, and view your bookings.</string>
-    <string name="profile_cta_button">Sign in or create account</string>
+    <string name="profile_cta_button">Sign in or Create Account</string>
 
     <!-- Profile settings -->
     <string name="settings_loading">Loading your profile…</string>

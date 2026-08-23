@@ -179,8 +179,9 @@ struct ProfileView: View {
         }
     }
 
-    /// Provider pill (email / google / apple) plus an account-role pill
-    /// (Guest / Host) when the backend supplied a role.
+    /// Provider pill (email / google, plus legacy `apple` rows from before Sign
+    /// in with Apple was removed) plus an account-role pill (Guest / Host) when
+    /// the backend supplied a role.
     private var badges: some View {
         HStack(spacing: 10) {
             providerPill
@@ -669,6 +670,7 @@ struct ProfileView: View {
     private func providerIcon(_ provider: String) -> String {
         switch provider {
         case "google": return "globe"
+        // Legacy: accounts created while Sign in with Apple was still offered.
         case "apple": return "apple.logo"
         default: return "envelope.fill"
         }

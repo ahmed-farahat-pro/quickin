@@ -20,7 +20,7 @@ All files are flat in `Sources/` (no subfolders). Grouped by role:
 
 ### Auth layer
 - `AuthService.swift` — `AuthUser` / `AuthSuccess` / `AuthErrorBody` / `PendingBody` / `BecomeHostResponse` models, `AuthOutcome` enum, and `AuthStore` (the session store). (See §3.)
-- `AuthView.swift` — email sign in / sign up + Apple/Google social + biometric unlock; routes to OTP.
+- `AuthView.swift` — email sign in / sign up + Google social + biometric unlock; routes to OTP.
 - `OTPVerificationView.swift` — 6-digit email-code verification screen.
 - `ForgotPasswordView.swift` — request reset code → set new password.
 - `SocialSignIn.swift` — `GoogleSignIn` enum: real Google OAuth (ASWebAuthenticationSession + PKCE).
@@ -109,8 +109,8 @@ The session store. Published: `isAuthenticated`, `user`, `errorMessage`, `isLoad
   - `forgotPassword(email:)` (`:340`) / `resetPassword(email:code:password:)` (`:365`) — `POST /api/auth/forgot-password` then `/reset-password` (resets log you in).
   - `resendOTP(email:)` (`:391`) → `POST /api/auth/resend-otp`.
   - `becomeHost()` (`:417`) → `POST /api/local/host/become` (Bearer token); flips `is_host` on the same account in place, no re-login.
-  - `adopt(token:user:)` (`:479`) — persist a session obtained outside the email flow (Apple/Google/biometric).
-  - `exchangeSocial(path:body:)` (`:525`) — POST a social id-token to `/api/auth/apple` or `/api/auth/google`, adopt the returned session.
+  - `adopt(token:user:)` (`:479`) — persist a session obtained outside the email flow (Google/biometric).
+  - `exchangeSocial(path:body:)` (`:525`) — POST a social id-token to `/api/auth/google`, adopt the returned session.
   - `applyProfile(...)` (`:497) / `applyHostUser(...)` (`:464`) — merge edited profile / host flag into cached `AuthUser` (and Keychain copy) without re-login.
   - `logout()` (`:564`) — clears `qk_token`/`qk_user`, **keeps** the biometric Keychain session on purpose, posts `.qkAuthDidLogout` so `WishlistStore` flushes.
 - **Networking** (private, `:585-642`): `send(path:body:)` POSTs JSON and classifies the response into a private `SendResult` enum (`.success(Data)` / `.failure(HTTPURLResponse, Data)` / `.transport(String)`). `decodeSession` and `setErrorFromResponse` handle bodies.
@@ -122,7 +122,7 @@ The session store. Published: `isAuthenticated`, `user`, `errorMessage`, `isLoad
   - `.needsVerification(email:)` → for an **unverified login** first `await auth.resendOTP(email:)` (signup already emailed a code), then set `otpSession = OTPSession(email:, referralCode:)` (referral carried only on the signup path).
   - `.failed` → no-op (error already shown).
   - `submit()` (`:456`) decides signup vs login, and uses `loginDeferred` only when biometrics are available but no session is stored yet.
-- Social: `handleApple(_:)` (`:552`) forwards Apple `identityToken` + name to `exchangeSocial("/api/auth/apple")`; `handleGoogle()` (`:587`) runs `GoogleSignIn.signIn()` then `exchangeSocial("/api/auth/google")`. Biometric unlock: `handleBiometricSignIn()` (`:529`) prompts Face ID, loads the Keychain session, calls `auth.adopt(...)`.
+- Social: `handleGoogle()` runs `GoogleSignIn.signIn()` then `exchangeSocial("/api/auth/google")`. Biometric unlock: `handleBiometricSignIn()` prompts Face ID, loads the Keychain session, calls `auth.adopt(...)`. *(Sign in with Apple was removed; there is no `handleApple`.)*
 
 ---
 
@@ -156,7 +156,7 @@ Consistent across all `*Service.swift`:
 - No retry/interceptor layer; each method is self-contained.
 
 ### Endpoints the app calls
-**Auth (backend):** `/api/auth/{signup,login,verify-otp,resend-otp,forgot-password,reset-password,apple,google}`.
+**Auth (backend):** `/api/auth/{signup,login,verify-otp,resend-otp,forgot-password,reset-password,google}`.
 **Local-stack API:** `/api/local/{listings,services,bookings,wishlist,profile,notifications,reviews,guest-reviews,service-requests,reports,receipts,referrals,regions,currencies,promo/validate,change-password,verification}`, `/api/local/host/{become,listings,bookings,services,earnings,analytics,service-requests}`, `/api/local/ai/{chat,search,listing-description}`, `/api/local/notifications/{register,read-all}`, `/api/local/users/…`.
 **OCR (local server):** `Config.idOcrBaseURL + /scan-base64` (`EgyptianIDScanService.swift:80`).
 
@@ -174,7 +174,7 @@ Consistent across all `*Service.swift`:
   - `name: QuickIn`, `bundleIdPrefix: com.quickin`, deployment target **iOS 17.0**, Swift 5.0, portrait-only, iPhone only (`TARGETED_DEVICE_FAMILY: 1`).
   - **SPM packages**: `GoogleMaps` (from 9.0.0) and `Firebase` (from 11.6.0; only `FirebaseMessaging` is linked). First build resolves large binaries → can take minutes.
   - Bundles `GoogleService-Info.plist` as a resource so `FirebaseApp.configure()` finds it.
-  - **Entitlements** regenerated into `QuickIn.entitlements`: Sign in with Apple, `aps-environment: development`, Associated Domains `applinks:quickin-frontend.vercel.app` (Universal Links into the app).
+  - **Entitlements** regenerated into `QuickIn.entitlements`: `aps-environment: development`, Associated Domains `applinks:quickin-frontend.vercel.app` (Universal Links into the app).
   - **Info.plist** (`Generated/Info.plist`): custom URL scheme `quickin://`, usage strings (Face ID, camera, photo library, location — location string was required by Apple ITMS-90683 because GoogleMaps references location APIs), `NSAllowsLocalNetworking: true` (so the device can reach the plain-HTTP OCR server), `ITSAppUsesNonExemptEncryption: false` (skips TestFlight export-compliance prompt).
   - `MARKETING_VERSION 1.0.0`, `CURRENT_PROJECT_VERSION 4`, bundle id `com.quickin.ahmed`.
 - **Signing teams** (from `project.yml` + project memory):
@@ -190,7 +190,7 @@ Consistent across all `*Service.swift`:
 
 - **Mobile points at the BACKEND project**, not the frontend web app: `Config.apiBaseURL = https://quickin-backend.vercel.app` (both DEBUG and RELEASE today). The backend is a separate Next.js + Vercel project sharing the **same Neon Postgres** as the frontend.
 - **Auth/OTP flow** mirrors the web's local stack: signup creates an **unverified** user and the backend emails a 6-digit OTP via its own SMTP; `users.email_verified` gates login. An unverified login returns **HTTP 403 `{ needsVerification, email }`** → the app shows `OTPVerificationView`. Verify/resend hit `/api/auth/verify-otp` / `/api/auth/resend-otp`. The session is the stateless HMAC **`qk_token`** bearer (sent as `Authorization: Bearer …`).
-- **Social sign-in**: the app obtains a provider id-token (Apple `ASAuthorizationAppleIDCredential.identityToken`; Google via ASWebAuthenticationSession + PKCE) and POSTs it to `/api/auth/apple` / `/api/auth/google`, which verify it and return `{ token, user }`.
+- **Social sign-in**: the app obtains a Google id-token (ASWebAuthenticationSession + PKCE) and POSTs it to `/api/auth/google`, which verifies it and returns `{ token, user }`. Sign in with Apple was removed from every platform.
 - **Push**: APNs → FirebaseMessaging mints an FCM token → `NotificationService.registerDeviceToken` POSTs it to `/api/local/notifications/register`; the backend sends push via FCM HTTP v1. All best-effort.
 - **Deep links**: shared `https://quickin-frontend.vercel.app/…` Universal Links (AASA on the frontend domain) and `quickin://` scheme both route through `DeepLinkRouter`, which resolves the entity via the same `/api/local/*` endpoints.
 - **OCR is the exception**: ID scanning POSTs base64 image data to `Config.idOcrBaseURL` (a **localhost/LAN** server on port 8000), not the Vercel backend.

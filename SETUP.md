@@ -61,12 +61,6 @@ Maps already work without this (OSM/Apple). Add a key only if you specifically w
 4. **Android** OAuth client (package `com.quickin.app` + your debug SHA‑1) → `Config.kt` → `GOOGLE_CLIENT_ID`.
    - debug SHA‑1: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`
 
-### 3) Sign in with Apple  — needs a paid Apple Developer account ($99/yr)
-1. Apple Developer portal → App ID `com.quickin.app` → enable **Sign in with Apple**.
-2. **iOS**: Xcode → target → Signing & Capabilities → set your **Team** + add **Sign in with Apple**.
-   `.env.local` → `APPLE_CLIENT_ID=com.quickin.app`. Rebuild. → **iOS Apple login works.**
-3. **Web/Android Apple**: needs a **Services ID** + a public **HTTPS domain** (not localhost) — a later step.
-
 ### (Optional) AI chat
 The legacy Supabase app's Gemini chat needs `GEMINI_API_KEY`. Not used by the local stack.
 
@@ -75,5 +69,4 @@ The legacy Supabase app's Gemini chat needs `GEMINI_API_KEY`. Not used by the lo
 ## TL;DR — minimum to make the headline features "real"
 - **Google Maps tiles** → 1 Google Maps API key in `.env.local` (+ Config files for mobile).
 - **Google login** → 1 Google OAuth Web Client ID in `.env.local` (+ iOS/Android client ids).
-- **Apple login** → an Apple Developer account + your Team in Xcode.
 Everything else already runs locally with no keys.

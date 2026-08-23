@@ -1,12 +1,15 @@
 # Social Authentication Setup Guide
 
-This guide explains how to enable Google and Apple Sign-In for the platform.
+> ⚠️ **Stale.** This describes the retired Supabase stack. The platform now runs on
+> Neon and verifies ID tokens itself — see `OAUTH-SETUP.md`. **Sign in with Apple has
+> been removed from every platform**; Google is the only social provider.
+
+This guide explains how to enable Google Sign-In for the platform.
 
 ## Prerequisites
 
 - Access to [Supabase Dashboard](https://supabase.com/dashboard)
 - Google Cloud Console account (for Google Sign-In)
-- Apple Developer Program membership (for Apple Sign-In)
 
 ---
 
@@ -45,45 +48,6 @@ This guide explains how to enable Google and Apple Sign-In for the platform.
 
 ---
 
-## Apple Sign-In Setup
-
-> ⚠️ **Requires Apple Developer Program** ($99/year)
-
-### Step 1: Configure Apple Developer Account
-
-1. Go to [Apple Developer Portal](https://developer.apple.com/)
-2. Navigate to **Certificates, Identifiers & Profiles**
-3. Create a new **App ID** with "Sign In with Apple" capability
-4. Create a **Services ID** for web authentication
-5. Configure the web domain and return URL:
-   ```
-   https://<your-project-ref>.supabase.co/auth/v1/callback
-   ```
-6. Generate a **Key** for Sign In with Apple
-
-### Step 2: Configure Supabase
-
-1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project
-3. Navigate to **Authentication → Providers**
-4. Find **Apple** and toggle it **ON**
-5. Fill in the required fields:
-   - **Service ID** (from Services ID)
-   - **Team ID** (from Apple Developer account)
-   - **Key ID** (from the key you created)
-   - **Private Key** (contents of the .p8 file)
-6. Click **Save**
-
-### Step 3: Test
-
-1. Run the app locally: `npm run dev`
-2. Click "Log in" in the navbar
-3. Click "Continue with Apple"
-4. Complete the Apple OAuth flow
-5. Verify you're logged in and a profile was created
-
----
-
 ## Troubleshooting
 
 ### "OAuth callback failed" error
@@ -96,11 +60,6 @@ This guide explains how to enable Google and Apple Sign-In for the platform.
 
 - Check the `on_auth_user_created` trigger exists in the database
 - Verify RLS policies allow profile creation
-
-### Apple Sign-In not working
-
-- Apple Sign-In requires HTTPS, so it won't work on `localhost` without additional setup
-- Consider using a service like ngrok for local testing
 
 ---
 

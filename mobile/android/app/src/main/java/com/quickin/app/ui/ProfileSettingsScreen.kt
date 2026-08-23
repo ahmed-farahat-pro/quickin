@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -693,7 +694,10 @@ private fun IdChangeRequestSheet(
 
             FieldLabel(stringResource(R.string.id_change_doc_type))
             // Fixed height: "Residence permit" wraps to two lines in French and Arabic as well as
-            // English, and a segment that grows on its own leaves the row visibly stepped.
+            // English, and a segment that grows on its own leaves the row visibly stepped. The row's
+            // height alone is not enough — each segment is sized to its own content and centred, so
+            // the two-line one is drawn taller than its neighbours; fillMaxHeight makes all three
+            // the full 56.dp.
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -701,6 +705,7 @@ private fun IdChangeRequestSheet(
             ) {
                 IdDocumentType.entries.forEachIndexed { index, type ->
                     SegmentedButton(
+                        modifier = Modifier.fillMaxHeight(),
                         selected = docType == type,
                         onClick = { docType = type },
                         shape = SegmentedButtonDefaults.itemShape(index, IdDocumentType.entries.size),

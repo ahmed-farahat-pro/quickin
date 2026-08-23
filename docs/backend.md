@@ -34,7 +34,6 @@ src/
 │       │   ├── reset-password/route.ts       # POST  verify reset code + set new password
 │       │   ├── change-password/ (see local)  # (lives under /api/local/change-password)
 │       │   ├── google/route.ts               # POST  REAL Google sign-in (verify ID token)
-│       │   ├── apple/route.ts                # POST  REAL Sign in with Apple (verify id_token)
 │       │   ├── social/route.ts               # POST  DEMO social sign-in (no token verify)
 │       │   └── smtp-status/route.ts          # GET   non-secret SMTP config probe
 │       ├── local/                            # the main app API (Bearer or cookie)
@@ -61,7 +60,7 @@ src/
     ├── money.ts                 # currency display rates (EGP base)
     ├── notifications.ts         # createNotification (in-app feed)
     ├── push.ts                  # sendPush (FCM/APNs)
-    ├── oauth.ts                 # Google/Apple ID-token verification helpers
+    ├── oauth.ts                 # Google ID-token verification helpers
     ├── promote.ts               # referrals (recordReferral)
     ├── reviews.ts, services.ts, wishlist.ts, trust.ts
     └── firebase-service-account.ts
@@ -88,7 +87,6 @@ because the mobile apps and the web both call cross-origin.
 | `auth/forgot-password` | POST | `{email}` → email a 6-digit reset code. Always `{sent:true}` (no account-existence leak). |
 | `auth/reset-password` | POST | `{email, code, password}` → verify reset code, set new password (marks email verified). |
 | `auth/google` | POST | REAL Google sign-in — verifies Google ID token (`credential`/`id_token`), upserts social user. |
-| `auth/apple` | POST | REAL Sign in with Apple — verifies Apple `id_token`, upserts social user. |
 | `auth/social` | POST | DEMO social sign-in (no real token verification — prototype path). |
 | `auth/smtp-status` | GET | Non-secret SMTP diagnostics — confirms `SMTP_*` reached this runtime. |
 
@@ -273,7 +271,7 @@ Referenced in `src/` (`grep process.env`):
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | nodemailer SMTP. |
 | `MAIL_RELAY_SECRET` | Shared secret authorizing `POST /api/mail/send-otp`. Must match the frontend's. |
 | `WEB_URL` | Base URL for links inside notification emails (default `https://quickin-frontend.vercel.app`). |
-| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Audience for verifying Google/Apple ID tokens. |
+| `GOOGLE_CLIENT_ID` | Audience for verifying Google ID tokens. |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | AI chat/search/description (server-only). |
 | `FX_RATES_URL` | Optional live currency-rate source (display-only). |
 | `FIREBASE_SERVICE_ACCOUNT` | FCM push credentials (notifications). |

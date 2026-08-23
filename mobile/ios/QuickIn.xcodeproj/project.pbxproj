@@ -95,6 +95,7 @@
 		DFB1243FA53554A6D74E9C4E /* ListingGeoPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */; };
 		E299D2E215B27D451B7C7C8D /* ServiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86E6F924C0C3C2D119DA208D /* ServiceService.swift */; };
 		E29B72F943F69F30EA7C41EF /* ReservationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F061FB35515C4DB0267C1C79 /* ReservationDetailView.swift */; };
+		E302B5EAD7E63581F0066F88 /* AgeRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF7B44ACBA0537164C12C62 /* AgeRules.swift */; };
 		E30D3682DF8EF2BC9FE7136A /* LocationSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB97E79A8CE410E8011FA91C /* LocationSearch.swift */; };
 		E6CC7F4B0850E86DAE968FAF /* logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A879D0F0E245F0DB2DC92017 /* logo.png */; };
 		EFC5C2B603732CAB42E08209 /* MessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0A1F4B1652E954203516E6 /* MessagesView.swift */; };
@@ -153,6 +154,7 @@
 		86E6F924C0C3C2D119DA208D /* ServiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceService.swift; sourceTree = "<group>"; };
 		8817D5DCCE26F954A93F06E3 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingGeoPolicy.swift; sourceTree = "<group>"; };
+		8BF7B44ACBA0537164C12C62 /* AgeRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeRules.swift; sourceTree = "<group>"; };
 		8DC9CD43DD80B4E326D6879B /* HostProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostProfileView.swift; sourceTree = "<group>"; };
 		92F84FD7E76AA5A28B6D546A /* AvailabilityManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvailabilityManagerView.swift; sourceTree = "<group>"; };
 		94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 			children = (
 				6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */,
 				7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */,
+				8BF7B44ACBA0537164C12C62 /* AgeRules.swift */,
 				73E65A538C06C3E18A4EA36C /* AIService.swift */,
 				60A0CCF74AC12A50E823919B /* Amenities.swift */,
 				564CBB49DCC4FE31D224A240 /* AppNavigation.swift */,
@@ -410,6 +413,7 @@
 				5884F7D73B4E2A02C1B9C7A7 /* AIService.swift in Sources */,
 				D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */,
 				9BB6EB10340C33DA709DE0B3 /* AddServiceView.swift in Sources */,
+				E302B5EAD7E63581F0066F88 /* AgeRules.swift in Sources */,
 				D88BF05687971D7367071E90 /* Amenities.swift in Sources */,
 				5F3936DB5582D07F6207CAD4 /* AppNavigation.swift in Sources */,
 				C88A8FF61C90A899C65299B3 /* AuthService.swift in Sources */,
@@ -570,10 +574,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 30;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 28;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -581,7 +585,6 @@
 				);
 				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -649,10 +652,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 30;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 28;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -660,7 +663,6 @@
 				);
 				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

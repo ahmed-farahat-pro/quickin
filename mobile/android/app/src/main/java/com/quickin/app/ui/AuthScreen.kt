@@ -441,10 +441,6 @@ fun AuthScreen(
                     Text(stringResource(R.string.auth_biometric_login), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
-
-            // Apple is intentionally NOT offered on Android: Sign in with Apple
-            // there requires a web OAuth flow (Apple Services ID + HTTPS return URL),
-            // which isn't wired in this build. See OAUTH-SETUP.md.
         }
     }
 }

@@ -53,12 +53,11 @@ Your generated values (ready to use):
      - Copy the Client ID → `mobile/android/.../Config.kt` `GOOGLE_CLIENT_ID`.
    → Google login becomes real on all three.
 
-## 5) Apple Developer + Sign in with Apple (iOS login)
+## 5) Apple Developer (iOS distribution only)
 1. **https://developer.apple.com/account** → enroll in the **Apple Developer Program** ($99/yr). Approval can take a day.
-2. **Certificates, Identifiers & Profiles → Identifiers → +** → App IDs → App → Bundle ID `com.quickin.app` → tick **Sign in with Apple** → Register.
-3. In **Xcode** (`mobile/ios/QuickIn.xcodeproj`) → target **Signing & Capabilities** → choose your **Team** → **+ Capability → Sign in with Apple**.
-4. `.env.local` (and Vercel): `APPLE_CLIENT_ID=com.quickin.app` (so the backend accepts the token's audience).
-   → Native **Sign in with Apple** works on iOS. *(Web/Android Apple needs an extra Services ID + HTTPS domain — do later.)*
+2. **Certificates, Identifiers & Profiles → Identifiers → +** → App IDs → App → Bundle ID `com.quickin.app` → Register.
+3. In **Xcode** (`mobile/ios/QuickIn.xcodeproj`) → target **Signing & Capabilities** → choose your **Team**.
+   → Needed to build, sign and ship to TestFlight/the App Store. *(Sign in with Apple is not offered — the app signs in with email/password or Google.)*
 
 ## 6) Domain + HTTPS (optional now)
 - Simplest: use the free **`*.vercel.app`** URL — HTTPS is automatic.
@@ -68,8 +67,8 @@ Your generated values (ready to use):
 
 ### After adding keys — make them live
 - **Web**: re‑add the env vars on Vercel and **redeploy** (env is read at build/runtime).
-- **iOS**: rebuild after editing `Config.swift`; for Apple, set your Team in Xcode.
+- **iOS**: rebuild after editing `Config.swift`; set your Team in Xcode for signing.
 - **Android**: rebuild after editing `Config.kt` / `build.gradle.kts`.
 
 ### Minimum to "go live" fast
-Just **Step 1 (Vercel + DB)** → the web is live with email login. Add **Step 4 Web** for Google login, **Step 3 Web** for Google Maps. Apple + mobile store submission come after.
+Just **Step 1 (Vercel + DB)** → the web is live with email login. Add **Step 4 Web** for Google login, **Step 3 Web** for Google Maps. Mobile store submission comes after.

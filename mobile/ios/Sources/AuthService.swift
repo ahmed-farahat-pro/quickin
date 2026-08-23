@@ -567,8 +567,8 @@ final class AuthStore: ObservableObject {
     }
 
     /// Persist a `{token, user}` obtained outside the email flow (e.g. the
-    /// native Apple / Google sign-in flows in `AuthView`). Mirrors the email
-    /// path so the session restores on next launch.
+    /// native Google sign-in flow in `AuthView`). Mirrors the email path so the
+    /// session restores on next launch.
     ///
     /// The Face ID path hands us the account as it looked when the biometric
     /// session was stored, which can be arbitrarily stale — so we paint it and
@@ -616,7 +616,7 @@ final class AuthStore: ObservableObject {
 
     /// POST a JSON body to a social endpoint and, on success, adopt the
     /// returned session. Returns `true` on success. Used by `AuthView`'s
-    /// Apple / Google handlers. Decodes `{ error }` on failure.
+    /// Google handler. Decodes `{ error }` on failure.
     @discardableResult
     func exchangeSocial(path: String, body: [String: String]) async -> Bool {
         isLoading = true

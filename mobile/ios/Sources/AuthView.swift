@@ -1,8 +1,7 @@
 import SwiftUI
-import AuthenticationServices
 
-/// The authentication screen: email sign in / sign up plus **real** native
-/// "Sign in with Apple" and "Continue with Google" social options.
+/// The authentication screen: email sign in / sign up plus the **real**
+/// "Continue with Google" social option.
 struct AuthView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
@@ -531,19 +530,6 @@ struct AuthView: View {
 
     private var socialButtons: some View {
         VStack(spacing: 12) {
-            // REAL native Sign in with Apple. Requires the "Sign in with Apple"
-            // capability + an Apple Developer Team set in Xcode signing; the
-            // button compiles and is fully wired and works once that is set.
-            SignInWithAppleButton(.continue) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                handleApple(result)
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .disabled(auth.isLoading)
-
             // Continue with Google — white button, border, "G" glyph.
             // Gated on Config.googleClientID: empty → inline note (no demo call).
             Button {
@@ -685,42 +671,6 @@ struct AuthView: View {
         }
         // Adopt the stored token + user → signs in (sheet dismisses reactively).
         auth.adopt(token: session.token, user: session.user)
-    }
-
-    /// Handle the native Apple authorization result. On success we forward the
-    /// identity token + full name (Apple only sends the name on first sign-in)
-    /// to the backend `/api/auth/apple`, which verifies it and returns
-    /// `{ token, user }`.
-    private func handleApple(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success(let authorization):
-            guard
-                let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                let tokenData = credential.identityToken,
-                let idToken = String(data: tokenData, encoding: .utf8)
-            else {
-                auth.setError("Apple sign-in did not return an identity token.")
-                return
-            }
-            let fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-                .compactMap { $0 }
-                .joined(separator: " ")
-                .trimmingCharacters(in: .whitespaces)
-
-            Task {
-                await auth.exchangeSocial(path: "/api/auth/apple", body: [
-                    "identityToken": idToken,
-                    "full_name": fullName,
-                ])
-            }
-        case .failure(let error):
-            // User cancelled? Stay quiet; otherwise surface the error.
-            if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
-                auth.setError(nil)
-            } else {
-                auth.setError(error.localizedDescription)
-            }
-        }
     }
 
     /// Run the real Google OAuth flow (ASWebAuthenticationSession + PKCE) and

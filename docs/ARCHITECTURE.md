@@ -115,7 +115,7 @@ so the request/response shapes are interchangeable across web and mobile.
 
 `email_verified` is the login gate on both surfaces. Signup creates an **unverified** user +
 a 6-digit OTP; an unverified login returns **HTTP 403 `{needsVerification, email}`** so the
-client shows the OTP screen. OAuth (Google/Apple) users are auto-verified.
+client shows the OTP screen. OAuth (Google) users are auto-verified.
 
 The split: **the web owns OTP generation/verification but delegates the email send to the
 backend relay**; the **backend** generates *and* sends OTP itself (direct SMTP) for mobile.
@@ -195,7 +195,7 @@ listings). Key tables:
 | `MAIL_BACKEND_URL` | Base URL of the backend mail relay (e.g. `https://quickin-backend.vercel.app`). |
 | `MAIL_RELAY_SECRET` | Shared secret sent as `x-relay-secret` to the relay. **Must match the backend's.** |
 | `ADMIN_OPS_KEY` | The `/ops` admin-console gate (dev fallback `QuickInAdmin2026`). |
-| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | OAuth ID-token audiences (`src/lib/local/oauth.ts`). |
+| `GOOGLE_CLIENT_ID` | OAuth ID-token audiences (`src/lib/local/oauth.ts`). |
 | `GEMINI_API_KEY` | AI help chat (web). |
 
 ### quickin-backend (mobile API + relay)
@@ -207,7 +207,7 @@ listings). Key tables:
 | `SMTP_HOST/PORT/USER/PASS/FROM` | nodemailer SMTP (default `mail.privateemail.com:465`). |
 | `MAIL_RELAY_SECRET` | Authorizes `POST /api/mail/send-otp`. **Must match the frontend's.** |
 | `WEB_URL` | Base for links in notification emails (default `https://quickin-frontend.vercel.app`). |
-| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Audience for Google/Apple ID-token verification. |
+| `GOOGLE_CLIENT_ID` | Audience for Google ID-token verification. |
 | `OPENAI_API_KEY` / `OPENAI_MODEL` | AI chat/search/listing-description. |
 | `FIREBASE_SERVICE_ACCOUNT` | FCM push credentials. |
 | `PASS_ORG_NAME` / `PASS_TEAM_ID` / `PASS_TYPE_ID` (+ signing assets) | Apple Wallet pass generation. |

@@ -36,15 +36,13 @@ targets:
       # Cloud Messaging (push). Registers the FCM token with the backend.
       - package: Firebase
         product: FirebaseMessaging
-    # Associated Domains + Sign in with Apple + push. Declared here so xcodegen
-    # regenerates QuickIn.entitlements with the Universal Links domain on every
+    # Associated Domains + push. Declared here so xcodegen regenerates
+    # QuickIn.entitlements with the Universal Links domain on every
     # `xcodegen generate` (the file is otherwise hand-maintained). The path
     # matches CODE_SIGN_ENTITLEMENTS in `settings.base` below.
     entitlements:
       path: QuickIn.entitlements
       properties:
-        com.apple.developer.applesignin:
-          - Default
         aps-environment: development
         # Universal Links: lets a shared https://quickin-frontend.vercel.app/…
         # link open the app instead of Safari (requires the matching AASA file

@@ -1587,15 +1587,14 @@ private fun MainApp() {
                     onSelect = { selectedService = it },
                     contentPadding = padding
                 )
-                // Guest "Wishlist" = the user's saved stays + experiences. A top-level tab;
-                // its back arrow returns to Explore (no overlay to pop). The screen itself
-                // distinguishes signed-out (sign-in prompt) from signed-in-but-empty (friendly
-                // empty state) using the authoritative auth flag — an empty/401 API result while
-                // signed in is treated as empty, never as signed-out.
+                // Guest "Wishlist" = the user's saved stays + experiences. A top-level tab,
+                // so it shows no back affordance. The screen itself distinguishes signed-out
+                // (sign-in prompt) from signed-in-but-empty (friendly empty state) using the
+                // authoritative auth flag — an empty/401 API result while signed in is treated
+                // as empty, never as signed-out.
                 "wishlist" -> WishlistScreen(
                     state = wishlistState,
                     isAuthenticated = authState.isAuthenticated,
-                    onBack = { selectedTab = 0 },
                     onLoad = wishlistViewModel::load,
                     onSignIn = {
                         authViewModel.clearError()

@@ -390,90 +390,167 @@ struct ReservationDetailView: View {
         }
     }
 
-    /// Payment area. The new flow pays *after* approval: the guest can only pay
+    /// Payment area. The flow pays *after* approval: the guest can only pay
     /// once the host has confirmed the booking (the backend rejects paying a
-    /// pending booking). So we branch on the status:
-    ///   • `.confirmed` & unpaid & not-yet-submitted → the "Pay now" card (opens
-    ///     `PaymentSheet` for the Instapay transfer).
-    ///   • payment `submitted`   → a "Payment under review" hint (the guest already
-    ///     uploaded their transfer screenshot; the host is verifying it).
-    ///   • `.pending`            → an "Awaiting host approval" hint, no Pay.
-    ///   • anything else / paid  → nothing.
+    /// pending booking). Which card shows is decided by `PaymentFlowRules` —
+    /// the same rule the API and the website run — never by comparing
+    /// `payment_status` here:
+    ///   • `.awaitingPayment` → the "Pay now" card (opens `PaymentSheet`).
+    ///   • `.rejected`        → why the last transfer was turned down, in the
+    ///     reviewer's own words, above a "Try again" button.
+    ///   • `.underReview`     → a "Payment under review" hint (the screenshot is
+    ///     with us; this covers an escalated dispute too).
+    ///   • `.notPayable` on a pending booking → "Awaiting host approval", no Pay.
+    ///   • `.paid` / anything else → nothing.
+    ///
+    /// The rejected case is the one this branch exists for. It used to fall
+    /// through to the plain "Pay now" card, so a guest whose transfer an admin
+    /// had turned down saw the screen they saw before paying at all, with no
+    /// hint that anything had happened or what to fix.
     @ViewBuilder
     private func payNowCard(_ detail: ReservationDetail) -> some View {
-        // The guest has uploaded a transfer screenshot; awaiting the host's check.
-        let underReview = (detail.paymentStatus ?? "").lowercased() == "submitted"
-        if detail.bookingStatus == .confirmed && !detail.isPaid && !underReview {
-            VStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    Image(systemName: "creditcard.fill")
-                        .font(.title3)
-                        .foregroundStyle(Color.qkBurgundy)
-                        .frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(loc.t("pay.title"))
-                            .font(.headline)
-                            .foregroundStyle(Color.qkInk)
-                        Text(loc.t("pay.subtitle"))
-                            .font(.caption)
-                            .foregroundStyle(Color.qkMuted)
-                    }
-                    Spacer(minLength: 8)
-                }
-                Button {
-                    // Defense in depth: even though this card only renders for a
-                    // confirmed & unpaid booking, re-check before opening payment
-                    // so the pay sheet is unreachable for any other state.
-                    guard detail.bookingStatus == .confirmed && !detail.isPaid else { return }
-                    showingPayment = true
-                } label: {
-                    QKPrimaryButtonLabel(
-                        title: loc.t("pay.payNow"),
-                        systemImage: "lock.fill",
-                        height: 50
-                    )
-                }
-                .buttonStyle(QKPressStyle())
-            }
-            .padding(16)
-            .qkCard()
-        } else if underReview {
+        switch detail.paymentStage {
+        case .rejected:
+            paymentRejectedCard(detail)
+        case .awaitingPayment:
+            payPromptCard(detail)
+        case .underReview:
+            underReviewCard
+        case .notPayable where detail.bookingStatus == .pending:
+            awaitingApprovalCard
+        case .notPayable, .paid:
+            EmptyView()
+        }
+    }
+
+    /// "Pay now" — a confirmed booking with nothing submitted yet.
+    private func payPromptCard(_ detail: ReservationDetail) -> some View {
+        VStack(spacing: 12) {
             HStack(spacing: 12) {
-                Image(systemName: "hourglass")
-                    .font(.title3)
-                    .foregroundStyle(Color.qkGoldDeep)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(loc.t("instapay.underReview.title"))
-                        .font(.headline)
-                        .foregroundStyle(Color.qkInk)
-                    Text(loc.t("instapay.underReview.subtitle"))
-                        .font(.caption)
-                        .foregroundStyle(Color.qkMuted)
-                }
-                Spacer(minLength: 8)
-            }
-            .padding(16)
-            .qkCard()
-        } else if detail.bookingStatus == .pending {
-            HStack(spacing: 12) {
-                Image(systemName: "clock.badge.checkmark")
+                Image(systemName: "creditcard.fill")
                     .font(.title3)
                     .foregroundStyle(Color.qkBurgundy)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(loc.t("pay.awaitingApproval.title"))
+                    Text(loc.t("pay.title"))
                         .font(.headline)
                         .foregroundStyle(Color.qkInk)
-                    Text(loc.t("pay.awaitingApproval.subtitle"))
+                    Text(loc.t("pay.subtitle"))
                         .font(.caption)
                         .foregroundStyle(Color.qkMuted)
                 }
                 Spacer(minLength: 8)
             }
-            .padding(16)
-            .qkCard()
+            payButton(detail, title: loc.t("pay.payNow"))
         }
+        .padding(16)
+        .qkCard()
+    }
+
+    /// The rejection, in the reviewer's words, with the way forward under it.
+    ///
+    /// The reason is shown verbatim — it is free text an admin typed for this
+    /// guest, and paraphrasing it would defeat the point. When they left one off
+    /// (older rows, and dispute outcomes carry none) a generic line stands in,
+    /// because "your transfer wasn't accepted" is still far more than the guest
+    /// used to be told.
+    private func paymentRejectedCard(_ detail: ReservationDetail) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(loc.t("pay.rejected.title"))
+                        .font(.headline)
+                        .foregroundStyle(Color.qkInk)
+                    Text(detail.paymentRejectReasonText ?? loc.t("pay.rejected.noReason"))
+                        .font(.callout)
+                        .foregroundStyle(Color.qkInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(loc.t("pay.rejected.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Spacer(minLength: 0)
+            }
+            payButton(detail, title: loc.t("pay.tryAgain"))
+        }
+        .padding(16)
+        .qkCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.qkBurgundy.opacity(0.35), lineWidth: 1)
+        )
+        // One announcement, so VoiceOver reads the reason with its heading
+        // rather than stranding it as a loose paragraph.
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The CTA shared by the first attempt and the retry — same guard, same
+    /// sheet, only the label differs.
+    private func payButton(_ detail: ReservationDetail, title: String) -> some View {
+        Button {
+            // Defense in depth: even though these cards only render for a
+            // payable booking, re-ask the rule before opening payment so the
+            // pay sheet is unreachable for any other state.
+            guard detail.canPay else { return }
+            showingPayment = true
+        } label: {
+            QKPrimaryButtonLabel(
+                title: title,
+                systemImage: "lock.fill",
+                height: 50
+            )
+        }
+        .buttonStyle(QKPressStyle())
+    }
+
+    /// The guest has uploaded a transfer screenshot; awaiting the review.
+    private var underReviewCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "hourglass")
+                .font(.title3)
+                .foregroundStyle(Color.qkGoldDeep)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(loc.t("instapay.underReview.title"))
+                    .font(.headline)
+                    .foregroundStyle(Color.qkInk)
+                Text(loc.t("instapay.underReview.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(16)
+        .qkCard()
+    }
+
+    /// Still pending — the host hasn't accepted the request, so there is
+    /// nothing to pay yet.
+    private var awaitingApprovalCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "clock.badge.checkmark")
+                .font(.title3)
+                .foregroundStyle(Color.qkBurgundy)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(loc.t("pay.awaitingApproval.title"))
+                    .font(.headline)
+                    .foregroundStyle(Color.qkInk)
+                Text(loc.t("pay.awaitingApproval.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(16)
+        .qkCard()
     }
 
     private func statusHeader(_ detail: ReservationDetail) -> some View {
@@ -495,28 +572,37 @@ struct ReservationDetailView: View {
     }
 
     /// The stay-pass area, gated on `ReservationDetail.hasStayPass` — i.e. the
-    /// booking is confirmed (or already completed) **and** the backend has
-    /// issued a real `reservation_code`.
+    /// booking is confirmed **and paid** (or already completed) **and** the
+    /// backend has issued a real `reservation_code`.
     ///
-    ///   • pass issued  → the QR card (below).
-    ///   • still pending (or confirmed with no code yet) → the "your QR code
-    ///     will appear once your reservation is confirmed" placeholder. No QR,
-    ///     no link, nothing tappable.
+    /// This screen is shared by the guest and the listing's host, so the gate is
+    /// deliberately one rule for both: the host tapping Approve used to reveal a
+    /// working QR here immediately, before the guest had transferred anything.
+    ///
+    ///   • pass live    → the QR card (below).
+    ///   • pending      → "your QR code will appear once your reservation is
+    ///     confirmed".
+    ///   • confirmed & unpaid → "…once your payment is confirmed". No QR, no
+    ///     link, nothing tappable in either case.
     ///   • cancelled / rejected → nothing at all; that pass is never coming.
     @ViewBuilder
     private func passSection(_ detail: ReservationDetail) -> some View {
         if let url = detail.stayPassURL, let code = detail.qrPayload {
             qrCard(url: url, code: code)
         } else if detail.isAwaitingStayPass {
-            awaitingPassCard
+            awaitingPassCard(detail)
         }
     }
 
     /// Shown instead of the QR while the reservation is waiting for the host's
-    /// approval. Deliberately inert — there is no code to encode and no URL to
-    /// open, so rendering one would point the guest at a dead `/stay/null` page.
-    private var awaitingPassCard: some View {
-        VStack(spacing: 12) {
+    /// approval, or for the guest's payment. Deliberately inert — there is no
+    /// code to encode and no URL to open, so rendering one would point the guest
+    /// at a dead `/stay/null` page.
+    private func awaitingPassCard(_ detail: ReservationDetail) -> some View {
+        // Which of the two holds it up decides the copy: an unpaid stay is
+        // waiting on the guest and should say so, a pending one on the host.
+        let waitingOnPayment = detail.isAwaitingPaymentForPass
+        return VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(Color.qkTan)
@@ -525,10 +611,10 @@ struct ReservationDetailView: View {
                     .font(.system(size: 52))
                     .foregroundStyle(Color.qkTan4)
             }
-            Text(loc.t("pass.awaiting.title"))
+            Text(loc.t(waitingOnPayment ? "pass.awaitingPayment.title" : "pass.awaiting.title"))
                 .font(.headline)
                 .foregroundStyle(Color.qkInk)
-            Text(loc.t("pass.awaiting.body"))
+            Text(loc.t(waitingOnPayment ? "pass.awaitingPayment.body" : "pass.awaiting.body"))
                 .font(.footnote)
                 .foregroundStyle(Color.qkMuted)
                 .multilineTextAlignment(.center)
@@ -765,9 +851,15 @@ struct ReservationDetailView: View {
     /// photo gallery, scannable place QRs and file links, in that order. Hidden
     /// entirely when the host hasn't added anything (the host still gets the
     /// editor below).
+    ///
+    /// Gated on `hasStayPass`, the same rule as the QR — the guide IS what the
+    /// pass leads to (gate codes, Wi-Fi, directions), so it must not open before
+    /// the payment does. The backend enforces this too (`listStayGuide` returns
+    /// an empty guide to a guest without a live pass); this is the local half so
+    /// a stale in-memory list can't flash it either.
     @ViewBuilder
     private func stayGuideCard(_ detail: ReservationDetail) -> some View {
-        if !guide.items.isEmpty {
+        if detail.hasStayPass, !guide.items.isEmpty {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 10) {
                     Image(systemName: "book.closed.fill")
@@ -971,9 +1063,11 @@ struct ReservationDetailView: View {
     // MARK: - Stay guide — host editor
 
     /// The host's stay-guide editor. Rendered only for the listing's host, and
-    /// only unlocked once the booking is **confirmed** — the same gate as the
-    /// pass itself, because the guide is what the QR leads to. A host looking at
-    /// a still-pending request sees why it's locked instead.
+    /// unlocked once the booking is **confirmed** — deliberately looser than the
+    /// pass gate, so the host can write their check-in notes while the guest
+    /// pays. The guest still sees nothing until the pass goes live (see
+    /// `stayGuideCard` and the backend's `listStayGuide`). A host looking at a
+    /// still-pending request sees why it's locked instead.
     @ViewBuilder
     private func stayGuideEditor(_ detail: ReservationDetail) -> some View {
         if isHost(detail) {
@@ -1239,8 +1333,9 @@ struct ReservationDetailView: View {
 
     /// Real "Add to Apple Wallet": downloads the signed .pkpass from the backend
     /// and presents the system add-pass sheet. Gated on `canAddToWallet` — the
-    /// same rule the backend enforces (confirmed + a real reservation code), so
-    /// an unconfirmed booking is never offered a pass it can't be given.
+    /// same rule the backend enforces (confirmed **and paid**, plus a real
+    /// reservation code), so an unconfirmed or unpaid booking is never offered a
+    /// pass it can't be given.
     @ViewBuilder
     private func walletButton(_ detail: ReservationDetail) -> some View {
         VStack(spacing: 6) {
@@ -1267,7 +1362,9 @@ struct ReservationDetailView: View {
                         .multilineTextAlignment(.center)
                 }
             } else if detail.isAwaitingStayPass {
-                Text(loc.t("pass.wallet.locked"))
+                Text(loc.t(detail.isAwaitingPaymentForPass
+                           ? "pass.wallet.lockedPayment"
+                           : "pass.wallet.locked"))
                     .font(.caption)
                     .foregroundStyle(Color.qkMuted)
                     .multilineTextAlignment(.center)
@@ -1292,7 +1389,8 @@ struct ReservationDetailView: View {
         walletLoading = true
         defer { walletLoading = false }
         // Defense in depth: the button only renders for a booking that has a
-        // pass, but never ask the backend to mint one for an unconfirmed stay.
+        // pass, but never ask the backend to mint one for an unconfirmed or
+        // unpaid stay — it answers 400 for both.
         guard viewModel.detail?.canAddToWallet == true else { return }
         guard PKPassLibrary.isPassLibraryAvailable() else {
             walletError = "Wallet isn't available on this device."
@@ -1817,6 +1915,14 @@ struct StatusBadge: View {
     /// confirmed & paid → "Paid". Leave `nil` everywhere else (host dashboard,
     /// service requests) so the badge keeps its plain `status.label` meaning.
     var paid: Bool? = nil
+    /// The chip this reservation is filed under on the Trips list. Pass it from the
+    /// guest reservation views so the badge and the filter chip above it always read
+    /// the same words — a row badged "Cancelled" sitting under a chip that calls it
+    /// "Refunded" is the filter contradicting the card. `nil` everywhere else (host
+    /// dashboard, service requests), where there is no chip row to agree with.
+    ///
+    /// Takes precedence over `paid`, which can only describe three of the states.
+    var bucket: ReservationFilterRules.Bucket? = nil
 
     var body: some View {
         HStack(spacing: 6) {
@@ -1840,11 +1946,13 @@ struct StatusBadge: View {
         .clipShape(Capsule())
     }
 
-    /// The text shown on the pill. When `paid` is supplied (guest reservation
-    /// views), pending/confirmed map to the three guest-facing labels; otherwise
-    /// the plain `status.label` is used (host dashboard, service requests).
+    /// The text shown on the pill. A `bucket` wins when given (it can describe every
+    /// state, including the two refunds and a payment under review). Failing that,
+    /// `paid` maps pending/confirmed to the three guest-facing labels; failing that,
+    /// the plain `status.label` (host dashboard, service requests).
     @MainActor
     private var displayLabel: String {
+        if let bucket { return bucket.badgeLabel }
         guard let paid else { return status.label }
         switch status {
         case .pending:   return L.t("reservation.waitingApproval")
@@ -1854,6 +1962,11 @@ struct StatusBadge: View {
     }
 
     private var dot: Color {
+        // A payment waiting on us is gold like `pending` — both mean "nothing for you
+        // to do yet", and colouring it green beside the paid stays would say the money
+        // has cleared. The refunds keep the cancelled colouring: they ARE cancelled
+        // bookings, and a colour of their own would read as a fourth kind of ending.
+        if bucket == .underReview { return .qkGold }
         switch status {
         case .confirmed: return .qkSuccess
         case .pending: return .qkGold
@@ -1866,6 +1979,7 @@ struct StatusBadge: View {
 
     private var foreground: Color {
         if onPhoto { return .white }
+        if bucket == .underReview { return .qkGoldDeep }
         switch status {
         case .confirmed: return .qkSuccess
         case .pending: return .qkGoldDeep

@@ -243,6 +243,10 @@
     <string name="pay_confirmed_title">Réservation confirmée &amp;amp; payée</string>
     <string name="pay_reference">Référence</string>
     <string name="pay_now">Payer maintenant</string>
+    <string name="pay_try_again">Réessayer</string>
+    <string name="payment_rejected_title">Votre virement n\'a pas été accepté</string>
+    <string name="payment_rejected_no_reason">Nous n\'avons pas pu confirmer votre virement à partir de la capture d\'écran envoyée.</string>
+    <string name="payment_rejected_subtitle">Corrigez ce point et envoyez une nouvelle capture — votre réservation reste maintenue.</string>
     <string name="pay_method_card">Carte (+5%%)</string>
     <string name="pay_method_bank">Virement bancaire (−5%%)</string>
     <string name="pay_card_surcharge">Supplément carte (5%%)</string>
@@ -419,10 +423,14 @@
     <string name="approval_approved">Approuvé</string>
     <string name="approval_rejected">Refusé</string>
     <string name="approval_ownership_doc">Justificatif de propriété</string>
-    <string name="approval_ownership_intro">Téléversez une preuve que vous possédez ou gérez ce logement (par ex. un titre de propriété, une facture de services publics ou un contrat). Nous l\'examinerons avant la mise en ligne de votre annonce.</string>
+    <string name="approval_ownership_intro">Téléversez une preuve que vous possédez ou gérez ce logement (par ex. un titre de propriété, une facture de services publics ou un contrat). Une photo ou un PDF conviennent. Nous l\'examinerons avant la mise en ligne de votre annonce.</string>
     <string name="approval_upload_doc">Téléverser le document</string>
     <string name="approval_doc_attached">Document joint</string>
+    <string name="approval_doc_pdf_attached">PDF joint</string>
+    <string name="approval_doc_too_large">Ce fichier est trop volumineux (2,5 Mo maximum)</string>
+    <string name="approval_doc_unsupported">Impossible de traiter ce document. Envoyez une photo ou un PDF.</string>
     <string name="approval_reupload">Téléverser à nouveau le justificatif de propriété</string>
+    <string name="approval_upload_ownership_doc">Téléverser le justificatif de propriété</string>
     <string name="approval_submitted_for_review">Soumis pour examen</string>
     <string name="approval_pending_note">Votre annonce est en cours d\'examen et n\'est pas encore publique. Nous vous préviendrons dès qu\'elle sera approuvée.</string>
     <string name="approval_rejected_note">Votre justificatif de propriété a été refusé. Téléversez-le à nouveau pour soumettre votre annonce à un nouvel examen.</string>
@@ -444,11 +452,27 @@
     <string name="listing_edit_saved">Modifications enregistrées</string>
     <string name="listing_edit_saved_note">Votre annonce est en cours d\'examen et masquée aux voyageurs jusqu\'à son approbation par un administrateur.</string>
     <string name="listing_edit_no_changes">Vous n\'avez encore rien modifié.</string>
-    <string name="listing_edit_needs_title">Ajoutez un titre.</string>
-    <string name="listing_edit_needs_description">Ajoutez une description.</string>
-    <string name="listing_edit_needs_location">Ajoutez l\'emplacement.</string>
     <string name="listing_edit_needs_region">Choisissez la zone où se trouve votre logement.</string>
     <string name="listing_edit_needs_price">Le prix par nuit doit être supérieur à 0.</string>
+
+    <string name="listing_title_required">Veuillez donner un titre à votre annonce.</string>
+    <string name="listing_title_letters">Veuillez décrire votre annonce avec des mots : un titre ne peut pas contenir uniquement des symboles ou des chiffres.</string>
+    <string name="listing_title_too_short">Veuillez donner un vrai titre à votre annonce : il lui faut au moins %1$d lettres.</string>
+    <string name="listing_title_too_long">Le titre de l\'annonce doit contenir au maximum %1$d caractères.</string>
+
+    <string name="listing_blocked_title">Veuillez corriger le titre ci-dessus.</string>
+    <string name="listing_blocked_description">Ajoutez une description d\'au moins %1$d lettres.</string>
+    <string name="listing_blocked_location">Ajoutez l\'adresse \u2014 au moins %1$d lettres.</string>
+    <!-- The host location step's resort / compound answer (ResortChoice). -->
+    <string name="listing_resort_name_required">Saisissez le nom du resort ou de la résidence, ou choisissez une autre option.</string>
+    <string name="listing_resort_name_letters">Écrivez le nom du resort ou de la résidence en toutes lettres \u2014 il ne peut pas contenir uniquement des symboles ou des chiffres.</string>
+    <string name="listing_resort_name_too_short">Indiquez le nom complet du resort ou de la résidence \u2014 il doit contenir au moins %1$d lettres.</string>
+    <string name="listing_blocked_capacity">Voyageurs, chambres, lits et salles de bain doivent être d\'au moins %1$d.</string>
+
+    <!-- Missing until now, so both fell back to English on a French phone. -->
+    <string name="listing_edit_needs_pin">Placez votre logement sur la carte.</string>
+    <string name="listing_edit_needs_photo">Une annonce doit avoir au moins une photo.</string>
+    <string name="listing_capacity_floor">Chambres, lits, salles de bain et voyageurs doivent être au moins %1$d — un logement sans couchage ne peut pas être réservé.</string>
     <string name="listing_edit_discard_title">Abandonner vos modifications ?</string>
     <string name="listing_edit_discard_body">Vos modifications de cette annonce n\'ont pas été enregistrées.</string>
     <string name="listing_edit_discard_confirm">Abandonner</string>
@@ -490,7 +514,6 @@
     <string name="growth_discount_off">Semaine −%1$d%% · Mois −%2$d%%</string>
     <string name="growth_discount_weekly_off">Semaine −%1$d%%</string>
     <string name="growth_discount_monthly_off">Mois −%1$d%%</string>
-    <string name="growth_discounts_saved">Réductions mises à jour.</string>
     <string name="growth_save">Enregistrer</string>
     <string name="promo_code">Code promo</string>
     <string name="promo_have_code">Vous avez un code promo ?</string>
@@ -544,8 +567,13 @@
     <string name="money_pay">Payer %1$s</string>
     <string name="ai_write_with_ai">Rédiger avec l\'IA</string>
     <string name="ai_writing">Rédaction…</string>
+    <string name="add_title">Titre</string>
+    <string name="add_property_type">Type de propriété</string>
     <string name="add_description">Description</string>
-    <string name="add_basics_hint">Donnez à votre logement un titre accrocheur et choisissez le type de propriété, puis décrivez ce qui le rend unique. Le titre est obligatoire.</string>
+    <string name="add_basics_hint">Un titre, un type de propriété et une description d\'au moins %1$d lettres sont requis pour continuer.</string>
+    <!-- L'astérisque à côté de chaque libellé que l'hôte ne peut pas ignorer, et la ligne qui l'explique. -->
+    <string name="listing_required_legend">Les champs marqués d’un astérisque sont obligatoires.</string>
+    <string name="field_required">requis</string>
     <string name="ai_search">Demander à l\'IA</string>
     <string name="ai_search_placeholder">Essayez : villa en bord de mer pour 6 avec piscine à moins de 4000</string>
     <string name="ai_searching">Recherche avec l\'IA…</string>
@@ -570,7 +598,14 @@
     <string name="analytics_empty">Aucune statistique pour le moment. Une fois que vous aurez des annonces et des réservations, vos performances s\'afficheront ici.</string>
     <string name="pricing_seasonal">Tarifs saisonniers (facultatif)</string>
     <string name="pricing_seasonal_intro">Facturez plus le week-end ou en haute saison. Laissez vide pour utiliser votre prix par nuit.</string>
-    <string name="pricing_weekend_price">Prix du week-end (ven.–sam.)</string>
+    <string name="pricing_weekend_price">Prix du week-end</string>
+    <string name="pricing_weekend_days">Quels jours forment votre week-end</string>
+    <string name="pricing_weekend_days_whole_week">Un week-end ne peut pas couvrir toute la semaine — modifiez plutôt votre prix par nuit.</string>
+    <string name="pricing_weekend_days_none_chosen">Choisissez au moins un jour de week-end, ou effacez le prix du week-end.</string>
+    <string name="pricing_weekend_price_not_positive">Le prix du week-end doit être supérieur à zéro. Laissez-le vide si vous n\'appliquez pas de tarif différent le week-end.</string>
+    <string name="pricing_weekend_price_not_a_number">Le prix du week-end doit être un nombre. Laissez-le vide si vous n\'appliquez pas de tarif différent le week-end.</string>
+    <string name="pricing_month_price_not_positive">Le tarif de %1$s doit être supérieur à zéro. Laissez-le vide pour utiliser votre prix par nuit habituel.</string>
+    <string name="pricing_month_price_not_a_number">Le tarif de %1$s doit être un nombre. Laissez-le vide pour utiliser votre prix par nuit habituel.</string>
     <string name="pricing_monthly_prices">Prix par nuit selon le mois</string>
     <string name="pricing_monthly_prices_intro">Définissez un tarif par nuit pour des mois précis. Les mois vides utilisent votre prix de base.</string>
     <string name="pricing_seasonal_note">Les tarifs week-end &amp;amp; saisonniers s\'appliquent</string>
@@ -580,7 +615,6 @@
     <string name="growth_discount_off_label">Réduction selon la durée du séjour (−%1$d%%)</string>
     <string name="pricing_save">Enregistrer les tarifs</string>
     <string name="pricing_saved">Tarifs mis à jour.</string>
-    <string name="pricing_edit_seasonal">Tarifs saisonniers</string>
     <string name="pricing_quote_error">Impossible d\'obtenir un devis exact. Affichage d\'une estimation.</string>
     <string name="pricing_month_1">Janvier</string>
     <string name="pricing_month_2">Février</string>
@@ -608,6 +642,7 @@
     <string name="messages_empty_body">Lorsque vous écrivez à un hôte ou à un voyageur, la conversation apparaît ici.</string>
     <string name="messages_no_messages">Aucun message</string>
     <string name="messages_host_badge">Hôte</string>
+    <string name="messages_reservation_badge">Réservation</string>
     <string name="messages_sign_in_title">Connectez-vous pour voir vos messages</string>
     <string name="messages_sign_in_body">Vos conversations avec les hôtes et les voyageurs se trouvent ici.</string>
     <string name="profile_messages">Messages</string>
@@ -659,6 +694,7 @@
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
     <string name="reservation_qr_pending">Votre QR code apparaîtra ici dès que votre réservation sera confirmée.</string>
+    <string name="reservation_qr_unpaid">Votre hôte a accepté ce séjour. Votre QR code apparaîtra ici dès que votre paiement sera confirmé.</string>
     <string name="reservation_qr_none">Il n\'y a pas de pass séjour pour cette réservation.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
@@ -789,6 +825,14 @@
     <!-- Host pricing calendar (per-day rates + day-level availability) -->
     <string name="calendar_title">Calendrier des tarifs</string>
     <string name="calendar_open">Calendrier des tarifs</string>
+    <string name="preview_guest_action">Voir en tant que voyageur</string>
+    <string name="preview_guest_title">Aperçu voyageur</string>
+    <string name="preview_guest_body">Votre annonce exactement telle qu\'un voyageur la découvre. Rien ici ne réserve, n\'enregistre ni n\'envoie de message.</string>
+    <string name="preview_guest_under_review">Elle est encore en cours d\'examen, les voyageurs ne peuvent donc pas encore la trouver.</string>
+    <string name="preview_guest_hidden">Elle n\'est pas visible par les voyageurs pour le moment.</string>
+    <string name="preview_guest_blocked_title">Aperçu uniquement</string>
+    <string name="preview_guest_blocked_body">C\'est votre propre annonce : les actions voyageur sont désactivées ici.</string>
+    <string name="preview_guest_failed">Impossible d\'ouvrir l\'aperçu. Veuillez réessayer.</string>
     <string name="calendar_subtitle">Votre tarif de base est de %1$s %2$s par nuit. Sélectionnez les jours à tarifer différemment.</string>
     <string name="calendar_select_month">Sélectionner le mois</string>
     <string name="calendar_nights_selected">%1$d nuits sélectionnées</string>
@@ -811,4 +855,39 @@
     <string name="calendar_error_save_failed">Impossible d’enregistrer ces dates. Veuillez réessayer.</string>
     <string name="calendar_error_sign_in">Connectez-vous en tant qu’hôte pour gérer votre calendrier.</string>
     <string name="calendar_nightly_prices">Tarifs par nuit</string>
+    <string name="money_cancelled">Annulée</string>
+    <string name="money_cancelled_no_refund">Aucun remboursement n\'a été effectué — vous conservez l\'intégralité de cette réservation.</string>
+    <string name="money_cancelled_partial">%1$d%% a été remboursé au voyageur — vous conservez le reste.</string>
+    <!-- Host reservations status filter -->
+    <string name="host_booking_filter_pending">En attente de votre réponse</string>
+    <string name="host_booking_filter_awaiting_payment">En attente de paiement</string>
+    <string name="host_booking_filter_confirmed">Confirmée</string>
+    <string name="host_booking_filter_rejected">Refusée</string>
+    <string name="host_booking_filter_cancelled">Annulée</string>
+    <string name="host_booking_filter_refunded">Remboursée</string>
+    <string name="host_booking_filter_partially_refunded">Partiellement remboursée</string>
+    <string name="host_booking_filter_empty_all">Aucune demande de réservation</string>
+    <string name="host_booking_filter_empty_filtered">Aucune réservation dans ce statut.</string>
+
+    <!-- Filtre de statut des réservations du voyageur -->
+    <string name="reservation_filter_pending">En attente d\'approbation</string>
+    <string name="reservation_filter_awaiting_payment">En attente de paiement</string>
+    <string name="reservation_filter_under_review">Paiement en cours de vérification</string>
+    <string name="reservation_filter_confirmed">Confirmée</string>
+    <string name="reservation_filter_completed">Terminée</string>
+    <string name="reservation_filter_rejected">Refusée</string>
+    <string name="reservation_filter_cancelled">Annulée</string>
+    <string name="reservation_filter_refunded">Remboursée</string>
+    <string name="reservation_filter_partially_refunded">Partiellement remboursée</string>
+    <string name="reservation_filter_show_all">Afficher toutes les réservations</string>
+    <string name="reservation_filter_empty_all">Vous n\'avez encore réservé aucun séjour.</string>
+    <string name="reservation_filter_empty_pending">Rien n\'attend de réponse d\'un hôte pour le moment.</string>
+    <string name="reservation_filter_empty_awaiting_payment">Aucune réservation n\'attend de paiement.</string>
+    <string name="reservation_filter_empty_under_review">Aucun virement n\'est en cours de vérification.</string>
+    <string name="reservation_filter_empty_confirmed">Aucun séjour confirmé pour l\'instant.</string>
+    <string name="reservation_filter_empty_completed">Aucun séjour passé pour l\'instant.</string>
+    <string name="reservation_filter_empty_rejected">Aucune demande refusée.</string>
+    <string name="reservation_filter_empty_cancelled">Aucune réservation annulée.</string>
+    <string name="reservation_filter_empty_refunded">Aucune réservation remboursée.</string>
+    <string name="reservation_filter_empty_partially_refunded">Aucune réservation partiellement remboursée.</string>
 </resources>

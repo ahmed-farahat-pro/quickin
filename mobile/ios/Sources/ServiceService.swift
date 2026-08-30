@@ -176,6 +176,62 @@ struct ServiceService {
         throw ServiceError.message(Self.decodeError(data) ?? "Couldn't update the request (\(http.statusCode)).")
     }
 
+    /// What the backend did when the host flipped a service's visibility.
+    struct ServiceVisibilityResult: Decodable {
+        let isPublished: Bool
+        /// Requests the deactivate declined. Zero on a reactivate.
+        let declinedRequests: Int
+        let service: Service?
+
+        enum CodingKeys: String, CodingKey {
+            case isPublished = "is_published"
+            case declinedRequests = "declined_requests"
+            case service
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            isPublished = try c.decodeIfPresent(Bool.self, forKey: .isPublished) ?? false
+            declinedRequests = try c.decodeIfPresent(Int.self, forKey: .declinedRequests) ?? 0
+            service = try c.decodeIfPresent(Service.self, forKey: .service)
+        }
+    }
+
+    /// The host takes their own service off the market, or puts it back
+    /// (`PATCH /api/local/host/services/:id/visibility`) — the services twin of
+    /// `HostService.setListingPublished`.
+    ///
+    /// Nothing is deleted: `service_requests` point at this row, so "remove my
+    /// service" is `is_published` going false. The browse list drops it and the
+    /// backend refuses a new request for it. **Deactivating declines every
+    /// request still waiting on the host** (`declinedRequests` says how many), so
+    /// warn with the count from the service's `pendingRequestCount` first.
+    ///
+    /// Unlike a listing there is no moderation queue and no identity gate here,
+    /// so a reactivate always goes live and there is nothing to report back.
+    @discardableResult
+    func setServicePublished(serviceID: String, isPublished: Bool) async throws -> ServiceVisibilityResult {
+        guard let token else { throw ServiceError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/host/services/\(serviceID)/visibility")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["is_published": isPublished])
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ServiceError.message("Invalid response from the server.")
+        }
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode(ServiceVisibilityResult.self, from: data)
+        }
+        if http.statusCode == 401 { throw ServiceError.notSignedIn }
+        throw ServiceError.message(Self.decodeError(data) ?? "Couldn't update the service (\(http.statusCode)).")
+    }
+
     // MARK: - Helpers
 
     /// Public GET (no auth) → decoded `T`.

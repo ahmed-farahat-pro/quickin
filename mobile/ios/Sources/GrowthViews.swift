@@ -223,21 +223,87 @@ func qkShortMonthSymbols(_ loc: LocalizationManager) -> [String] {
     return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 }
 
+/// Localized short weekday names, indexed 0–6 to match Postgres' DOW (`0`=Sun …
+/// `6`=Sat) — which is what `weekend_days` stores, so the pill index IS the day
+/// number and no conversion sits between the label and what gets saved.
+///
+/// Taken from the localization manager's resolved locale rather than the device
+/// calendar, so the pills read in the language the rest of the screen is in and
+/// mirror correctly under RTL.
+@MainActor
+func qkShortWeekdaySymbols(_ loc: LocalizationManager) -> [String] {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: loc.lang.localeIdentifier)
+    // `shortStandalone…` and not `veryShort…`: single letters collide badly in
+    // English (T/T, S/S) and the pills are the only thing naming the day.
+    let symbols = f.shortStandaloneWeekdaySymbols ?? f.shortWeekdaySymbols
+    // Foundation indexes these Sunday-first too, so the array needs no rotation.
+    if let symbols, symbols.count == 7 { return symbols }
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+}
+
 /// The host-facing seasonal pricing inputs, shared by the Add-listing flow and
 /// the seasonal-pricing editor sheet: a single weekend nightly-rate field plus a
 /// compact 12-month list of optional nightly-rate fields. All amounts are EGP
 /// whole numbers; an empty field clears that month/weekend (no override).
 ///
-/// State is held by the parent as `weekend: String` and `months: [String:String]`
-/// (month "1".."12" → text), so both the wizard and the editor stay in sync.
+/// State is held by the parent as `weekend: String`, `weekendDays: Set<Int>` and
+/// `months: [String:String]` (month "1".."12" → text), so the wizard, the edit
+/// screen and the seasonal editor sheet all stay in sync.
 struct SeasonalPricingFields: View {
-    /// Weekend (Fri + Sat) nightly-rate text. Empty = no weekend override.
+    /// Weekend nightly-rate text. Empty = no weekend override.
     @Binding var weekend: String
+    /// Which weekdays that rate is charged on (`0`=Sun … `6`=Sat). A `Set`
+    /// because the pills toggle membership and order is decided on the way out
+    /// by `WeekendSchedule.normalize`.
+    @Binding var weekendDays: Set<Int>
     /// Per-month nightly-rate text, keyed by month "1".."12". A missing/empty
     /// entry means that month uses the base nightly price.
     @Binding var months: [String: String]
 
     @EnvironmentObject private var loc: LocalizationManager
+
+    /// What the host has typed into the weekend field right now, judged by the
+    /// same rule the API runs — see ListingPricingRules.
+    private var weekendCheck: Result<Double?, ListingPricingRules.Problem> {
+        ListingPricingRules.checkPrice(weekend)
+    }
+
+    /// The typed rate, or nil when the field is blank OR holds something that
+    /// isn't a price. The day rule below asks only whether a rate EXISTS, and a
+    /// `0` is answered separately (and louder) by `weekendProblem`.
+    private var typedRate: Double? {
+        if case .success(let rate) = weekendCheck { return rate }
+        return nil
+    }
+
+    /// What is wrong with the weekend rate right now, or nil. A `0` used to be
+    /// coerced to "no weekend rate" here and everywhere downstream, so the host
+    /// saved a listing whose weekend pills were lit with nothing behind them.
+    private var weekendProblem: ListingPricingRules.Problem? {
+        if case .failure(let problem) = weekendCheck { return problem }
+        return nil
+    }
+
+    /// The first month the host has to fix, or nil — marked on the month's own
+    /// row rather than held back until Save, which is where twelve identical
+    /// fields make an unnamed error useless.
+    private var monthProblem: ListingPricingRules.MonthFailure? {
+        ListingPricingRules.failingMonth(months)
+    }
+
+    /// What is wrong with the day set right now, or nil. Asked of the SAME rule
+    /// the API runs, so the host is told here rather than by a 400 on save.
+    private var dayProblem: WeekendSchedule.Problem? {
+        if case .failure(let problem) = WeekendSchedule.resolve(price: typedRate, days: Array(weekendDays)) {
+            return problem
+        }
+        return nil
+    }
+
+    /// One day short of the whole week — the point past which no further pill may
+    /// be lit, since seven would leave the nightly price applying to no night.
+    private var isFullWeek: Bool { weekendDays.count >= WeekendSchedule.daysInWeek - 1 }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -248,13 +314,17 @@ struct SeasonalPricingFields: View {
                 text: Binding(
                     get: { weekend },
                     set: { weekend = Self.sanitize($0) }
-                )
+                ),
+                error: weekendProblem.map { loc.t($0.weekendKey) }
             )
+
+            weekendDayPicker
 
             Divider()
 
             // Per-month rates — one compact row each.
             let symbols = qkShortMonthSymbols(loc)
+            let badMonth = monthProblem
             ForEach(1...12, id: \.self) { month in
                 let key = String(month)
                 priceField(
@@ -263,7 +333,10 @@ struct SeasonalPricingFields: View {
                     text: Binding(
                         get: { months[key] ?? "" },
                         set: { months[key] = Self.sanitize($0) }
-                    )
+                    ),
+                    error: badMonth?.month == month
+                        ? String(format: loc.t(badMonth!.problem.monthKey), symbols[month - 1])
+                        : nil
                 )
                 if month < 12 { Divider() }
             }
@@ -274,8 +347,104 @@ struct SeasonalPricingFields: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    /// A single labeled "EGP [____] / night" numeric field row.
-    private func priceField(title: String, subtitle: String?, text: Binding<String>) -> some View {
+    /// The day pills: which weekdays this listing treats as its weekend.
+    ///
+    /// A row rather than a menu because the whole point is to see the week at a
+    /// glance and count the lit days — the two ways this can be wrong (all seven,
+    /// or none under a rate) are both about how many are lit, and a picker that
+    /// hides the rest of the week makes neither visible.
+    @ViewBuilder
+    private var weekendDayPicker: some View {
+        let symbols = qkShortWeekdaySymbols(loc)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(loc.t("pricing.weekendDays"))
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 6) {
+                ForEach(0..<WeekendSchedule.daysInWeek, id: \.self) { day in
+                    let isOn = weekendDays.contains(day)
+                    // The seventh pill is locked rather than hidden: a host has to
+                    // be able to see that the whole week is not on offer, and why.
+                    let isLocked = !isOn && isFullWeek
+                    Button {
+                        toggle(day)
+                    } label: {
+                        Text(symbols[day])
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .foregroundStyle(isOn ? Color.white : Color.qkInk)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 34)
+                            .background(isOn ? Color.qkBurgundy : Color.qkSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(isOn ? Color.clear : Color.qkInk.opacity(0.14), lineWidth: 1)
+                            )
+                            .opacity(isLocked ? 0.4 : 1)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLocked)
+                    .accessibilityLabel(symbols[day])
+                    .accessibilityAddTraits(isOn ? [.isSelected, .isButton] : .isButton)
+                }
+            }
+
+            if let dayProblem {
+                Text(loc.t(dayProblem == .wholeWeek
+                           ? "pricing.weekendDays.wholeWeek"
+                           : "pricing.weekendDays.noDaysChosen"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if isFullWeek {
+                // Said before the host hits the wall, not after: the locked pills
+                // are otherwise just unresponsive.
+                Text(loc.t("pricing.weekendDays.wholeWeek"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.bottom, 2)
+    }
+
+    private func toggle(_ day: Int) {
+        if weekendDays.contains(day) {
+            weekendDays.remove(day)
+        } else if !isFullWeek {
+            weekendDays.insert(day)
+        }
+    }
+
+    /// A single labeled "EGP [____] / night" numeric field row, with the reason
+    /// it can't be saved underneath it when there is one.
+    ///
+    /// The message sits on the row rather than under the Save button because
+    /// there are thirteen of these fields and "the rate must be more than zero"
+    /// says nothing about which.
+    @ViewBuilder
+    private func priceField(title: String, subtitle: String?, text: Binding<String>, error: String?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            priceRow(title: title, subtitle: subtitle, text: text, isInvalid: error != nil)
+            if let error {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel("\(title): \(error)")
+            }
+        }
+    }
+
+    /// The row itself: label on the left, "EGP [____]" on the right.
+    private func priceRow(title: String, subtitle: String?, text: Binding<String>, isInvalid: Bool) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -303,6 +472,10 @@ struct SeasonalPricingFields: View {
             .frame(height: 36)
             .background(Color.qkSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(isInvalid ? Color.qkBurgundy : Color.clear, lineWidth: 1)
+            )
         }
         .frame(minHeight: 48)
     }
@@ -315,22 +488,35 @@ struct SeasonalPricingFields: View {
 }
 
 extension SeasonalPricingFields {
-    /// Parse a weekend-rate text field into an optional EGP `Double` (`nil` when
-    /// blank or ≤0). Shared by the wizard + editor when building the request.
-    static func parseWeekend(_ text: String) -> Double? {
-        let value = Double(text.trimmingCharacters(in: .whitespaces)) ?? 0
-        return value > 0 ? value : nil
+    /// The rate to SHOW for a weekend-rate text field — `nil` when it is blank
+    /// or holds anything that isn't a price.
+    ///
+    /// Display only. This is the lenient reading, and it is exactly the reading
+    /// that hid the bug: it answers `nil` to a `0`, which is indistinguishable
+    /// from an empty field. Anything about to be SENT goes through
+    /// `ListingPricingRules.checkPrice`, which tells the two apart.
+    static func displayRate(_ text: String) -> Double? {
+        if case .success(let rate) = ListingPricingRules.checkPrice(text) { return rate }
+        return nil
     }
 
-    /// Parse the per-month text map into `{ "1": 8500, … }`, dropping blank /
-    /// non-positive entries. Shared by the wizard + editor when building the request.
-    static func parseMonths(_ months: [String: String]) -> [String: Double] {
+    /// The months to SHOW from a per-month text map, dropping blank and invalid
+    /// entries. Display only, for the same reason as `displayRate` — the save
+    /// paths use `ListingPricingRules.checkMonths`.
+    static func displayMonths(_ months: [String: String]) -> [String: Double] {
+        if case .success(let out) = ListingPricingRules.checkMonths(months) { return out }
         var out: [String: Double] = [:]
         for (key, text) in months {
-            let value = Double(text.trimmingCharacters(in: .whitespaces)) ?? 0
-            if value > 0 { out[key] = value }
+            if case .success(let value) = ListingPricingRules.checkPrice(text), let value { out[key] = value }
         }
         return out
+    }
+
+    /// Seed the day pills from a listing's decoded `weekendDays`: the host's own
+    /// set, or the default weekend when they never chose one — which is the set
+    /// the server is already pricing that listing on.
+    static func seedWeekendDays(from listing: Listing) -> Set<Int> {
+        Set(WeekendSchedule.effective(listing.weekendDays))
     }
 
     /// Seed the per-month text map from a listing's decoded `monthlyPrices`
@@ -360,18 +546,26 @@ struct SeasonalPricingEditorView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var weekend: String
+    @State private var weekendDays: Set<Int>
     @State private var months: [String: String]
     @State private var isSaving = false
     @State private var saved = false
     @State private var errorMessage: String?
 
-    /// Seeds the fields from explicit weekend/months values (so a parent that
+    /// Seeds the fields from explicit weekend/days/months values (so a parent that
     /// tracks edits locally can re-open at the latest values); falls back to the
     /// listing's own seasonal rates when omitted.
-    init(listing: Listing, weekend: String? = nil, months: [String: String]? = nil, onSaved: @escaping (Listing) -> Void) {
+    init(
+        listing: Listing,
+        weekend: String? = nil,
+        weekendDays: Set<Int>? = nil,
+        months: [String: String]? = nil,
+        onSaved: @escaping (Listing) -> Void
+    ) {
         self.listing = listing
         self.onSaved = onSaved
         _weekend = State(initialValue: weekend ?? listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _weekendDays = State(initialValue: weekendDays ?? SeasonalPricingFields.seedWeekendDays(from: listing))
         _months = State(initialValue: months ?? SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
     }
 
@@ -386,9 +580,10 @@ struct SeasonalPricingEditorView: View {
                             .foregroundStyle(Color.qkMuted)
                             .fixedSize(horizontal: false, vertical: true)
 
-                        SeasonalPricingFields(weekend: $weekend, months: $months)
+                        SeasonalPricingFields(weekend: $weekend, weekendDays: $weekendDays, months: $months)
                             .environmentObject(loc)
                             .onChange(of: weekend) { _, _ in saved = false }
+                            .onChange(of: weekendDays) { _, _ in saved = false }
                             .onChange(of: months) { _, _ in saved = false }
 
                         if let errorMessage {
@@ -433,11 +628,41 @@ struct SeasonalPricingEditorView: View {
         errorMessage = nil
         isSaving = true
         defer { isSaving = false }
+        // The (rate, days) pair, judged by the same rule the API runs — a save
+        // that would come back 400 is refused here, where the pills are, instead
+        // of as a server message under the button.
+        // The rate itself first: a `0` is a typo, not "no weekend rate", and it
+        // used to be coerced into the latter here and accepted by the API.
+        guard case .success(let rate) = ListingPricingRules.checkPrice(weekend) else {
+            if case .failure(let problem) = ListingPricingRules.checkPrice(weekend) {
+                errorMessage = loc.t(problem.weekendKey)
+            }
+            return
+        }
+        // …and the months under it, named one at a time.
+        let monthsChecked = ListingPricingRules.checkMonths(months)
+        guard case .success(let monthlyPrices) = monthsChecked else {
+            if case .failure(let failure) = monthsChecked {
+                errorMessage = String(format: loc.t(failure.problem.monthKey),
+                                      qkShortMonthSymbols(loc)[failure.month - 1])
+            }
+            return
+        }
+        let schedule = WeekendSchedule.resolve(price: rate, days: Array(weekendDays))
+        guard case .success(let days) = schedule else {
+            if case .failure(let problem) = schedule {
+                errorMessage = loc.t(problem == .wholeWeek
+                                     ? "pricing.weekendDays.wholeWeek"
+                                     : "pricing.weekendDays.noDaysChosen")
+            }
+            return
+        }
         do {
             let updated = try await BookingService.shared.setSeasonalPricing(
                 listingID: listing.id,
-                weekendPrice: SeasonalPricingFields.parseWeekend(weekend),
-                monthlyPrices: SeasonalPricingFields.parseMonths(months)
+                weekendPrice: rate,
+                weekendDays: days ?? WeekendSchedule.defaultDays,
+                monthlyPrices: monthlyPrices
             )
             saved = true
             onSaved(updated)

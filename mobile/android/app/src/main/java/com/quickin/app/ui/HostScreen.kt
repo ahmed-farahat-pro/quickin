@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.People
@@ -61,7 +63,10 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,12 +81,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -96,11 +102,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -110,18 +119,33 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.AiWriterUiState
+import com.quickin.app.ResortCatalogUiState
+import com.quickin.app.ResortChoice
+import com.quickin.app.ResortOption
+import com.quickin.app.WeekendDaysException
+import com.quickin.app.WeekendSchedule
 import com.quickin.app.AvatarImage
 import com.quickin.app.Commission
+import com.quickin.app.ListingCapacityPolicy
+import com.quickin.app.ListingPricingRules
+import com.quickin.app.MonthPriceException
+import com.quickin.app.ListingTitlePolicy
 import com.quickin.app.ListingGeoPolicy
 import com.quickin.app.ListingGate
 import com.quickin.app.Config
 import com.quickin.app.CreateListingUiState
 import com.quickin.app.HostBooking
+import com.quickin.app.HostBookingFilter
+import com.quickin.app.HostBookingFilterRules
 import com.quickin.app.HostBookingsUiState
 import com.quickin.app.HostListingsUiState
+import com.quickin.app.HostVisibility
 import com.quickin.app.Listing
 import com.quickin.app.ListingApproval
+import com.quickin.app.OwnershipDocLoader
+import com.quickin.app.OwnershipDocRules
 import com.quickin.app.OwnershipDocUiState
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -163,8 +187,10 @@ private const val EGYPT_ZOOM = 5.5f
  *               on pending ones (`GET /api/local/host/bookings`, `PATCH /api/local/bookings/:id`).
  *  • Review guests — past guests the host can rate (`GET/POST /api/local/guest-reviews`).
  *  • Add listing — a form that POSTs `/api/local/listings`.
- *  • Listings — the host's own listings with approval status, ownership-doc re-upload, and the
- *               stay-discount / seasonal-pricing editors (matches the web `/host` dashboard).
+ *  • Listings — the host's own listings with approval status, ownership-doc re-upload, and links
+ *               into the pricing calendar and the full editor (matches the web `/host` dashboard).
+ *               Length-of-stay discounts and seasonal pricing are NOT edited here: they belong to
+ *               the listing editor, same as on web and iOS.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,15 +200,23 @@ fun HostScreen(
     reviewGuestsState: com.quickin.app.ReviewGuestsUiState = com.quickin.app.ReviewGuestsUiState(),
     listingsState: com.quickin.app.HostListingsUiState = com.quickin.app.HostListingsUiState(),
     onLoadListings: () -> Unit = {},
+    /**
+     * Opens one of the host's own listings as a GUEST sees it ("See it as a guest"). Not a plain
+     * navigation: the caller re-reads the listing from the guest projection first — see
+     * [com.quickin.app.GuestPreviewUiState] — so [guestPreviewState] reports that read.
+     */
     onOpenListing: (Listing) -> Unit = {},
+    /** Which card's guest preview is loading, and why it failed if it did. */
+    guestPreviewState: com.quickin.app.GuestPreviewUiState = com.quickin.app.GuestPreviewUiState(),
     /** Opens the full listing editor (every field + photos) from a host listing card. */
     onEditListing: (Listing) -> Unit = {},
+    /** Opens the pricing calendar (per-day rates + open/closed days) from a host listing card. */
+    onOpenCalendar: (Listing) -> Unit = {},
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
-    stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
-    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
-    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
-    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> },
+    visibilityState: com.quickin.app.ListingVisibilityUiState = com.quickin.app.ListingVisibilityUiState(),
+    /** Takes a listing off the market, or puts it back — QuickIn's "delete my listing". */
+    onSetPublished: (listingId: String, isPublished: Boolean) -> Unit = { _, _ -> },
     onBack: (() -> Unit)?,
     onLoadBookings: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -195,9 +229,10 @@ fun HostScreen(
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
         bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
+        resort: ResortChoice.Selection,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
-        weekendPrice: String, monthlyPrices: Map<String, Double>
+        weekendPrice: String, weekendDays: List<Int>, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onResetCreate: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -208,6 +243,10 @@ fun HostScreen(
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
+    /** The resort / compound catalog for the area the host has picked, and the request to load it.
+     *  Optional everywhere: an empty catalog leaves the picker offering the free-text path. */
+    resortCatalog: ResortCatalogUiState = ResortCatalogUiState(),
+    onLoadResorts: (String?) -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
     commission: Commission? = null,
     /** Whether this host may add a listing; blocks the wizard when not. */
@@ -237,10 +276,11 @@ fun HostScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = tab,
                 containerColor = CreamPage,
                 contentColor = Burgundy,
+                edgePadding = 0.dp,
                 indicator = { positions ->
                     if (tab < positions.size) {
                         TabRowDefaults.SecondaryIndicator(
@@ -253,28 +293,28 @@ fun HostScreen(
                 Tab(
                     selected = tab == 0,
                     onClick = { tab = 0 },
-                    text = { Text("Requests", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("Requests", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
                 Tab(
                     selected = tab == 1,
                     onClick = { tab = 1 },
-                    text = { Text(stringResource(com.quickin.app.R.string.reviews_review_guests), fontWeight = FontWeight.SemiBold) },
+                    text = { Text(stringResource(com.quickin.app.R.string.reviews_review_guests), fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
                 Tab(
                     selected = tab == 2,
                     onClick = { tab = 2 },
-                    text = { Text("Add listing", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("Add listing", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
                 Tab(
                     selected = tab == 3,
                     onClick = { tab = 3 },
-                    text = { Text("Listings", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("Listings", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
@@ -301,6 +341,8 @@ fun HostScreen(
                     onGenerateDescription = onGenerateDescription,
                     onConsumeGeneratedDescription = onConsumeGeneratedDescription,
                     onClearAiWriter = onClearAiWriter,
+                    resortCatalog = resortCatalog,
+                    onLoadResorts = onLoadResorts,
                     commission = commission,
                     listingGate = listingGate
                 )
@@ -310,13 +352,13 @@ fun HostScreen(
                     // The wizard already lives on the "Add listing" tab — jump to it.
                     onAddListing = { tab = 2 },
                     onOpenListing = onOpenListing,
+                    guestPreviewState = guestPreviewState,
                     onEditListing = onEditListing,
+                    onOpenCalendar = onOpenCalendar,
                     ownershipState = ownershipState,
                     onReuploadDoc = onReuploadDoc,
-                    stayDiscountState = stayDiscountState,
-                    onSaveStayDiscounts = onSaveStayDiscounts,
-                    seasonalPricingState = seasonalPricingState,
-                    onSaveSeasonalPricing = onSaveSeasonalPricing,
+                    visibilityState = visibilityState,
+                    onSetPublished = onSetPublished,
                     embedded = true
                 )
             }
@@ -337,15 +379,19 @@ fun HostListingsScreen(
     state: HostListingsUiState,
     onLoad: () -> Unit,
     onAddListing: () -> Unit,
+    /** Opens one of the host's own listings as a guest sees it ("See it as a guest"). */
     onOpenListing: (Listing) -> Unit = {},
+    /** Which card's guest preview is loading, and why it failed if it did. */
+    guestPreviewState: com.quickin.app.GuestPreviewUiState = com.quickin.app.GuestPreviewUiState(),
     /** Opens the full listing editor (every field + photos) for one of the host's own listings. */
     onEditListing: (Listing) -> Unit = {},
+    /** Opens the pricing calendar for one of the host's own listings. */
+    onOpenCalendar: (Listing) -> Unit = {},
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
-    stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
-    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
-    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
-    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> },
+    visibilityState: com.quickin.app.ListingVisibilityUiState = com.quickin.app.ListingVisibilityUiState(),
+    /** Takes a listing off the market, or puts it back — QuickIn's "delete my listing". */
+    onSetPublished: (listingId: String, isPublished: Boolean) -> Unit = { _, _ -> },
     contentPadding: PaddingValues = PaddingValues(),
     /** True when rendered inside another screen's Scaffold (e.g. the HostScreen tab) — hides the
      *  own top app bar so the two aren't stacked. */
@@ -357,7 +403,11 @@ fun HostListingsScreen(
     // Moderation-status filter over the host's own listings (All by default).
     var filter by remember { mutableStateOf(HostListingFilter.All) }
     val visibleListings = remember(state.listings, filter) {
-        state.listings.filter { filter.matches(it) }
+        state.listings.filter { filter.matches(it.hostVisibility) }
+    }
+    // Counted over every listing, not the visible slice — a chip has to say what it WOULD show.
+    val filterCounts = remember(state.listings) {
+        hostListingFilterCounts(state.listings.map { it.hostVisibility })
     }
     Scaffold(
         containerColor = CreamPage,
@@ -392,7 +442,7 @@ fun HostListingsScreen(
 
             // Status filter — only worth showing once the host actually has listings.
             if (state.listings.isNotEmpty()) {
-                HostListingFilterRow(selected = filter, onSelect = { filter = it })
+                HostListingFilterRow(counts = filterCounts, selected = filter, onSelect = { filter = it })
             }
 
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -437,13 +487,13 @@ fun HostListingsScreen(
                             HostListingCard(
                                 listing = listing,
                                 onClick = { onOpenListing(listing) },
+                                guestPreviewState = guestPreviewState,
                                 onEdit = { onEditListing(listing) },
+                                onOpenCalendar = { onOpenCalendar(listing) },
                                 ownershipState = ownershipState,
                                 onReuploadDoc = onReuploadDoc,
-                                stayDiscountState = stayDiscountState,
-                                onSaveStayDiscounts = onSaveStayDiscounts,
-                                seasonalPricingState = seasonalPricingState,
-                                onSaveSeasonalPricing = onSaveSeasonalPricing
+                                visibilityState = visibilityState,
+                                onSetPublished = onSetPublished
                             )
                         }
                     }
@@ -461,18 +511,28 @@ fun HostListingsScreen(
  *
  * Labels are hardcoded English to match the rest of the host area (localization is a follow-up).
  */
-private enum class HostListingFilter(val label: String) {
+internal enum class HostListingFilter(val label: String) {
     All("All"),
     Published("Published"),
     UnderReview("Under review"),
-    Rejected("Rejected");
+    Rejected("Rejected"),
+    Deactivated("Deactivated");
 
-    /** True when [listing] belongs in this filter. */
-    fun matches(listing: Listing): Boolean = when (this) {
+    /**
+     * True when a listing in [state] belongs in this filter. Takes [Listing.hostVisibility], which
+     * folds moderation and visibility together — a listing can be approved AND hidden, and filtering
+     * on approval alone would file it under "Published" while guests cannot find it.
+     *
+     * [HostVisibility.Blocked] ("hidden by our team") deliberately has no chip: it is rare, it is
+     * nothing the host can act on, and a chip that usually selects nothing is one people learn to
+     * ignore. Those rows still appear under All, with their badge.
+     */
+    fun matches(state: HostVisibility): Boolean = when (this) {
         All -> true
-        Published -> listing.approval == ListingApproval.Approved
-        UnderReview -> listing.approval == ListingApproval.Pending
-        Rejected -> listing.approval == ListingApproval.Rejected
+        Published -> state == HostVisibility.Live
+        UnderReview -> state == HostVisibility.UnderReview
+        Rejected -> state == HostVisibility.Rejected
+        Deactivated -> state == HostVisibility.Deactivated
     }
 
     /** Short muted note shown when the host has listings but none in this status. */
@@ -482,8 +542,21 @@ private enum class HostListingFilter(val label: String) {
             Published -> "No published listings."
             UnderReview -> "No listings under review."
             Rejected -> "No rejected listings."
+            Deactivated -> "No deactivated listings."
         }
 }
+
+/**
+ * How many of [states] sit behind each chip — the number each chip is badged with, so the host can
+ * see what is waiting on review without clicking through to find out (and can see that a status is
+ * empty without clicking at all). Matches iOS, whose chips have carried these counts since the
+ * filter shipped.
+ *
+ * Every entry is present, zeros included. [HostListingFilter.All] holds the total; whether that is
+ * worth showing is the chip row's call, not this function's.
+ */
+internal fun hostListingFilterCounts(states: List<HostVisibility>): Map<HostListingFilter, Int> =
+    HostListingFilter.entries.associateWith { filter -> states.count { filter.matches(it) } }
 
 /**
  * Horizontal chip row of [HostListingFilter]s above the host's listings (All · Published ·
@@ -492,6 +565,7 @@ private enum class HostListingFilter(val label: String) {
  */
 @Composable
 private fun HostListingFilterRow(
+    counts: Map<HostListingFilter, Int>,
     selected: HostListingFilter,
     onSelect: (HostListingFilter) -> Unit
 ) {
@@ -505,6 +579,9 @@ private fun HostListingFilterRow(
         items(HostListingFilter.entries) { option ->
             HostFilterChip(
                 label = option.label,
+                // "All" stays bare: its count is just the number of cards below it, and iOS leaves
+                // it bare for the same reason.
+                count = if (option == HostListingFilter.All) null else counts[option] ?: 0,
                 selected = selected == option,
                 onClick = { onSelect(option) }
             )
@@ -514,10 +591,11 @@ private fun HostListingFilterRow(
 
 /**
  * A pill-shaped filter chip: filled Burgundy/white when selected, outlined Tan over white
- * otherwise. Mirrors `FilterChipPill` in ListingsScreen.kt (which is file-private there).
+ * otherwise. Mirrors `FilterChipPill` in ListingsScreen.kt (which is file-private there), plus the
+ * small counter pill iOS's QKChip carries. Pass a null [count] to render the chip bare.
  */
 @Composable
-private fun HostFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun HostFilterChip(label: String, count: Int?, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(50),
@@ -526,49 +604,81 @@ private fun HostFilterChip(label: String, selected: Boolean, onClick: () -> Unit
         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Burgundy else Tan),
         shadowElevation = if (selected) 2.dp else 0.dp
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(
+                start = 14.dp,
+                end = if (count == null) 14.dp else 8.dp,
+                top = 8.dp,
+                bottom = 8.dp
+            )
+        ) {
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            if (count != null) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (selected) Color.White.copy(alpha = 0.22f) else Tan)
+                        .defaultMinSize(minWidth = 20.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        count.toString(),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        color = if (selected) Color.White else Muted
+                    )
+                }
+            }
+        }
     }
 }
 
 /**
  * A compact card for one of the host's own listings (title, location, listed date, price) plus its
  * moderation [ApprovalBadge]. For a pending or rejected listing the card explains the status and
- * offers a "Re-upload ownership document" action that PATCHes `/api/local/listings/:id
- * {ownership_doc}` and re-queues the listing to review. "Edit listing" opens the full editor
+ * offers an ownership-document action that PATCHes `/api/local/listings/:id {ownership_doc}` and
+ * re-queues the listing to review. It reads "Upload…" or "Re-upload…" depending on
+ * [Listing.hasOwnershipDoc], NOT on the moderation status: the document is optional at create
+ * time, so a listing reaches the queue with nothing attached and there is nothing to re-upload. "Edit listing" opens the full editor
  * (every field + photos); saving there sends the listing back for review too.
  */
 @Composable
 private fun HostListingCard(
     listing: Listing,
     onClick: () -> Unit,
+    guestPreviewState: com.quickin.app.GuestPreviewUiState = com.quickin.app.GuestPreviewUiState(),
     onEdit: () -> Unit,
+    onOpenCalendar: () -> Unit,
     ownershipState: OwnershipDocUiState,
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit,
-    stayDiscountState: com.quickin.app.StayDiscountUiState = com.quickin.app.StayDiscountUiState(),
-    onSaveStayDiscounts: (listingId: String, weekly: Int, monthly: Int) -> Unit = { _, _, _ -> },
-    seasonalPricingState: com.quickin.app.SeasonalPricingUiState = com.quickin.app.SeasonalPricingUiState(),
-    onSaveSeasonalPricing: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit = { _, _, _ -> }
+    visibilityState: com.quickin.app.ListingVisibilityUiState = com.quickin.app.ListingVisibilityUiState(),
+    onSetPublished: (listingId: String, isPublished: Boolean) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var processingDoc by remember { mutableStateOf(false) }
+    // Why the last pick was refused (a .docx, an oversized scan), as a string resource. Kept apart
+    // from the view-model's error: this one never reached the network.
+    var docProblem by remember { mutableStateOf<Int?>(null) }
+    // Opens the system document picker on images AND PDFs — a deed is as often one as the other,
+    // and the photo picker could only ever offer the first.
     val docPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             processingDoc = true
+            docProblem = null
             scope.launch {
-                val dataUrl = withContext(Dispatchers.IO) {
-                    AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1200)
-                }
+                val result = withContext(Dispatchers.IO) { OwnershipDocLoader.load(context, uri) }
                 processingDoc = false
-                if (dataUrl != null) onReuploadDoc(listing.id, dataUrl)
+                when (result) {
+                    is OwnershipDocLoader.Result.Loaded -> onReuploadDoc(listing.id, result.dataUrl)
+                    is OwnershipDocLoader.Result.Failed -> docProblem = result.problem.messageRes
+                }
             }
         }
     }
@@ -576,7 +686,9 @@ private fun HostListingCard(
     val submitting = processingDoc ||
         (ownershipState.isSubmitting && ownershipState.listingId == listing.id)
     val justSubmitted = ownershipState.submittedId == listing.id
-    val rowError = ownershipState.error?.takeIf { ownershipState.listingId == listing.id }
+    // A file this phone refused outranks a stale server error — it is the one the host just picked.
+    val rowError = docProblem?.let { stringResource(it) }
+        ?: ownershipState.error?.takeIf { ownershipState.listingId == listing.id }
 
     BoutiqueCard(modifier = Modifier.fillMaxWidth(), onClick = onClick, shadow = 6.dp) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -606,7 +718,7 @@ private fun HostListingCard(
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         Spacer(Modifier.width(8.dp))
-                        ApprovalBadge(approval = listing.approval)
+                        ApprovalBadge(state = listing.hostVisibility)
                     }
                     if (listing.location != null) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -679,19 +791,69 @@ private fun HostListingCard(
                 OwnershipDocButton(
                     attached = false,
                     processing = submitting,
-                    onClick = {
-                        docPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                    label = stringResource(com.quickin.app.R.string.approval_reupload),
+                    onClick = { docPicker.launch(OwnershipDocLoader.PICKER_MIME_TYPES) },
+                    // "Re-upload" only when there is something to re-upload. `justSubmitted`
+                    // covers the moment between a successful PATCH and the cache refresh.
+                    label = stringResource(
+                        if (listing.hasOwnershipDoc || justSubmitted) {
+                            com.quickin.app.R.string.approval_reupload
+                        } else {
+                            com.quickin.app.R.string.approval_upload_ownership_doc
+                        }
+                    ),
                     modifier = Modifier.padding(top = 10.dp)
                 )
             }
 
+            // "See it as a guest" — the listing exactly as a guest meets it, which is the check
+            // a host wants BEFORE approval and cannot make any other way on a listing guests
+            // cannot yet reach. First in the stack because it is the one action here that
+            // changes nothing. The card itself is tappable too and lands in the same place.
+            val previewLoading = guestPreviewState.isLoading && guestPreviewState.listingId == listing.id
+            val previewError = guestPreviewState.error?.takeIf { guestPreviewState.listingId == listing.id }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onClick,
+                enabled = !previewLoading,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy.copy(alpha = 0.25f)),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                if (previewLoading) {
+                    CircularProgressIndicator(color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                } else {
+                    Icon(Icons.Filled.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(com.quickin.app.R.string.preview_guest_action), fontWeight = FontWeight.SemiBold)
+            }
+            if (previewError != null) {
+                Text(previewError, color = ErrorRed, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            }
+
+            // Day-by-day rates and availability. Above the editor on purpose: this is the
+            // routine errand a host opens their listings for, and unlike a full edit it does
+            // NOT send the listing back to the moderation queue.
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onOpenCalendar,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy.copy(alpha = 0.25f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Burgundy.copy(alpha = 0.08f),
+                    contentColor = Burgundy
+                ),
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Icon(Icons.Filled.DateRange, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(com.quickin.app.R.string.calendar_open), fontWeight = FontWeight.SemiBold)
+            }
+
             // The full editor — every field plus photo management. Saving there re-queues the
             // listing for review, so the host is warned before they commit.
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = onEdit,
                 shape = RoundedCornerShape(14.dp),
@@ -704,159 +866,210 @@ private fun HostListingCard(
                 Text(stringResource(com.quickin.app.R.string.listing_edit_title), fontWeight = FontWeight.SemiBold)
             }
 
-            // Length-of-stay discount editor — set weekly (7+) / monthly (28+) % off; PATCHes on save.
-            StayDiscountEditor(
-                listing = listing,
-                state = stayDiscountState,
-                onSave = onSaveStayDiscounts
-            )
-
-            // Seasonal-pricing editor — set a weekend rate + per-month nightly prices; PATCHes on save.
-            SeasonalPricingEditor(
-                listing = listing,
-                state = seasonalPricingState,
-                onSave = onSaveSeasonalPricing
-            )
-        }
-    }
-}
-
-/**
- * Inline seasonal-pricing editor on a host listing card. Collapsed it shows whether seasonal
- * rates are set (or a "set seasonal pricing" hint); expanded it reuses [SeasonalPricingFields] (a
- * weekend rate + 12 per-month fields) and a Save that PATCHes `/api/local/listings/:id`. Per-card
- * state from [SeasonalPricingUiState] drives the Save spinner, an inline error, and a confirmation.
- * Edit buffers are seeded from the listing's current pricing and re-seed if the listing changes.
- */
-@Composable
-private fun SeasonalPricingEditor(
-    listing: Listing,
-    state: com.quickin.app.SeasonalPricingUiState,
-    onSave: (listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    // Local edit buffers seeded from the listing's current seasonal pricing.
-    var weekend by remember(listing.id) {
-        mutableStateOf(listing.weekendPrice?.takeIf { it > 0.0 }?.let { it.toInt().toString() } ?: "")
-    }
-    val months = remember(listing.id) {
-        mutableStateMapOf<String, String>().apply {
-            listing.monthlyPrices.forEach { (k, v) -> if (v > 0.0) put(k, v.toInt().toString()) }
-        }
-    }
-
-    val isThis = state.listingId == listing.id
-    val saving = isThis && state.isSaving
-    val justSaved = state.savedId == listing.id
-    val error = state.error?.takeIf { isThis }
-
-    Spacer(Modifier.height(12.dp))
-    HorizontalDivider(color = Tan)
-    Spacer(Modifier.height(12.dp))
-
-    // Header row — tappable to expand/collapse; shows whether seasonal rates are set.
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { expanded = !expanded }
-            .padding(vertical = 2.dp)
-    ) {
-        Icon(Icons.Filled.DateRange, contentDescription = null, tint = Burgundy, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(com.quickin.app.R.string.pricing_edit_seasonal),
-                color = Ink,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                if (listing.hasSeasonalPricing) {
-                    stringResource(com.quickin.app.R.string.pricing_seasonal_note)
-                } else {
-                    stringResource(com.quickin.app.R.string.pricing_seasonal_intro)
-                },
-                color = Muted,
-                fontSize = 12.sp
-            )
-        }
-        Icon(
-            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = null,
-            tint = Muted,
-            modifier = Modifier.size(22.dp)
-        )
-    }
-
-    if (expanded) {
-        Spacer(Modifier.height(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SeasonalPricingFields(
-                weekendPrice = weekend,
-                onWeekendPrice = { weekend = it },
-                monthlyPrices = months,
-                onMonthlyPrice = { month, value ->
-                    if (value.isBlank()) months.remove(key = month) else months[month] = value
-                }
-            )
-        }
-        if (justSaved) {
-            Text(
-                stringResource(com.quickin.app.R.string.pricing_saved),
-                color = SuccessGreen,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        if (error != null) {
-            Text(error, color = ErrorRed, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-        }
-        GradientButton(
-            onClick = {
-                onSave(
-                    listing.id,
-                    weekend.toDoubleOrNull()?.takeIf { it > 0.0 },
-                    monthlyPricesAsDoubles(months)
+            // Take the listing off the market, or put it back. QuickIn has no host-facing delete —
+            // this IS "remove my listing", and it keeps every booking, review and payment record
+            // intact. Withheld only on Blocked, which the host cannot undo and the API refuses.
+            if (listing.hostVisibility != HostVisibility.Blocked) {
+                ListingVisibilityControl(
+                    listing = listing,
+                    state = visibilityState,
+                    onSetPublished = onSetPublished
                 )
-            },
-            enabled = !saving,
-            height = 46.dp,
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
-        ) {
-            if (saving) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-            } else {
-                Text(
-                    stringResource(com.quickin.app.R.string.pricing_save),
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
+            }
+
+            // What "deactivated" / "hidden by our team" actually mean for the guests already
+            // booked in. The word alone does not say, and that is the first thing a host wants
+            // to know before they press anything.
+            when (listing.hostVisibility) {
+                HostVisibility.Deactivated -> VisibilityNote(
+                    title = "You deactivated this listing",
+                    body = "Guests can't find or book it. Reservations you already confirmed are " +
+                        "unaffected — your guests keep their stay, their pass and your messages."
                 )
+                HostVisibility.Blocked -> VisibilityNote(
+                    title = "Hidden by our team",
+                    body = "This listing isn't visible to guests right now, and you can't change " +
+                        "that from here. Contact support to find out why."
+                )
+                else -> Unit
             }
         }
     }
 }
 
-/** A small pill showing a listing's moderation state: amber (pending), green (approved), red (rejected). */
+/**
+ * "Deactivate" / "Reactivate" on a host listing card, with the confirmation that has to come
+ * first.
+ *
+ * The dialog is not decoration: deactivating DECLINES every booking request still waiting on this
+ * host — leaving them would let a guest end up with a confirmed stay at a place the host has
+ * walked away from — so it names the exact count from [Listing.pendingRequestCount] before the
+ * host commits, and says plainly what is NOT affected. Reactivating needs no confirmation: it
+ * takes nothing away.
+ */
 @Composable
-internal fun ApprovalBadge(approval: ListingApproval) {
-    val (bg, fg) = when (approval) {
-        ListingApproval.Pending -> Color(0xFFFFF3D6) to Color(0xFF8A6100)
-        ListingApproval.Approved -> Color(0xFFE3F3E5) to SuccessGreen
-        ListingApproval.Rejected -> Color(0xFFFBE3E1) to ErrorRed
+private fun ListingVisibilityControl(
+    listing: Listing,
+    state: com.quickin.app.ListingVisibilityUiState,
+    onSetPublished: (listingId: String, isPublished: Boolean) -> Unit
+) {
+    var confirming by remember { mutableStateOf(false) }
+    val isThis = state.listingId == listing.id
+    val busy = isThis && state.isSubmitting
+    val deactivated = listing.hostVisibility == HostVisibility.Deactivated
+
+    Spacer(Modifier.height(12.dp))
+    OutlinedButton(
+        onClick = { if (deactivated) onSetPublished(listing.id, true) else confirming = true },
+        enabled = !busy,
+        shape = RoundedCornerShape(14.dp),
+        // Reactivating is the constructive direction and gets the burgundy outline; deactivating
+        // stays muted so it never competes with Edit for a distracted tap.
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (deactivated) Burgundy else Tan),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.White,
+            contentColor = if (deactivated) Burgundy else Muted
+        ),
+        modifier = Modifier.fillMaxWidth().height(46.dp)
+    ) {
+        if (busy) {
+            CircularProgressIndicator(color = Muted, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+        } else {
+            Icon(
+                if (deactivated) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(if (deactivated) "Reactivate" else "Deactivate", fontWeight = FontWeight.SemiBold)
+        }
+    }
+
+    if (isThis && state.message != null) {
+        Text(state.message, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+    }
+    if (isThis && state.error != null) {
+        Text(state.error, color = ErrorRed, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+    }
+
+    if (confirming) {
+        val pending = listing.pendingRequestCount
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Deactivate this listing?", fontWeight = FontWeight.Bold, color = Ink) },
+            text = {
+                Column {
+                    Text(
+                        "\u201C${listing.title}\u201D will disappear from search and nobody will " +
+                            "be able to book it.",
+                        color = Ink,
+                        fontSize = 14.sp
+                    )
+                    // Nothing is said about pending requests when there are none — an empty
+                    // warning trains people to click through the real one.
+                    if (pending > 0) {
+                        Text(
+                            if (pending == 1) {
+                                "1 booking request still waiting on you will be declined."
+                            } else {
+                                "$pending booking requests still waiting on you will be declined."
+                            },
+                            color = ErrorRed,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
+                    Text(
+                        "Nothing is deleted. Reservations you already confirmed stay exactly as " +
+                            "they are, and you can reactivate this listing at any time.",
+                        color = Muted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onSetPublished(listing.id, false)
+                }) {
+                    Text("Deactivate", color = ErrorRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) {
+                    Text("Keep it live", color = Ink)
+                }
+            },
+            containerColor = Color.White
+        )
+    }
+}
+
+/** A short "here is what this state means" note under a host listing card. */
+@Composable
+private fun VisibilityNote(title: String, body: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = CreamPage,
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Text(body, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+    }
+}
+
+/**
+ * A small pill showing the state a host's own listing is in: amber (under review), green (live),
+ * red (rejected), grey (the host deactivated it), warm grey (hidden by staff).
+ *
+ * It takes a [HostVisibility], not a [ListingApproval], because from the host's side "why can
+ * nobody see this?" has one answer: a listing can be approved and still hidden, and a badge that
+ * only knew about moderation would call that one "Approved" while guests could not find it.
+ */
+@Composable
+internal fun ApprovalBadge(state: HostVisibility) {
+    val (bg, fg) = when (state) {
+        HostVisibility.UnderReview -> Color(0xFFFFF3D6) to Color(0xFF8A6100)
+        HostVisibility.Live -> Color(0xFFE3F3E5) to SuccessGreen
+        HostVisibility.Rejected -> Color(0xFFFBE3E1) to ErrorRed
+        // The host's own decision, not a fault — a neutral grey, not the rejection red, or their
+        // own choice would read back to them as a reprimand.
+        HostVisibility.Deactivated -> Color(0xFFEDEAE6) to Muted
+        HostVisibility.Blocked -> Color(0xFFF3EAE2) to Color(0xFF6A4A3C)
+    }
+    val label = when (state) {
+        HostVisibility.UnderReview -> stringResource(ListingApproval.Pending.labelRes)
+        HostVisibility.Live -> stringResource(ListingApproval.Approved.labelRes)
+        HostVisibility.Rejected -> stringResource(ListingApproval.Rejected.labelRes)
+        HostVisibility.Deactivated -> "Deactivated"
+        HostVisibility.Blocked -> "Hidden by our team"
     }
     Surface(shape = RoundedCornerShape(50), color = bg) {
         Text(
-            stringResource(approval.labelRes),
+            label,
             color = fg,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
+}
+
+/** Overload for the surfaces that only hold a moderation status — the editor's post-save
+ *  confirmation, which has just re-queued the listing and is saying exactly that. */
+@Composable
+internal fun ApprovalBadge(approval: ListingApproval) {
+    ApprovalBadge(
+        state = when (approval) {
+            ListingApproval.Pending -> HostVisibility.UnderReview
+            ListingApproval.Approved -> HostVisibility.Live
+            ListingApproval.Rejected -> HostVisibility.Rejected
+        }
+    )
 }
 
 /**
@@ -875,127 +1088,7 @@ private fun formatListedDate(raw: String?): String? {
         .getOrNull()
 }
 
-/**
- * Inline length-of-stay discount editor on a host listing card. Collapsed it shows the current
- * discounts (or "Edit stay discounts" when none); expanded it offers two percent fields (weekly
- * 7+ / monthly 28+ nights) and a Save that PATCHes `/api/local/listings/:id`. Per-card state from
- * [StayDiscountUiState] drives the Save spinner, an inline error, and a "saved" confirmation.
- */
-@Composable
-private fun StayDiscountEditor(
-    listing: Listing,
-    state: com.quickin.app.StayDiscountUiState,
-    onSave: (listingId: String, weekly: Int, monthly: Int) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    // Local edit buffers, seeded from the listing's current discounts.
-    var weekly by remember(listing.id) { mutableStateOf(listing.weeklyDiscount.toString()) }
-    var monthly by remember(listing.id) { mutableStateOf(listing.monthlyDiscount.toString()) }
-
-    val isThis = state.listingId == listing.id
-    val saving = isThis && state.isSaving
-    val justSaved = state.savedId == listing.id
-    val error = state.error?.takeIf { isThis }
-
-    Spacer(Modifier.height(12.dp))
-    HorizontalDivider(color = Tan)
-    Spacer(Modifier.height(12.dp))
-
-    // Header row — tappable to expand/collapse; shows the current discounts as a subtitle.
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { expanded = !expanded }
-            .padding(vertical = 2.dp)
-    ) {
-        Icon(Icons.Filled.Sell, contentDescription = null, tint = Burgundy, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(com.quickin.app.R.string.growth_discounts_title),
-                color = Ink,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                if (listing.hasStayDiscount) {
-                    stringResource(
-                        com.quickin.app.R.string.growth_discount_off,
-                        listing.weeklyDiscount,
-                        listing.monthlyDiscount
-                    )
-                } else {
-                    stringResource(com.quickin.app.R.string.growth_discounts_intro)
-                },
-                color = Muted,
-                fontSize = 12.sp
-            )
-        }
-        Icon(
-            if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = null,
-            tint = Muted,
-            modifier = Modifier.size(22.dp)
-        )
-    }
-
-    if (expanded) {
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            PercentField(
-                label = stringResource(com.quickin.app.R.string.growth_weekly_discount),
-                value = weekly,
-                onChange = { weekly = it },
-                modifier = Modifier.weight(1f)
-            )
-            PercentField(
-                label = stringResource(com.quickin.app.R.string.growth_monthly_discount),
-                value = monthly,
-                onChange = { monthly = it },
-                modifier = Modifier.weight(1f)
-            )
-        }
-        if (justSaved) {
-            Text(
-                stringResource(com.quickin.app.R.string.growth_discounts_saved),
-                color = SuccessGreen,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        if (error != null) {
-            Text(error, color = ErrorRed, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-        }
-        GradientButton(
-            onClick = {
-                onSave(
-                    listing.id,
-                    weekly.toIntOrNull()?.coerceIn(0, 100) ?: 0,
-                    monthly.toIntOrNull()?.coerceIn(0, 100) ?: 0
-                )
-            },
-            enabled = !saving,
-            height = 46.dp,
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
-        ) {
-            if (saving) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-            } else {
-                Text(
-                    stringResource(com.quickin.app.R.string.growth_save),
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
-            }
-        }
-    }
-}
-
-/** A compact 0–100 percent input (digits only, capped at 100) used by the discount editor. */
+/** A compact 0–100 percent input (digits only, capped at 100) used by the discount fields. */
 @Composable
 private fun PercentField(
     label: String,
@@ -1034,16 +1127,31 @@ private fun PercentField(
  * price". RTL-safe — labels resolve via stringResource and the rows lay out start→end.
  *
  * [monthlyPrices] maps month "1".."12" → the current text value (absent = blank); [onMonthlyPrice]
- * lifts each edit back (an empty value clears that month).
+ * lifts each edit back (an empty value clears that month). [weekendDays] are the weekdays the
+ * weekend rate is charged on (`0`=Sun … `6`=Sat) and [onToggleWeekendDay] lifts each pill tap back.
  */
 @Composable
 private fun SeasonalPricingFields(
     weekendPrice: String,
     onWeekendPrice: (String) -> Unit,
+    weekendDays: Set<Int>,
+    onToggleWeekendDay: (Int) -> Unit,
     monthlyPrices: Map<String, String>,
     onMonthlyPrice: (month: String, value: String) -> Unit
 ) {
     val monthNames = monthLabels()
+    // What is wrong with the weekend rate and with the months, right now — the same rules the API
+    // runs. A `0` used to read as "no rate" at every layer, so the host saved a listing with the
+    // weekend pills lit and nothing behind them, and no screen ever said so.
+    val weekendProblem = ListingPricingRules.problemWith(weekendPrice)
+    val weekendError = if (weekendProblem == null) null else stringResource(weekendPriceProblemRes(weekendProblem))
+    val badMonth = ListingPricingRules.failingMonth(monthlyPrices)
+    // Resolved once, outside the month loop: `stringResource` is itself @Composable and cannot be
+    // called from inside the `forEach` lambda that lays the fields out.
+    val badMonthError = if (badMonth == null) null else stringResource(
+        monthPriceProblemRes(badMonth.problem), stringResource(monthNameRes(badMonth.month))
+    )
+    val badMonthKey = badMonth?.month?.toString()
     Text(
         stringResource(com.quickin.app.R.string.pricing_seasonal),
         fontWeight = FontWeight.SemiBold,
@@ -1060,7 +1168,13 @@ private fun SeasonalPricingFields(
         label = stringResource(com.quickin.app.R.string.pricing_weekend_price),
         value = weekendPrice,
         onChange = onWeekendPrice,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        error = weekendError
+    )
+    WeekendDayPicker(
+        weekendPrice = weekendPrice,
+        weekendDays = weekendDays,
+        onToggle = onToggleWeekendDay
     )
     Text(
         stringResource(com.quickin.app.R.string.pricing_monthly_prices),
@@ -1082,13 +1196,104 @@ private fun SeasonalPricingFields(
                     label = monthName,
                     value = monthlyPrices[monthKey].orEmpty(),
                     onChange = { onMonthlyPrice(monthKey, it) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    error = if (badMonthKey == monthKey) badMonthError else null
                 )
             }
             // Pad an odd trailing item so the last single field keeps half-width alignment.
             if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
     }
+}
+
+/**
+ * The day pills: which weekdays this listing treats as its weekend.
+ *
+ * A row rather than a dropdown because the whole point is to see the week at a glance and count the
+ * lit days — the two ways this can be wrong (all seven, or none under a real rate) are both about
+ * how many are lit, and a picker that hides the rest of the week makes neither visible.
+ *
+ * The pill index IS the stored day number (`0`=Sun … `6`=Sat, Postgres' DOW), so nothing converts
+ * between what the host taps and what gets saved.
+ */
+@Composable
+private fun WeekendDayPicker(
+    weekendPrice: String,
+    weekendDays: Set<Int>,
+    onToggle: (Int) -> Unit
+) {
+    val rate = weekendPrice.toDoubleOrNull()?.takeIf { it > 0.0 }
+    // One short of the week: the point past which no further pill may be lit.
+    val isFullWeek = weekendDays.size >= WeekendSchedule.DAYS_IN_WEEK - 1
+    // The same rule the API runs, asked here so the host is told beside the pills rather than by a
+    // 400 after they save.
+    val problem = (WeekendSchedule.resolve(rate, weekendDays).exceptionOrNull() as? WeekendDaysException)?.problem
+
+    Text(
+        stringResource(com.quickin.app.R.string.pricing_weekend_days),
+        color = Muted,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(top = 2.dp)
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        weekdayLabels().forEachIndexed { day, label ->
+            val on = weekendDays.contains(day)
+            // Locked rather than hidden: a host has to be able to see that the whole week is not on
+            // offer, and the line below says why.
+            val locked = !on && isFullWeek
+            Surface(
+                onClick = { onToggle(day) },
+                enabled = !locked,
+                shape = RoundedCornerShape(9.dp),
+                color = if (on) Burgundy else Color.White,
+                contentColor = if (on) Color.White else Ink,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (on) Burgundy else Tan),
+                modifier = Modifier.weight(1f).height(38.dp).alpha(if (locked) 0.4f else 1f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+    if (problem != null || isFullWeek) {
+        val wholeWeek = problem == WeekendSchedule.Problem.WHOLE_WEEK || (problem == null && isFullWeek)
+        Text(
+            stringResource(
+                if (wholeWeek) com.quickin.app.R.string.pricing_weekend_days_whole_week
+                else com.quickin.app.R.string.pricing_weekend_days_none_chosen
+            ),
+            // Muted while it is only a warning about the locked pills; red once it would refuse a save.
+            color = if (problem == null) Muted else ErrorRed,
+            fontSize = 12.sp
+        )
+    }
+}
+
+/**
+ * Localized short weekday names indexed 0–6 to match Postgres' DOW (`0`=Sun … `6`=Sat) — which is
+ * what `weekend_days` stores, so the pill index needs no conversion.
+ *
+ * `java.time.DayOfWeek` runs MONDAY=1 … SUNDAY=7, so the list is built Sunday-first explicitly
+ * rather than by rotating it after the fact.
+ */
+@Composable
+private fun weekdayLabels(): List<String> {
+    val locale = java.util.Locale.getDefault()
+    val order = listOf(
+        java.time.DayOfWeek.SUNDAY, java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.TUESDAY,
+        java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY,
+        java.time.DayOfWeek.SATURDAY
+    )
+    return order.map { it.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, locale) }
 }
 
 /** The 12 month options as (key "1".."12", localized name) pairs, in calendar order. */
@@ -1108,19 +1313,28 @@ private fun monthLabels(): List<Pair<String, String>> = listOf(
     "12" to stringResource(com.quickin.app.R.string.pricing_month_12)
 )
 
-/** A compact EGP nightly-price input (digits only) used by the seasonal-pricing fields. */
+/**
+ * A compact EGP nightly-price input (digits only) used by the seasonal-pricing fields.
+ *
+ * [error] is the reason this particular field can't be saved, shown under it. It sits on the field
+ * rather than only above Save because there are thirteen of these on one screen and "the rate must
+ * be more than zero" says nothing about which one.
+ */
 @Composable
 private fun MoneyField(
     label: String,
     value: String,
     onChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    error: String? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = { input -> onChange(input.filter { it.isDigit() }.take(7)) },
         label = { Text(label, fontSize = 12.sp) },
         singleLine = true,
+        isError = error != null,
+        supportingText = error?.let { { Text(it, color = ErrorRed, fontSize = 12.sp) } },
         prefix = { Text("EGP ") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         shape = RoundedCornerShape(14.dp),
@@ -1136,11 +1350,54 @@ private fun MoneyField(
     )
 }
 
-/** Converts a month→text price map into the month→Double map the API expects (dropping blanks/0). */
+/** The string resource naming a month (1..12) — the same names [monthLabels] renders, reachable
+ *  from a plain `when` so a validation message can say WHICH month is wrong. */
+internal fun monthNameRes(month: Int): Int = when (month) {
+    1 -> com.quickin.app.R.string.pricing_month_1
+    2 -> com.quickin.app.R.string.pricing_month_2
+    3 -> com.quickin.app.R.string.pricing_month_3
+    4 -> com.quickin.app.R.string.pricing_month_4
+    5 -> com.quickin.app.R.string.pricing_month_5
+    6 -> com.quickin.app.R.string.pricing_month_6
+    7 -> com.quickin.app.R.string.pricing_month_7
+    8 -> com.quickin.app.R.string.pricing_month_8
+    9 -> com.quickin.app.R.string.pricing_month_9
+    10 -> com.quickin.app.R.string.pricing_month_10
+    11 -> com.quickin.app.R.string.pricing_month_11
+    else -> com.quickin.app.R.string.pricing_month_12
+}
+
+/** The message resource for a rejected WEEKEND rate. */
+internal fun weekendPriceProblemRes(problem: ListingPricingRules.Problem): Int =
+    if (problem == ListingPricingRules.Problem.NOT_POSITIVE) {
+        com.quickin.app.R.string.pricing_weekend_price_not_positive
+    } else {
+        com.quickin.app.R.string.pricing_weekend_price_not_a_number
+    }
+
+/** The message resource for a rejected MONTH rate — takes the month's name as its argument. */
+internal fun monthPriceProblemRes(problem: ListingPricingRules.Problem): Int =
+    if (problem == ListingPricingRules.Problem.NOT_POSITIVE) {
+        com.quickin.app.R.string.pricing_month_price_not_positive
+    } else {
+        com.quickin.app.R.string.pricing_month_price_not_a_number
+    }
+
+/**
+ * Converts a month→text price map into the month→Double map the API expects, keeping only the
+ * months that hold a real rate.
+ *
+ * Lenient by design, and only safe because it is never the gate: a `0` and a blank field both come
+ * out as "no rate here", which is exactly what hid the reported bug when this was the ONLY reading
+ * of these fields. The screens refuse a typed zero before they ever get here — see
+ * [ListingPricingRules.failingMonth] and the `blocker` chains in the wizard and the editor — so by
+ * the time this runs there is no zero left to drop. It is also what the "did anything change?"
+ * comparison uses, where dropping is the right answer.
+ */
 internal fun monthlyPricesAsDoubles(prices: Map<String, String>): Map<String, Double> {
     val out = LinkedHashMap<String, Double>()
     prices.forEach { (month, text) ->
-        text.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { out[month] = it }
+        ListingPricingRules.checkPrice(text).getOrNull()?.let { out[month] = it }
     }
     return out
 }
@@ -1201,9 +1458,10 @@ fun AddListingScreen(
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
         bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
+        resort: ResortChoice.Selection,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
-        weekendPrice: String, monthlyPrices: Map<String, Double>
+        weekendPrice: String, weekendDays: List<Int>, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onResetCreate: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -1214,6 +1472,10 @@ fun AddListingScreen(
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
+    /** The resort / compound catalog for the area the host has picked, and the request to load it.
+     *  Optional everywhere: an empty catalog leaves the picker offering the free-text path. */
+    resortCatalog: ResortCatalogUiState = ResortCatalogUiState(),
+    onLoadResorts: (String?) -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
     commission: Commission? = null,
     /** Whether this host may add a listing; blocks the wizard when not. */
@@ -1247,6 +1509,8 @@ fun AddListingScreen(
                 onGenerateDescription = onGenerateDescription,
                 onConsumeGeneratedDescription = onConsumeGeneratedDescription,
                 onClearAiWriter = onClearAiWriter,
+                resortCatalog = resortCatalog,
+                onLoadResorts = onLoadResorts,
                 commission = commission,
                 listingGate = listingGate
             )
@@ -1269,6 +1533,18 @@ private fun RequestsTab(
         onLoad()
     }
 
+    // Status filter over the host's reservations (All by default). Client-side over the
+    // already-loaded rows, so switching is instant — /api/local/host/bookings takes no query
+    // params and returns every reservation, the same way the listings filter works.
+    var filter by remember { mutableStateOf(HostBookingFilter.All) }
+    val visibleBookings = remember(state.bookings, filter) {
+        state.bookings.filter { filter.matches(it.filterBucket) }
+    }
+    // Counted over every reservation, not the visible slice — a chip has to say what it WOULD show.
+    val filterCounts = remember(state.bookings) {
+        HostBookingFilterRules.counts(state.bookings.map { it.filterBucket })
+    }
+
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
             state.isLoading && state.bookings.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1285,37 +1561,100 @@ private fun RequestsTab(
                     Text("Retry")
                 }
             }
+            // No reservations at all — a different thing from "nothing in this status" below.
+            // It gets no chip row, because there is nothing to filter and eight empty chips
+            // would only be noise.
             state.bookings.isEmpty() -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(32.dp)
             ) {
                 Icon(Icons.Filled.Inbox, contentDescription = null, tint = Burgundy, modifier = Modifier.size(48.dp))
-                Text("No reservation requests", fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
+                Text(stringResource(com.quickin.app.R.string.host_booking_filter_empty_all), fontWeight = FontWeight.Bold, color = Ink, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
                 Text("Requests from guests will show up here.", color = Muted, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
             }
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                state.actionMessage?.let { msg ->
-                    item {
-                        Text(msg, color = SuccessGreen, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            else -> Column(modifier = Modifier.fillMaxSize()) {
+                HostBookingFilterRow(
+                    counts = filterCounts,
+                    selected = filter,
+                    onSelect = { filter = it },
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                if (visibleBookings.isEmpty()) {
+                    // The chip row stays on screen: the only way out of an empty status is
+                    // another chip, so hiding it would strand the host here.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    ) {
+                        Text(
+                            stringResource(filter.emptyMessageRes),
+                            color = Muted,
+                            textAlign = TextAlign.Center
+                        )
                     }
-                }
-                items(state.bookings) { booking ->
-                    HostBookingCard(
-                        booking = booking,
-                        isActing = state.actingOn == booking.id,
-                        onConfirm = { onConfirm(booking.id) },
-                        onReject = { onReject(booking.id) },
-                        onMessage = { onMessage(booking.id) }
-                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        state.actionMessage?.let { msg ->
+                            item {
+                                Text(msg, color = SuccessGreen, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            }
+                        }
+                        items(visibleBookings) { booking ->
+                            HostBookingCard(
+                                booking = booking,
+                                isActing = state.actingOn == booking.id,
+                                onConfirm = { onConfirm(booking.id) },
+                                onReject = { onReject(booking.id) },
+                                onMessage = { onMessage(booking.id) }
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * Horizontal chip row of [HostBookingFilter]s above the host's reservations (All · Awaiting your
+ * reply · Awaiting payment · Confirmed · Declined · Cancelled · Refunded · Partially refunded).
+ * Reuses [HostFilterChip], so it matches the listings filter and the explore screen's chip rows.
+ */
+@Composable
+private fun HostBookingFilterRow(
+    counts: Map<HostBookingFilterRules.Bucket, Int>,
+    selected: HostBookingFilter,
+    onSelect: (HostBookingFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    ) {
+        items(HostBookingFilter.entries) { option ->
+            HostFilterChip(
+                label = stringResource(option.labelRes),
+                // "All" stays bare: its count is just the number of cards below it, and iOS
+                // leaves it bare for the same reason.
+                count = option.bucket?.let { counts[it] ?: 0 },
+                selected = selected == option,
+                onClick = { onSelect(option) }
+            )
+        }
+    }
+}
+
+/** The decision a host tapped on a request, held until they confirm it. */
+private enum class BookingDecision { CONFIRM, REJECT }
 
 @Composable
 private fun HostBookingCard(
@@ -1325,6 +1664,11 @@ private fun HostBookingCard(
     onReject: () -> Unit,
     onMessage: () -> Unit
 ) {
+    // Both outcomes are final for the guest — a confirmed stay holds the dates, a
+    // rejection is announced and cannot be taken back — so neither is sent on a
+    // single tap.
+    var pendingDecision by remember { mutableStateOf<BookingDecision?>(null) }
+
     BoutiqueCard(
         modifier = Modifier.fillMaxWidth(),
         shadow = 6.dp
@@ -1375,7 +1719,7 @@ private fun HostBookingCard(
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
-                        onClick = onReject,
+                        onClick = { pendingDecision = BookingDecision.REJECT },
                         enabled = !isActing,
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed),
@@ -1383,7 +1727,7 @@ private fun HostBookingCard(
                         modifier = Modifier.weight(1f).height(46.dp)
                     ) { Text("Reject", fontWeight = FontWeight.SemiBold) }
                     Button(
-                        onClick = onConfirm,
+                        onClick = { pendingDecision = BookingDecision.CONFIRM },
                         enabled = !isActing,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Burgundy, contentColor = Color.White),
@@ -1412,6 +1756,51 @@ private fun HostBookingCard(
                 Text("Message", fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+
+    val decision = pendingDecision
+    if (decision != null) {
+        val rejecting = decision == BookingDecision.REJECT
+        AlertDialog(
+            onDismissRequest = { pendingDecision = null },
+            title = {
+                Text(
+                    if (rejecting) "Reject this reservation?" else "Confirm this reservation?",
+                    fontWeight = FontWeight.Bold,
+                    color = Ink
+                )
+            },
+            text = {
+                Text(
+                    if (rejecting) {
+                        "The guest will be told their request was declined. This can\u2019t be undone."
+                    } else {
+                        "The guest will be notified, the dates will be held for them, and you can " +
+                            "no longer reject this request."
+                    },
+                    color = Ink,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDecision = null
+                    if (rejecting) onReject() else onConfirm()
+                }) {
+                    Text(
+                        if (rejecting) "Reject" else "Confirm",
+                        color = if (rejecting) ErrorRed else Burgundy,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDecision = null }) {
+                    Text("Cancel", color = Ink)
+                }
+            },
+            containerColor = Color.White
+        )
     }
 }
 
@@ -1601,9 +1990,10 @@ private fun AddListingTab(
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
         bathrooms: String, propertyType: String, photos: List<String>,
         amenities: List<String>, lat: Double?, lng: Double?, region: String?,
+        resort: ResortChoice.Selection,
         cancellationPolicy: String, ownershipDoc: String?,
         weeklyDiscount: String, monthlyDiscount: String,
-        weekendPrice: String, monthlyPrices: Map<String, Double>
+        weekendPrice: String, weekendDays: List<Int>, monthlyPrices: Map<String, Double>
     ) -> Unit,
     onReset: () -> Unit,
     // ---- AI listing-description writer (Section 10) ----
@@ -1614,12 +2004,21 @@ private fun AddListingTab(
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
+    /** The resort / compound catalog for the area the host has picked, and the request to load it.
+     *  Optional everywhere: an empty catalog leaves the picker offering the free-text path. */
+    resortCatalog: ResortCatalogUiState = ResortCatalogUiState(),
+    onLoadResorts: (String?) -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
     commission: Commission? = null,
     /** Whether this host may list at all. Defaults to allowed so a failed fetch never
      *  locks a legitimate host out — the server refuses the write regardless. */
     listingGate: ListingGate = ListingGate.UNKNOWN
 ) {
+    // The draft lives in an activity-scoped view-model, NOT in this composable — the host tab bar
+    // and the app's bottom bar both REMOVE the wizard from composition when you leave, which used
+    // to take every typed field with it. See [FormDraftsViewModel].
+    val draft = viewModel<FormDraftsViewModel>().listing
+
     // Refuse up front rather than after a wizard's worth of typing.
     if (!listingGate.allowed) {
         ListingGateBlocked(listingGate)
@@ -1627,6 +2026,9 @@ private fun AddListingTab(
     }
     // A created listing replaces the wizard with a success card.
     if (state.created != null) {
+        // The listing is saved, so the draft has done its job: wipe it, or "Add another listing"
+        // would open the wizard on the one we just published.
+        LaunchedEffect(state.created.id) { draft.clear() }
         Box(modifier = Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Animated drawn-on checkmark (qkDraw + qkPop) for the submitted moment.
@@ -1663,40 +2065,69 @@ private fun AddListingTab(
         return
     }
 
-    // ---- Wizard state (survives step changes via remember) ----
-    var step by remember { mutableIntStateOf(0) } // 0..3
+    // ---- Wizard state ----
+    // Every typed field is delegated to the retained [ListingDraft] above rather than to a
+    // `remember`, so it survives the wizard leaving composition (tab switch, back out, rotation)
+    // and not just a step change. Reads and writes below are unchanged — these are the same
+    // Compose state objects, only owned by something that outlives the screen.
+    var step by draft.step // 0..3
 
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("Egypt") }
-    var price by remember { mutableStateOf("") }
+    var title by draft.title
+    var description by draft.description
+    var location by draft.location
+    var country by draft.country
+    var price by draft.price
     // Length-of-stay discounts (% off), default "0" (none). Sent on create.
-    var weeklyDiscount by remember { mutableStateOf("0") }
-    var monthlyDiscount by remember { mutableStateOf("0") }
+    var weeklyDiscount by draft.weeklyDiscount
+    var monthlyDiscount by draft.monthlyDiscount
     // Seasonal pricing (optional). Weekend nightly rate (blank = none) + per-month nightly
     // overrides keyed by month "1".."12" (blank/absent months are dropped on create).
-    var weekendPrice by remember { mutableStateOf("") }
-    val monthlyPrices = remember { mutableStateMapOf<String, String>() }
-    var maxGuests by remember { mutableStateOf("2") }
-    var bedrooms by remember { mutableStateOf("1") }
-    var beds by remember { mutableStateOf("1") }
-    var bathrooms by remember { mutableStateOf("1") }
-    var propertyType by remember { mutableStateOf(PROPERTY_TYPES.first()) }
+    var weekendPrice by draft.weekendPrice
+    // Which weekdays the weekend rate is charged on (0=Sun … 6=Sat). Pre-filled with the default
+    // weekend, so a host who never opens the picker gets exactly what the screen promised them.
+    val weekendDays = draft.weekendDays
+    val monthlyPrices = draft.monthlyPrices
+    var maxGuests by draft.maxGuests
+    var bedrooms by draft.bedrooms
+    var beds by draft.beds
+    var bathrooms by draft.bathrooms
+    var propertyType by draft.propertyType
     // Listing photos picked from the device, encoded as data:image/jpeg data URLs (in pick order).
-    // The first is the cover. Optional — a listing can be published with no photos (matches the web).
-    val photos = remember { mutableStateListOf<String>() }
+    // The first is the cover. At least one is required — step 3 blocks Next on an empty set.
+    val photos = draft.photos
+    // In-flight work, not typed input: a spinner is meaningless once the screen is gone, so these
+    // two stay with the composable rather than joining the draft.
     var encodingPhotos by remember { mutableStateOf(false) }
     // Selected amenity labels (Step 3 chips). Order-preserving set of AMENITY_OPTIONS.
-    val selectedAmenities = remember { mutableStateListOf<String>() }
+    val selectedAmenities = draft.selectedAmenities
     // Host-set cancellation policy (Step 3). Defaults to "moderate".
-    var cancellationPolicy by remember { mutableStateOf(com.quickin.app.CancellationPolicy.Moderate.apiValue) }
-    // Ownership/proof document as a data:image/* URL (Step 3). Null until the host picks one.
+    var cancellationPolicy by draft.cancellationPolicy
+    // Ownership/proof document as an image or PDF data URL (Step 3). Null until the host picks one.
     // Sending it queues the new listing for staff review (created pending + unpublished).
-    var ownershipDoc by remember { mutableStateOf<String?>(null) }
+    var ownershipDoc by draft.ownershipDoc
     var processingDoc by remember { mutableStateOf(false) }
     // Curated browse area (Step 2 chips). Null until the host picks one (required).
-    var region by remember { mutableStateOf<String?>(null) }
+    var region by draft.region
+    // The resort / compound the place sits in (Step 2). NONE until the host says otherwise, which
+    // is itself a complete answer — plenty of places are not in a compound. Sent as resort_id or
+    // resort_name; see ResortChoice.
+    var resort by draft.resort
+
+    // The catalog belongs to the area, so it is (re)requested whenever the area changes.
+    LaunchedEffect(region) { onLoadResorts(region) }
+    val resortsForArea = if (resortCatalog.region == region) resortCatalog.resorts else emptyList()
+    // A resort chosen under a DIFFERENT area is dropped: picking a resort is what sets the region
+    // server-side, so keeping it would quietly overrule the chip the host just tapped.
+    LaunchedEffect(resortsForArea, resortCatalog) {
+        val chosen = resort.id
+        // Only once THIS area's catalog has actually come back: a catalog still holding the
+        // previous area's rows says nothing about the resort the host picked, and dropping their
+        // answer while the next fetch is in flight would look like the field clearing itself.
+        val loadedForThisArea = resortCatalog.loaded && resortCatalog.region == region
+        if (chosen != null && loadedForThisArea && resortsForArea.none { it.id == chosen }) {
+            resort = ResortChoice.Selection.NONE
+        }
+    }
 
     // AI writer: when the view-model returns a generated description, drop it into the editable
     // field (the host can then tweak it), and tell the view-model it's been consumed.
@@ -1713,18 +2144,22 @@ private fun AddListingTab(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // Ownership-doc picker: load the picked image, downscale + JPEG-compress to a small data URL
-    // off the main thread (maxDim 1200, larger than an avatar so the document stays legible).
+    // Ownership-doc picker: a photo is downscaled + JPEG-compressed to a small data URL off the
+    // main thread; a PDF is kept as it was issued. `OwnershipDocLoader` decides which, and says why
+    // when it refuses one — silently dropping the pick is what left hosts staring at "Not added".
+    var docProblem by remember { mutableStateOf<Int?>(null) }
     val docPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             processingDoc = true
+            docProblem = null
             scope.launch {
-                val dataUrl = withContext(Dispatchers.IO) {
-                    AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1200)
+                val result = withContext(Dispatchers.IO) { OwnershipDocLoader.load(context, uri) }
+                when (result) {
+                    is OwnershipDocLoader.Result.Loaded -> ownershipDoc = result.dataUrl
+                    is OwnershipDocLoader.Result.Failed -> docProblem = result.problem.messageRes
                 }
-                if (dataUrl != null) ownershipDoc = dataUrl
                 processingDoc = false
             }
         }
@@ -1749,7 +2184,12 @@ private fun AddListingTab(
         }
     }
     // Coordinates from the map pin-picker. Null until the host places a pin.
-    var pickedLatLng by remember { mutableStateOf<LatLng?>(null) }
+    var pickedLatLng by draft.pickedLatLng
+
+    // What is wrong with the title, if anything. [ListingTitlePolicy] is the same rule the API
+    // runs, so a title this step accepts is one `createListing` accepts — `12345` used to clear
+    // step 1 and come back as a 400 on step 4, three steps from the field that was wrong.
+    val titleProblem = ListingTitlePolicy.check(title)
 
     // Per-step validation of required fields; gates the Next / Publish button.
     //
@@ -1758,14 +2198,70 @@ private fun AddListingTab(
     // guest could read, find or look at. These gates are the same rule the web
     // enforces in `listing-completeness-policy.ts` and the API enforces in
     // `createListing`, said in the order the steps are laid out.
-    val canAdvance = when (step) {
-        0 -> title.isNotBlank() && letterCount(description) >= MIN_DESCRIPTION_LETTERS
-        1 -> region != null && pickedLatLng != null && letterCount(location) >= MIN_LOCATION_LETTERS
-        // Price and photos both live on StepDetails; step 3 is the read-only
-        // review, where there is no picker to satisfy a photo rule with.
-        2 -> price.isNotBlank() && photos.isNotEmpty()
-        else -> true
+    //
+    // Each step answers with the SENTENCE that blocks it rather than a bare Boolean, and
+    // [canAdvance] is derived from that sentence being null. A greyed Next that will not say why
+    // is the other half of the reported bug — the host is left guessing which of five fields the
+    // app disagrees with — and deriving the gate from the reason is what stops the two from ever
+    // drifting apart. Each returns the FIRST unmet requirement, in the order the fields are laid
+    // out on the step, so a host who skipped several is pointed at the topmost one rather than at
+    // whichever the code looked at first (the web form orders its own checks the same way).
+    // The two seasonal rules, read before the `when` so their messages can be built with
+    // `stringResource` (which is @Composable and so cannot live inside a `let`).
+    val weekendRateProblem = ListingPricingRules.problemWith(weekendPrice)
+    val badMonthRate: MonthPriceException? = ListingPricingRules.failingMonth(monthlyPrices)
+    val blocker: String? = when (step) {
+        // The title is the exception: when the host has typed something that is not a title,
+        // StepBasics says so under the field itself, where the offending text is. Repeating it
+        // here would print the same sentence twice on one screen. An EMPTY title has nothing to
+        // sit under, so it is reported here like every other missing field.
+        0 -> when {
+            titleProblem == ListingTitlePolicy.Problem.REQUIRED ->
+                listingTitleProblemMessage(titleProblem)
+            titleProblem != null -> stringResource(com.quickin.app.R.string.listing_blocked_title)
+            letterCount(description) < MIN_DESCRIPTION_LETTERS -> stringResource(
+                com.quickin.app.R.string.listing_blocked_description, MIN_DESCRIPTION_LETTERS
+            )
+            else -> null
+        }
+        1 -> when {
+            region == null -> stringResource(com.quickin.app.R.string.listing_edit_needs_region)
+            // The resort itself is optional — "not in a compound" is a real answer. The one
+            // combination refused is "Other" with no usable name, which the server cannot tell
+            // apart from "no resort at all" and would therefore store as none. See ResortChoice.
+            resortNameProblem(resort) != null -> resortNameProblemMessage(resortNameProblem(resort)!!)
+            letterCount(location) < MIN_LOCATION_LETTERS -> stringResource(
+                com.quickin.app.R.string.listing_blocked_location, MIN_LOCATION_LETTERS
+            )
+            pickedLatLng == null -> stringResource(com.quickin.app.R.string.listing_edit_needs_pin)
+            else -> null
+        }
+        // Price, photos and the four capacity counts all live on StepDetails; step 3 is the
+        // read-only review, where there is no picker or stepper to satisfy a rule with.
+        // The capacity floor is the same one the API refuses a create on — see
+        // ListingCapacityPolicy — so this gate only says early what the server would say late.
+        2 -> when {
+            !ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms) -> stringResource(
+                com.quickin.app.R.string.listing_blocked_capacity, ListingCapacityPolicy.MINIMUM
+            )
+            // `isNotBlank()` was the old gate, which let "0" through to a 400 — and the sentence
+            // shown here says "more than 0", so the check has to mean it. Same test the editor
+            // and the API already run.
+            (price.toDoubleOrNull() ?: 0.0) <= 0.0 ->
+                stringResource(com.quickin.app.R.string.listing_edit_needs_price)
+            // The optional seasonal rates on this same step. Optional means a BLANK field, not a
+            // zero: a typed `0` was parsed away to null on the way out and stored as no rate at
+            // all, so the wizard finished and the weekend pricing the host entered was gone.
+            weekendRateProblem != null -> stringResource(weekendPriceProblemRes(weekendRateProblem))
+            badMonthRate != null -> stringResource(
+                monthPriceProblemRes(badMonthRate.problem), stringResource(monthNameRes(badMonthRate.month))
+            )
+            photos.isEmpty() -> stringResource(com.quickin.app.R.string.listing_edit_needs_photo)
+            else -> null
+        }
+        else -> null
     }
+    val canAdvance = blocker == null
 
     Column(modifier = Modifier.fillMaxSize().background(CreamPage)) {
         StepHeader(step = step)
@@ -1786,11 +2282,15 @@ private fun AddListingTab(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Step 4 is the read-only review — nothing there to mark, so nothing to explain.
+                if (current < TOTAL_STEPS - 1) RequiredFieldsLegend()
+
                 when (current) {
                     0 -> StepBasics(
                         title = title, onTitle = { title = it },
                         propertyType = propertyType, onPropertyType = { propertyType = it },
                         description = description, onDescription = { description = it },
+                        titleProblem = titleProblem,
                         aiWriter = aiWriter,
                         onGenerate = {
                             // Feed the AI whatever's filled so far; the current description acts as
@@ -1809,6 +2309,9 @@ private fun AddListingTab(
                     )
                     1 -> StepLocation(
                         region = region, onRegion = { region = it },
+                        resort = resort, onResort = { resort = it },
+                        resorts = resortsForArea,
+                        resortsLoading = resortCatalog.isLoading,
                         location = location, onLocation = { location = it },
                         country = country, onCountry = { country = it },
                         picked = pickedLatLng, onPick = { pickedLatLng = it }
@@ -1822,6 +2325,13 @@ private fun AddListingTab(
                         weeklyDiscount = weeklyDiscount, onWeeklyDiscount = { weeklyDiscount = it },
                         monthlyDiscount = monthlyDiscount, onMonthlyDiscount = { monthlyDiscount = it },
                         weekendPrice = weekendPrice, onWeekendPrice = { weekendPrice = it },
+                        weekendDays = weekendDays.toSet(),
+                        onToggleWeekendDay = { day ->
+                            // The seventh day is refused, not silently added: a weekend that covers
+                            // the whole week leaves the nightly price applying to no night at all.
+                            if (weekendDays.contains(day)) weekendDays.remove(day)
+                            else if (weekendDays.size < WeekendSchedule.DAYS_IN_WEEK - 1) weekendDays.add(day)
+                        },
                         monthlyPrices = monthlyPrices,
                         onMonthlyPrice = { month, value ->
                             if (value.isBlank()) monthlyPrices.remove(key = month) else monthlyPrices[month] = value
@@ -1843,15 +2353,13 @@ private fun AddListingTab(
                         onCancellationPolicy = { cancellationPolicy = it },
                         ownershipDoc = ownershipDoc,
                         processingDoc = processingDoc,
-                        onPickDoc = {
-                            docPicker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
+                        onPickDoc = { docPicker.launch(OwnershipDocLoader.PICKER_MIME_TYPES) },
+                        docProblem = docProblem,
                         commission = commission
                     )
                     else -> StepReview(
                         title = title, propertyType = propertyType, region = region,
+                        resort = resortDisplayName(resort, resortsForArea),
                         location = location,
                         country = country, price = price, maxGuests = maxGuests,
                         bedrooms = bedrooms, beds = beds, bathrooms = bathrooms,
@@ -1872,6 +2380,10 @@ private fun AddListingTab(
 
         // ---- Sticky Back / Next-or-Publish bar ----
         Surface(color = Cream, shadowElevation = 8.dp) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Why Next is greyed, on screen without scrolling. It is the same value the
+                // button gates on, so the two cannot disagree — see [blocker].
+                StepBlockerNote(blocker)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1896,10 +2408,11 @@ private fun AddListingTab(
                                 title, description, location, country, price,
                                 maxGuests, bedrooms, beds, bathrooms, propertyType, photos.toList(),
                                 selectedAmenities.toList(),
-                                pickedLatLng?.latitude, pickedLatLng?.longitude, region,
+                                pickedLatLng?.latitude, pickedLatLng?.longitude, region, resort,
                                 cancellationPolicy, ownershipDoc,
                                 weeklyDiscount, monthlyDiscount,
-                                weekendPrice, monthlyPricesAsDoubles(monthlyPrices)
+                                weekendPrice, WeekendSchedule.normalize(weekendDays),
+                                monthlyPricesAsDoubles(monthlyPrices)
                             )
                         } else if (canAdvance) {
                             step++
@@ -1916,7 +2429,37 @@ private fun AddListingTab(
                     }
                 }
             }
+            }
         }
+    }
+}
+
+/**
+ * One line above the Next button naming the first thing the current step is still waiting for, or
+ * nothing at all once the step is satisfied.
+ *
+ * The wizard used to dim Next and say nothing, so a host whose title was `12345` — or whose
+ * description was nineteen letters — had a greyed button and no way to learn which field it was
+ * unhappy about. Both host wizards render this, and the sentence is the same value their gate is
+ * derived from, so the button and the explanation cannot disagree.
+ */
+@Composable
+internal fun StepBlockerNote(message: String?) {
+    if (message == null) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            Icons.Filled.Info,
+            contentDescription = null,
+            tint = Burgundy,
+            modifier = Modifier.size(16.dp).padding(top = 2.dp)
+        )
+        Text(message, color = Ink, fontSize = 13.sp, lineHeight = 18.sp)
     }
 }
 
@@ -1957,20 +2500,68 @@ private fun StepHeader(step: Int) {
 
 // ---- Step 1: Basics ---------------------------------------------------------
 
+/**
+ * The sentence a host reads for a title [ListingTitlePolicy] refused — the same four the website
+ * shows, in the same four languages. One place, so the add wizard and the editor cannot word the
+ * same refusal differently, and the floors come from the policy rather than being retyped here.
+ */
+@Composable
+internal fun listingTitleProblemMessage(problem: ListingTitlePolicy.Problem): String = when (problem) {
+    ListingTitlePolicy.Problem.REQUIRED ->
+        stringResource(com.quickin.app.R.string.listing_title_required)
+    ListingTitlePolicy.Problem.LETTERS ->
+        stringResource(com.quickin.app.R.string.listing_title_letters)
+    ListingTitlePolicy.Problem.TOO_SHORT ->
+        stringResource(com.quickin.app.R.string.listing_title_too_short, ListingTitlePolicy.MIN_LETTERS)
+    ListingTitlePolicy.Problem.TOO_LONG ->
+        stringResource(com.quickin.app.R.string.listing_title_too_long, ListingTitlePolicy.MAX_LENGTH)
+}
+
 @Composable
 internal fun StepBasics(
     title: String, onTitle: (String) -> Unit,
     propertyType: String, onPropertyType: (String) -> Unit,
     description: String, onDescription: (String) -> Unit,
     aiWriter: AiWriterUiState = AiWriterUiState(),
-    onGenerate: () -> Unit = {}
+    onGenerate: () -> Unit = {},
+    /** What is wrong with the title, decided by the caller via [ListingTitlePolicy]. */
+    titleProblem: ListingTitlePolicy.Problem? = null
 ) {
-    HostField(title, onTitle, "Title")
+    // All three carry a mark, and every mark is honest: [canAdvance] gates this
+    // step on the title AND on a description of [MIN_DESCRIPTION_LETTERS], and
+    // the API's `checkListingCompleteness` refuses a listing with no property
+    // type. Only the title used to be spoken for — the hint literally read
+    // "Title is required" while the description silently held Next grey, which
+    // is the same rule-enforced-but-never-stated bug the web already fixed.
+    HostField(
+        title, onTitle,
+        stringResource(com.quickin.app.R.string.add_title),
+        required = true
+    )
+    // Said here, under the offending text, rather than three steps later in the API's reply.
+    // REQUIRED is deliberately excluded: an empty field has nothing to correct yet, and the
+    // step's blocker note above Next already asks for a title.
+    if (titleProblem != null && titleProblem != ListingTitlePolicy.Problem.REQUIRED) {
+        Text(
+            listingTitleProblemMessage(titleProblem),
+            color = ErrorRed,
+            fontSize = 13.sp,
+            lineHeight = 18.sp
+        )
+    }
     PropertyTypeDropdown(selected = propertyType, onSelected = onPropertyType)
-    HostField(description, onDescription, stringResource(com.quickin.app.R.string.add_description), singleLine = false)
+    HostField(
+        description, onDescription,
+        stringResource(com.quickin.app.R.string.add_description),
+        singleLine = false,
+        required = true
+    )
 
+    // An asterisk says a field is required; it cannot say that nineteen letters
+    // still are not a description. Naming the floor is what keeps a host from
+    // staring at a Next they have no way to un-grey.
     Text(
-        stringResource(com.quickin.app.R.string.add_basics_hint),
+        stringResource(com.quickin.app.R.string.add_basics_hint, MIN_DESCRIPTION_LETTERS),
         color = Muted,
         fontSize = 13.sp
     )
@@ -1990,7 +2581,12 @@ private fun PropertyTypeDropdown(selected: String, onSelected: (String) -> Unit)
             value = selected,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Property type") },
+            label = {
+                RequiredLabel(
+                    stringResource(com.quickin.app.R.string.add_property_type),
+                    required = true
+                )
+            },
             trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null, tint = Burgundy) },
             shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -2025,15 +2621,22 @@ private fun PropertyTypeDropdown(selected: String, onSelected: (String) -> Unit)
 @Composable
 internal fun StepLocation(
     region: String?, onRegion: (String) -> Unit,
+    /** The host's resort / compound answer, and the catalog to choose from. Optional by design —
+     *  "not in a resort" is a real answer, and an empty catalog still leaves "Other". */
+    resort: ResortChoice.Selection = ResortChoice.Selection.NONE,
+    onResort: (ResortChoice.Selection) -> Unit = {},
+    resorts: List<ResortOption> = emptyList(),
+    resortsLoading: Boolean = false,
     location: String, onLocation: (String) -> Unit,
     country: String, onCountry: (String) -> Unit,
     picked: LatLng?, onPick: (LatLng) -> Unit
 ) {
-    // Region chips — the host picks the area first, then the precise pin below. Required.
+    // Region chips — the host picks the area first, then the precise pin below. Required, and
+    // now marked as such: the chips carry no field label, so the heading is what wears the mark.
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Filled.Place, null, tint = Burgundy, modifier = Modifier.height(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text("Choose an area", fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 14.sp)
+        RequiredSectionLabel("Choose an area", fontSize = 14.sp)
     }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2048,9 +2651,46 @@ internal fun StepLocation(
             )
         }
     }
-    if (region == null) {
-        Text("Pick the area your place is in (required).", color = Muted, fontSize = 13.sp)
+    // No "(required)" line under the chips any more: the heading above them carries the mark and
+    // the note above Next says the same sentence, so a host who had skipped the area was reading
+    // one rule stated three times on one screen.
+    Spacer(Modifier.height(4.dp))
+
+    // The compound, directly under the area it belongs to. The web listing form has asked this
+    // since the catalog shipped and both apps never did, so every listing created on a phone
+    // reached the database with no resort at all — invisible to the resort filters, and findable
+    // only by whatever the host happened to write on the address line.
+    //
+    // The options are narrowed to the chosen area, because picking a resort also SETS the region
+    // server-side and the two must not be able to disagree. Not marked required: a standalone flat
+    // is not in a compound, and the only answer ever refused is "Other" with no name.
+    ResortDropdown(
+        selection = resort,
+        onSelection = onResort,
+        resorts = resorts,
+        loading = resortsLoading
+    )
+    if (resort.isOther) {
+        HostField(
+            resort.name.orEmpty(),
+            { onResort(ResortChoice.Selection.other(it)) },
+            "Type the resort or compound name"
+        )
+        // Said under the box the offending text is in — but not while it is still empty, which the
+        // blocker note above Next already asks for.
+        ResortChoice.check(resort.name)
+            ?.takeIf { it != ResortChoice.Problem.REQUIRED }
+            ?.let { Text(resortNameProblemMessage(it), color = ErrorRed, fontSize = 13.sp) }
     }
+    Text(
+        if (resort.isOther) {
+            "We'll show what you type to guests, and our team will add it to the list."
+        } else {
+            "Pick the compound your place is in. Choosing one also sets the area."
+        },
+        color = Muted,
+        fontSize = 13.sp
+    )
     Spacer(Modifier.height(4.dp))
 
     LocationPicker(
@@ -2081,6 +2721,117 @@ internal fun StepLocation(
             Text(problem.message, color = Burgundy, fontSize = 13.sp)
         }
     }
+}
+
+/**
+ * The resort / compound picker: "not in one", the catalog for the chosen area, and the free-text
+ * escape hatch. The same three-part shape as the web `<select>`.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResortDropdown(
+    selection: ResortChoice.Selection,
+    onSelection: (ResortChoice.Selection) -> Unit,
+    resorts: List<ResortOption>,
+    loading: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+    // A catalog id whose row isn't in the list — an area switched under a chosen resort — reads as
+    // the neutral wording rather than leaving the field blank.
+    val label = when {
+        selection.isOther -> RESORT_OTHER_LABEL
+        selection.id != null -> resorts.firstOrNull { it.id == selection.id }?.name ?: "Selected resort"
+        else -> RESORT_NONE_LABEL
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = label,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Resort / compound") },
+            trailingIcon = {
+                if (loading) {
+                    CircularProgressIndicator(
+                        color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Icon(Icons.Filled.ArrowDropDown, null, tint = Burgundy)
+                }
+            },
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Burgundy,
+                unfocusedBorderColor = Tan,
+                focusedLabelColor = Burgundy,
+                cursorColor = Burgundy,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            ),
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(RESORT_NONE_LABEL, color = Ink) },
+                onClick = {
+                    onSelection(ResortChoice.Selection.NONE)
+                    expanded = false
+                }
+            )
+            resorts.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.name, color = Ink) },
+                    onClick = {
+                        onSelection(ResortChoice.Selection.catalog(option.id))
+                        expanded = false
+                    }
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(RESORT_OTHER_LABEL, color = Ink) },
+                onClick = {
+                    // Keeps whatever was already typed, so re-opening the menu doesn't erase it.
+                    onSelection(ResortChoice.Selection.other(selection.name.orEmpty()))
+                    expanded = false
+                }
+            )
+        }
+    }
+}
+
+internal const val RESORT_NONE_LABEL = "Not in a resort or compound"
+internal const val RESORT_OTHER_LABEL = "Other — not listed"
+
+/** What is wrong with the resort answer, or null when nothing is. Only "Other" is ever refused. */
+internal fun resortNameProblem(selection: ResortChoice.Selection): ResortChoice.Problem? =
+    if (selection.isOther) ResortChoice.check(selection.name) else null
+
+/** The localized sentence for a refused resort name — the same split as
+ *  [listingTitleProblemMessage]: the rule decides, the UI words it. */
+@Composable
+internal fun resortNameProblemMessage(problem: ResortChoice.Problem): String = when (problem) {
+    ResortChoice.Problem.REQUIRED ->
+        stringResource(com.quickin.app.R.string.listing_resort_name_required)
+    ResortChoice.Problem.LETTERS ->
+        stringResource(com.quickin.app.R.string.listing_resort_name_letters)
+    ResortChoice.Problem.TOO_SHORT ->
+        stringResource(com.quickin.app.R.string.listing_resort_name_too_short, ResortChoice.MIN_NAME_LETTERS)
+}
+
+/** What the review step shows for the resort: the catalog name, the host's own text, or null when
+ *  the place isn't in one (the row is then skipped rather than showing an em dash). */
+internal fun resortDisplayName(
+    selection: ResortChoice.Selection,
+    resorts: List<ResortOption>
+): String? = when {
+    selection.isOther -> ResortChoice.normalizeName(selection.name)
+    selection.id != null -> resorts.firstOrNull { it.id == selection.id }?.name
+    else -> null
 }
 
 /** A single-select area pill (Step 2): filled Burgundy when selected, outlined Tan otherwise. */
@@ -2191,12 +2942,19 @@ internal fun StepDetails(
     weeklyDiscount: String, onWeeklyDiscount: (String) -> Unit,
     monthlyDiscount: String, onMonthlyDiscount: (String) -> Unit,
     weekendPrice: String, onWeekendPrice: (String) -> Unit,
+    weekendDays: Set<Int>, onToggleWeekendDay: (Int) -> Unit,
     monthlyPrices: Map<String, String>, onMonthlyPrice: (month: String, value: String) -> Unit,
     photos: List<String>, encodingPhotos: Boolean,
     onAddPhotos: () -> Unit, onRemovePhoto: (Int) -> Unit,
     selectedAmenities: List<String>, onToggleAmenity: (String) -> Unit,
     cancellationPolicy: String, onCancellationPolicy: (String) -> Unit,
     ownershipDoc: String?, processingDoc: Boolean, onPickDoc: () -> Unit,
+    /**
+     * String resource naming why the last picked document was refused (too large, not a shape we
+     * store), or null. Shown under the button — a refused pick used to leave the field reading
+     * "Not added" with nothing said.
+     */
+    docProblem: Int? = null,
     /**
      * Reorders the photo at [from] to [to]. Null (the add-listing wizard) hides the reorder
      * controls — a brand-new listing's photos are already in pick order.
@@ -2212,33 +2970,63 @@ internal fun StepDetails(
     /** Drives the "guests will see EGP X" hints. Null until the rate loads. */
     commission: Commission? = null
 ) {
-    // +/- steppers for the counts. Each shows the current value as a Text between the
-    // buttons; minimums keep the values sensible (guests >= 1, the rest >= 0).
+    // +/- steppers for the counts. Each shows the current value as a Text between the buttons.
+    // All four floor at 1: bedrooms, beds and bathrooms used to floor at 0, so "0 bedrooms ·
+    // 0 beds · 0 baths" was a publishable listing — see [ListingCapacityPolicy].
+    //
+    // The four are marked as one group, the way iOS marks them: the floor applies to all of
+    // them together, and four asterisks down a column of steppers reads as decoration rather
+    // than as a rule. A stepper is never empty, so the mark matters most in the editor, where
+    // a listing saved before the floor existed opens holding a 0 and cannot be saved back.
+    RequiredSectionLabel("Capacity")
     CounterStepper(
         label = "Max guests",
         value = maxGuests,
-        min = 1,
+        min = ListingCapacityPolicy.MINIMUM,
+        max = ListingCapacityPolicy.MAX_GUESTS_CEILING,
         onChange = onMaxGuests
     )
     CounterStepper(
         label = "Bedrooms",
         value = bedrooms,
-        min = 0,
+        min = ListingCapacityPolicy.MINIMUM,
+        max = ListingCapacityPolicy.BEDROOMS_CEILING,
         onChange = onBedrooms
     )
     CounterStepper(
         label = "Beds",
         value = beds,
-        min = 0,
+        min = ListingCapacityPolicy.MINIMUM,
+        max = ListingCapacityPolicy.BEDS_CEILING,
         onChange = onBeds
     )
     CounterStepper(
         label = "Bathrooms",
         value = bathrooms,
-        min = 0,
+        min = ListingCapacityPolicy.MINIMUM,
+        max = ListingCapacityPolicy.BATHROOMS_CEILING,
         onChange = onBathrooms
     )
-    HostField(price, { onPrice(it.filterNumeric(decimal = true)) }, "Price / night (EGP)", keyboardType = KeyboardType.Number)
+    // Only reachable from the listing editor, where a row created before this rule can arrive
+    // holding a 0: the stepper clamps new taps but cannot raise a value it was handed. Say what
+    // has to change rather than leaving Save greyed out with no reason.
+    if (!ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms)) {
+        Text(
+            stringResource(com.quickin.app.R.string.listing_capacity_floor, ListingCapacityPolicy.MINIMUM),
+            color = Burgundy,
+            fontSize = 13.sp
+        )
+    }
+    // The one field on this step the wizard has always refused to advance past, and until now
+    // the only thing saying so was a stray sentence at the very bottom of the step — five
+    // controls below the field it was about. The mark says it on the field itself.
+    HostField(
+        price,
+        { onPrice(it.filterNumeric(decimal = true)) },
+        "Price / night (EGP)",
+        keyboardType = KeyboardType.Number,
+        required = true
+    )
     GuestPriceHint(price, commission)
 
     // Length-of-stay discounts — reward longer bookings (% off applied server-side to the total).
@@ -2274,12 +3062,14 @@ internal fun StepDetails(
     SeasonalPricingFields(
         weekendPrice = weekendPrice,
         onWeekendPrice = onWeekendPrice,
+        weekendDays = weekendDays,
+        onToggleWeekendDay = onToggleWeekendDay,
         monthlyPrices = monthlyPrices,
         onMonthlyPrice = onMonthlyPrice
     )
     GuestPriceHint(weekendPrice, commission)
 
-    // Listing photos — a device multi-photo picker (the first photo is the cover). Optional.
+    // Listing photos — a device multi-photo picker (the first photo is the cover). Required.
     ListingPhotoPicker(
         photos = photos,
         encoding = encodingPhotos,
@@ -2337,8 +3127,18 @@ internal fun StepDetails(
         processing = processingDoc,
         onClick = onPickDoc
     )
-
-    Text("Price per night is required.", color = Muted, fontSize = 13.sp)
+    if (ownershipDoc != null && OwnershipDocRules.isPdfDataUrl(ownershipDoc)) {
+        // A PDF has no thumbnail to show without a renderer, so the line just names the format —
+        // the host already knows which file they picked, and it is only ever read in /ops.
+        Text(
+            stringResource(com.quickin.app.R.string.approval_doc_pdf_attached),
+            color = Muted,
+            fontSize = 13.sp
+        )
+    }
+    if (docProblem != null) {
+        Text(stringResource(docProblem), color = ErrorRed, fontSize = 13.sp)
+    }
 }
 
 /**
@@ -2346,8 +3146,9 @@ internal fun StepDetails(
  * "Add photos" outlined button (disabled at the [MAX_LISTING_PHOTOS] cap) plus a horizontal row of
  * staged thumbnails, each with a remove (×) chip; the first photo carries a small "Cover" badge.
  * Mirrors the review dialog's photo picker ([ReviewPhotoThumbnail] renders the `data:` URL
- * thumbnails, which Coil can't fetch directly). Photos are optional, so nothing here gates
- * advancing the wizard.
+ * thumbnails, which Coil can't fetch directly). At least one photo is required — both the
+ * wizard's step 3 and the editor's Save block on an empty set — so the heading carries the mark;
+ * this doc used to say the opposite, from back when a listing could go live with no photos.
  *
  * Passing [onMove] / [onSetCover] (the editor does; the wizard doesn't) adds a per-photo control
  * row: move earlier / make cover / move later. The arrows are auto-mirrored, so "earlier" still
@@ -2367,15 +3168,9 @@ private fun ListingPhotoPicker(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        RequiredSectionLabel("Photos", modifier = Modifier.padding(top = 4.dp))
         Text(
-            "Photos",
-            fontWeight = FontWeight.SemiBold,
-            color = Ink,
-            fontSize = 15.sp,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        Text(
-            "Add up to $MAX_LISTING_PHOTOS photos. The first one is your cover photo.",
+            "Add at least one photo, up to $MAX_LISTING_PHOTOS. The first one is your cover photo.",
             color = Muted,
             fontSize = 13.sp
         )
@@ -2607,10 +3402,15 @@ fun CancellationPolicyPicker(
 /**
  * A labelled +/- stepper for an integer count (guests / bedrooms / beds / baths).
  *
- * The canonical value lives in the parent as a [String]; this composable parses it, applies
- * [min] as a floor, renders the current number as a [Text] between the − and + buttons, and
- * lifts every change back via [onChange]. Empty / non-numeric input is treated as [min] so the
- * control always shows (and sends) a real number.
+ * The canonical value lives in the parent as a [String]; this composable parses it, renders the
+ * current number as a [Text] between the − and + buttons, and lifts every change back via
+ * [onChange]. Empty / non-numeric input is shown as [min] so the control always displays a real
+ * number.
+ *
+ * [min] is a floor on what the buttons can PRODUCE, not on what they display: a listing saved
+ * before the capacity floor existed can arrive holding a 0, and coercing that up for display
+ * would show a 1 the host never chose while the state — and the save — still carried the 0.
+ * A below-floor value is shown as it is, with − disabled, so + is the only way out of it.
  */
 @Composable
 private fun CounterStepper(
@@ -2620,7 +3420,7 @@ private fun CounterStepper(
     onChange: (String) -> Unit,
     max: Int = 50
 ) {
-    val current = (value.toIntOrNull() ?: min).coerceIn(min, max)
+    val current = (value.trim().toIntOrNull() ?: min).coerceAtMost(max)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
@@ -2703,7 +3503,11 @@ private fun AmenityChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun StepReview(
-    title: String, propertyType: String, region: String?, location: String, country: String,
+    title: String, propertyType: String, region: String?,
+    /** The resort / compound as it will be stored — the catalog name or the host's own text. Null
+     *  when the place isn't in one, and the row is then skipped rather than showing an em dash. */
+    resort: String? = null,
+    location: String, country: String,
     price: String, maxGuests: String, bedrooms: String, beds: String,
     bathrooms: String, amenities: List<String>, picked: LatLng?,
     cancellationPolicy: String, ownershipDocAttached: Boolean,
@@ -2716,6 +3520,7 @@ private fun StepReview(
             ReviewRow("Title", title.ifBlank { "—" })
             ReviewRow("Type", propertyType)
             ReviewRow("Area", region ?: "—")
+            if (!resort.isNullOrBlank()) ReviewRow("Resort / compound", resort)
             ReviewRow(
                 "Location",
                 listOf(location, country).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "—" }
@@ -2774,6 +3579,82 @@ private fun ReviewRow(label: String, value: String) {
     }
 }
 
+/**
+ * The burgundy `*` every gating field carries, on its own so a section header, a chip group and a
+ * text field can all wear the same mark.
+ *
+ * The mark is the whole answer to "nothing said this was required": a rule the
+ * wizard enforces at Next and states nowhere is a rule the host meets as a dead
+ * button. It is read out as the word "required" rather than as an asterisk —
+ * `clearAndSetSemantics` used to drop the glyph from the accessibility tree
+ * altogether, which spared TalkBack the noise but left a screen-reader host
+ * with no way at all to learn the field was mandatory. Mirrors `Req()` in the
+ * web's new-listing form and `FieldLabel(required:)` in the iOS wizard.
+ */
+@Composable
+private fun RequiredMark() {
+    val spoken = stringResource(com.quickin.app.R.string.field_required)
+    Text(
+        " *",
+        color = Burgundy,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = spoken }
+    )
+}
+
+/** A text-field label plus [RequiredMark] when the step gates on the field. */
+@Composable
+private fun RequiredLabel(label: String, required: Boolean) {
+    if (!required) {
+        Text(label)
+        return
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label)
+        RequiredMark()
+    }
+}
+
+/**
+ * A section heading over a control that is not a text field — the area chips, the map, the
+ * capacity steppers, the photo picker — carrying the same mark those fields' labels do.
+ *
+ * These were the gates with nothing to hang an asterisk on, so they went unmarked while the
+ * wizard blocked Next on every one of them.
+ */
+@Composable
+private fun RequiredSectionLabel(
+    text: String,
+    required: Boolean = true,
+    fontSize: androidx.compose.ui.unit.TextUnit = 15.sp,
+    modifier: Modifier = Modifier
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        Text(text, fontWeight = FontWeight.SemiBold, color = Ink, fontSize = fontSize)
+        if (required) RequiredMark()
+    }
+}
+
+/**
+ * The one line that says what the marks mean, at the top of every step that has fields.
+ *
+ * An asterisk only reads as "required" to someone who already knows the convention; naming it
+ * once is the other half of the fix, and is what the web form does above its first field.
+ */
+@Composable
+internal fun RequiredFieldsLegend() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("*", color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            stringResource(com.quickin.app.R.string.listing_required_legend),
+            color = Muted,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp
+        )
+    }
+}
+
 @Composable
 private fun HostField(
     value: String,
@@ -2781,12 +3662,14 @@ private fun HostField(
     label: String,
     singleLine: Boolean = true,
     keyboardType: KeyboardType = KeyboardType.Text,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Draws the burgundy asterisk. Set it on every field a step gates on. */
+    required: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { RequiredLabel(label, required) },
         singleLine = singleLine,
         minLines = if (singleLine) 1 else 3,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
@@ -2928,7 +3811,7 @@ private fun LocationPicker(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Place, null, tint = Burgundy, modifier = Modifier.height(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Pin the exact location", fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 14.sp)
+            RequiredSectionLabel("Pin the exact location", fontSize = 14.sp)
         }
         Spacer(Modifier.height(8.dp))
 
@@ -2985,8 +3868,11 @@ private fun LocationPicker(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Editable, human-readable location text (also filled by search).
-        HostField(location, onLocation, "Location (e.g. Malibu, California)")
+        // Editable, human-readable location text (also filled by search). Marked required —
+        // both wizards gate on it reaching [MIN_LOCATION_LETTERS], and the search field above
+        // it (which is genuinely optional) is the one place a host could reasonably assume the
+        // opposite.
+        HostField(location, onLocation, "Location (e.g. Malibu, California)", required = true)
         Spacer(Modifier.height(8.dp))
 
         Surface(
@@ -3019,8 +3905,9 @@ private fun LocationPicker(
                 fontSize = 13.sp
             )
         } else {
+            // How to place the pin, not that it is needed — the heading's mark says that.
             Text(
-                "Search above or tap the map to drop a pin (required to continue).",
+                "Search above or tap the map to drop a pin.",
                 color = Muted,
                 fontSize = 13.sp
             )

@@ -293,6 +293,10 @@
     <string name="pay_confirmed_title">Booking confirmed &amp; paid</string>
     <string name="pay_reference">Reference</string>
     <string name="pay_now">Pay now</string>
+    <string name="pay_try_again">Try again</string>
+    <string name="payment_rejected_title">Your transfer wasn\'t accepted</string>
+    <string name="payment_rejected_no_reason">We couldn\'t confirm your transfer from the screenshot you sent.</string>
+    <string name="payment_rejected_subtitle">Fix the above and send a new screenshot — your reservation is still held.</string>
     <!-- Payment method selector + signed fee lines -->
     <string name="pay_method_card">Card (+5%%)</string>
     <string name="pay_method_bank">Bank transfer (−5%%)</string>
@@ -502,10 +506,21 @@
     <string name="approval_approved">Approved</string>
     <string name="approval_rejected">Rejected</string>
     <string name="approval_ownership_doc">Ownership document</string>
-    <string name="approval_ownership_intro">Upload proof you own or manage this place (e.g. a title deed, utility bill, or contract). We\'ll review it before your listing goes live.</string>
+    <string name="approval_ownership_intro">Upload proof you own or manage this place (e.g. a title deed, utility bill, or contract). A photo or a PDF both work. We\'ll review it before your listing goes live.</string>
     <string name="approval_upload_doc">Upload document</string>
     <string name="approval_doc_attached">Document attached</string>
+    <!-- Shown under the picker when the attached document is a PDF: there is no thumbnail to
+         render, so the format is named instead. -->
+    <string name="approval_doc_pdf_attached">PDF attached</string>
+    <!-- A real document, but past the ~2.5 MB the API stores inline. -->
+    <string name="approval_doc_too_large">That file is too large (max 2.5 MB)</string>
+    <!-- Anything we can\'t store or an operator can\'t open (a Word file, an SVG, an unreadable pick). -->
+    <string name="approval_doc_unsupported">Couldn\'t process that document. Upload a photo or a PDF.</string>
     <string name="approval_reupload">Re-upload ownership document</string>
+    <!-- Same action as approval_reupload, for a listing that has never had a document
+         attached: the ownership doc is optional at create time, so "re-upload" would be a
+         lie for most listings sitting in the moderation queue. -->
+    <string name="approval_upload_ownership_doc">Upload ownership document</string>
     <string name="approval_submitted_for_review">Submitted for review</string>
     <string name="approval_pending_note">Your listing is under review and isn\'t public yet. We\'ll let you know once it\'s approved.</string>
     <string name="approval_rejected_note">Your ownership document was declined. Re-upload it to submit your listing for review again.</string>
@@ -527,13 +542,31 @@
     <string name="listing_edit_saved">Changes saved</string>
     <string name="listing_edit_saved_note">Your listing is under review and hidden from guests until an admin approves it.</string>
     <string name="listing_edit_no_changes">You haven\'t changed anything yet.</string>
-    <string name="listing_edit_needs_title">Add a title.</string>
-    <string name="listing_edit_needs_description">Add a description.</string>
-    <string name="listing_edit_needs_location">Add the location.</string>
     <string name="listing_edit_needs_region">Pick the area your place is in.</string>
     <string name="listing_edit_needs_pin">Place your listing on the map.</string>
     <string name="listing_edit_needs_photo">A listing needs at least one photo.</string>
     <string name="listing_edit_needs_price">Price per night must be more than 0.</string>
+
+    <!-- Listing title — the rule listing-title-policy.ts holds on the website and in the API,
+         said in the host's own language. %1$d is the floor the policy carries, so the sentence
+         and the constant can never drift apart. -->
+    <string name="listing_title_required">Please give your listing a title.</string>
+    <string name="listing_title_letters">Please describe your listing in words \u2014 a title can\'t be only symbols or numbers.</string>
+    <string name="listing_title_too_short">Please give your listing a real title \u2014 it needs at least %1$d letters.</string>
+    <string name="listing_title_too_long">Listing title must be at most %1$d characters.</string>
+
+    <!-- Why a wizard step will not advance. One sentence per gate, shown above the Next button —
+         a greyed button that will not say what it is waiting for is the other half of the
+         delayed-validation bug. Shared by the add wizard and the editor. -->
+    <string name="listing_blocked_title">Please fix the title above.</string>
+    <string name="listing_blocked_description">Add a description of at least %1$d letters.</string>
+    <string name="listing_blocked_location">Add the address \u2014 at least %1$d letters.</string>
+    <!-- The host location step's resort / compound answer (ResortChoice). -->
+    <string name="listing_resort_name_required">Type the resort or compound name, or pick a different option.</string>
+    <string name="listing_resort_name_letters">Write the resort or compound name in words \u2014 it can\'t be only symbols or numbers.</string>
+    <string name="listing_resort_name_too_short">Give the full resort or compound name \u2014 it needs at least %1$d letters.</string>
+    <string name="listing_blocked_capacity">Guests, bedrooms, beds and bathrooms must each be at least %1$d.</string>
+    <string name="listing_capacity_floor">Bedrooms, beds, bathrooms and guests must each be at least %1$d — a place with nowhere to sleep can’t be booked.</string>
     <string name="listing_edit_discard_title">Discard your changes?</string>
     <string name="listing_edit_discard_body">Your edits to this listing haven\'t been saved.</string>
     <string name="listing_edit_discard_confirm">Discard</string>
@@ -583,7 +616,6 @@
     <string name="growth_discount_off">Weekly −%1$d%% · Monthly −%2$d%%</string>
     <string name="growth_discount_weekly_off">Weekly −%1$d%%</string>
     <string name="growth_discount_monthly_off">Monthly −%1$d%%</string>
-    <string name="growth_discounts_saved">Discounts updated.</string>
     <string name="growth_save">Save</string>
 
     <!-- Growth: promo codes (checkout) -->
@@ -646,8 +678,13 @@
     <!-- AI listing-description writer (Add-listing flow) -->
     <string name="ai_write_with_ai">Write with AI</string>
     <string name="ai_writing">Writing…</string>
+    <string name="add_title">Title</string>
+    <string name="add_property_type">Property type</string>
     <string name="add_description">Description</string>
-    <string name="add_basics_hint">Give your place a catchy title and pick the property type, then describe what makes it special. Title is required.</string>
+    <string name="add_basics_hint">A title, a property type and a description of at least %1$d letters are all required to continue.</string>
+    <!-- The asterisk beside every label the host cannot skip, and the line that explains it. -->
+    <string name="listing_required_legend">Fields marked with an asterisk are required.</string>
+    <string name="field_required">required</string>
     <!-- Natural-language search (Explore) -->
     <string name="ai_search">Ask AI</string>
     <string name="ai_search_placeholder">Try: beach villa for 6 with a pool under 4000</string>
@@ -676,7 +713,16 @@
     <!-- Seasonal / variable pricing (host-set weekend + per-month nightly rates) -->
     <string name="pricing_seasonal">Seasonal pricing (optional)</string>
     <string name="pricing_seasonal_intro">Charge more on weekends or in peak months. Leave blank to use your nightly price.</string>
-    <string name="pricing_weekend_price">Weekend price (Fri–Sat)</string>
+    <string name="pricing_weekend_price">Weekend price</string>
+    <string name="pricing_weekend_days">Which days count as your weekend</string>
+    <string name="pricing_weekend_days_whole_week">A weekend can\'t be the whole week — set your nightly price instead.</string>
+    <string name="pricing_weekend_days_none_chosen">Pick at least one weekend day, or clear the weekend price.</string>
+    <!-- A seasonal rate the host typed has to be money. Blank still means "no rate": these
+         only fire on a value that was entered, which used to be coerced away silently. -->
+    <string name="pricing_weekend_price_not_positive">Weekend price must be more than zero. Leave it empty if you don\'t charge a different rate on weekends.</string>
+    <string name="pricing_weekend_price_not_a_number">Weekend price must be a number. Leave it empty if you don\'t charge a different rate on weekends.</string>
+    <string name="pricing_month_price_not_positive">The %1$s rate must be more than zero. Leave it empty to use your normal price per night.</string>
+    <string name="pricing_month_price_not_a_number">The %1$s rate must be a number. Leave it empty to use your normal price per night.</string>
     <string name="pricing_monthly_prices">Per-month nightly prices</string>
     <string name="pricing_monthly_prices_intro">Set a nightly rate for specific months. Empty months use your base price.</string>
     <string name="pricing_seasonal_note">Weekend &amp; seasonal rates apply</string>
@@ -686,7 +732,6 @@
     <string name="growth_discount_off_label">Length-of-stay discount (−%1$d%%)</string>
     <string name="pricing_save">Save pricing</string>
     <string name="pricing_saved">Pricing updated.</string>
-    <string name="pricing_edit_seasonal">Seasonal pricing</string>
     <string name="pricing_quote_error">Couldn\'t fetch an exact quote. Showing an estimate.</string>
     <string name="pricing_month_1">January</string>
     <string name="pricing_month_2">February</string>
@@ -708,6 +753,7 @@
     <string name="messages_empty_body">When you message a host or a guest, the conversation shows up here.</string>
     <string name="messages_no_messages">No messages yet</string>
     <string name="messages_host_badge">Host</string>
+    <string name="messages_reservation_badge">Reservation</string>
     <string name="messages_sign_in_title">Sign in to see your messages</string>
     <string name="messages_sign_in_body">Your conversations with hosts and guests live here.</string>
     <string name="profile_messages">Messages</string>
@@ -760,6 +806,7 @@
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
     <string name="reservation_qr_pending">Your QR code will appear here once your reservation is confirmed.</string>
+    <string name="reservation_qr_unpaid">Your host has approved this stay. Your QR code appears here once your payment is confirmed.</string>
     <string name="reservation_qr_none">There\'s no stay pass for this reservation.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
@@ -892,6 +939,17 @@
     <!-- Host pricing calendar (per-day rates + day-level availability) -->
     <string name="calendar_title">Pricing calendar</string>
     <string name="calendar_open">Pricing calendar</string>
+    <!-- "See it as a guest" — a host's own listing seen the way a guest meets it, which is the
+         only way to check a listing that is still waiting on approval. The button lives on each
+         host listing card; the banner + blocked-action note live on the detail screen it opens. -->
+    <string name="preview_guest_action">See it as a guest</string>
+    <string name="preview_guest_title">Guest preview</string>
+    <string name="preview_guest_body">Your listing exactly as a guest meets it. Nothing here books, saves or sends a message.</string>
+    <string name="preview_guest_under_review">It\'s still under review, so guests can\'t find it yet.</string>
+    <string name="preview_guest_hidden">It isn\'t visible to guests right now.</string>
+    <string name="preview_guest_blocked_title">Preview only</string>
+    <string name="preview_guest_blocked_body">This is your own listing, so guest actions are switched off here.</string>
+    <string name="preview_guest_failed">Couldn\'t open the preview. Please try again.</string>
     <string name="calendar_subtitle">Your base rate is %1$s %2$s a night. Select days to charge something different — weekends, holidays, a quiet week.</string>
     <string name="calendar_select_month">Select month</string>
     <string name="calendar_nights_selected">%1$d nights selected</string>
@@ -914,4 +972,42 @@
     <string name="calendar_error_save_failed">Couldn’t save those dates. Please try again.</string>
     <string name="calendar_error_sign_in">Sign in as a host to manage your calendar.</string>
     <string name="calendar_nightly_prices">Nightly prices</string>
+    <!-- Earnings breakdown: a cancelled booking the host still kept money on. The row is shown
+         because a cancellation refunds a SHARE of the stay, not always all of it. -->
+    <string name="money_cancelled">Cancelled</string>
+    <string name="money_cancelled_no_refund">No refund was issued — you keep this booking in full.</string>
+    <string name="money_cancelled_partial">%1$d%% was refunded to the guest — you keep the rest.</string>
+    <!-- Host reservations status filter. "Declined" is the host turning a request down;
+         "Cancelled" is the guest calling the stay off. Separate columns, separate chips. -->
+    <string name="host_booking_filter_pending">Awaiting your reply</string>
+    <string name="host_booking_filter_awaiting_payment">Awaiting payment</string>
+    <string name="host_booking_filter_confirmed">Confirmed</string>
+    <string name="host_booking_filter_rejected">Declined</string>
+    <string name="host_booking_filter_cancelled">Cancelled</string>
+    <string name="host_booking_filter_refunded">Refunded</string>
+    <string name="host_booking_filter_partially_refunded">Partially refunded</string>
+    <string name="host_booking_filter_empty_all">No reservation requests</string>
+    <string name="host_booking_filter_empty_filtered">No reservations in this status.</string>
+
+    <!-- Guest reservation status filter (Trips). "All" reuses filter_all. -->
+    <string name="reservation_filter_pending">Pending approval</string>
+    <string name="reservation_filter_awaiting_payment">Awaiting payment</string>
+    <string name="reservation_filter_under_review">Payment under review</string>
+    <string name="reservation_filter_confirmed">Confirmed</string>
+    <string name="reservation_filter_completed">Completed</string>
+    <string name="reservation_filter_rejected">Declined</string>
+    <string name="reservation_filter_cancelled">Cancelled</string>
+    <string name="reservation_filter_refunded">Refunded</string>
+    <string name="reservation_filter_partially_refunded">Partially refunded</string>
+    <string name="reservation_filter_show_all">Show all reservations</string>
+    <string name="reservation_filter_empty_all">You haven\'t booked any stays yet.</string>
+    <string name="reservation_filter_empty_pending">Nothing waiting on a host right now.</string>
+    <string name="reservation_filter_empty_awaiting_payment">No reservations are waiting on a payment.</string>
+    <string name="reservation_filter_empty_under_review">No transfers are being checked right now.</string>
+    <string name="reservation_filter_empty_confirmed">No confirmed stays yet.</string>
+    <string name="reservation_filter_empty_completed">No past stays yet.</string>
+    <string name="reservation_filter_empty_rejected">No declined requests.</string>
+    <string name="reservation_filter_empty_cancelled">No cancelled reservations.</string>
+    <string name="reservation_filter_empty_refunded">No refunded reservations.</string>
+    <string name="reservation_filter_empty_partially_refunded">No partially refunded reservations.</string>
 </resources>

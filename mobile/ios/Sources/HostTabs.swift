@@ -106,7 +106,7 @@ struct HostListingsTab: View {
 
     /// The host's listings narrowed to the selected status chip.
     private var filteredListings: [Listing] {
-        viewModel.listings.filter { listingFilter.matches($0.approval) }
+        viewModel.listings.filter { listingFilter.matches($0.hostVisibility) }
     }
 
     private var addListingCard: some View {

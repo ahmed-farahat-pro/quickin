@@ -179,11 +179,20 @@ private struct MoneyStatTile: View {
 }
 
 /// One row in the host's per-booking earnings breakdown: title + dates on the
-/// leading side, the net payout + a paid-out/upcoming badge trailing.
+/// leading side, the net payout + a paid-out/upcoming/cancelled badge trailing.
+///
+/// Cancelled bookings appear here when the host kept money on them, with a line
+/// saying how much the guest was refunded. The backend used to omit them, which
+/// deducted the host's full earnings even on a no-refund cancellation where the
+/// guest got nothing back.
 private struct EarningRow: View {
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var currency: CurrencyManager
     let item: HostEarningItem
+
+    /// Material's error red. Local rather than a Theme token because it is the
+    /// only red on this screen, and it matches the Android earnings badge exactly.
+    private static let cancelledTint = Color(hex: 0xB3261E)
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -198,6 +207,15 @@ private struct EarningRow: View {
                         .foregroundStyle(Color.qkMuted)
                 }
                 statusBadge
+                if item.cancelled {
+                    Text(item.keptInFull
+                         ? loc.t("money.cancelledNoRefund")
+                         : loc.t("money.cancelledPartial")
+                            .replacingOccurrences(of: "%@", with: "\(item.refundPercent)"))
+                        .font(.caption2)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
@@ -216,10 +234,16 @@ private struct EarningRow: View {
     }
 
     private var statusBadge: some View {
+        // A cancelled row IS settled, but badging it "Paid out" beside a stay that
+        // never happened is exactly what makes correct earnings look wrong.
+        let cancelled = item.cancelled
         let paidOut = item.isPaidOut
-        let label = paidOut ? loc.t("money.statusPaidOut") : loc.t("money.statusUpcoming")
-        let icon = paidOut ? "checkmark.seal.fill" : "clock.fill"
-        let tint = paidOut ? Color.qkSuccess : Color.qkGoldDeep
+        let label = cancelled ? loc.t("money.statusCancelled")
+                  : paidOut ? loc.t("money.statusPaidOut") : loc.t("money.statusUpcoming")
+        let icon = cancelled ? "xmark.seal.fill"
+                 : paidOut ? "checkmark.seal.fill" : "clock.fill"
+        let tint = cancelled ? Self.cancelledTint
+                 : paidOut ? Color.qkSuccess : Color.qkGoldDeep
         return HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .bold))

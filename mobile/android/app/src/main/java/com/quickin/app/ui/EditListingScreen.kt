@@ -59,9 +59,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.model.LatLng
 import com.quickin.app.Commission
+import com.quickin.app.ResortCatalogUiState
+import com.quickin.app.ResortChoice
+import com.quickin.app.ResortOption
+import com.quickin.app.WeekendSchedule
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.AvatarImage
 import com.quickin.app.EditListingUiState
+import com.quickin.app.ListingCapacityPolicy
+import com.quickin.app.ListingPricingRules
+import com.quickin.app.MonthPriceException
+import com.quickin.app.ListingTitlePolicy
+import com.quickin.app.OwnershipDocLoader
 import com.quickin.app.Listing
 import com.quickin.app.R
 import com.quickin.app.ui.theme.Burgundy
@@ -103,10 +112,13 @@ fun EditListingScreen(
     onBack: () -> Unit,
     onSave: (
         title: String, description: String, location: String, country: String, region: String?,
+        /** The resort / compound, or null when the host never touched it — the two resort columns
+         *  are then left exactly as they are. */
+        resort: ResortChoice.Selection?,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String, bathrooms: String,
         propertyType: String, amenities: List<String>, lat: Double?, lng: Double?,
         cancellationPolicy: String, weeklyDiscount: String, monthlyDiscount: String,
-        weekendPrice: String, monthlyPrices: Map<String, Double>,
+        weekendPrice: String, weekendDays: List<Int>, monthlyPrices: Map<String, Double>,
         images: List<String>?, ownershipDoc: String?
     ) -> Unit,
     // ---- AI listing-description writer (shared with the add-listing wizard) ----
@@ -117,6 +129,9 @@ fun EditListingScreen(
     ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     onConsumeGeneratedDescription: () -> Unit = {},
     onClearAiWriter: () -> Unit = {},
+    /** The resort / compound catalog for the listing's area, and the request to load it. */
+    resortCatalog: ResortCatalogUiState = ResortCatalogUiState(),
+    onLoadResorts: (String?) -> Unit = {},
     /** Platform commission — drives the "guests will see EGP X" hint under the price fields. */
     commission: Commission? = null
 ) {
@@ -138,6 +153,33 @@ fun EditListingScreen(
     // Null when the listing's stored area isn't one of the curated REGIONS — the host has to pick
     // one before saving, exactly as the wizard requires on create.
     var region by remember(listing.id) { mutableStateOf(seed.region) }
+    var resort by remember(listing.id) { mutableStateOf(seed.resort) }
+
+    // The catalog belongs to the area, so it follows whatever area is currently picked. The
+    // listing's OWN resort is kept in the list even when the area's catalog no longer carries it —
+    // an admin may have deactivated it since — so the picker can still name what the listing says.
+    LaunchedEffect(region) { onLoadResorts(region) }
+    val resortsForArea = remember(resortCatalog, region, listing.id) {
+        val loaded = if (resortCatalog.region == region) resortCatalog.resorts else emptyList()
+        val own = seed.resort.id
+        if (own != null && loaded.none { it.id == own }) {
+            loaded + ResortOption(id = own, name = listing.resort.orEmpty(), region = region.orEmpty())
+        } else {
+            loaded
+        }
+    }
+    // A resort belonging to a DIFFERENT area is dropped when the host switches areas: the server
+    // derives the region back from the resort, and would overrule the chip they just tapped.
+    LaunchedEffect(resortsForArea, resortCatalog) {
+        val chosen = resort.id
+        // Only once THIS area's catalog has actually come back: a catalog still holding the
+        // previous area's rows says nothing about the resort the host picked, and dropping their
+        // answer while the next fetch is in flight would look like the field clearing itself.
+        val loadedForThisArea = resortCatalog.loaded && resortCatalog.region == region
+        if (chosen != null && loadedForThisArea && resortsForArea.none { it.id == chosen }) {
+            resort = ResortChoice.Selection.NONE
+        }
+    }
     var propertyType by remember(listing.id) { mutableStateOf(seed.propertyType) }
     var price by remember(listing.id) { mutableStateOf(seed.price) }
     var maxGuests by remember(listing.id) { mutableStateOf(seed.maxGuests) }
@@ -147,6 +189,9 @@ fun EditListingScreen(
     var weeklyDiscount by remember(listing.id) { mutableStateOf(seed.weeklyDiscount) }
     var monthlyDiscount by remember(listing.id) { mutableStateOf(seed.monthlyDiscount) }
     var weekendPrice by remember(listing.id) { mutableStateOf(seed.weekendPrice) }
+    val weekendDays = remember(listing.id) {
+        mutableStateListOf<Int>().apply { addAll(seed.weekendDays) }
+    }
     val monthlyPrices = remember(listing.id) {
         mutableStateMapOf<String, String>().apply { putAll(seed.monthlyPrices) }
     }
@@ -184,18 +229,21 @@ fun EditListingScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // Same downscale-to-data-URL pipeline the wizard uses (maxDim 1200 for the document so it
-    // stays legible, MAX_REVIEW_DIM for photos).
+    // Same pipeline the wizard uses: a photo is downscaled to a data URL, a PDF is kept as it was
+    // issued, and a file we can't store comes back named so the host is told which one to swap.
+    var docProblem by remember { mutableStateOf<Int?>(null) }
     val docPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
+        ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             processingDoc = true
+            docProblem = null
             scope.launch {
-                val dataUrl = withContext(Dispatchers.IO) {
-                    AvatarImage.loadDownscaledJpegDataUrl(context, uri, maxDim = 1200)
+                val result = withContext(Dispatchers.IO) { OwnershipDocLoader.load(context, uri) }
+                when (result) {
+                    is OwnershipDocLoader.Result.Loaded -> ownershipDoc = result.dataUrl
+                    is OwnershipDocLoader.Result.Failed -> docProblem = result.problem.messageRes
                 }
-                if (dataUrl != null) ownershipDoc = dataUrl
                 processingDoc = false
             }
         }
@@ -232,6 +280,7 @@ fun EditListingScreen(
         location != seed.location ||
         country != seed.country ||
         region != seed.region ||
+        resort != seed.resort ||
         propertyType != seed.propertyType ||
         price != seed.price ||
         maxGuests != seed.maxGuests ||
@@ -241,6 +290,7 @@ fun EditListingScreen(
         weeklyDiscount != seed.weeklyDiscount ||
         monthlyDiscount != seed.monthlyDiscount ||
         weekendPrice != seed.weekendPrice ||
+        WeekendSchedule.normalize(weekendDays) != seed.weekendDays ||
         monthlyPricesAsDoubles(monthlyPrices) != monthlyPricesAsDoubles(seed.monthlyPrices) ||
         selectedAmenities.toSet() != seed.amenities.toSet() ||
         cancellationPolicy != seed.cancellationPolicy ||
@@ -257,16 +307,41 @@ fun EditListingScreen(
     // The pin and the photo set are on this list for the same reason — a host can
     // clear either from this screen, and the backend refuses a listing left
     // without one. See listing-completeness-policy.ts in the web/backend repos.
+    val titleProblem = ListingTitlePolicy.check(title)
+    // Read before the `when` so their messages can be built with `stringResource`, which is itself
+    // @Composable and so cannot be called from inside a `let`.
+    val weekendRateProblem = ListingPricingRules.problemWith(weekendPrice)
+    val badMonthRate: MonthPriceException? = ListingPricingRules.failingMonth(monthlyPrices)
     val blocker: String? = when {
-        title.isBlank() -> stringResource(R.string.listing_edit_needs_title)
+        // `isBlank()` was the whole title rule here, so an edit could rename a live listing to
+        // `@@@@@` and only learn otherwise from the API's 400 after Save. Same policy the create
+        // wizard and the PATCH run. A typed-but-invalid title is called out under the field
+        // itself, so this line only points back up at it.
+        titleProblem == ListingTitlePolicy.Problem.REQUIRED -> listingTitleProblemMessage(titleProblem)
+        titleProblem != null -> stringResource(R.string.listing_blocked_title)
         letterCount(description) < MIN_DESCRIPTION_LETTERS ->
-            stringResource(R.string.listing_edit_needs_description)
+            stringResource(R.string.listing_blocked_description, MIN_DESCRIPTION_LETTERS)
         letterCount(location) < MIN_LOCATION_LETTERS ->
-            stringResource(R.string.listing_edit_needs_location)
+            stringResource(R.string.listing_blocked_location, MIN_LOCATION_LETTERS)
         region == null -> stringResource(R.string.listing_edit_needs_region)
+        // Optional, like everywhere else — only "Other" with no usable name is refused. See
+        // ResortChoice.
+        resortNameProblem(resort) != null -> resortNameProblemMessage(resortNameProblem(resort)!!)
         pickedLatLng == null -> stringResource(R.string.listing_edit_needs_pin)
         photosChanged && photos.isEmpty() -> stringResource(R.string.listing_edit_needs_photo)
         (price.toDoubleOrNull() ?: 0.0) <= 0.0 -> stringResource(R.string.listing_edit_needs_price)
+        // The seasonal rates are optional, and optional means a BLANK field — a typed `0` used to
+        // be parsed away to null on the way out and saved as no rate at all, so the host pressed
+        // Save, was told the listing went back for review, and their weekend price was gone.
+        weekendRateProblem != null -> stringResource(weekendPriceProblemRes(weekendRateProblem))
+        badMonthRate != null -> stringResource(
+            monthPriceProblemRes(badMonthRate.problem), stringResource(monthNameRes(badMonthRate.month))
+        )
+        // Bedrooms, beds, bathrooms and guests, all floored at 1. A listing published before
+        // that floor existed opens here holding a 0, and the PATCH refuses it now — see
+        // ListingCapacityPolicy — so this says it where the host can fix it.
+        !ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms) ->
+            stringResource(R.string.listing_capacity_floor, ListingCapacityPolicy.MINIMUM)
         !hasChanges -> stringResource(R.string.listing_edit_no_changes)
         else -> null
     }
@@ -311,11 +386,16 @@ fun EditListingScreen(
 
                 Text(listing.title, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
 
+                // Same marks, same legend as the add wizard — this screen renders the wizard's
+                // own step composables, and gates Save on the same fields they mark.
+                RequiredFieldsLegend()
+
                 SectionHeader(stringResource(R.string.listing_edit_section_basics))
                 StepBasics(
                     title = title, onTitle = { title = it },
                     propertyType = propertyType, onPropertyType = { propertyType = it },
                     description = description, onDescription = { description = it },
+                    titleProblem = titleProblem,
                     aiWriter = aiWriter,
                     onGenerate = {
                         onGenerateDescription(
@@ -334,6 +414,9 @@ fun EditListingScreen(
                 SectionHeader(stringResource(R.string.listing_edit_section_location))
                 StepLocation(
                     region = region, onRegion = { region = it },
+                    resort = resort, onResort = { resort = it },
+                    resorts = resortsForArea,
+                    resortsLoading = resortCatalog.isLoading,
                     location = location, onLocation = { location = it },
                     country = country, onCountry = { country = it },
                     picked = pickedLatLng, onPick = { pickedLatLng = it }
@@ -349,6 +432,13 @@ fun EditListingScreen(
                     weeklyDiscount = weeklyDiscount, onWeeklyDiscount = { weeklyDiscount = it },
                     monthlyDiscount = monthlyDiscount, onMonthlyDiscount = { monthlyDiscount = it },
                     weekendPrice = weekendPrice, onWeekendPrice = { weekendPrice = it },
+                    weekendDays = weekendDays.toSet(),
+                    onToggleWeekendDay = { day ->
+                        // The seventh day is refused, not silently added: a weekend that covers
+                        // the whole week leaves the nightly price applying to no night at all.
+                        if (weekendDays.contains(day)) weekendDays.remove(day)
+                        else if (weekendDays.size < WeekendSchedule.DAYS_IN_WEEK - 1) weekendDays.add(day)
+                    },
                     monthlyPrices = monthlyPrices,
                     onMonthlyPrice = { month, value ->
                         if (value.isBlank()) monthlyPrices.remove(key = month) else monthlyPrices[month] = value
@@ -371,11 +461,8 @@ fun EditListingScreen(
                     onCancellationPolicy = { cancellationPolicy = it },
                     ownershipDoc = ownershipDoc,
                     processingDoc = processingDoc,
-                    onPickDoc = {
-                        docPicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
+                    onPickDoc = { docPicker.launch(OwnershipDocLoader.PICKER_MIME_TYPES) },
+                    docProblem = docProblem,
                     onMovePhoto = { from, to -> movePhoto(from, to) },
                     onSetCoverPhoto = { index -> movePhoto(index, 0) },
                     amenityOptions = amenityOptions
@@ -473,11 +560,15 @@ fun EditListingScreen(
                         showSaveConfirm = false
                         onSave(
                             title, description, location, country, region,
+                            // null when the host never touched the resort — the columns are then
+                            // left alone rather than being rewritten with what we happen to hold.
+                            resort.takeIf { it != seed.resort },
                             price, maxGuests, bedrooms, beds, bathrooms,
                             propertyType, selectedAmenities.toList(),
                             pickedLatLng?.latitude, pickedLatLng?.longitude,
                             cancellationPolicy, weeklyDiscount, monthlyDiscount,
-                            weekendPrice, monthlyPricesAsDoubles(monthlyPrices),
+                            weekendPrice, WeekendSchedule.normalize(weekendDays),
+                            monthlyPricesAsDoubles(monthlyPrices),
                             // null leaves the listing's photos untouched.
                             if (photosChanged) photos.toList() else null,
                             ownershipDoc
@@ -649,6 +740,8 @@ private data class ListingFormSeed(
     val location: String,
     val country: String,
     val region: String?,
+    /** What the listing arrived with: a catalog id, the host's own text, or neither. */
+    val resort: ResortChoice.Selection,
     val propertyType: String,
     val price: String,
     val maxGuests: String,
@@ -658,6 +751,8 @@ private data class ListingFormSeed(
     val weeklyDiscount: String,
     val monthlyDiscount: String,
     val weekendPrice: String,
+    /** Which weekdays the weekend rate is charged on (`0`=Sun … `6`=Sat). */
+    val weekendDays: List<Int>,
     val monthlyPrices: Map<String, String>,
     val photos: List<String>,
     val amenities: List<String>,
@@ -672,17 +767,33 @@ private data class ListingFormSeed(
             country = listing.country?.takeUnless { it.isBlank() } ?: "Egypt",
             // Only a curated area can be sent back; anything else means "the host must pick one".
             region = REGIONS.firstOrNull { it.equals(listing.region, ignoreCase = true) },
+            // Only the free-text name seeds the box: when the listing points at a catalog row,
+            // `resort` is that row's name, and re-sending it as text would ask the server to
+            // re-resolve a question it has already answered.
+            resort = when {
+                !listing.resortId.isNullOrBlank() -> ResortChoice.Selection.catalog(listing.resortId)
+                !ResortChoice.normalizeName(listing.resort).isNullOrBlank() ->
+                    ResortChoice.Selection.other(ResortChoice.normalizeName(listing.resort)!!)
+                else -> ResortChoice.Selection.NONE
+            },
             // Keep an unrecognised type as-is (the backend knows more types than the picker offers)
             // rather than silently re-typing the property on the next save.
             propertyType = listing.propertyType?.takeUnless { it.isBlank() } ?: PROPERTY_TYPES.first(),
             price = listing.pricePerNight.toInt().toString(),
-            maxGuests = (listing.maxGuests ?: 1).toString(),
-            bedrooms = (listing.bedrooms ?: 0).toString(),
-            beds = (listing.beds ?: 0).toString(),
-            bathrooms = (listing.bathrooms ?: 0).toString(),
+            // A NULL column is a question nobody asked, so it opens at the floor rather than
+            // at 0 — see ListingCapacityPolicy.seed. A stored 0 is shown as it is, and the
+            // blocker above holds Save until the host raises it.
+            maxGuests = ListingCapacityPolicy.seed(listing.maxGuests),
+            bedrooms = ListingCapacityPolicy.seed(listing.bedrooms),
+            beds = ListingCapacityPolicy.seed(listing.beds),
+            bathrooms = ListingCapacityPolicy.seed(listing.bathrooms),
             weeklyDiscount = listing.weeklyDiscount.toString(),
             monthlyDiscount = listing.monthlyDiscount.toString(),
             weekendPrice = listing.weekendPrice?.takeIf { it > 0.0 }?.toInt()?.toString().orEmpty(),
+            // `effective` and not the raw value: a listing whose host never chose is priced on the
+            // default weekend, so that is what the pills must open on — and it is also what the
+            // dirty check compares against, so merely opening the editor is not an edit.
+            weekendDays = WeekendSchedule.effective(listing.weekendDays),
             monthlyPrices = listing.monthlyPrices
                 .filterValues { it > 0.0 }
                 .mapValues { (_, v) -> v.toInt().toString() },

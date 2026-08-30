@@ -54,6 +54,14 @@ struct HostService {
         /// Curated area the host picked (e.g. "North Coast"). Sent as `region`;
         /// omitted from the body when nil.
         var region: String?
+        /// The catalog resort the host picked, sent as `resort_id`. Wins over
+        /// `resortName` server-side, and its region overrides `region` — that is
+        /// the point of a resort belonging to one.
+        var resortId: String? = nil
+        /// A resort / compound name the host TYPED because the catalog has not
+        /// got theirs, sent as `resort_name`. The listing publishes with the text
+        /// as written and the name queues for an admin to approve or merge.
+        var resortName: String? = nil
         var pricePerNight: Double
         var bedrooms: Int
         var beds: Int
@@ -76,15 +84,20 @@ struct HostService {
         /// Length-of-stay monthly discount (% off ≥28-night stays). Sent as
         /// `monthly_discount`; `0` means no discount.
         var monthlyDiscount: Int = 0
-        /// Optional seasonal weekend nightly rate (EGP, Fri + Sat). Sent as
-        /// `weekend_price`; `nil` (or ≤0) means no weekend rate.
+        /// Optional seasonal weekend nightly rate (EGP). Sent as `weekend_price`;
+        /// `nil` (or ≤0) means no weekend rate.
         var weekendPrice: Double? = nil
+        /// Which weekdays that rate is charged on (`0`=Sun … `6`=Sat), sent as
+        /// `weekend_days`. Pre-filled with the default weekend, so a host who
+        /// never opens the picker gets exactly what the screen promised them.
+        var weekendDays: [Int] = WeekendSchedule.defaultDays
         /// Optional per-month seasonal nightly rates (EGP), keyed by month
         /// "1".."12". Sent as `monthly_prices`; only the months the host filled
         /// in are included (empty when none set).
         var monthlyPrices: [String: Double] = [:]
         /// The ownership / proof-of-ownership document the host uploaded, as a
-        /// `data:image/*;base64,…` URL produced by `QKAvatarImage.makeDataURL`.
+        /// `data:image/*;base64,…` or `data:application/pdf;base64,…` URL — see
+        /// `OwnershipDocPicker`, which encodes both and enforces the size cap.
         /// Sent as `ownership_doc`; omitted from the body when empty. New
         /// listings are created pending + unpublished until an admin approves.
         var ownershipDoc: String = ""
@@ -128,10 +141,15 @@ struct HostService {
         // columns). Always sent (0 = no discount) so the backend records them.
         body["weekly_discount"] = max(0, min(listing.weeklyDiscount, 100))
         body["monthly_discount"] = max(0, min(listing.monthlyDiscount, 100))
-        // Seasonal pricing (backend `weekend_price` / `monthly_prices`). The
-        // weekend rate is sent as a number when set, else null (no override).
+        // Seasonal pricing (backend `weekend_price` / `weekend_days` /
+        // `monthly_prices`). The weekend rate is sent as a number when set, else
+        // null (no override), and its days travel WITH it — the pair is judged as
+        // one thing at the door (see WeekendSchedule.resolve). Sending the rate
+        // alone is what used to leave every listing on Fri + Sat no matter what
+        // the host picked.
         if let weekend = listing.weekendPrice, weekend > 0 {
             body["weekend_price"] = weekend
+            body["weekend_days"] = WeekendSchedule.normalize(listing.weekendDays)
         } else {
             body["weekend_price"] = NSNull()
         }
@@ -147,6 +165,17 @@ struct HostService {
         if let region = listing.region?.trimmingCharacters(in: .whitespacesAndNewlines),
            !region.isEmpty {
             body["region"] = region
+        }
+        // The resort / compound: EITHER the catalog id or the host's own text,
+        // never both — a CHECK constraint enforces the pair server-side, and
+        // `resolveResortSelection` reads an id as the final answer. Neither is
+        // sent when the host said "not in a resort", which is a real answer and
+        // not a missing one.
+        if let resortId = listing.resortId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !resortId.isEmpty {
+            body["resort_id"] = resortId
+        } else if let typed = ResortChoice.normalizeName(listing.resortName) {
+            body["resort_name"] = typed
         }
         // Include the pin-picker coordinate when the host placed one. Sent as
         // top-level `lat`/`lng` so the listing shows up on the Explore map.
@@ -174,8 +203,8 @@ struct HostService {
 
     /// (Re)submit a listing's ownership / proof document, re-queuing it for
     /// review (`PATCH /api/local/listings/:id` (Bearer) `{ ownership_doc }`).
-    /// `doc` is a `data:image/*;base64,…` URL produced by
-    /// `QKAvatarImage.makeDataURL`. The backend flips `approval_status` back to
+    /// `doc` is a `data:image/*;base64,…` or `data:application/pdf;base64,…`
+    /// URL produced by `OwnershipDocPicker`. The backend flips `approval_status` back to
     /// "pending" and echoes the updated listing.
     @discardableResult
     func resubmitOwnershipDoc(listingID: String, doc: String) async throws -> Listing {
@@ -205,6 +234,15 @@ struct HostService {
         /// Curated area (e.g. "North Coast"). Sent as `region`; omitted when nil
         /// so a listing without one keeps its current value.
         var region: String?
+        /// The catalog resort, sent as `resort_id`. See `NewListing.resortId`.
+        var resortId: String? = nil
+        /// A host-typed resort / compound name, sent as `resort_name`.
+        var resortName: String? = nil
+        /// Whether the host TOUCHED the resort field at all. Only then are the
+        /// two columns written: a PATCH that omits them leaves what is stored
+        /// alone, and sending "no resort" for an untouched field is how an edit
+        /// to the price would quietly clear a compound the host chose on the web.
+        var resortEdited: Bool = false
         var pricePerNight: Double
         var bedrooms: Int
         var beds: Int
@@ -216,8 +254,12 @@ struct HostService {
         var weeklyDiscount: Int = 0
         var monthlyDiscount: Int = 0
         var weekendPrice: Double? = nil
+        /// Which weekdays the weekend rate is charged on (`0`=Sun … `6`=Sat).
+        /// Seeded from what is stored, so opening the editor and saving without
+        /// touching the picker cannot move a host's weekend.
+        var weekendDays: [Int] = WeekendSchedule.defaultDays
         var monthlyPrices: [String: Double] = [:]
-        /// A **newly attached** ownership document (`data:image/*;base64,…`).
+        /// A **newly attached** ownership document (an image or a PDF data URL).
         /// Empty means "leave the one already on file alone" — the field is then
         /// omitted from the body entirely.
         var ownershipDoc: String = ""
@@ -233,17 +275,30 @@ struct HostService {
             location = listing.location ?? ""
             country = listing.country ?? ""
             region = listing.region
+            resortId = listing.resortId
+            // Only the free-text name seeds the box: when the listing points at a
+            // catalog row, `resort` is that row's name and re-sending it as text
+            // would ask the server to re-resolve a question already answered.
+            resortName = listing.resortId == nil ? listing.resort : nil
             pricePerNight = listing.pricePerNight
-            bedrooms = listing.bedrooms ?? 0
-            beds = listing.beds ?? 0
-            bathrooms = listing.bathrooms ?? 0
-            maxGuests = listing.maxGuests ?? 1
+            // A NULL column is a question nobody asked, so it opens at the
+            // floor rather than at 0 — see ListingCapacityPolicy.seed. A stored
+            // 0 (a listing published before the floor existed) is shown as it
+            // is, and the editor blocks Save until the host raises it.
+            bedrooms = ListingCapacityPolicy.seed(listing.bedrooms)
+            beds = ListingCapacityPolicy.seed(listing.beds)
+            bathrooms = ListingCapacityPolicy.seed(listing.bathrooms)
+            maxGuests = ListingCapacityPolicy.seed(listing.maxGuests)
             propertyType = listing.propertyType ?? ""
             amenities = listing.amenities
             cancellationPolicy = listing.policy
             weeklyDiscount = listing.weeklyDiscount
             monthlyDiscount = listing.monthlyDiscount
             weekendPrice = listing.weekendPrice
+            // `effective` and not the raw value: a listing whose host never chose
+            // is priced on the default weekend, so that is what the picker must
+            // open on — otherwise it would show nothing lit under a live rate.
+            weekendDays = WeekendSchedule.effective(listing.weekendDays)
             monthlyPrices = listing.monthlyPrices
             lat = listing.lat
             lng = listing.lng
@@ -273,10 +328,12 @@ struct HostService {
             "weekly_discount": max(0, min(edit.weeklyDiscount, 100)),
             "monthly_discount": max(0, min(edit.monthlyDiscount, 100)),
         ]
-        // Weekend rate: a number when set, else null (clears any override) —
+        // Weekend rate + the days it applies to: a number when set, else null
+        // (clears any override, and the server clears the days with it) — the
         // same encoding the create request uses.
         if let weekend = edit.weekendPrice, weekend > 0 {
             body["weekend_price"] = weekend
+            body["weekend_days"] = WeekendSchedule.normalize(edit.weekendDays)
         } else {
             body["weekend_price"] = NSNull()
         }
@@ -284,6 +341,23 @@ struct HostService {
         if let region = edit.region?.trimmingCharacters(in: .whitespacesAndNewlines),
            !region.isEmpty {
             body["region"] = region
+        }
+        // Sent only when the host actually changed the resort — see
+        // `resortEdited`. An explicit null on both is how "take this listing out
+        // of its compound" is said; the server clears the pair and keeps the
+        // region the host chose.
+        if edit.resortEdited {
+            if let resortId = edit.resortId?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !resortId.isEmpty {
+                body["resort_id"] = resortId
+                body["resort_name"] = NSNull()
+            } else if let typed = ResortChoice.normalizeName(edit.resortName) {
+                body["resort_id"] = NSNull()
+                body["resort_name"] = typed
+            } else {
+                body["resort_id"] = NSNull()
+                body["resort_name"] = NSNull()
+            }
         }
         // Only sent when the host attached a NEW document; otherwise the listing
         // keeps the one already on file.
@@ -379,6 +453,86 @@ struct HostService {
             throw HostError.forbidden(Self.decodeError(data) ?? "You can only update your own listings.")
         }
         throw HostError.message(Self.decodeError(data) ?? "\(failure) (\(http.statusCode)).")
+    }
+
+    // MARK: - Listing visibility (host only)
+
+    /// What the backend did when the host flipped a listing's visibility.
+    /// `PATCH /api/local/host/listings/:id/visibility` echoes this.
+    struct ListingVisibilityResult: Decodable {
+        let isPublished: Bool
+        /// Booking requests the deactivate declined. Zero on a reactivate.
+        let declinedRequests: Int
+        /// On a reactivate that did NOT go live, who is still holding the
+        /// listing down: "verification" | "staff" | "rejected" | "under_review".
+        /// Nil when the listing really is visible again.
+        let blockedBy: String?
+        /// The server's own sentence for `blockedBy`, empty when unblocked. Not
+        /// shown to the host — the app localizes it — but kept so a state the
+        /// app has no string for can still say something true.
+        let blockedMessage: String?
+        /// The refreshed listing, so the row can update without a refetch.
+        let listing: Listing?
+
+        enum CodingKeys: String, CodingKey {
+            case isPublished = "is_published"
+            case declinedRequests = "declined_requests"
+            case blockedBy = "blocked_by"
+            case blockedMessage = "blocked_message"
+            case listing
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            isPublished = try c.decodeIfPresent(Bool.self, forKey: .isPublished) ?? false
+            declinedRequests = try c.decodeIfPresent(Int.self, forKey: .declinedRequests) ?? 0
+            blockedBy = try c.decodeIfPresent(String.self, forKey: .blockedBy)
+            blockedMessage = try c.decodeIfPresent(String.self, forKey: .blockedMessage)
+            listing = try c.decodeIfPresent(Listing.self, forKey: .listing)
+        }
+    }
+
+    /// The host takes their own listing off the market, or puts it back
+    /// (`PATCH /api/local/host/listings/:id/visibility`).
+    ///
+    /// This is QuickIn's "delete my listing", and it deletes nothing. Bookings,
+    /// reviews, messages and payment records all point at the listing id, so the
+    /// row must survive; instead `is_published` goes false — search drops the
+    /// listing, its public page 404s and no new booking can be made — while every
+    /// existing reservation stays exactly as it was.
+    ///
+    /// **Deactivating declines every booking request still waiting on this host**
+    /// (`declinedRequests` says how many). Warn first, with the count from the
+    /// listing's `pendingRequestCount`, before calling this.
+    ///
+    /// Reactivating clears only the host's own flag. When an account block, the
+    /// identity gate or the review queue still holds the listing, the result comes
+    /// back `isPublished == false` with `blockedBy` naming who — say that rather
+    /// than claiming the listing is live.
+    @discardableResult
+    func setListingPublished(listingID: String, isPublished: Bool) async throws -> ListingVisibilityResult {
+        guard let token else { throw HostError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/host/listings/\(Self.pathEscape(listingID))/visibility")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["is_published": isPublished])
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw HostError.message("Invalid response from the server.")
+        }
+        if (200...299).contains(http.statusCode) {
+            return try JSONDecoder().decode(ListingVisibilityResult.self, from: data)
+        }
+        if http.statusCode == 401 { throw HostError.notSignedIn }
+        if http.statusCode == 403 {
+            throw HostError.forbidden(Self.decodeError(data) ?? "You can only change your own listings.")
+        }
+        throw HostError.message(Self.decodeError(data) ?? "Couldn't update the listing (\(http.statusCode)).")
     }
 
     // MARK: - Become a host (application → admin review)

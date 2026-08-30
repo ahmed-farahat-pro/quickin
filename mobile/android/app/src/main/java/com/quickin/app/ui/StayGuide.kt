@@ -88,11 +88,14 @@ private const val GUIDE_PHOTO_MAX_DIM = 1200
  *  • **Guest** — read-only, grouped by kind, rendered next to the QR card.
  *  • **Host** — the same content plus an editor (add / edit / reorder / delete).
  *
- * Both are gated on [hasStayPass], the exact same gate as the QR itself: no pass (the request is
- * still pending, or it was rejected/cancelled) means no guide. A host on an unapproved booking gets
- * one line explaining that approving the request unlocks the editor; a guest gets nothing at all.
- * A guest whose host hasn't written anything also gets nothing — no empty state for content that
- * isn't theirs.
+ * The GUEST is gated on [hasStayPass], the exact same gate as the QR itself — the guide IS what the
+ * pass leads to (gate codes, Wi-Fi, directions), so it must not open before the payment does. The
+ * server agrees: `listStayGuide` returns an empty guide to a guest without a live pass.
+ *
+ * The HOST is gated on [canEdit] instead — approval, not payment — so they can write their check-in
+ * notes while the guest pays; a host on an unapproved booking gets one line explaining that
+ * approving the request unlocks the editor. A guest whose host hasn't written anything gets nothing
+ * at all — no empty state for content that isn't theirs.
  */
 @Composable
 fun StayGuideSection(
@@ -108,7 +111,10 @@ fun StayGuideSection(
     onMoveItem: (index: Int, up: Boolean) -> Unit,
     onDeleteItem: (itemId: String) -> Unit
 ) {
-    if (!hasStayPass) {
+    // A host sees the section as soon as they can edit it (approved), even while the stay is
+    // unpaid; a guest only once their pass is live.
+    val visible = if (isHost) canEdit || hasStayPass else hasStayPass
+    if (!visible) {
         if (isHost) StayGuideLockedCard()
         return
     }

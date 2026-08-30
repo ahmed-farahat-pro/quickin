@@ -246,6 +246,64 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
+     * Takes [serviceId] off the market, or puts it back
+     * (`PATCH /api/local/host/services/:id/visibility`).
+     *
+     * The services twin of `HostViewModel.setListingPublished`, and it deletes nothing:
+     * `service_requests` point at this row, so `is_published` carries the meaning instead.
+     *
+     * **Deactivating declines every request still waiting on this host.** The screen confirms
+     * with the count from [Service.pendingRequestCount] BEFORE calling this; here we only report
+     * how many actually went, and fold the server's echoed service back into the list so the card
+     * follows without a refetch.
+     */
+    fun setServicePublished(serviceId: String, isPublished: Boolean) {
+        if (_host.value.actingOn != null) return
+        val token = token() ?: return
+        _host.value = _host.value.copy(actingOn = serviceId, error = null, actionMessage = null)
+        viewModelScope.launch {
+            try {
+                val result = ServiceService.setServicePublished(token, serviceId, isPublished)
+                _host.value = _host.value.copy(
+                    actingOn = null,
+                    services = _host.value.services.map {
+                        if (it.id != serviceId) it
+                        // Prefer the echoed service; the local patch is the fallback for a
+                        // response that omitted it.
+                        else result.service ?: it.copy(
+                            isPublished = result.isPublished,
+                            unpublishedByHost = !isPublished,
+                            pendingRequestCount = if (isPublished) it.pendingRequestCount else 0
+                        )
+                    },
+                    // Requests the deactivate declined are now "rejected" — reload so the inbox
+                    // does not keep offering Accept on a service that is gone.
+                    requests = _host.value.requests,
+                    actionMessage = when {
+                        !isPublished && result.declinedRequests == 1 ->
+                            "Service deactivated. 1 request was declined."
+                        !isPublished && result.declinedRequests > 1 ->
+                            "Service deactivated. ${result.declinedRequests} requests were declined."
+                        !isPublished -> "Service deactivated."
+                        else -> "Service reactivated."
+                    }
+                )
+                // The declines changed request rows this view model also owns, so re-read them
+                // rather than guessing which ones the server touched.
+                if (!isPublished && result.declinedRequests > 0) loadHost()
+            } catch (e: Exception) {
+                _host.value = _host.value.copy(
+                    actingOn = null,
+                    error = humanError(
+                        e,
+                        if (isPublished) "Couldn't reactivate this service." else "Couldn't deactivate this service."
+                    )
+                )
+            }
+        }
+    }
+
+    /**
      * Confirms or rejects a pending subscription. [action] must be "confirm" or "reject"
      * (the PATCH body's `status`). Updates the row in place on success.
      */

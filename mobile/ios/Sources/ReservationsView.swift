@@ -42,6 +42,10 @@ struct ReservationsView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
     @StateObject private var viewModel = ReservationsViewModel()
+    /// The status chip in force. Deliberately NOT persisted: a filter that survives
+    /// backgrounding is one a guest reopens the app into having forgotten they set,
+    /// and an empty Trips tab that is empty because of a chip reads as lost bookings.
+    @State private var filter: ReservationFilter = .all
 
     var body: some View {
         Group {
@@ -108,13 +112,23 @@ struct ReservationsView: View {
                     } else if viewModel.bookings.isEmpty {
                         emptyState(title: loc.t("reservations.empty.title"), message: loc.t("reservations.empty.msg"), retry: false)
                     } else {
-                        ForEach(viewModel.bookings) { booking in
-                            NavigationLink {
-                                ReservationDetailView(booking: booking)
-                            } label: {
-                                ReservationCard(booking: booking)
+                        ReservationFilterBar(selection: $filter, bookings: viewModel.bookings)
+                        let visible = viewModel.bookings.filter { filter.matches($0.reservationBucket) }
+                        if visible.isEmpty {
+                            // The guest HAS reservations — this chip just holds none.
+                            // Saying "no trips yet" here would be a lie, so name the
+                            // chip and offer the only way out (nobody can conjure a
+                            // booking into a status).
+                            filteredEmptyState
+                        } else {
+                            ForEach(visible) { booking in
+                                NavigationLink {
+                                    ReservationDetailView(booking: booking)
+                                } label: {
+                                    ReservationCard(booking: booking)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -155,6 +169,33 @@ struct ReservationsView: View {
         .buttonStyle(.qkTap)
     }
 
+    /// Shown when the guest has reservations but none behind the chosen chip. Sized
+    /// far shorter than `emptyState` — the chip row is right above it and has to stay
+    /// on screen, or the way out of the empty filter scrolls off with the explanation.
+    private var filteredEmptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 34))
+                .foregroundStyle(Color.qkBurgundy.opacity(0.55))
+            Text(filter.emptyMessage)
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.qkMuted)
+                .padding(.horizontal, 24)
+            Button {
+                filter = .all
+            } label: {
+                Text(loc.t("reservations.filter.showAll"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.qkBurgundy)
+            }
+            .buttonStyle(.qkTap)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 44)
+        .qkCard()
+    }
+
     private func emptyState(title: String, message: String, retry: Bool) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "suitcase")
@@ -188,6 +229,161 @@ struct ReservationsView: View {
     }
 }
 
+// MARK: - The status filter
+
+extension Booking {
+    /// The chip this reservation is filed behind on the Trips list, or `nil` for a
+    /// status the app does not know (it still renders, under **All**).
+    ///
+    /// Lives here rather than in `ReservationFilter.swift` because that file has to
+    /// compile on its own for `Tests/run.sh`, and `Booking` drags in the rest of
+    /// `Models.swift` with it.
+    var reservationBucket: ReservationFilterRules.Bucket {
+        ReservationFilterRules.bucket(for: ReservationFilterRules.Snapshot(
+            status: status,
+            // `paymentStage` is Booking's own, decided by PaymentFlowRules — the fold
+            // never re-reads the payment columns itself.
+            paymentStage: paymentStage,
+            refundPercent: refundPercent,
+            // A separate question from the stage, which calls everything cancelled
+            // `.notPayable`. Without it, a booking cancelled before it was ever paid
+            // carried the policy's 100% and read as "Refunded".
+            wasPaid: PaymentFlowRules.everPaid(PaymentFlowRules.Snapshot(
+                status: status,
+                paymentState: paymentStatus,
+                proofStatus: paymentProofStatus,
+                paidAt: paidAt
+            ))
+        ))
+    }
+}
+
+extension ReservationFilterRules.Bucket {
+    /// The chip whose wording this bucket borrows. Every bucket has exactly one.
+    var filter: ReservationFilter {
+        switch self {
+        case .pending:           return .pending
+        case .awaitingPayment:   return .awaitingPayment
+        case .underReview:       return .underReview
+        case .confirmed:         return .confirmed
+        case .completed:         return .completed
+        case .rejected:          return .rejected
+        case .cancelled:         return .cancelled
+        case .refunded:          return .refunded
+        case .partiallyRefunded: return .partiallyRefunded
+        }
+    }
+
+    /// What the pill on the card itself says. Differs from the chip label only where
+    /// the chip names a GROUP and the badge describes ONE booking: "Pending" files a
+    /// row, but the row tells the guest what it is waiting for.
+    @MainActor
+    var badgeLabel: String {
+        switch self {
+        case .pending:   return L.t("reservation.waitingApproval")
+        case .confirmed: return L.t("reservation.paid")
+        default:         return filter.label
+        }
+    }
+}
+
+extension ReservationFilter {
+    /// Short chip label. The wording is shared with `badgeLabel` wherever the two can
+    /// say the same thing, so a chip and the cards under it never disagree.
+    @MainActor
+    var label: String {
+        switch self {
+        case .all:               return L.t("explore.region.all")
+        case .pending:           return L.t("status.pending")
+        case .awaitingPayment:   return L.t("reservations.filter.awaitingPayment")
+        case .underReview:       return L.t("reservations.filter.underReview")
+        case .confirmed:         return L.t("status.confirmed")
+        case .completed:         return L.t("status.completed")
+        case .cancelled:         return L.t("status.cancelled")
+        case .partiallyRefunded: return L.t("reservations.filter.partiallyRefunded")
+        case .refunded:          return L.t("cancel.refunded")
+        case .rejected:          return L.t("status.rejected")
+        }
+    }
+
+    /// Muted line shown when the guest has reservations but none behind this chip.
+    @MainActor
+    var emptyMessage: String {
+        switch self {
+        case .all:               return L.t("reservations.empty.msg")
+        case .pending:           return L.t("reservations.filter.empty.pending")
+        case .awaitingPayment:   return L.t("reservations.filter.empty.awaitingPayment")
+        case .underReview:       return L.t("reservations.filter.empty.underReview")
+        case .confirmed:         return L.t("reservations.filter.empty.confirmed")
+        case .completed:         return L.t("reservations.filter.empty.completed")
+        case .cancelled:         return L.t("reservations.filter.empty.cancelled")
+        case .partiallyRefunded: return L.t("reservations.filter.empty.partiallyRefunded")
+        case .refunded:          return L.t("reservations.filter.empty.refunded")
+        case .rejected:          return L.t("reservations.filter.empty.rejected")
+        }
+    }
+}
+
+/// Horizontal chip row that filters the guest's reservations by status. Built from
+/// the shared `QKChip`, so it matches the host dashboard's listing filter and the
+/// Explore region chips exactly. Observes `LocalizationManager` so the labels
+/// re-render on a language switch.
+struct ReservationFilterBar: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Binding var selection: ReservationFilter
+    /// The rows being filtered — used only to badge each chip with its count.
+    let bookings: [Booking]
+
+    /// Explicit init: the `private` environment object would otherwise make the
+    /// synthesized memberwise initializer private (unusable from other files).
+    init(selection: Binding<ReservationFilter>, bookings: [Booking]) {
+        _selection = selection
+        self.bookings = bookings
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // Chips a guest has nothing behind are dropped rather than shown at 0.
+                // The host's five chips are a fixed vocabulary they work through; these
+                // ten describe a story most guests only ever see part of, and eight
+                // empty chips to scroll past would bury the two that hold something.
+                // "All" and the selected chip always survive, so the row cannot go
+                // blank and the current filter cannot vanish from under the list.
+                ForEach(visibleFilters) { filter in
+                    QKChip(
+                        title: filter.label,
+                        count: count(for: filter),
+                        isSelected: selection == filter,
+                        action: { selection = filter }
+                    )
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .accessibilityLabel(loc.t("reservations.filter.a11y"))
+    }
+
+    private var counts: [ReservationFilterRules.Bucket: Int] {
+        ReservationFilterRules.counts(bookings.map(\.reservationBucket))
+    }
+
+    private var visibleFilters: [ReservationFilter] {
+        let tally = counts
+        return ReservationFilter.allCases.filter { filter in
+            guard let bucket = filter.bucket else { return true }  // .all
+            return filter == selection || (tally[bucket] ?? 0) > 0
+        }
+    }
+
+    /// Row count for one chip — `nil` on "All" so it renders bare, mirroring the host
+    /// filter and the Explore region chips.
+    private func count(for filter: ReservationFilter) -> Int? {
+        guard let bucket = filter.bucket else { return nil }
+        return counts[bucket] ?? 0
+    }
+}
+
 /// A single reservation card — photo hero with the status pill overlaid, a
 /// serif title and location over a legibility scrim, then a dates/total footer.
 struct ReservationCard: View {
@@ -206,7 +402,13 @@ struct ReservationCard: View {
                 // Status pill (top-leading).
                 VStack {
                     HStack {
-                        StatusBadge(status: booking.bookingStatus, paid: booking.isPaid)
+                        // `bucket` is what the chip row above filed this row under, so
+                        // the pill and the chip always read the same words.
+                        StatusBadge(
+                            status: booking.bookingStatus,
+                            paid: booking.isPaid,
+                            bucket: booking.reservationBucket
+                        )
                         Spacer()
                     }
                     Spacer()

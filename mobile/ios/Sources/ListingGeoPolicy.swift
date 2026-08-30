@@ -58,7 +58,7 @@ enum ListingGeoPolicy {
             case .outsideCountry:
                 return "This pin is outside \(scope) — guests will see your place there on the map. Move the pin, or change the country."
             case .outsideRegion:
-                return "This pin is outside \(scope) — guests browsing that area will see your place here. Move the pin, or change the region."
+                return "This pin is outside \(scope) — guests browsing that area will see your place here. Move the pin, or change the area."
             }
         }
     }

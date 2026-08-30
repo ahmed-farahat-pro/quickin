@@ -62,9 +62,11 @@ import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,6 +82,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -201,7 +204,22 @@ fun ListingDetailScreen(
     /** Files a report on this listing: (reason code, optional details). */
     onSubmitReport: (reason: String, details: String?) -> Unit = { _, _ -> },
     /** Resets the report state (sheet dismiss / after success / leaving the screen). */
-    onResetReport: () -> Unit = {}
+    onResetReport: () -> Unit = {},
+    /**
+     * Renders this screen as a **guest preview** for the listing's own host — the host
+     * dashboard's "See it as a guest".
+     *
+     * Two effects. A banner above the photo says what this is and, when the listing is not
+     * live, why a guest could not reach it. And every guest action (reserve, save, message,
+     * report) becomes inert: a preview that could file a booking request, open a conversation
+     * with yourself or report your own place is not a preview.
+     *
+     * The caller also passes `isOwnHost = false` here, so the guest reserve panel renders in
+     * place of the host-only editor / calendar / availability shortcuts — the whole point being
+     * to see the guest's side. [listing] must be the GUEST projection; see
+     * [com.quickin.app.GuestPreviewUiState].
+     */
+    previewAsGuest: Boolean = false
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     // The host's *other* stays — exclude the one we're viewing; the rail hides when empty.
@@ -210,6 +228,13 @@ fun ListingDetailScreen(
     }
     // True while the "Report this listing" bottom sheet is open.
     var showReportSheet by remember { mutableStateOf(false) }
+    // True while the "Preview only" note is up — a guest action tapped inside the preview.
+    var showPreviewNotice by remember { mutableStateOf(false) }
+
+    /** Runs [action], or swallows it and says why when this is a preview. */
+    fun guestAction(action: () -> Unit) {
+        if (previewAsGuest) showPreviewNotice = true else action()
+    }
 
     // A signed-out report attempt routes to sign-in (closing the sheet + resetting state first).
     androidx.compose.runtime.LaunchedEffect(reportState.needsSignIn) {
@@ -267,7 +292,7 @@ fun ListingDetailScreen(
                             tint = Burgundy
                         )
                     }
-                    IconButton(onClick = onToggleSaved) {
+                    IconButton(onClick = { guestAction(onToggleSaved) }) {
                         Icon(
                             Icons.Filled.Favorite,
                             contentDescription = stringResource(R.string.cd_save),
@@ -286,6 +311,13 @@ fun ListingDetailScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
+            // What this screen is, and — when the listing is not live — why a guest could not
+            // reach it today. Keyed on isPublished, which is false for every listing still in
+            // the review queue. Only the owner is ever standing here (the API 404s an
+            // unpublished listing to everyone else), so it needs no ownership check of its own.
+            if (previewAsGuest) {
+                item { GuestPreviewBanner(listing = listing) }
+            }
             // Ken Burns hero (a swipeable pager when the stay has several photos), sitting
             // under the title bar. Tapping a photo opens the full-screen lightbox.
             item { DetailHero(listing) }
@@ -357,7 +389,7 @@ fun ListingDetailScreen(
                     if ((!listing.hostName.isNullOrBlank() || !listing.hostId.isNullOrBlank()) && !isOwnHost) {
                         val messageHostName = listing.hostName?.takeUnless { it.isBlank() } ?: "Host"
                         OutlinedButton(
-                            onClick = { onMessageHost(listing.id, messageHostName) },
+                            onClick = { guestAction { onMessageHost(listing.id, messageHostName) } },
                             shape = RoundedCornerShape(16.dp),
                             border = BorderStroke(1.dp, Burgundy),
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -424,14 +456,16 @@ fun ListingDetailScreen(
                         onEditListing = onEditListing,
                         cancellationPolicy = effectivePolicy,
                         cancellationPolicyState = cancellationPolicyState,
-                        onSaveCancellationPolicy = onSaveCancellationPolicy
+                        onSaveCancellationPolicy = onSaveCancellationPolicy,
+                        previewAsGuest = previewAsGuest,
+                        onPreviewBlocked = { showPreviewNotice = true }
                     )
 
                     // Guest reviews for this stay (real, from GET /api/local/reviews?listing_id=).
                     ReviewsSection(listing = listing, state = reviewsState)
 
                     // "Report this listing" — opens the report bottom sheet (Trust & Safety).
-                    ReportListingRow(onClick = { showReportSheet = true })
+                    ReportListingRow(onClick = { guestAction { showReportSheet = true } })
                 }
             }
             // "More from this host" — a horizontal rail of the host's other stays. Full-bleed
@@ -463,6 +497,69 @@ fun ListingDetailScreen(
         // "Thanks for reporting" confirmation — shown once the report POST succeeds.
         if (reportState.submitted) {
             ReportThanksDialog(onDismiss = onResetReport)
+        }
+
+        // Every guest action in preview lands here instead of writing anything.
+        if (showPreviewNotice) {
+            AlertDialog(
+                onDismissRequest = { showPreviewNotice = false },
+                title = {
+                    Text(stringResource(R.string.preview_guest_blocked_title), fontWeight = FontWeight.Bold, color = Ink)
+                },
+                text = { Text(stringResource(R.string.preview_guest_blocked_body), color = Muted) },
+                confirmButton = {
+                    TextButton(onClick = { showPreviewNotice = false }) {
+                        Text(stringResource(R.string.action_done), color = Burgundy, fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                containerColor = CreamPage
+            )
+        }
+    }
+}
+
+/**
+ * The "Guest preview" banner above the photo, shown only when a host is looking at their own
+ * listing through "See it as a guest".
+ *
+ * The second line is the one that earns the banner: a listing still in the review queue, or one
+ * the host took down, renders here exactly as it would when live, and without being told a host
+ * would have no way to know guests cannot reach it. Mirrors the web listing page's
+ * `hiddenPreview` notice and the iOS `guestPreviewBanner`.
+ */
+@Composable
+private fun GuestPreviewBanner(listing: Listing) {
+    Surface(
+        color = Tan,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Visibility, contentDescription = null, tint = Burgundy, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.preview_guest_title),
+                    color = Burgundy,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+            Text(stringResource(R.string.preview_guest_body), color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+            if (!listing.isPublished) {
+                Text(
+                    stringResource(
+                        if (listing.isPendingApproval) R.string.preview_guest_under_review
+                        else R.string.preview_guest_hidden
+                    ),
+                    color = Ink,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
         }
     }
 }
@@ -750,7 +847,11 @@ private fun ReservePanel(
     onEditListing: () -> Unit = {},
     cancellationPolicy: String = "moderate",
     cancellationPolicyState: com.quickin.app.CancellationPolicyUiState = com.quickin.app.CancellationPolicyUiState(),
-    onSaveCancellationPolicy: (policy: String) -> Unit = {}
+    onSaveCancellationPolicy: (policy: String) -> Unit = {},
+    /** True when the host is previewing their own listing — the Reserve button files nothing. */
+    previewAsGuest: Boolean = false,
+    /** Raises the "Preview only" note in place of a blocked reserve. */
+    onPreviewBlocked: () -> Unit = {}
 ) {
     var checkIn by remember { mutableStateOf("") }
     var checkOut by remember { mutableStateOf("") }
@@ -997,7 +1098,7 @@ private fun ReservePanel(
 
             if (state.needsSignIn) {
                 GradientButton(
-                    onClick = onSignIn,
+                    onClick = { if (previewAsGuest) onPreviewBlocked() else onSignIn() },
                     modifier = Modifier.fillMaxWidth(),
                     height = 52.dp
                 ) {
@@ -1007,7 +1108,11 @@ private fun ReservePanel(
                 // The primary CTA on this screen — burgundy gradient + pulsing ring (qkPulse).
                 GradientButton(
                     onClick = {
-                        onReserve(checkIn, checkOut, adults, children, infants, pets)
+                        // A preview never files a request. The backend refuses a host booking
+                        // their own listing anyway, so without this the host's own preview would
+                        // answer them with an error message a guest will never see.
+                        if (previewAsGuest) onPreviewBlocked()
+                        else onReserve(checkIn, checkOut, adults, children, infants, pets)
                     },
                     enabled = canReserve,
                     pulse = canReserve,

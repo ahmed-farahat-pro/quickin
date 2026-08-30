@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quickin.app.Booking
+import com.quickin.app.PaymentFlowRules
 import com.quickin.app.R
+import com.quickin.app.ReservationFilter
+import com.quickin.app.ReservationFilterRules
 import com.quickin.app.ReservationsUiState
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -83,6 +90,11 @@ fun ReservationsScreen(
     onSubmitReview: (bookingId: String, rating: Int, comment: String, photos: List<String>) -> Unit = { _, _, _, _ -> },
     contentPadding: PaddingValues = PaddingValues()
 ) {
+    // The status chip in force. Deliberately NOT hoisted into the view model: a filter that
+    // outlives the screen is one a guest comes back to having forgotten they set, and a Trips
+    // tab that looks empty because of a chip reads as lost bookings.
+    var filter by remember { mutableStateOf(ReservationFilter.All) }
+
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
@@ -131,23 +143,169 @@ fun ReservationsScreen(
                 }
                 state.bookings.isEmpty() -> EmptyReservations(onExplore = onExplore)
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(state.bookings) { booking ->
-                            ReservationCard(
-                                booking = booking,
-                                onClick = { onOpen(booking) },
-                                canReview = canReview(booking),
-                                reviewSubmitting = reviewSubmitting,
-                                reviewError = reviewError,
-                                onSubmitReview = { rating, comment, photos ->
-                                    onSubmitReview(booking.id, rating, comment, photos)
-                                }
+                    // The bucket each reservation is filed under, folded once per load by the
+                    // shared rule rather than per chip tap.
+                    val buckets = remember(state.bookings) {
+                        state.bookings.associate { booking ->
+                            booking.id to ReservationFilterRules.bucketFor(
+                                status = booking.status,
+                                // Booking's own stage, decided by PaymentFlowRules — the fold
+                                // never re-reads the payment columns itself.
+                                paymentStage = booking.paymentStage,
+                                refundPercent = booking.refundPercent,
+                                // A separate question from the stage, which calls everything
+                                // cancelled NotPayable. Without it, a booking cancelled before it
+                                // was ever paid carried the policy's 100% and read as "Refunded".
+                                wasPaid = PaymentFlowRules.everPaid(
+                                    booking.paymentStatus,
+                                    booking.paymentProofStatus,
+                                    booking.paidAt,
+                                ),
                             )
                         }
                     }
+                    // Counted over every reservation, not the visible slice — a chip has to say
+                    // what it WOULD show, which is the opposite of what is on screen right now.
+                    val counts = remember(buckets) {
+                        ReservationFilterRules.counts(buckets.values.toList())
+                    }
+                    val visible = state.bookings.filter { booking ->
+                        buckets[booking.id]?.let { filter.matches(it) } ?: true
+                    }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        ReservationFilterRow(
+                            counts = counts,
+                            selected = filter,
+                            onSelect = { filter = it }
+                        )
+                        if (visible.isEmpty()) {
+                            // The guest HAS reservations — this chip just holds none. Saying "no
+                            // trips yet" here would be a lie, so name the chip and offer the only
+                            // way out (nobody can conjure a booking into a status).
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 32.dp, vertical = 44.dp)
+                            ) {
+                                Text(
+                                    stringResource(filter.emptyMessageRes),
+                                    color = Muted,
+                                    textAlign = TextAlign.Center
+                                )
+                                TextButton(onClick = { filter = ReservationFilter.All }) {
+                                    Text(
+                                        stringResource(R.string.reservation_filter_show_all),
+                                        color = Burgundy,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(visible, key = { it.id }) { booking ->
+                                    ReservationCard(
+                                        booking = booking,
+                                        onClick = { onOpen(booking) },
+                                        canReview = canReview(booking),
+                                        reviewSubmitting = reviewSubmitting,
+                                        reviewError = reviewError,
+                                        onSubmitReview = { rating, comment, photos ->
+                                            onSubmitReview(booking.id, rating, comment, photos)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The status chips over the guest's reservations, badged with what each one holds.
+ *
+ * Chips a guest has nothing behind are dropped rather than badged 0. The host's row shows all
+ * eight because that is a fixed vocabulary a host works through; these ten describe a story most
+ * guests only ever see part of, and eight empty chips to scroll past would bury the two that hold
+ * something. **All** and the active chip always survive, so the row can never go blank and the
+ * current filter can never vanish from under the list.
+ */
+@Composable
+private fun ReservationFilterRow(
+    counts: Map<ReservationFilterRules.Bucket, Int>,
+    selected: ReservationFilter,
+    onSelect: (ReservationFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val visible = ReservationFilter.entries.filter { option ->
+        val bucket = option.bucket ?: return@filter true  // All
+        option == selected || (counts[bucket] ?: 0) > 0
+    }
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 10.dp)
+    ) {
+        items(visible, key = { it.name }) { option ->
+            ReservationFilterChip(
+                label = stringResource(option.labelRes),
+                // "All" stays bare: its count is just the number of cards below it, and every
+                // other client leaves it bare for the same reason.
+                count = option.bucket?.let { counts[it] ?: 0 },
+                selected = selected == option,
+                onClick = { onSelect(option) }
+            )
+        }
+    }
+}
+
+/** One chip. Same recipe as HostFilterChip so the two rows are visually identical. */
+@Composable
+private fun ReservationFilterChip(label: String, count: Int?, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = if (selected) Burgundy else Color.White,
+        contentColor = if (selected) Color.White else Ink,
+        border = BorderStroke(1.dp, if (selected) Burgundy else Tan),
+        shadowElevation = if (selected) 2.dp else 0.dp
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(
+                start = 14.dp,
+                end = if (count == null) 14.dp else 8.dp,
+                top = 8.dp,
+                bottom = 8.dp
+            )
+        ) {
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            if (count != null) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(if (selected) Color.White.copy(alpha = 0.22f) else Tan)
+                        .defaultMinSize(minWidth = 20.dp)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        count.toString(),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        color = if (selected) Color.White else Muted
+                    )
                 }
             }
         }

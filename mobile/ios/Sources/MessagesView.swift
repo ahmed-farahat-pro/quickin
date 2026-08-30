@@ -160,6 +160,27 @@ private struct ConversationRow: View {
                         .foregroundStyle(Color.qkBurgundy)
                         .lineLimit(1)
                 }
+                // A reservation thread and a pre-booking thread with the same
+                // person about the same listing look identical without this —
+                // and a repeat guest can have one row per stay.
+                if conversation.isReservation {
+                    HStack(spacing: 6) {
+                        Text(L.t("messages.reservationBadge"))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.qkBurgundy)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color.qkBurgundy.opacity(0.08))
+                            .clipShape(Capsule())
+                        if let stay = conversation.stayText {
+                            Text(stay)
+                                .font(.caption2)
+                                .foregroundStyle(Color.qkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.top, 1)
+                }
                 Text(conversation.lastMessage ?? L.t("messages.noMessages"))
                     .font(.footnote)
                     .foregroundStyle(Color.qkMuted)

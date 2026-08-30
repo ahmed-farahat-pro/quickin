@@ -286,6 +286,10 @@
     <string name="pay_confirmed_title">تم تأكيد الحجز والدفع</string>
     <string name="pay_reference">الرقم المرجعي</string>
     <string name="pay_now">ادفع الآن</string>
+    <string name="pay_try_again">حاول مرة أخرى</string>
+    <string name="payment_rejected_title">لم يتم قبول تحويلك</string>
+    <string name="payment_rejected_no_reason">تعذّر علينا تأكيد تحويلك من لقطة الشاشة التي أرسلتها.</string>
+    <string name="payment_rejected_subtitle">صحّح ما سبق وأرسل لقطة شاشة جديدة — حجزك ما زال محفوظًا.</string>
     <!-- Payment method selector + signed fee lines -->
     <string name="pay_method_card">بطاقة (+5%%)</string>
     <string name="pay_method_bank">تحويل بنكي (−5%%)</string>
@@ -496,10 +500,14 @@
     <string name="approval_approved">تمت الموافقة</string>
     <string name="approval_rejected">مرفوض</string>
     <string name="approval_ownership_doc">مستند الملكية</string>
-    <string name="approval_ownership_intro">ارفع ما يثبت ملكيتك أو إدارتك لهذا المكان (مثل عقد الملكية أو فاتورة مرافق أو عقد). سنراجعه قبل نشر إعلانك.</string>
+    <string name="approval_ownership_intro">ارفع ما يثبت ملكيتك أو إدارتك لهذا المكان (مثل عقد الملكية أو فاتورة مرافق أو عقد). يمكنك رفع صورة أو ملف PDF. سنراجعه قبل نشر إعلانك.</string>
     <string name="approval_upload_doc">رفع المستند</string>
     <string name="approval_doc_attached">تم إرفاق المستند</string>
+    <string name="approval_doc_pdf_attached">تم إرفاق ملف PDF</string>
+    <string name="approval_doc_too_large">هذا الملف كبير جدًا (الحد الأقصى 2.5 ميجابايت)</string>
+    <string name="approval_doc_unsupported">تعذّرت معالجة هذا المستند. ارفع صورة أو ملف PDF.</string>
     <string name="approval_reupload">إعادة رفع مستند الملكية</string>
+    <string name="approval_upload_ownership_doc">رفع مستند إثبات الملكية</string>
     <string name="approval_submitted_for_review">تم الإرسال للمراجعة</string>
     <string name="approval_pending_note">إعلانك قيد المراجعة وغير متاح للعامة بعد. سنُعلمك بمجرد الموافقة عليه.</string>
     <string name="approval_rejected_note">تم رفض مستند الملكية. أعد رفعه لإرسال إعلانك للمراجعة مرة أخرى.</string>
@@ -521,11 +529,27 @@
     <string name="listing_edit_saved">تم حفظ التغييرات</string>
     <string name="listing_edit_saved_note">إعلانك قيد المراجعة ومخفي عن الضيوف حتى يوافق عليه المشرف.</string>
     <string name="listing_edit_no_changes">لم تغيّر أي شيء بعد.</string>
-    <string name="listing_edit_needs_title">أضف عنوانًا.</string>
-    <string name="listing_edit_needs_description">أضف وصفًا.</string>
-    <string name="listing_edit_needs_location">أضف الموقع.</string>
     <string name="listing_edit_needs_region">اختر المنطقة التي يقع فيها مكانك.</string>
     <string name="listing_edit_needs_price">يجب أن يكون سعر الليلة أكبر من 0.</string>
+
+    <string name="listing_title_required">يرجى إعطاء قائمتك عنوانًا.</string>
+    <string name="listing_title_letters">يرجى وصف قائمتك بالكلمات \u2014 لا يمكن أن يتكوّن العنوان من رموز أو أرقام فقط.</string>
+    <string name="listing_title_too_short">يرجى إعطاء قائمتك عنوانًا حقيقيًا \u2014 يجب ألا يقل عن %1$d أحرف.</string>
+    <string name="listing_title_too_long">يجب ألا يزيد عنوان القائمة عن %1$d حرفًا.</string>
+
+    <string name="listing_blocked_title">يرجى تصحيح العنوان بالأعلى.</string>
+    <string name="listing_blocked_description">أضف وصفًا لا يقل عن %1$d حرفًا.</string>
+    <string name="listing_blocked_location">أضف العنوان \u2014 %1$d أحرف على الأقل.</string>
+    <!-- The host location step's resort / compound answer (ResortChoice). -->
+    <string name="listing_resort_name_required">اكتب اسم المنتجع أو الكمبوند، أو اختر خياراً آخر.</string>
+    <string name="listing_resort_name_letters">اكتب اسم المنتجع أو الكمبوند بالحروف \u2014 لا يمكن أن يتكوّن من رموز أو أرقام فقط.</string>
+    <string name="listing_resort_name_too_short">اكتب اسم المنتجع أو الكمبوند كاملاً \u2014 يجب ألا يقل عن %1$d أحرف.</string>
+    <string name="listing_blocked_capacity">يجب ألا يقل عدد الضيوف وغرف النوم والأسرّة والحمامات عن %1$d.</string>
+
+    <!-- Missing until now, so both fell back to English on an Arabic phone. -->
+    <string name="listing_edit_needs_pin">حدّد موقع مكانك على الخريطة.</string>
+    <string name="listing_edit_needs_photo">يحتاج الإعلان إلى صورة واحدة على الأقل.</string>
+    <string name="listing_capacity_floor">يجب ألا يقل عدد غرف النوم والأسرّة والحمّامات والضيوف عن %1$d لكلٍّ منها — لا يمكن حجز مكان بلا مكان للنوم.</string>
     <string name="listing_edit_discard_title">تجاهل تغييراتك؟</string>
     <string name="listing_edit_discard_body">لم يتم حفظ تعديلاتك على هذا الإعلان.</string>
     <string name="listing_edit_discard_confirm">تجاهل</string>
@@ -575,7 +599,6 @@
     <string name="growth_discount_off">أسبوعي −%1$d%% · شهري −%2$d%%</string>
     <string name="growth_discount_weekly_off">أسبوعي −%1$d%%</string>
     <string name="growth_discount_monthly_off">شهري −%1$d%%</string>
-    <string name="growth_discounts_saved">تم تحديث الخصومات.</string>
     <string name="growth_save">حفظ</string>
 
     <!-- Growth: promo codes (checkout) -->
@@ -638,8 +661,13 @@
     <!-- كاتب وصف الإعلان بالذكاء الاصطناعي (نموذج إضافة إعلان) -->
     <string name="ai_write_with_ai">اكتب بالذكاء الاصطناعي</string>
     <string name="ai_writing">جارٍ الكتابة…</string>
+    <string name="add_title">العنوان</string>
+    <string name="add_property_type">نوع العقار</string>
     <string name="add_description">الوصف</string>
-    <string name="add_basics_hint">امنح مكانك عنوانًا جذابًا واختر نوع العقار، ثم صِف ما يميّزه. العنوان مطلوب.</string>
+    <string name="add_basics_hint">العنوان ونوع العقار ووصف لا يقل عن %1$d حرفًا كلها مطلوبة للمتابعة.</string>
+    <!-- علامة النجمة بجوار كل حقل لا يمكن تخطيه، والسطر الذي يشرحها. -->
+    <string name="listing_required_legend">الحقول المميّزة بعلامة نجمة مطلوبة.</string>
+    <string name="field_required">مطلوب</string>
     <!-- البحث باللغة الطبيعية (استكشاف) -->
     <string name="ai_search">اسأل الذكاء الاصطناعي</string>
     <string name="ai_search_placeholder">جرّب: فيلا على البحر لـ 6 أشخاص بمسبح بأقل من 4000</string>
@@ -668,7 +696,14 @@
     <!-- Seasonal / variable pricing (host-set weekend + per-month nightly rates) -->
     <string name="pricing_seasonal">التسعير الموسمي (اختياري)</string>
     <string name="pricing_seasonal_intro">حدّد سعرًا أعلى في عطلات نهاية الأسبوع أو شهور الذروة. اتركه فارغًا لاستخدام سعر الليلة الأساسي.</string>
-    <string name="pricing_weekend_price">سعر نهاية الأسبوع (الجمعة–السبت)</string>
+    <string name="pricing_weekend_price">سعر نهاية الأسبوع</string>
+    <string name="pricing_weekend_days">ما الأيام التي تُعد نهاية أسبوعك؟</string>
+    <string name="pricing_weekend_days_whole_week">لا يمكن أن تكون نهاية الأسبوع هي الأسبوع كله — عدِّل سعر الليلة الأساسي بدلاً من ذلك.</string>
+    <string name="pricing_weekend_days_none_chosen">اختر يومًا واحدًا على الأقل، أو امسح سعر نهاية الأسبوع.</string>
+    <string name="pricing_weekend_price_not_positive">يجب أن يكون سعر نهاية الأسبوع أكبر من صفر. اتركه فارغًا إذا كنت لا تفرض سعرًا مختلفًا في نهاية الأسبوع.</string>
+    <string name="pricing_weekend_price_not_a_number">يجب أن يكون سعر نهاية الأسبوع رقمًا. اتركه فارغًا إذا كنت لا تفرض سعرًا مختلفًا في نهاية الأسبوع.</string>
+    <string name="pricing_month_price_not_positive">يجب أن يكون سعر %1$s أكبر من صفر. اتركه فارغًا لاستخدام سعر ليلتك الأساسي.</string>
+    <string name="pricing_month_price_not_a_number">يجب أن يكون سعر %1$s رقمًا. اتركه فارغًا لاستخدام سعر ليلتك الأساسي.</string>
     <string name="pricing_monthly_prices">أسعار الليلة لكل شهر</string>
     <string name="pricing_monthly_prices_intro">حدّد سعر الليلة لشهور معيّنة. الشهور الفارغة تستخدم سعرك الأساسي.</string>
     <string name="pricing_seasonal_note">تُطبَّق أسعار نهاية الأسبوع والمواسم</string>
@@ -678,7 +713,6 @@
     <string name="growth_discount_off_label">خصم الإقامة الطويلة (−%1$d%%)</string>
     <string name="pricing_save">حفظ التسعير</string>
     <string name="pricing_saved">تم تحديث التسعير.</string>
-    <string name="pricing_edit_seasonal">التسعير الموسمي</string>
     <string name="pricing_quote_error">تعذّر جلب عرض سعر دقيق. يتم عرض تقدير.</string>
     <string name="pricing_month_1">يناير</string>
     <string name="pricing_month_2">فبراير</string>
@@ -706,6 +740,7 @@
     <string name="messages_empty_body">عندما تراسل مضيفًا أو ضيفًا، ستظهر المحادثة هنا.</string>
     <string name="messages_no_messages">لا توجد رسائل بعد</string>
     <string name="messages_host_badge">المضيف</string>
+    <string name="messages_reservation_badge">حجز</string>
     <string name="messages_sign_in_title">سجّل الدخول لرؤية رسائلك</string>
     <string name="messages_sign_in_body">محادثاتك مع المضيفين والضيوف توجد هنا.</string>
     <string name="profile_messages">الرسائل</string>
@@ -757,6 +792,7 @@
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
     <string name="reservation_qr_pending">سيظهر رمز QR هنا بمجرد تأكيد حجزك.</string>
+    <string name="reservation_qr_unpaid">وافق المضيف على هذه الإقامة. سيظهر رمز QR هنا بمجرد تأكيد دفعتك.</string>
     <string name="reservation_qr_none">لا توجد بطاقة إقامة لهذا الحجز.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
@@ -887,6 +923,14 @@
     <!-- Host pricing calendar (per-day rates + day-level availability) -->
     <string name="calendar_title">تقويم الأسعار</string>
     <string name="calendar_open">تقويم الأسعار</string>
+    <string name="preview_guest_action">شاهده كضيف</string>
+    <string name="preview_guest_title">معاينة الضيف</string>
+    <string name="preview_guest_body">إعلانك تمامًا كما يراه الضيف. لا شيء هنا يحجز أو يحفظ أو يرسل رسالة.</string>
+    <string name="preview_guest_under_review">لا يزال قيد المراجعة، لذا لا يستطيع الضيوف العثور عليه بعد.</string>
+    <string name="preview_guest_hidden">غير ظاهر للضيوف حاليًا.</string>
+    <string name="preview_guest_blocked_title">معاينة فقط</string>
+    <string name="preview_guest_blocked_body">هذا إعلانك أنت، لذا تم تعطيل إجراءات الضيف هنا.</string>
+    <string name="preview_guest_failed">تعذّر فتح المعاينة. حاول مرة أخرى.</string>
     <string name="calendar_subtitle">سعرك الأساسي %1$s %2$s في الليلة. اختر الأيام التي تريد تسعيرها بشكل مختلف.</string>
     <string name="calendar_select_month">اختيار الشهر</string>
     <string name="calendar_nights_selected">%1$d ليلة محددة</string>
@@ -909,4 +953,39 @@
     <string name="calendar_error_save_failed">تعذر حفظ هذه التواريخ. حاول مرة أخرى.</string>
     <string name="calendar_error_sign_in">سجّل الدخول كمضيف لإدارة التقويم.</string>
     <string name="calendar_nightly_prices">أسعار الليالي</string>
+    <string name="money_cancelled">ملغي</string>
+    <string name="money_cancelled_no_refund">لم يُصرف أي استرداد — تحتفظ بقيمة هذا الحجز كاملة.</string>
+    <string name="money_cancelled_partial">تم استرداد %1$d%% للضيف — وتحتفظ أنت بالباقي.</string>
+    <!-- Host reservations status filter -->
+    <string name="host_booking_filter_pending">بانتظار ردّك</string>
+    <string name="host_booking_filter_awaiting_payment">بانتظار الدفع</string>
+    <string name="host_booking_filter_confirmed">مؤكد</string>
+    <string name="host_booking_filter_rejected">مرفوض</string>
+    <string name="host_booking_filter_cancelled">ملغى</string>
+    <string name="host_booking_filter_refunded">مسترد</string>
+    <string name="host_booking_filter_partially_refunded">مسترد جزئيًا</string>
+    <string name="host_booking_filter_empty_all">لا توجد طلبات حجز</string>
+    <string name="host_booking_filter_empty_filtered">لا توجد حجوزات بهذه الحالة.</string>
+
+    <!-- مرشّح حالة حجوزات الضيف -->
+    <string name="reservation_filter_pending">في انتظار الموافقة</string>
+    <string name="reservation_filter_awaiting_payment">بانتظار الدفع</string>
+    <string name="reservation_filter_under_review">الدفع قيد المراجعة</string>
+    <string name="reservation_filter_confirmed">مؤكَّد</string>
+    <string name="reservation_filter_completed">مكتمل</string>
+    <string name="reservation_filter_rejected">مرفوض</string>
+    <string name="reservation_filter_cancelled">ملغى</string>
+    <string name="reservation_filter_refunded">تم الاسترداد</string>
+    <string name="reservation_filter_partially_refunded">مسترد جزئياً</string>
+    <string name="reservation_filter_show_all">عرض كل الحجوزات</string>
+    <string name="reservation_filter_empty_all">لم تحجز أي إقامة حتى الآن.</string>
+    <string name="reservation_filter_empty_pending">لا يوجد ما ينتظر رد المضيف حالياً.</string>
+    <string name="reservation_filter_empty_awaiting_payment">لا توجد حجوزات بانتظار الدفع.</string>
+    <string name="reservation_filter_empty_under_review">لا توجد تحويلات قيد المراجعة حالياً.</string>
+    <string name="reservation_filter_empty_confirmed">لا توجد إقامات مؤكَّدة بعد.</string>
+    <string name="reservation_filter_empty_completed">لا توجد إقامات سابقة بعد.</string>
+    <string name="reservation_filter_empty_rejected">لا توجد طلبات مرفوضة.</string>
+    <string name="reservation_filter_empty_cancelled">لا توجد حجوزات ملغاة.</string>
+    <string name="reservation_filter_empty_refunded">لا توجد حجوزات مستردة.</string>
+    <string name="reservation_filter_empty_partially_refunded">لا توجد حجوزات مستردة جزئياً.</string>
 </resources>

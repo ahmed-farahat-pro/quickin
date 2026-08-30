@@ -49,6 +49,8 @@ struct AvailabilityManagerView: View {
     // reflects the change. `weekend` is the EGP weekend-rate text (empty = none);
     // `monthlyPrices` maps month "1".."12" → nightly-rate text.
     @State private var weekendPrice: String
+    /// Which weekdays the weekend rate applies to (`0`=Sun … `6`=Sat).
+    @State private var weekendDays: Set<Int>
     @State private var monthlyPrices: [String: String]
     @State private var showingSeasonalEditor = false
 
@@ -58,6 +60,7 @@ struct AvailabilityManagerView: View {
         _weeklyDiscount = State(initialValue: listing.weeklyDiscount)
         _monthlyDiscount = State(initialValue: listing.monthlyDiscount)
         _weekendPrice = State(initialValue: listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _weekendDays = State(initialValue: SeasonalPricingFields.seedWeekendDays(from: listing))
         _monthlyPrices = State(initialValue: SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
     }
 
@@ -133,10 +136,12 @@ struct AvailabilityManagerView: View {
                 SeasonalPricingEditorView(
                     listing: listing,
                     weekend: weekendPrice,
+                    weekendDays: weekendDays,
                     months: monthlyPrices
                 ) { updated in
                     // Reflect the saved seasonal rates in the summary row immediately.
                     weekendPrice = updated.weekendPrice.map { String(Int($0.rounded())) } ?? ""
+                    weekendDays = SeasonalPricingFields.seedWeekendDays(from: updated)
                     monthlyPrices = SeasonalPricingFields.seedMonths(from: updated.monthlyPrices)
                 }
                 .environmentObject(loc)
@@ -283,10 +288,10 @@ struct AvailabilityManagerView: View {
     /// or "No seasonal rates yet" when neither a weekend nor any month is set.
     private var seasonalSummary: String {
         var parts: [String] = []
-        if let weekend = SeasonalPricingFields.parseWeekend(weekendPrice) {
+        if let weekend = SeasonalPricingFields.displayRate(weekendPrice) {
             parts.append(String(format: loc.t("pricing.weekendSummary"), CurrencyManager.shared.format(weekend)))
         }
-        let monthCount = SeasonalPricingFields.parseMonths(monthlyPrices).count
+        let monthCount = SeasonalPricingFields.displayMonths(monthlyPrices).count
         if monthCount > 0 {
             parts.append(String(format: loc.t("pricing.monthsSummary"), "\(monthCount)"))
         }

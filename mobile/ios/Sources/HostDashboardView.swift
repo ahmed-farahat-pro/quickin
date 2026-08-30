@@ -1,5 +1,4 @@
 import SwiftUI
-import PhotosUI
 
 /// Loads the host's reservation requests and listings for the host dashboard.
 @MainActor
@@ -31,13 +30,26 @@ final class HostDashboardViewModel: ObservableObject {
         hasLoaded = true
     }
 
-    /// Pending requests first (newest-feeling), then the rest.
+    /// Which status the reservations list is narrowed to. Client-side over the
+    /// already-loaded rows, so switching is instant — `/api/local/host/bookings`
+    /// takes no query params and returns every reservation, the same way the
+    /// listings filter works.
+    @Published var bookingFilter: HostBookingFilter = .all
+
+    /// The reservations the chip row currently selects.
+    var filteredRequests: [HostBooking] {
+        requests.filter { bookingFilter.matches($0.filterBucket) }
+    }
+
+    /// Pending requests first (newest-feeling), then the rest — within whatever
+    /// the chip row has selected, so the Pending-first ordering survives
+    /// filtering instead of fighting it.
     var pendingRequests: [HostBooking] {
-        requests.filter { $0.bookingStatus == .pending }
+        filteredRequests.filter { $0.bookingStatus == .pending }
     }
 
     var pastRequests: [HostBooking] {
-        requests.filter { $0.bookingStatus != .pending }
+        filteredRequests.filter { $0.bookingStatus != .pending }
     }
 
     func update(_ booking: HostBooking, action: HostBookingAction) async {
@@ -209,8 +221,17 @@ struct HostDashboardView: View {
                 .foregroundStyle(Color.qkInk)
 
             if viewModel.requests.isEmpty {
+                // No reservations at all — a different thing from "nothing in
+                // this status" below. It gets no chip row, because there is
+                // nothing to filter and eight empty chips would only be noise.
                 emptyHint(icon: "tray", text: "No requests yet. They'll appear here when a guest books one of your places.")
             } else {
+                HostBookingFilterBar(selection: $viewModel.bookingFilter, bookings: viewModel.requests)
+
+                if viewModel.filteredRequests.isEmpty {
+                    emptyHint(icon: "line.3.horizontal.decrease.circle", text: viewModel.bookingFilter.emptyMessage)
+                }
+
                 ForEach(viewModel.pendingRequests) { booking in
                     HostRequestCard(
                         booking: booking,
@@ -372,7 +393,7 @@ struct HostDashboardView: View {
 
     /// The host's listings narrowed to the selected status chip.
     private var filteredListings: [Listing] {
-        viewModel.listings.filter { listingFilter.matches($0.approval) }
+        viewModel.listings.filter { listingFilter.matches($0.hostVisibility) }
     }
 
     private func emptyHint(icon: String, text: String) -> some View {
@@ -393,10 +414,21 @@ struct HostDashboardView: View {
 /// A reservation request row. Pending rows show Confirm / Reject; resolved rows
 /// show only their status badge (pass `nil` handlers).
 struct HostRequestCard: View {
+    /// The decision the host tapped, held until they confirm it in the alert.
+    /// Both outcomes are final for the guest — a confirmed stay blocks the
+    /// dates, a rejection is announced and cannot be taken back — so neither
+    /// one is sent straight from the tap.
+    private enum PendingDecision {
+        case confirm
+        case reject
+    }
+
     let booking: HostBooking
     let isUpdating: Bool
     let onConfirm: (() -> Void)?
     let onReject: (() -> Void)?
+
+    @State private var pendingDecision: PendingDecision?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -441,6 +473,36 @@ struct HostRequestCard: View {
         }
         .padding(16)
         .qkCard(cornerRadius: 20)
+        .alert(
+            pendingDecision == .reject
+                ? L.t("host.action.reject.title")
+                : L.t("host.action.confirm.title"),
+            isPresented: Binding(
+                get: { pendingDecision != nil },
+                set: { if !$0 { pendingDecision = nil } }
+            ),
+            presenting: pendingDecision
+        ) { decision in
+            Button(L.t("common.cancel"), role: .cancel) { pendingDecision = nil }
+            switch decision {
+            case .reject:
+                Button(L.t("host.action.reject"), role: .destructive) {
+                    pendingDecision = nil
+                    onReject?()
+                }
+            case .confirm:
+                Button(L.t("host.action.confirm")) {
+                    pendingDecision = nil
+                    onConfirm?()
+                }
+            }
+        } message: { decision in
+            Text(
+                decision == .reject
+                    ? L.t("host.action.reject.body")
+                    : L.t("host.action.confirm.body")
+            )
+        }
     }
 
     /// Opens the per-booking chat with the guest.
@@ -471,7 +533,7 @@ struct HostRequestCard: View {
     private var actionButtons: some View {
         HStack(spacing: 12) {
             Button {
-                onReject?()
+                pendingDecision = .reject
             } label: {
                 Text(L.t("host.action.reject"))
                     .fontWeight(.bold)
@@ -485,7 +547,7 @@ struct HostRequestCard: View {
             .disabled(isUpdating)
 
             Button {
-                onConfirm?()
+                pendingDecision = .confirm
             } label: {
                 QKPrimaryButtonLabel(
                     title: L.t("host.action.confirm"),
@@ -502,16 +564,96 @@ struct HostRequestCard: View {
     }
 }
 
+// MARK: - Host reservation status filter
+
+/// The localized half of `HostBookingFilter`. The enum itself lives in
+/// `HostBookingFilterRules.swift` and stays free of SwiftUI and the localization
+/// table so `Tests/run.sh` can build it without the app.
+extension HostBookingFilter {
+    /// Short chip label. Reuses the wording the row badges already show, so a
+    /// chip and the badges under it always read the same.
+    @MainActor
+    var label: String {
+        switch self {
+        case .all:               return L.t("explore.region.all")
+        case .pending:           return L.t("host.bookingFilter.pending")
+        case .awaitingPayment:   return L.t("host.bookingFilter.awaitingPayment")
+        case .confirmed:         return L.t("host.bookingFilter.confirmed")
+        case .rejected:          return L.t("host.bookingFilter.rejected")
+        case .cancelled:         return L.t("host.bookingFilter.cancelled")
+        case .refunded:          return L.t("host.bookingFilter.refunded")
+        case .partiallyRefunded: return L.t("host.bookingFilter.partiallyRefunded")
+        }
+    }
+
+    /// Muted line shown when this chip selects no reservations at all.
+    @MainActor
+    var emptyMessage: String {
+        self == .all
+            ? L.t("host.bookingFilter.empty.all")
+            : L.t("host.bookingFilter.empty.filtered")
+    }
+}
+
+/// Horizontal chip row that filters the host's reservations by status. Built
+/// from the shared `QKChip`, so it matches the listings filter directly above it
+/// and the Explore region chips. Observes `LocalizationManager` so the labels
+/// re-render on a language switch.
+struct HostBookingFilterBar: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Binding var selection: HostBookingFilter
+    /// The rows being filtered — used only to badge each chip with its count.
+    let bookings: [HostBooking]
+
+    /// Explicit init: the `private` environment object would otherwise make the
+    /// synthesized memberwise initializer private (unusable from other files).
+    init(selection: Binding<HostBookingFilter>, bookings: [HostBooking]) {
+        _selection = selection
+        self.bookings = bookings
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(HostBookingFilter.allCases) { filter in
+                    QKChip(
+                        title: filter.label,
+                        count: count(for: filter),
+                        isSelected: selection == filter,
+                        action: { selection = filter }
+                    )
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    /// Row count for one chip — `nil` on "All" so it renders bare, mirroring the
+    /// listings filter. Counted over every reservation rather than the visible
+    /// slice: a chip has to say what it WOULD show.
+    private func count(for filter: HostBookingFilter) -> Int? {
+        guard filter != .all else { return nil }
+        let tally = HostBookingFilterRules.counts(bookings.map(\.filterBucket))
+        return filter.bucket.flatMap { tally[$0] } ?? 0
+    }
+}
+
 // MARK: - Host listing status filter
 
-/// The status filter above the host's own listings: All · Published · Pending
-/// review · Rejected. Maps onto the listing's `approval_status`; legacy / missing
+/// The status filter above the host's own listings: All · Published · Under
+/// review · Rejected · Deactivated. Maps onto `Listing.hostVisibility`, which
+/// folds moderation and visibility together; legacy / missing `approval_status`
 /// values decode as `.approved`, so they land under "Published".
+///
+/// There is no chip for `.blocked` ("hidden by our team"). It is rare, it is
+/// nothing the host can act on, and a chip that usually selects nothing is one
+/// people learn to ignore — those rows still carry their badge under "All".
 enum HostListingFilter: String, CaseIterable, Identifiable, Equatable {
     case all
     case published
     case underReview
     case rejected
+    case deactivated
 
     var id: String { rawValue }
 
@@ -524,16 +666,19 @@ enum HostListingFilter: String, CaseIterable, Identifiable, Equatable {
         case .published:   return L.t("host.filter.published")
         case .underReview: return L.t("approval.pending")
         case .rejected:    return L.t("approval.rejected")
+        case .deactivated: return L.t("visibility.badge.deactivated")
         }
     }
 
-    /// `true` when a listing in `status` belongs under this chip.
-    func matches(_ status: ApprovalStatus) -> Bool {
+    /// `true` when a listing in `state` belongs under this chip. `.blocked` has no
+    /// chip of its own, so it only ever appears under "All".
+    func matches(_ state: HostVisibility) -> Bool {
         switch self {
         case .all:         return true
-        case .published:   return status == .approved
-        case .underReview: return status == .pending
-        case .rejected:    return status == .rejected
+        case .published:   return state == .live
+        case .underReview: return state == .underReview
+        case .rejected:    return state == .rejected
+        case .deactivated: return state == .deactivated
         }
     }
 
@@ -545,6 +690,7 @@ enum HostListingFilter: String, CaseIterable, Identifiable, Equatable {
         case .published:   return L.t("host.filter.empty.published")
         case .underReview: return L.t("host.filter.empty.underReview")
         case .rejected:    return L.t("host.filter.empty.rejected")
+        case .deactivated: return L.t("host.filter.empty.deactivated")
         }
     }
 }
@@ -587,22 +733,38 @@ struct HostListingFilterBar: View {
     /// Explore region chips.
     private func count(for filter: HostListingFilter) -> Int? {
         guard filter != .all else { return nil }
-        return listings.filter { filter.matches($0.approval) }.count
+        return listings.filter { filter.matches($0.hostVisibility) }.count
     }
 }
 
-/// The coloured moderation capsule (Pending review / Approved / Rejected) shown
-/// on the host's own listings. Extracted so every host surface that has to say
-/// "this listing is under review" — the listing rows and the listing editor's
-/// post-save confirmation — shows the exact same chip.
+/// The coloured state capsule on the host's own listings — Under review /
+/// Approved / Rejected / Deactivated / Hidden by our team. Extracted so every
+/// host surface that has to say "nobody can see this listing" — the listing rows
+/// and the listing editor's post-save confirmation — shows the exact same chip.
+///
+/// It reads a `HostVisibility`, not an `ApprovalStatus`, because from the host's
+/// side "why can nobody see this?" has one answer: a listing can be approved and
+/// still hidden, and a chip that only knew about moderation would call that one
+/// "Approved" while guests could not find it.
 struct HostApprovalBadge: View {
     @EnvironmentObject private var loc: LocalizationManager
-    let status: ApprovalStatus
+    let state: HostVisibility
 
     /// Explicit init: the `private` environment object would otherwise make the
     /// synthesized memberwise initializer private (unusable from other files).
+    init(state: HostVisibility) {
+        self.state = state
+    }
+
+    /// Convenience for the surfaces that only hold a moderation status (the
+    /// editor's post-save confirmation, which has just re-queued the listing and
+    /// is saying so).
     init(status: ApprovalStatus) {
-        self.status = status
+        switch status {
+        case .pending:  self.state = .underReview
+        case .approved: self.state = .live
+        case .rejected: self.state = .rejected
+        }
     }
 
     var body: some View {
@@ -619,63 +781,119 @@ struct HostApprovalBadge: View {
     }
 
     private var label: String {
-        switch status {
-        case .pending:  return loc.t("approval.pending")
-        case .approved: return loc.t("approval.approved")
-        case .rejected: return loc.t("approval.rejected")
+        switch state {
+        case .underReview:  return loc.t("approval.pending")
+        case .live:         return loc.t("approval.approved")
+        case .rejected:     return loc.t("approval.rejected")
+        case .deactivated:  return loc.t("visibility.badge.deactivated")
+        case .blocked:      return loc.t("visibility.badge.blocked")
         }
     }
 
     private var icon: String {
-        switch status {
-        case .pending:  return "clock.fill"
-        case .approved: return "checkmark.circle.fill"
-        case .rejected: return "exclamationmark.triangle.fill"
+        switch state {
+        case .underReview:  return "clock.fill"
+        case .live:         return "checkmark.circle.fill"
+        case .rejected:     return "exclamationmark.triangle.fill"
+        case .deactivated:  return "eye.slash.fill"
+        case .blocked:      return "lock.fill"
         }
     }
 
     private var tint: Color {
-        switch status {
-        case .pending:  return .qkGoldDeep
-        case .approved: return .qkSuccess
-        case .rejected: return .qkBurgundy
+        switch state {
+        case .underReview:  return .qkGoldDeep
+        case .live:         return .qkSuccess
+        case .rejected:     return .qkBurgundy
+        // Deactivated is the host's own decision, not a fault — a muted grey, not
+        // the rejection burgundy, or their own choice would read as a reprimand.
+        case .deactivated:  return .qkMuted
+        case .blocked:      return .qkGoldDeep
         }
     }
 }
 
 /// A compact row for one of the host's own listings — thumbnail, an approval
-/// status badge (Pending review / Approved / Rejected), title, location, gold ★
+/// status badge (Under review / Approved / Rejected), title, location, gold ★
 /// and burgundy price. "Edit listing" opens the full editor (every field plus
 /// photos); saving there sends the listing back to the admin queue, which the
-/// badge reflects at once. When the listing is pending or rejected, a
-/// "Re-upload ownership document" `PhotosPicker` lets the host (re)submit the
-/// proof doc, which PATCHes the listing and re-queues it to pending.
+/// badge reflects at once. When the listing is pending or rejected, an
+/// `OwnershipDocPicker` (photo library or a PDF from Files) lets the host
+/// (re)submit the proof doc, which PATCHes
+/// the listing and re-queues it to pending. It says "Upload" or "Re-upload"
+/// depending on whether one is actually on file — the document is optional at
+/// create time, so most listings in the queue have never had one.
 /// RTL-safe; DesignKit tokens throughout.
 struct HostListingRow: View {
     @EnvironmentObject private var loc: LocalizationManager
+    // Held only to hand on to the guest preview: a sheet gets its own environment,
+    // and `ListingDetailView` reads all three (sign-in state, the saved-listings
+    // store and the display currency).
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var wishlist: WishlistStore
+    @EnvironmentObject private var currency: CurrencyManager
     let listing: Listing
     /// Called after any successful change to this listing — an ownership-doc
     /// re-submit or a full edit — so the parent can re-fetch the authoritative
     /// status.
     var onChanged: () -> Void
 
-    /// Locally-tracked status so the badge flips to "Pending review" the instant
+    /// Locally-tracked status so the badge flips to "Under review" the instant
     /// a re-submit or an edit succeeds, before the parent's refetch lands.
     /// Seeded from the listing's decoded `approval_status`.
     @State private var status: ApprovalStatus
-    /// The doc selected in the re-upload `PhotosPicker`, processed on change.
-    @State private var docItem: PhotosPickerItem?
+    /// Locally-tracked visibility, for the same reason: the badge and the button
+    /// have to flip the moment a deactivate returns, not a refetch later.
+    @State private var deactivated: Bool
+    @State private var isPublished: Bool
+    /// Requests waiting on the host. Named in the confirmation, and zeroed by a
+    /// deactivate — which declines all of them.
+    @State private var pendingRequests: Int
+    /// Whether a proof-of-ownership document is on file, tracked locally for the
+    /// same reason as the status above: the button has to read "Re-upload" the
+    /// moment a submit succeeds, not a refetch later. Seeded from the decoded
+    /// `has_ownership_doc`, which is false for a listing that never had one —
+    /// the document is optional at create time, so that is the common case in
+    /// the queue and NOT something `approvalStatus` can tell us.
+    @State private var hasDoc: Bool
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     /// Presents the full listing editor.
     @State private var showingEditor = false
+    /// The GUEST-projection copy of this listing, fetched on demand and presented
+    /// as the guest preview. Nil whenever the preview is closed.
+    @State private var previewListing: Listing?
+    /// True while that fetch is in flight, so the button can show a spinner
+    /// instead of looking dead on a slow connection.
+    @State private var isLoadingPreview = false
     /// Presents the day-by-day pricing calendar for this listing.
     @State private var showingCalendar = false
+    /// The "this will decline N requests" confirmation, shown before a deactivate
+    /// and never skipped — the decline is the one irreversible part.
+    @State private var confirmingDeactivate = false
+    /// What just happened, in the host's words: "3 requests were declined", or
+    /// "reactivated, but it stays hidden until…". Cleared on the next action.
+    @State private var noticeMessage: String?
 
     init(listing: Listing, onChanged: @escaping () -> Void) {
         self.listing = listing
         self.onChanged = onChanged
         _status = State(initialValue: listing.approval)
+        _deactivated = State(initialValue: listing.unpublishedByHost)
+        _isPublished = State(initialValue: listing.isPublished)
+        _pendingRequests = State(initialValue: listing.pendingRequestCount)
+        _hasDoc = State(initialValue: listing.hasOwnershipDoc)
+    }
+
+    /// The row's single state, from the same rules the backend enforces. Built
+    /// from the LOCAL copies so it follows an action immediately.
+    private var visibility: HostVisibility {
+        if deactivated { return .deactivated }
+        switch status {
+        case .rejected: return .rejected
+        case .pending: return .underReview
+        case .approved: return isPublished ? .live : .blocked
+        }
     }
 
     var body: some View {
@@ -686,7 +904,7 @@ struct HostListingRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 5) {
-                    HostApprovalBadge(status: status)
+                    HostApprovalBadge(state: visibility)
 
                     Text(listing.title)
                         .font(.system(size: 15, weight: .bold))
@@ -721,10 +939,16 @@ struct HostListingRow: View {
             // without telling them what to change, which is the one thing the badge
             // exists to prompt. Driven by the LOCAL `status`, not the decoded one, so
             // it disappears the instant a re-submit or an edit flips this row back to
-            // "Pending review" — the server has cleared the note by then anyway.
+            // "Under review" — the server has cleared the note by then anyway.
             if status == .rejected {
                 rejectionReason
             }
+
+            // "See it as a guest" — the listing exactly as a guest meets it, which
+            // is the check a host wants BEFORE approval and cannot make any other
+            // way on a listing guests cannot yet reach. First in the stack because
+            // it is the one action here that changes nothing.
+            previewButton
 
             // Day-by-day rates and availability. Above the editor on purpose:
             // this is the routine errand, and unlike a full edit it does NOT
@@ -734,10 +958,34 @@ struct HostListingRow: View {
             // Every field of the listing (and its photos) is editable from here.
             editButton
 
-            // Re-upload ownership doc when the listing is awaiting review or was
-            // rejected. Approved listings need no action, so the row stays compact.
+            // (Re-)upload the ownership doc when the listing is awaiting review or
+            // was rejected. Approved listings need no action, so the row stays
+            // compact.
             if status.canResubmitDoc {
-                reuploadButton
+                ownershipDocButton
+            }
+
+            // Take the listing off the market, or put it back. QuickIn has no
+            // host-facing delete — this IS "remove my listing", and it keeps every
+            // booking, review and payment record intact. Withheld only on
+            // `.blocked`, which the host cannot undo and the API would refuse.
+            if visibility != .blocked {
+                visibilityButton
+            }
+
+            // What "deactivated" / "hidden by our team" actually mean for the
+            // guests already booked in. The word alone does not say, and it is the
+            // first thing a host wants to know.
+            if visibility == .deactivated || visibility == .blocked {
+                visibilityNote
+            }
+
+            if let noticeMessage {
+                Text(noticeMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if let errorMessage {
@@ -753,21 +1001,70 @@ struct HostListingRow: View {
         }
         .padding(12)
         .qkCard(cornerRadius: 18)
-        .onChange(of: docItem) { _, item in
-            Task { await resubmit(item) }
-        }
         .sheet(isPresented: $showingCalendar) {
             HostCalendarView(listing: listing)
                 .environmentObject(loc)
+        }
+        // The guest preview. Its own NavigationStack so the detail screen's pushes
+        // (the host profile, "more from this host") still have somewhere to go.
+        .sheet(item: $previewListing) { preview in
+            NavigationStack {
+                ListingDetailView(listing: preview, previewAsGuest: true)
+                    // The "more from this host" strip pushes by value, and the
+                    // stack that normally registers this destination is not the
+                    // one presenting here. Those rows come from the public
+                    // `?host=` read, so they are guest projections too.
+                    .navigationDestination(for: Listing.self) {
+                        ListingDetailView(listing: $0, previewAsGuest: true)
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(loc.t("common.done")) { previewListing = nil }
+                                .tint(.qkBurgundy)
+                        }
+                    }
+                    .environmentObject(loc)
+                    .environmentObject(auth)
+                    .environmentObject(wishlist)
+                    .environmentObject(currency)
+            }
         }
         .sheet(isPresented: $showingEditor) {
             EditListingView(listing: listing) { updated in
                 // Reflect the new moderation state immediately, then let the
                 // parent re-fetch the authoritative rows.
                 status = updated.approval
+                isPublished = updated.isPublished
                 onChanged()
             }
         }
+        // An alert, not an inline toggle: the decline is irreversible, and the
+        // host has to read the count before it happens.
+        .alert(loc.t("visibility.confirm.title"), isPresented: $confirmingDeactivate) {
+            Button(loc.t("visibility.confirm.cancel"), role: .cancel) {}
+            Button(loc.t("visibility.confirm.cta"), role: .destructive) {
+                Task { await setPublished(false) }
+            }
+        } message: {
+            Text(confirmMessage)
+        }
+    }
+
+    /// The alert body: what happens, what it will cost, and what it will NOT
+    /// touch. The pending-request warning is omitted entirely when there are
+    /// none — an empty warning trains people to click through the real one.
+    private var confirmMessage: String {
+        var lines = [
+            loc.t("visibility.confirm.body").replacingOccurrences(of: "%@", with: listing.title)
+        ]
+        if pendingRequests > 0 {
+            lines.append(
+                loc.t("visibility.confirm.declines")
+                    .replacingOccurrences(of: "%d", with: "\(pendingRequests)")
+            )
+        }
+        lines.append(loc.t("visibility.confirm.reassurance"))
+        return lines.joined(separator: "\n\n")
     }
 
     // MARK: - Pieces
@@ -798,6 +1095,59 @@ struct HostListingRow: View {
     /// Opens the pricing calendar: per-day rates, and opening/closing days.
     /// Styled as editButton's quieter twin — same geometry, tinted fill — because
     /// the two sit together and only differ in how consequential they are.
+    /// Opens the listing as a guest sees it. Nothing about the listing changes.
+    private var previewButton: some View {
+        Button {
+            Task { await openPreview() }
+        } label: {
+            HStack(spacing: 7) {
+                if isLoadingPreview {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(Color.qkBurgundy)
+                } else {
+                    Image(systemName: "eye")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                Text(loc.t("preview.guest.action"))
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .background(Color.qkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.qkBurgundy.opacity(0.25), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.qkTap)
+        .disabled(isSubmitting || isLoadingPreview)
+        .accessibilityLabel(loc.t("preview.guest.action"))
+    }
+
+    /// Fetches the GUEST projection of this listing and presents it.
+    ///
+    /// Deliberately NOT the copy this row already holds: host reads come back from
+    /// `LISTING_COLS_HOST`, whose prices are the host's own raw amounts, while a
+    /// guest is quoted those plus the platform commission. Previewing the local
+    /// object would show the host a nightly rate no guest will ever be offered —
+    /// the single number the preview exists to check. The read is authenticated,
+    /// which is also what lets it resolve at all while the listing is unpublished.
+    private func openPreview() async {
+        isLoadingPreview = true
+        defer { isLoadingPreview = false }
+        errorMessage = nil
+        do {
+            previewListing = try await SupabaseService.shared.fetchListing(id: listing.id)
+        } catch {
+            errorMessage = loc.t("preview.guest.failed")
+        }
+    }
+
     private var calendarButton: some View {
         Button {
             showingCalendar = true
@@ -852,20 +1202,22 @@ struct HostListingRow: View {
         .disabled(isSubmitting)
     }
 
-    private var reuploadButton: some View {
-        PhotosPicker(
-            selection: $docItem,
-            matching: .images,
-            photoLibrary: .shared()
-        ) {
+    /// The ownership-document picker. Its LABEL is not the same question as the
+    /// row's status: `hasDoc` says whether there is a document to re-upload, and
+    /// a listing can be pending or rejected without ever having had one.
+    private var ownershipDocButton: some View {
+        OwnershipDocPicker(
+            onPicked: { doc in Task { await resubmit(doc) } },
+            onProblem: { errorMessage = $0 }
+        ) { isProcessing in
             HStack(spacing: 7) {
-                if isSubmitting {
+                if isSubmitting || isProcessing {
                     ProgressView().controlSize(.small).tint(.qkBurgundy)
                 } else {
                     Image(systemName: "doc.badge.arrow.up")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                Text(loc.t("approval.reupload"))
+                Text(loc.t(hasDoc ? "approval.reupload" : "approval.uploadDoc"))
                     .font(.system(size: 13, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -885,26 +1237,131 @@ struct HostListingRow: View {
         .disabled(isSubmitting)
     }
 
+    /// Deactivate / Reactivate. Deliberately the quietest button in the row when
+    /// it takes a listing down — it must never compete with Edit for a distracted
+    /// tap — and the warmer tinted twin when it puts one back, which is the
+    /// constructive direction.
+    private var visibilityButton: some View {
+        Button {
+            noticeMessage = nil
+            if deactivated {
+                Task { await setPublished(true) }
+            } else {
+                confirmingDeactivate = true
+            }
+        } label: {
+            HStack(spacing: 7) {
+                if isSubmitting {
+                    ProgressView().controlSize(.small).tint(.qkMuted)
+                } else {
+                    Image(systemName: deactivated ? "eye.fill" : "eye.slash")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                Text(loc.t(deactivated ? "visibility.reactivate" : "visibility.deactivate"))
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+            .foregroundStyle(deactivated ? Color.qkBurgundy : Color.qkMuted)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .background(deactivated ? Color.qkBurgundy.opacity(0.08) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        deactivated ? Color.qkBurgundy.opacity(0.25) : Color.qkMuted.opacity(0.25),
+                        lineWidth: 1
+                    )
+            )
+            .opacity(isSubmitting ? 0.85 : 1)
+        }
+        .buttonStyle(.qkTap)
+        .disabled(isSubmitting)
+    }
+
+    /// "You deactivated this" / "Hidden by our team" — and, crucially, what that
+    /// did NOT do to the reservations the host already has.
+    private var visibilityNote: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(loc.t(deactivated ? "visibility.note.deactivated.title" : "visibility.note.blocked.title"))
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.qkInk)
+            Text(loc.t(deactivated ? "visibility.note.deactivated.body" : "visibility.note.blocked.body"))
+                .font(.system(size: 13))
+                .foregroundStyle(Color.qkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
+        .padding(10)
+        .background(Color.qkMuted.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    // MARK: - Visibility
+
+    /// Flip the listing's visibility and report what ACTUALLY happened — which is
+    /// not always what was asked. A reactivate can come back still hidden (an
+    /// account block, the identity gate or the review queue outranks the host),
+    /// and saying "it's live again" then would be a straight lie.
+    private func setPublished(_ next: Bool) async {
+        errorMessage = nil
+        noticeMessage = nil
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            let result = try await HostService.shared.setListingPublished(listingID: listing.id, isPublished: next)
+            deactivated = !next
+            isPublished = result.isPublished
+            if let updated = result.listing {
+                status = updated.approval
+                pendingRequests = updated.pendingRequestCount
+            } else if !next {
+                // The deactivate declined every one of them.
+                pendingRequests = 0
+            }
+            if next && !result.isPublished {
+                noticeMessage = blockedNotice(result.blockedBy) ?? result.blockedMessage
+            } else if !next && result.declinedRequests > 0 {
+                noticeMessage = loc.t("visibility.declined")
+                    .replacingOccurrences(of: "%d", with: "\(result.declinedRequests)")
+            }
+            onChanged()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// The localized "reactivated, but…" line for the party still holding the
+    /// listing. Nil for a code this build has no string for — the caller then
+    /// falls back to the server's own sentence rather than saying nothing.
+    private func blockedNotice(_ code: String?) -> String? {
+        switch code {
+        case "verification": return loc.t("visibility.blocked.verification")
+        case "staff":        return loc.t("visibility.blocked.staff")
+        case "rejected":     return loc.t("visibility.blocked.rejected")
+        case "under_review": return loc.t("visibility.blocked.underReview")
+        default:             return nil
+        }
+    }
+
     // MARK: - Re-submit
 
-    /// Downscale + encode the picked document and PATCH it; on success flip the
-    /// local badge to "Pending review" and ask the parent to refetch.
-    private func resubmit(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
+    /// PATCH the picked document — a photo or a PDF, already encoded and size-
+    /// checked by `OwnershipDocPicker`; on success flip the local badge to
+    /// "Under review" and ask the parent to refetch.
+    private func resubmit(_ dataURL: String) async {
         errorMessage = nil
         isSubmitting = true
         defer { isSubmitting = false }
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            let image = UIImage(data: data),
-            let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1200, quality: 0.8)
-        else {
-            errorMessage = loc.t("trust.uploadError")
-            return
-        }
         do {
             let updated = try await HostService.shared.resubmitOwnershipDoc(listingID: listing.id, doc: dataURL)
             status = updated.approval
+            // There is now certainly a document on file, whatever the refreshed
+            // row says — so the button becomes "Re-upload" immediately.
+            hasDoc = true
             onChanged()
         } catch {
             errorMessage = error.localizedDescription

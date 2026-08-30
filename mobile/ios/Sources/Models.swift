@@ -1,6 +1,60 @@
 import Foundation
 import CoreLocation
 
+/// The rules for the weekend rung of the pricing ladder: which weekdays a
+/// listing's `weekendPrice` is charged on, and what a (rate, days) pair may be.
+///
+/// The Swift twin of `listing-pricing-core.ts` on the server, which is the file
+/// the website and the API both run. Keep the four answers below in step with
+/// `resolveWeekendSchedule` there — the API refuses the same two sets this
+/// refuses, and a host should be told by the screen they are typing into rather
+/// than by a save that comes back 400.
+enum WeekendSchedule {
+    /// Egypt's weekend, and the fallback when a host never chose (`weekend_days`
+    /// is NULL). Matches `DEFAULT_WEEKEND_DAYS` on the server.
+    static let defaultDays: [Int] = [5, 6]
+
+    /// Days in a week — the ceiling a weekend has to stay under.
+    static let daysInWeek = 7
+
+    /// Why a chosen day set cannot be saved. `Error` so it can be the failure of
+    /// a `Result`, which is how the screens ask this question.
+    enum Problem: Error {
+        /// All seven days, which leaves the nightly price applying to no night.
+        case wholeWeek
+        /// A rate was typed with no day left lit to charge it on.
+        case noDaysChosen
+    }
+
+    /// Keep whole days in 0...6, drop repeats, sort ascending.
+    static func normalize(_ raw: [Int]) -> [Int] {
+        Array(Set(raw.filter { (0..<daysInWeek).contains($0) })).sorted()
+    }
+
+    /// The days a listing actually prices at its weekend rate — the host's own
+    /// set, or the default when they never chose. What the server's ladder does,
+    /// so a preview here matches the quote.
+    static func effective(_ days: [Int]?) -> [Int] {
+        guard let days, !days.isEmpty else { return defaultDays }
+        return normalize(days)
+    }
+
+    /// Judge a (rate, days) pair as ONE thing, the way the API does.
+    ///
+    /// - no rate → no days, and never an error: clearing the weekend price is
+    ///   how a host turns weekend pricing off, and refusing that save would
+    ///   strand them on a form they are in the middle of fixing.
+    /// - all seven days → `.wholeWeek`.
+    /// - no days under a real rate → `.noDaysChosen`.
+    static func resolve(price: Double?, days: [Int]) -> Result<[Int]?, Problem> {
+        guard let price, price > 0 else { return .success(nil) }
+        let cleaned = normalize(days)
+        if cleaned.count >= daysInWeek { return .failure(.wholeWeek) }
+        if cleaned.isEmpty { return .failure(.noDaysChosen) }
+        return .success(cleaned)
+    }
+}
+
 /// A photo attached to a listing (from the `listing_images` table).
 struct ListingImage: Codable, Hashable {
     /// `listing_images.id` — what the photo delete / reorder endpoints address.
@@ -29,6 +83,14 @@ struct Listing: Codable, Identifiable, Hashable {
     /// Curated area the place belongs to (e.g. "North Coast", "Ain Sokhna").
     /// Backed by the listings' `region` column; `nil` when unset.
     let region: String?
+    /// The catalog resort this listing belongs to, from the `resort_id` column.
+    /// `nil` when the host typed their own compound name or picked none — the
+    /// two are mutually exclusive server-side. Seeds the host editor's picker.
+    let resortId: String?
+    /// The resort / compound to SHOW: the catalog resort's name when `resortId`
+    /// is set, otherwise whatever the host typed. `nil` when the listing isn't in
+    /// one. Backed by the API's derived `resort` field, not by a column.
+    let resort: String?
     /// The property type ("Apartment", "Villa", …), from the `property_type`
     /// column. `nil` when unset. Prefills the host edit form's type picker.
     let propertyType: String?
@@ -69,7 +131,7 @@ struct Listing: Codable, Identifiable, Hashable {
     /// The listing's moderation state ("pending" | "approved" | "rejected"),
     /// from the `approval_status` column. Defaults to "approved" when the backend
     /// omits it (older responses / public reads, which only ever return approved
-    /// listings). Drives the host's own "Pending review / Approved / Rejected"
+    /// listings). Drives the host's own "Under review / Approved / Rejected"
     /// badge + the re-upload-ownership-doc action.
     let approvalStatus: String
     /// Length-of-stay weekly discount (% off), from the `weekly_discount` column.
@@ -80,11 +142,21 @@ struct Listing: Codable, Identifiable, Hashable {
     /// column. Applied server-side to stays of ≥28 nights (takes precedence over
     /// the weekly discount). Defaults to `0` when the backend omits it.
     let monthlyDiscount: Int
-    /// Optional seasonal weekend nightly rate (EGP) for Fri + Sat, from the
-    /// `weekend_price` column. `nil` when the host hasn't set one — the base
-    /// `pricePerNight` then applies on weekends. Used by the authoritative quote
-    /// endpoint; surfaced on the guest detail screen as a "seasonal rates" note.
+    /// Optional seasonal weekend nightly rate (EGP), from the `weekend_price`
+    /// column. `nil` when the host hasn't set one — the base `pricePerNight`
+    /// then applies on weekends. Used by the authoritative quote endpoint;
+    /// surfaced on the guest detail screen as a "seasonal rates" note.
+    /// Which nights it applies to is `weekendDays`, NOT a fixed Fri + Sat.
     let weekendPrice: Double?
+    /// Which weekdays `weekendPrice` is charged on, from the `weekend_days`
+    /// column (`0`=Sun … `6`=Sat). `nil` when the host never chose, which means
+    /// the default weekend applies — see `WeekendSchedule.effective`.
+    ///
+    /// A weekend is not Friday and Saturday everywhere, nor for every property,
+    /// so this is the host's answer and not a constant. Both apps used to have
+    /// no picker at all and told the host "Applied on Fri + Sat nights"; the
+    /// column existed and the backend simply never sent it.
+    let weekendDays: [Int]?
     /// Optional per-month seasonal nightly rates (EGP), from the `monthly_prices`
     /// object keyed by month "1".."12" → nightly EGP. Only the months the host
     /// filled in are present. Defaults to empty `[:]` when the backend omits it.
@@ -101,9 +173,35 @@ struct Listing: Codable, Identifiable, Hashable {
     /// which fall back to generic guidance when it is nil. Cleared server-side the
     /// moment the listing goes back into the review queue.
     let reviewNote: String?
+    /// Whether guests can see this listing at all, from `is_published`. Defaults
+    /// to `true` when the backend omits it — every public read only ever returns
+    /// published listings, so absence means "visible".
+    let isPublished: Bool
+    /// HOST READS ONLY. The host took this listing down themselves — the one
+    /// takedown reason they can undo, and what the Deactivate / Reactivate button
+    /// acts on. QuickIn has no host-facing delete: bookings, reviews and payment
+    /// records hang off the listing id, so "remove my listing" is this flag going
+    /// true and `is_published` going false, with nothing erased.
+    let unpublishedByHost: Bool
+    /// HOST READS ONLY. An account block hid it; only a staff restore undoes it.
+    let unpublishedByAdmin: Bool
+    /// HOST READS ONLY. The identity gate hid it; only re-verifying undoes it.
+    let unpublishedByVerification: Bool
+    /// HOST READS ONLY. Booking requests still waiting on this host — the number
+    /// a deactivate would decline, named in the confirmation before it happens.
+    let pendingRequestCount: Int
+    /// HOST READS ONLY. Whether a proof-of-ownership document is on file, from
+    /// `has_ownership_doc`. A flag, never the document — that stays admin-only.
+    /// The document is OPTIONAL at create time, so this is a different question
+    /// from `approvalStatus`: a listing sits in the queue as `.pending` with
+    /// nothing attached. Decides whether the card offers "Upload ownership
+    /// document" or "Re-upload ownership document"; defaults to `false`, which
+    /// asks for the document either way rather than claiming one exists.
+    let hasOwnershipDoc: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, title, description, location, country, region, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
+        case id, title, description, location, country, region, resort, currency, bedrooms, beds, bathrooms, lat, lng, amenities, rating
+        case resortId = "resort_id"
         case propertyType = "property_type"
         case pricePerNight = "price_per_night"
         case maxGuests = "max_guests"
@@ -119,9 +217,16 @@ struct Listing: Codable, Identifiable, Hashable {
         case weeklyDiscount = "weekly_discount"
         case monthlyDiscount = "monthly_discount"
         case weekendPrice = "weekend_price"
+        case weekendDays = "weekend_days"
         case monthlyPrices = "monthly_prices"
         case createdAt = "created_at"
         case reviewNote = "review_note"
+        case isPublished = "is_published"
+        case unpublishedByHost = "unpublished_by_host"
+        case unpublishedByAdmin = "unpublished_by_admin"
+        case unpublishedByVerification = "unpublished_by_verification"
+        case pendingRequestCount = "pending_request_count"
+        case hasOwnershipDoc = "has_ownership_doc"
     }
 
     init(from decoder: Decoder) throws {
@@ -132,6 +237,8 @@ struct Listing: Codable, Identifiable, Hashable {
         location = try c.decodeIfPresent(String.self, forKey: .location)
         country = try c.decodeIfPresent(String.self, forKey: .country)
         region = try c.decodeIfPresent(String.self, forKey: .region)
+        resortId = try c.decodeIfPresent(String.self, forKey: .resortId)
+        resort = try c.decodeIfPresent(String.self, forKey: .resort)
         propertyType = try c.decodeIfPresent(String.self, forKey: .propertyType)
         hostId = try c.decodeIfPresent(String.self, forKey: .hostId)
         hostName = try c.decodeIfPresent(String.self, forKey: .hostName)
@@ -158,6 +265,13 @@ struct Listing: Codable, Identifiable, Hashable {
         monthlyDiscount = try c.decodeIfPresent(Int.self, forKey: .monthlyDiscount) ?? 0
         // Seasonal weekend rate: treat 0 / negative as "unset".
         weekendPrice = (try c.decodeIfPresent(Double.self, forKey: .weekendPrice)).flatMap { $0 > 0 ? $0 : nil }
+        // The days that rate is charged on. An EMPTY array is decoded as `nil`
+        // rather than as "no day is a weekend": rows predating the write rules
+        // can hold `{}`, and the server prices those at the default weekend, so
+        // showing the host anything else here would contradict their own quote.
+        weekendDays = (try c.decodeIfPresent([Int].self, forKey: .weekendDays))
+            .map(WeekendSchedule.normalize)
+            .flatMap { $0.isEmpty ? nil : $0 }
         // Per-month seasonal rates: keep only positive nightly values keyed "1".."12".
         monthlyPrices = (try c.decodeIfPresent([String: Double].self, forKey: .monthlyPrices) ?? [:])
             .filter { $0.value > 0 }
@@ -167,6 +281,20 @@ struct Listing: Codable, Identifiable, Hashable {
         // empty box where the generic copy belongs.
         reviewNote = (try c.decodeIfPresent(String.self, forKey: .reviewNote))
             .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        // Absent means visible: a guest read only ever returns published listings,
+        // and defaulting to false there would badge every one of them "hidden".
+        isPublished = try c.decodeIfPresent(Bool.self, forKey: .isPublished) ?? true
+        // The three takedown flags and the pending count ride only on HOST reads
+        // (LISTING_COLS_HOST). On a guest read they are simply absent, and false /
+        // zero is the honest answer for a listing nobody is holding down.
+        unpublishedByHost = try c.decodeIfPresent(Bool.self, forKey: .unpublishedByHost) ?? false
+        unpublishedByAdmin = try c.decodeIfPresent(Bool.self, forKey: .unpublishedByAdmin) ?? false
+        unpublishedByVerification = try c.decodeIfPresent(Bool.self, forKey: .unpublishedByVerification) ?? false
+        pendingRequestCount = try c.decodeIfPresent(Int.self, forKey: .pendingRequestCount) ?? 0
+        // Host reads only, same as above. Absent → false, so an app talking to a
+        // backend that predates the field asks the host to upload the document
+        // rather than telling them to re-upload one it cannot see.
+        hasOwnershipDoc = try c.decodeIfPresent(Bool.self, forKey: .hasOwnershipDoc) ?? false
     }
 
     /// `true` once the place has at least one review backing a rating.
@@ -185,6 +313,20 @@ struct Listing: Codable, Identifiable, Hashable {
 
     /// The strongly-typed moderation state (falls back to `.approved`).
     var approval: ApprovalStatus { ApprovalStatus(raw: approvalStatus) }
+
+    /// The single state the host's own listing row is shown in — moderation and
+    /// visibility folded together, because from the host's side "why can nobody
+    /// see this?" has one answer, not two, and a listing can be approved and
+    /// hidden at the same time. Mirrors `hostVisibilityState()` in the backend's
+    /// host-visibility-core.ts, which the API enforces the same rules from.
+    var hostVisibility: HostVisibility {
+        if unpublishedByHost { return .deactivated }
+        switch approval {
+        case .rejected: return .rejected
+        case .pending: return .underReview
+        case .approved: return isPublished ? .live : .blocked
+        }
+    }
 
     /// Map coordinate for this listing, when both `lat` and `lng` are present.
     var coordinate: CLLocationCoordinate2D? {
@@ -307,6 +449,19 @@ struct RegionFacet: Codable, Identifiable, Hashable {
     var id: String { region }
 }
 
+/// One resort / compound from `GET /api/local/resorts` (optionally narrowed to a
+/// region), e.g. `{ "id": "…", "name": "Marassi", "region": "North Coast" }`.
+/// Drives the host location step's resort picker. Only ACTIVE resorts are
+/// returned — a retired one stays valid on the listings that already point at it
+/// but is no longer offered.
+struct ResortOption: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    /// The curated area the resort belongs to. Picking the resort is what sets
+    /// the listing's region server-side, which is the point of the pairing.
+    let region: String
+}
+
 /// A geographic bounding box for the "Search this area" map filter. Serialized
 /// to the backend's `bbox` query param in GeoJSON `west,south,east,north` order
 /// (`minLng,minLat,maxLng,maxLat`) — the endpoint returns only listings inside it.
@@ -339,6 +494,14 @@ struct Booking: Codable, Identifiable, Hashable {
     /// "unpaid" | "paid", from the `payment_status` column. `nil` when the
     /// backend omits it (older responses) — treated as unpaid by `isPaid`.
     let paymentStatus: String?
+    /// The latest transfer screenshot's own verdict, from `payment_proof_status`
+    /// ("submitted" | "approved" | "rejected" | "disputed"). `nil` when the guest
+    /// has never uploaded one. Read together with `paymentStatus` by
+    /// `PaymentFlowRules` — neither column alone tells the whole story.
+    let paymentProofStatus: String?
+    /// Why the reviewer turned the last screenshot down, from
+    /// `payment_reject_reason`. `nil` unless the payment was rejected.
+    let paymentRejectReason: String?
     /// ISO-8601 timestamp the booking was paid, from `paid_at`. `nil` until paid.
     let paidAt: String?
     let title: String?
@@ -367,6 +530,8 @@ struct Booking: Codable, Identifiable, Hashable {
         case checkOut = "check_out"
         case totalPrice = "total_price"
         case paymentStatus = "payment_status"
+        case paymentProofStatus = "payment_proof_status"
+        case paymentRejectReason = "payment_reject_reason"
         case paidAt = "paid_at"
         case hostNotes = "host_notes"
         case cancellationPolicy = "cancellation_policy"
@@ -374,8 +539,21 @@ struct Booking: Codable, Identifiable, Hashable {
         case refundPercent = "refund_percent"
     }
 
-    /// `true` once the booking has been paid (`payment_status == "paid"`).
-    var isPaid: Bool { (paymentStatus ?? "").lowercased() == "paid" }
+    /// Where this reservation sits in the payment flow, decided by
+    /// `PaymentFlowRules` — the Swift twin of the backend's `paymentStageFor`.
+    var paymentStage: PaymentFlowRules.Stage {
+        PaymentFlowRules.stage(for: PaymentFlowRules.Snapshot(
+            status: status,
+            paymentState: paymentStatus,
+            proofStatus: paymentProofStatus,
+            paidAt: paidAt
+        ))
+    }
+
+    /// `true` once the booking has been paid. Asks the shared rule rather than
+    /// comparing `payment_status` by hand, so an approved proof whose rollup
+    /// never landed still reads as paid — exactly as the server sees it.
+    var isPaid: Bool { paymentStage == .paid }
 
     /// "EGP 1100" style price for the card. Falls back to "—" if absent.
     var totalText: String {
@@ -467,6 +645,11 @@ extension Booking {
             totalPrice: totalPrice,
             status: "confirmed",
             paymentStatus: "paid",
+            // The proof that was just accepted, and no stale rejection note
+            // beside it — a paid booking must never carry "we couldn't confirm
+            // your transfer" from an earlier round.
+            paymentProofStatus: "approved",
+            paymentRejectReason: nil,
             paidAt: paidAt ?? ISO8601DateFormatter().string(from: Date()),
             title: title,
             location: location,
@@ -493,6 +676,20 @@ struct HostBooking: Codable, Identifiable, Hashable {
     let guests: Int
     let totalPrice: Double?
     let status: String?
+    /// The raw `bookings.payment_status` rollup ("unpaid" | "submitted" | "paid" |
+    /// "rejected" | "disputed", plus the retired gateway's values). `nil` on an
+    /// older response that omitted it.
+    let paymentState: String?
+    /// The latest `payment_proofs.status` — the screenshot's own verdict. `nil`
+    /// when the guest has never uploaded one. Two columns describe the same
+    /// thing and can disagree, which is why `PaymentFlowRules` reads both.
+    let paymentProofStatus: String?
+    /// Stamped when the payment was approved; `nil` while it is outstanding.
+    let paidAt: String?
+    /// Percent of the total refunded on cancel (0–100); `nil` when never
+    /// cancelled. Splits the Cancelled chip into Cancelled / Refunded /
+    /// Partially refunded.
+    let refundPercent: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, title, location, guests, status
@@ -500,9 +697,41 @@ struct HostBooking: Codable, Identifiable, Hashable {
         case checkIn = "check_in"
         case checkOut = "check_out"
         case totalPrice = "total_price"
+        case paymentState = "payment_status"
+        case paymentProofStatus = "payment_proof_status"
+        case paidAt = "paid_at"
+        case refundPercent = "refund_percent"
     }
 
     var bookingStatus: BookingStatus { BookingStatus(raw: status) }
+
+    /// Where this reservation's money stands, from the one rule the server, the
+    /// web and Android all run. Never compare the payment columns by hand.
+    var paymentStage: PaymentFlowRules.Stage {
+        PaymentFlowRules.stage(for: PaymentFlowRules.Snapshot(
+            status: status,
+            paymentState: paymentState,
+            proofStatus: paymentProofStatus,
+            paidAt: paidAt
+        ))
+    }
+
+    /// Which status chip this reservation is filed behind.
+    var filterBucket: HostBookingFilterRules.Bucket {
+        HostBookingFilterRules.bucket(for: HostBookingFilterRules.Snapshot(
+            status: status,
+            paymentStage: paymentStage,
+            refundPercent: refundPercent,
+            // A separate question from the stage, which calls everything cancelled
+            // `.notPayable` and so cannot tell a refund from a booking nobody paid for.
+            wasPaid: PaymentFlowRules.everPaid(PaymentFlowRules.Snapshot(
+                status: status,
+                paymentState: paymentState,
+                proofStatus: paymentProofStatus,
+                paidAt: paidAt
+            ))
+        ))
+    }
 
     var totalText: String {
         guard let totalPrice else { return "—" }
@@ -522,6 +751,15 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
     let status: String?
     /// "unpaid" | "paid", from the `payment_status` column. `nil` when omitted.
     let paymentStatus: String?
+    /// The latest transfer screenshot's own verdict, from `payment_proof_status`
+    /// ("submitted" | "approved" | "rejected" | "disputed"). `nil` when the guest
+    /// has never uploaded one.
+    let paymentProofStatus: String?
+    /// Why the reviewer turned the last screenshot down, from
+    /// `payment_reject_reason`. `nil` unless the payment was rejected. This is
+    /// the admin's own words and the only explanation the guest ever gets —
+    /// without it a rejection is indistinguishable from never having paid.
+    let paymentRejectReason: String?
     /// ISO-8601 timestamp the booking was paid, from `paid_at`. `nil` until paid.
     let paidAt: String?
     let title: String?
@@ -557,6 +795,8 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
         case checkOut = "check_out"
         case totalPrice = "total_price"
         case paymentStatus = "payment_status"
+        case paymentProofStatus = "payment_proof_status"
+        case paymentRejectReason = "payment_reject_reason"
         case paidAt = "paid_at"
         case hostNotes = "host_notes"
         case hostId = "host_id"
@@ -579,8 +819,43 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
     /// `true` once this booking has been cancelled.
     var isCancelled: Bool { bookingStatus == .cancelled }
 
-    /// `true` once the booking has been paid (`payment_status == "paid"`).
-    var isPaid: Bool { (paymentStatus ?? "").lowercased() == "paid" }
+    /// Where this reservation sits in the payment flow, decided by
+    /// `PaymentFlowRules` — the Swift twin of the backend's `paymentStageFor`,
+    /// and the only thing the payment card is allowed to branch on. Testing
+    /// `payment_status` by hand is what hid a rejection behind a bare "Pay now".
+    var paymentStage: PaymentFlowRules.Stage {
+        PaymentFlowRules.stage(for: PaymentFlowRules.Snapshot(
+            status: status,
+            paymentState: paymentStatus,
+            proofStatus: paymentProofStatus,
+            paidAt: paidAt
+        ))
+    }
+
+    /// `true` once the booking has been paid. Asks the shared rule rather than
+    /// comparing `payment_status` by hand, so an approved proof whose rollup
+    /// never landed still reads as paid — exactly as the server sees it.
+    var isPaid: Bool { paymentStage == .paid }
+
+    /// `true` when the guest may (re)submit a transfer. A rejected screenshot is
+    /// payable: they upload a clearer one, the reservation survives.
+    var canPay: Bool {
+        PaymentFlowRules.canPay(PaymentFlowRules.Snapshot(
+            status: status,
+            paymentState: paymentStatus,
+            proofStatus: paymentProofStatus,
+            paidAt: paidAt
+        ))
+    }
+
+    /// The reviewer's own words on why the last transfer was turned down, shown
+    /// verbatim to the guest. `nil` unless this reservation is actually at
+    /// `.rejected`, so a reason left on the row from an earlier round can never
+    /// surface beside a payment that has since been accepted.
+    var paymentRejectReasonText: String? {
+        guard paymentStage == .rejected else { return nil }
+        return PaymentFlowRules.rejectReasonText(paymentRejectReason)
+    }
 
     var totalText: String {
         guard let totalPrice else { return "—" }
@@ -622,38 +897,60 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
         return raw
     }
 
+    /// Whether this reservation's stay pass is live, decided by
+    /// `PaymentFlowRules` — the Swift twin of the backend's `isLiveStayPass`,
+    /// and the only thing the QR, the Wallet button and the guest's view of the
+    /// stay guide are allowed to branch on. `confirmed` **AND paid**, or
+    /// `completed`. Testing `status == .confirmed` by hand is what put a working
+    /// QR on the host's and the guest's screen the instant Approve was tapped,
+    /// for a stay nobody had paid for.
+    var isLiveStayPass: Bool {
+        PaymentFlowRules.isLiveStayPass(PaymentFlowRules.Snapshot(
+            status: status,
+            paymentState: paymentStatus,
+            proofStatus: paymentProofStatus,
+            paidAt: paidAt
+        ))
+    }
+
     /// `true` once this reservation actually has a stay pass — the gate behind
     /// the QR card and the `/stay/<code>` link (the Wallet button uses the
     /// stricter `canAddToWallet`).
     ///
     /// Two conditions, both required: the backend has issued a
     /// `reservation_code` (it only does that at the confirmation transition),
-    /// **and** the booking is in a state that still has a usable pass. A
-    /// `pending` booking is waiting for the host's approval and has no code, so
-    /// nothing is rendered; `cancelled`/`rejected` keep their old code but the
-    /// pass is dead. `completed` keeps working so a guest can still open the
-    /// pass for a stay that has already ended.
+    /// **and** `isLiveStayPass` — the stay is confirmed *and paid*, or already
+    /// completed.
     var hasStayPass: Bool {
         guard stayCode != nil else { return false }
-        return bookingStatus == .confirmed || bookingStatus == .completed
+        return isLiveStayPass
     }
 
     /// `true` when an Apple Wallet pass can be minted for this reservation.
     /// Deliberately stricter than `hasStayPass`: the backend's
-    /// `GET /api/wallet/pass/:id` rejects anything that isn't `confirmed` with a
-    /// `reservation_code` (400), so the button is only offered when it works.
+    /// `GET /api/wallet/pass/:id` rejects anything that isn't a **live and
+    /// currently-confirmed** stay with a `reservation_code` (400), so the button
+    /// is only offered when it works. `completed` is excluded for that reason —
+    /// it has a pass, but the backend won't sign one for it.
     var canAddToWallet: Bool {
-        bookingStatus == .confirmed && stayCode != nil
+        bookingStatus == .confirmed && isLiveStayPass && stayCode != nil
     }
 
     /// `true` while the pass simply hasn't been issued **yet** — the reservation
-    /// is still awaiting the host's approval (or was just confirmed and the code
-    /// hasn't landed on this response). Drives the "your QR code will appear
-    /// once your reservation is confirmed" placeholder. Cancelled / rejected
-    /// stays are never coming back, so they show nothing at all.
+    /// is awaiting the host's approval, or awaiting the guest's payment. Drives
+    /// the "your QR code will appear once…" placeholder; `awaitingPassMessage`
+    /// says which of the two it is. Cancelled / rejected stays are never coming
+    /// back, so they show nothing at all.
     var isAwaitingStayPass: Bool {
         guard !hasStayPass else { return false }
         return bookingStatus == .pending || bookingStatus == .confirmed
+    }
+
+    /// `true` when the pass is held up by the **payment** rather than by the
+    /// host — the host has approved, and the money is what's outstanding. Lets
+    /// the placeholder tell the guest something they can act on.
+    var isAwaitingPaymentForPass: Bool {
+        isAwaitingStayPass && bookingStatus == .confirmed
     }
 
     /// The bare reservation code shown under the QR, or `nil` when there is no
@@ -1038,6 +1335,13 @@ struct Service: Codable, Identifiable, Hashable {
     let lat: Double?
     let lng: Double?
     let isPublished: Bool?
+    /// HOST READS ONLY. The host took this service down themselves — the services
+    /// twin of `Listing.unpublishedByHost`, and what the Deactivate / Reactivate
+    /// button acts on. Absent (nil → false) on a public read.
+    let unpublishedByHost: Bool?
+    /// HOST READS ONLY. Requests still waiting on this host — the number a
+    /// deactivate would decline, named in the confirmation before it happens.
+    let pendingRequestCount: Int?
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -1046,8 +1350,18 @@ struct Service: Codable, Identifiable, Hashable {
         case hostName = "host_name"
         case imageURL = "image_url"
         case isPublished = "is_published"
+        case unpublishedByHost = "unpublished_by_host"
+        case pendingRequestCount = "pending_request_count"
         case createdAt = "created_at"
     }
+
+    /// True when the host has taken this service off the market themselves — the
+    /// only reason a host may undo. A service hidden without the flag was hidden
+    /// by staff and is not theirs to republish.
+    var isDeactivatedByHost: Bool { unpublishedByHost == true }
+
+    /// Requests waiting on the host right now, defaulting to none.
+    var pendingRequests: Int { pendingRequestCount ?? 0 }
 
     var currencySymbol: String { "EGP " }
 
@@ -1571,6 +1885,38 @@ enum ApprovalStatus: String, Equatable {
     var canResubmitDoc: Bool { self == .pending || self == .rejected }
 }
 
+/// What a host is shown for one of their OWN listings: the union of moderation
+/// state and visibility. Mirrors `HostVisibility` in the backend's
+/// host-visibility-core.ts — the module the API enforces these rules from — so
+/// the badge, the filter chip and the button can never disagree with the write.
+///
+/// `.deactivated` deliberately outranks the moderation states: it is the state
+/// the host themselves set, it is what the button acts on, and it is the reason
+/// the listing will STAY hidden even after the queue approves it. The rejection
+/// reason still renders separately off `approvalStatus`, so a listing that is
+/// both deactivated and rejected still tells the host why.
+///
+/// `.blocked` is "unpublished, but not by you" — an account block, the identity
+/// gate, or an operator takedown. The host cannot clear it; the state exists so
+/// the row can say so rather than looking live or offering a button that fails.
+enum HostVisibility: Equatable {
+    case live
+    case deactivated
+    case underReview
+    case rejected
+    case blocked
+
+    /// Whether the host may take this listing down. True unless they already
+    /// have — or unless someone else is holding it, which is not theirs to
+    /// compound.
+    var canDeactivate: Bool { self != .deactivated && self != .blocked }
+
+    /// Whether the host may put it back. Only what they hid themselves: a
+    /// listing an operator took down is not theirs to republish, and the API
+    /// refuses it.
+    var canReactivate: Bool { self == .deactivated }
+}
+
 /// The trust badges a public profile carries, from the `badges` object on
 /// `GET /api/local/users/:id`. Every field is optional/defaulted so a partial
 /// payload still decodes — the badges view simply shows whichever apply.
@@ -1976,6 +2322,15 @@ struct HostEarningItem: Decodable, Identifiable, Hashable {
     let status: String
     /// ISO-8601 timestamp the payout settled, from `paid_at`. `nil` when upcoming.
     let paidAt: String?
+    /// The booking was cancelled and the host still kept part (or all) of it.
+    /// `gross` and `net` above are ALREADY net of `refundPercent`. Absent on
+    /// older backends, which dropped cancelled rows entirely — which is the bug
+    /// this flag exists because of: a cancellation refunds a SHARE of the stay,
+    /// so erasing the row deducted the host's whole price for a refund the guest
+    /// never received. `false` is therefore the right default.
+    let cancelled: Bool
+    /// Share of the guest's money returned, 0–100. Meaningful only when `cancelled`.
+    let refundPercent: Int
 
     /// `Identifiable` by the booking id (one row per booking).
     var id: String { bookingId }
@@ -1985,7 +2340,7 @@ struct HostEarningItem: Decodable, Identifiable, Hashable {
         case title
         case checkIn = "check_in"
         case checkOut = "check_out"
-        case gross, net, status
+        case gross, net, status, cancelled, refundPercent
         case paidAt = "paid_at"
     }
 
@@ -2000,7 +2355,14 @@ struct HostEarningItem: Decodable, Identifiable, Hashable {
         status = (try c.decodeIfPresent(String.self, forKey: .status))
             .flatMap { $0.isEmpty ? nil : $0 } ?? "upcoming"
         paidAt = try c.decodeIfPresent(String.self, forKey: .paidAt)
+        cancelled = try c.decodeIfPresent(Bool.self, forKey: .cancelled) ?? false
+        refundPercent = try c.decodeIfPresent(Int.self, forKey: .refundPercent) ?? 0
     }
+
+    /// A cancellation the guest was refunded nothing on — the host keeps their
+    /// full price, and the earnings row must say so rather than look like a
+    /// stay that mysteriously paid out after being called off.
+    var keptInFull: Bool { cancelled && refundPercent <= 0 }
 
     /// `true` once this booking's payout has settled (`status == "paid_out"`).
     var isPaidOut: Bool { status.lowercased() == "paid_out" }

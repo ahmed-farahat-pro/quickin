@@ -246,7 +246,15 @@ tab, not a separate tab set — the tab set never changes on role.
   the notifications bell, the "Ask AI" search, and a FAB → AI travel concierge.
 - `ServicesScreen` — public bookable experiences feed.
 - `WishlistScreen` — saved stays + experiences (signed-out → sign-in prompt).
-- `ReservationsScreen` (Trips) — the user's own bookings.
+- `ReservationsScreen` (Trips) — the user's own bookings. The payment card on
+  `ReservationDetailScreen` branches on `Reservation.paymentStage` (from `PaymentFlowRules`,
+  the Kotlin twin of the backend's `src/lib/local/payment-flow-core.ts`), never on a raw
+  column: *Pay now* (approved, nothing submitted) / **the reviewer's rejection reason above a
+  Try-again button** / *Payment under review* (submitted or escalated to a dispute) /
+  *Awaiting host approval* / nothing once paid. The rejection branch is what shows
+  `payment_reject_reason` — without it a turned-down transfer looked exactly like a booking
+  that had never been paid. Guarded by `PaymentFlowRulesTest`
+  (`./gradlew testDebugUnitTest`), the mirror of the same suite on iOS and the backend.
 - `ProfileScreen` — avatar/bio, received reviews, ID verification, "Become a host", and
   the entry points to host/settings/subscriptions/receipts/earnings/analytics screens.
 
@@ -259,6 +267,18 @@ tab, not a separate tab set — the tab set never changes on role.
 
 **System BACK** is handled by a single `BackHandler` (`:707-735`) that pops whichever overlay is on
 top, mirroring the render precedence (there is no Compose back stack).
+
+**Guest preview ("See it as a guest")** — each `HostListingCard` (and the card itself) opens the
+host's own listing the way a guest meets it, which is the only way to check a listing still waiting
+on approval. It does NOT reuse the card's copy: that came from `GET /api/local/host/listings`, whose
+prices are the host's RAW amounts, while a guest is quoted those plus the platform commission.
+`HostViewModel.openGuestPreview` re-reads `GET /api/local/listings/:id` — **authenticated** (the
+route 404s an unpublished listing to everyone but its owner) and **without** `?asHost` (that flag
+picks the price projection, and the preview needs the guest's). `MainActivity` presents the result
+as the open detail with `previewAsGuest = true` and `isOwnHost = false`, so `ListingDetailScreen`
+renders the guest reserve panel instead of the host-only editor / calendar / availability shortcuts,
+shows a banner saying whether guests can reach the listing yet, and makes reserve / save / message /
+report inert. Mirrors iOS `ListingDetailView(previewAsGuest:)` and the web listing page.
 
 **Maps:** `ui/ListingsMap.kt` renders osmdroid (OpenStreetMap, no key) by default with burgundy
 price pills; switches to native Google Maps (`maps-compose`) only when `Config.MAPS_API_KEY` is set.

@@ -150,8 +150,16 @@ struct ConversationTarget: Hashable {
 /// A conversation row in the Messages inbox, returned by `GET /api/local/chat`
 /// (newest activity first). `isHost` is true when the signed-in user is the
 /// host side of the thread (drives the "Host" badge).
+///
+/// The inbox carries TWO kinds of thread. `listing` is the pre-booking chat
+/// opened from a listing; `booking` is the thread inside a reservation request,
+/// which the inbox did not list at all until this shipped — a host's reply was
+/// delivered but the guest could only reach it by reopening the reservation.
+/// `id` stays opaque either way (a reservation thread reads `booking:<uuid>`)
+/// and is handed straight back to the API, so nothing else here has to care.
 struct ConversationSummary: Decodable, Identifiable, Hashable {
     let id: String
+    let kind: String?
     let listingID: String?
     let listingTitle: String?
     let listingImage: String?
@@ -159,9 +167,13 @@ struct ConversationSummary: Decodable, Identifiable, Hashable {
     let lastMessage: String?
     let lastMessageAt: String?
     let isHost: Bool
+    /// Reservation threads only — the stay, so a repeat guest's two threads about
+    /// one listing are told apart.
+    let checkIn: String?
+    let checkOut: String?
 
     enum CodingKeys: String, CodingKey {
-        case id
+        case id, kind
         case listingID = "listing_id"
         case listingTitle = "listing_title"
         case listingImage = "listing_image"
@@ -169,6 +181,27 @@ struct ConversationSummary: Decodable, Identifiable, Hashable {
         case lastMessage = "last_message"
         case lastMessageAt = "last_message_at"
         case isHost = "is_host"
+        case checkIn = "check_in"
+        case checkOut = "check_out"
+    }
+
+    /// True when this row is the thread of a reservation request.
+    var isReservation: Bool { kind == "booking" }
+
+    /// "12 Sep – 15 Sep", or nil when the row isn't a reservation thread.
+    var stayText: String? {
+        guard isReservation, let checkIn, let checkOut else { return nil }
+        let short = { (raw: String) -> String in
+            let iso = DateFormatter()
+            iso.locale = Locale(identifier: "en_US_POSIX")
+            iso.dateFormat = "yyyy-MM-dd"
+            guard let date = iso.date(from: raw) else { return raw }
+            let out = DateFormatter()
+            out.locale = .current
+            out.setLocalizedDateFormatFromTemplate("d MMM")
+            return out.string(from: date)
+        }
+        return "\(short(checkIn)) – \(short(checkOut))"
     }
 
     /// "2h ago" style relative time for the row, parsed from the ISO

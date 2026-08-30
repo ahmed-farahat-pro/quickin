@@ -2,6 +2,18 @@ import SwiftUI
 
 struct ListingDetailView: View {
     let listing: Listing
+    /// Renders this screen as a GUEST would see it, for a host previewing their
+    /// own listing before (or after) it is approved — the host dashboard's
+    /// "See it as a guest" button, which web and Android have had all along.
+    ///
+    /// It suppresses the two host-only affordances (`isOwnListing`,
+    /// `isHostOfThisListing` both read `false`) so the guest reserve panel and
+    /// booking bar render instead of the pricing-calendar shortcuts, and it makes
+    /// every write action inert: a preview that could file a booking request, open
+    /// a conversation with yourself or report your own place is not a preview.
+    /// The `listing` passed in must be the GUEST projection — see
+    /// `SupabaseService.fetchListing(id:)`.
+    var previewAsGuest: Bool = false
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var wishlist: WishlistStore
@@ -51,6 +63,10 @@ struct ListingDetailView: View {
     /// Same gate as the availability manager: host of this listing only.
     @State private var showingCalendar = false
 
+    /// Presents the "this is only a preview" note, shown when the host taps a
+    /// guest action (reserve, save, message, report) inside the guest preview.
+    @State private var showingPreviewNotice = false
+
     // Reserve flow state
     @State private var isReserving = false
     @State private var reserveError: String?
@@ -98,6 +114,7 @@ struct ListingDetailView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    guestPreviewBanner
                     gallery
                         .overlay(alignment: .topTrailing) {
                             HStack(spacing: 10) {
@@ -213,6 +230,12 @@ struct ListingDetailView: View {
         .task {
             await loadAvailability()
         }
+        // Every guest action in preview lands here instead of writing anything.
+        .alert(loc.t("preview.guest.blockedTitle"), isPresented: $showingPreviewNotice) {
+            Button(loc.t("common.done"), role: .cancel) {}
+        } message: {
+            Text(loc.t("preview.guest.blockedBody"))
+        }
         .sheet(isPresented: $showingReport) {
             ReportSheet(targetType: .listing, targetID: listing.id)
                 .environmentObject(loc)
@@ -240,6 +263,55 @@ struct ListingDetailView: View {
         .overlay { confirmationOverlay }
     }
 
+    /// Sits above the gallery in preview mode: what this screen is, and — when the
+    /// listing is not live — why a guest could not reach it today. Nothing renders
+    /// outside preview, where a real guest is looking and there is nothing to say.
+    ///
+    /// The "guests cannot see this" line is keyed on `is_published`, which is false
+    /// for every listing still in the review queue. Only the owner is ever standing
+    /// here (the API 404s an unpublished listing to everyone else), so it needs no
+    /// ownership check of its own — the same reasoning the web page's banner runs on.
+    @ViewBuilder
+    private var guestPreviewBanner: some View {
+        if previewAsGuest {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 7) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(loc.t("preview.guest.title"))
+                        .font(.subheadline.weight(.bold))
+                }
+                .foregroundStyle(Color.qkBurgundy)
+                Text(loc.t("preview.guest.body"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !listing.isPublished {
+                    Text(loc.t(listing.approval == .pending ? "preview.guest.underReview" : "preview.guest.hidden"))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.qkInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Color.qkBurgundy.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+        }
+    }
+
+    /// Swallows a guest action while previewing and says why, instead of letting
+    /// the host book, save, message or report their own listing for real. Returns
+    /// `true` when it intercepted the tap; always `false` for an actual guest.
+    @discardableResult
+    private func interceptedByPreview() -> Bool {
+        guard previewAsGuest else { return false }
+        showingPreviewNotice = true
+        return true
+    }
+
     /// The favorite heart pinned to the gallery's top-trailing corner. Reflects
     /// the shared wishlist state; toggles optimistically when signed in,
     /// otherwise presents the sign-in sheet.
@@ -251,6 +323,7 @@ struct ListingDetailView: View {
             ),
             size: 40
         ) {
+            if interceptedByPreview() { return }
             guard auth.isAuthenticated else { showingAuth = true; return }
             wishlist.toggleListing(listing.id)
         }
@@ -554,6 +627,9 @@ struct ListingDetailView: View {
     /// True when the signed-in user IS this listing's host — the "Message host"
     /// row is hidden (the backend also rejects messaging your own listing).
     private var isOwnListing: Bool {
+        // The whole point of the preview is to see the guest's side of a listing
+        // the viewer does own, so ownership is deliberately ignored here.
+        if previewAsGuest { return false }
         guard let uid = auth.user?.id, let hostID = listing.hostId else { return false }
         return uid == hostID
     }
@@ -562,6 +638,7 @@ struct ListingDetailView: View {
     /// mirroring the web listing's message-host drawer. Sign-in gated like the report flow.
     private var messageHostRow: some View {
         Button {
+            if interceptedByPreview() { return }
             if auth.isAuthenticated {
                 showMessageHost = true
             } else {
@@ -600,6 +677,7 @@ struct ListingDetailView: View {
     /// row. Requires sign-in: guests are routed through the auth sheet first.
     private var reportRow: some View {
         Button {
+            if interceptedByPreview() { return }
             if auth.isAuthenticated {
                 showingReport = true
             } else {
@@ -688,6 +766,9 @@ struct ListingDetailView: View {
     /// "Manage availability" entry. Compares the account id to the listing's
     /// `host_id` (both trimmed); `false` for guests or when either id is absent.
     private var isHostOfThisListing: Bool {
+        // Same reason as `isOwnListing`: in preview the host is standing in for a
+        // guest, so the pricing-calendar / availability shortcuts stay away.
+        if previewAsGuest { return false }
         guard let userID = auth.user?.id.trimmingCharacters(in: .whitespacesAndNewlines),
               !userID.isEmpty,
               let hostID = listing.hostId?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1217,6 +1298,11 @@ struct ListingDetailView: View {
 
     private func reserve() async {
         reserveError = nil
+
+        // A preview never files a request. The backend refuses a host booking
+        // their own listing anyway, so without this the host's own preview would
+        // answer them with an error message a guest will never see.
+        if interceptedByPreview() { return }
 
         // Guests must sign in first.
         guard auth.isAuthenticated, BookingService.shared.token != nil else {

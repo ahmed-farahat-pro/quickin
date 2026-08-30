@@ -62,6 +62,7 @@ import com.quickin.app.BookingStatus
 import com.quickin.app.CancellationPolicy
 import com.quickin.app.CancellationQuote
 import com.quickin.app.R
+import com.quickin.app.PaymentFlowRules
 import com.quickin.app.Qr
 import com.quickin.app.Reservation
 import com.quickin.app.ReservationDetailUiState
@@ -322,8 +323,9 @@ private fun ReservationCardContent(
             onSave = onSaveHostNotes
         )
 
-        // The host-authored stay guide. Guests see it read-only; the host gets the editor — both
-        // only once the booking is approved, the same gate as the QR itself.
+        // The host-authored stay guide. Guests see it read-only, gated on the pass (approved AND
+        // paid); the host gets the editor as soon as they approve, so they can write it while the
+        // guest pays.
         StayGuideSection(
             items = guide,
             isHost = isHost,
@@ -338,76 +340,56 @@ private fun ReservationCardContent(
             onDeleteItem = onDeleteGuideItem
         )
 
-        // Payment is gated on host approval. The guest can only pay once the host has APPROVED the
-        // request (status 'confirmed') and it's still unpaid — paying a 'pending' booking is rejected
-        // by the backend. This is the primary CTA here, so it pulses.
-        val isApproved = reservation.status.equals("confirmed", ignoreCase = true)
-        val isAwaitingApproval = reservation.status.equals("pending", ignoreCase = true)
-        // The guest already uploaded a transfer screenshot; the host is verifying it.
-        val isUnderReview = reservation.paymentStatus.equals("submitted", ignoreCase = true)
-        if (onPayNow != null && isApproved && !reservation.isPaid && !isUnderReview) {
-            GradientButton(
-                onClick = onPayNow,
-                radius = 18.dp,
-                height = 52.dp,
-                pulse = true,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.CreditCard, null, tint = Color.White, modifier = Modifier.height(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.pay_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        // Payment is gated on host approval, and WHICH card shows is decided by PaymentFlowRules —
+        // the same rule the API and the website run — never by comparing `payment_status` here.
+        // The rejected branch is the one this block exists for: it used to fall through to the plain
+        // "Pay now" button, so a guest whose transfer an admin had turned down saw the screen they
+        // saw before paying at all, with no hint that anything had happened or what to fix.
+        when (reservation.paymentStage) {
+            PaymentFlowRules.Stage.Rejected -> {
+                PaymentRejectedCard(
+                    reason = reservation.paymentRejectReasonText,
+                    onTryAgain = onPayNow
+                )
             }
-        } else if (isUnderReview && !reservation.isPaid) {
-            // Transfer screenshot submitted — the host is checking it. No pay button (avoids a
-            // duplicate transfer); the status flips to "paid" once the host approves.
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Cream,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Filled.HourglassEmpty, null, tint = GoldDeep, modifier = Modifier.height(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.instapay_under_review),
-                        color = Ink,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Center
+
+            PaymentFlowRules.Stage.AwaitingPayment -> {
+                // The primary CTA on this screen, so it pulses.
+                if (onPayNow != null) {
+                    GradientButton(
+                        onClick = onPayNow,
+                        radius = 18.dp,
+                        height = 52.dp,
+                        pulse = true,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Filled.CreditCard, null, tint = Color.White, modifier = Modifier.height(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.pay_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    }
+                }
+            }
+
+            PaymentFlowRules.Stage.UnderReview -> {
+                // Transfer screenshot submitted (or escalated to a dispute) — it is with us. No pay
+                // button, which avoids a duplicate transfer; the stage flips once it is reviewed.
+                PaymentHintCard(
+                    text = stringResource(R.string.instapay_under_review),
+                    tint = GoldDeep
+                )
+            }
+
+            PaymentFlowRules.Stage.NotPayable -> {
+                // Pending request — no pay button yet; say that the host must approve first.
+                if (reservation.isAwaitingApproval) {
+                    PaymentHintCard(
+                        text = stringResource(R.string.reservation_awaiting_approval),
+                        tint = Burgundy
                     )
                 }
             }
-        } else if (isAwaitingApproval && !reservation.isPaid) {
-            // Pending request — no pay button yet; surface a hint that the host must approve first.
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Cream,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Filled.HourglassEmpty, null, tint = Burgundy, modifier = Modifier.height(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.reservation_awaiting_approval),
-                        color = Ink,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
+
+            PaymentFlowRules.Stage.Paid -> Unit
         }
 
         if (onOpenMessages != null) {
@@ -559,8 +541,12 @@ private fun ReservationPassBody(
                 letterSpacing = 2.sp
             )
         } else {
-            // No pass yet (or ever): no QR, no code, no link — just why.
-            NoPassBlock(awaitingApproval = reservation.isAwaitingApproval)
+            // No pass yet (or ever): no QR, no code, no link — just why. Three different
+            // reasons, and only one of them is the guest's to act on.
+            NoPassBlock(
+                awaitingApproval = reservation.isAwaitingApproval,
+                awaitingPayment = reservation.isAwaitingPaymentForPass
+            )
         }
 
         Spacer(Modifier.height(20.dp))
@@ -582,13 +568,14 @@ private fun ReservationPassBody(
 }
 
 /**
- * Stands in for the QR while there is no stay pass. [awaitingApproval] picks the copy: a pending
- * request is told its code is coming once the host confirms; a rejected/cancelled one is simply
- * told there is no pass. Deliberately the same 220dp footprint as [QrBlock] so approval doesn't
- * make the card jump.
+ * Stands in for the QR while there is no stay pass. The two flags pick the copy: a pending request
+ * is told its code is coming once the host confirms ([awaitingApproval]); an approved-but-unpaid one
+ * is told it arrives once the payment clears ([awaitingPayment]) — the wait the guest can actually
+ * do something about; a rejected/cancelled one is simply told there is no pass. Deliberately the
+ * same 220dp footprint as [QrBlock] so the pass going live doesn't make the card jump.
  */
 @Composable
-private fun NoPassBlock(awaitingApproval: Boolean) {
+private fun NoPassBlock(awaitingApproval: Boolean, awaitingPayment: Boolean = false) {
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Cream,
@@ -602,18 +589,130 @@ private fun NoPassBlock(awaitingApproval: Boolean) {
             Icon(
                 Icons.Filled.HourglassEmpty,
                 contentDescription = null,
-                tint = if (awaitingApproval) Burgundy else Muted,
+                tint = if (awaitingApproval || awaitingPayment) Burgundy else Muted,
                 modifier = Modifier.size(34.dp)
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 stringResource(
-                    if (awaitingApproval) R.string.reservation_qr_pending else R.string.reservation_qr_none
+                    when {
+                        awaitingApproval -> R.string.reservation_qr_pending
+                        awaitingPayment -> R.string.reservation_qr_unpaid
+                        else -> R.string.reservation_qr_none
+                    }
                 ),
                 color = Ink,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 18.sp
+            )
+        }
+    }
+}
+
+/**
+ * Why the last transfer was turned down, in the reviewer's words, with the way forward under it.
+ *
+ * THE fix for "[Android] payment rejection reason is not displayed to the guest": an admin rejects a
+ * transfer with a written reason, and the reservation used to go straight back to a bare "Pay now" —
+ * the same button shown to a guest who had never paid — so the only move available was to upload the
+ * identical unreadable screenshot again.
+ *
+ * [reason] is rendered verbatim: it is free text an admin typed for this guest, and paraphrasing it
+ * would defeat the point. When they left one off (older rows, and dispute outcomes carry none) a
+ * generic line stands in, because "your transfer wasn't accepted" is still far more than the guest
+ * used to be told.
+ */
+@Composable
+private fun PaymentRejectedCard(reason: String?, onTryAgain: (() -> Unit)?) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Cream,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    Icons.Filled.ReportProblem,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.payment_rejected_title),
+                        color = Ink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        reason ?: stringResource(R.string.payment_rejected_no_reason),
+                        color = Ink,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        stringResource(R.string.payment_rejected_subtitle),
+                        color = Muted,
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+            // A rejected screenshot is still payable — rejecting a blurry photo must not kill the
+            // reservation, so the retry sits inside the same card as the explanation.
+            if (onTryAgain != null) {
+                Spacer(Modifier.height(14.dp))
+                GradientButton(
+                    onClick = onTryAgain,
+                    radius = 18.dp,
+                    height = 52.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.CreditCard, null, tint = Color.White, modifier = Modifier.height(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.pay_try_again),
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A one-line payment status the guest can do nothing about — "under review" while a screenshot is
+ * with us, "awaiting host approval" before there is anything to pay. Deliberately has no button:
+ * offering one would invite a second transfer for the same stay.
+ */
+@Composable
+private fun PaymentHintCard(text: String, tint: Color) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Cream,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(Icons.Filled.HourglassEmpty, null, tint = tint, modifier = Modifier.height(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text,
+                color = Ink,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center
             )
         }
     }

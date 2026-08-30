@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.R
 import com.quickin.app.TrustBadges
 import com.quickin.app.VerificationUiState
@@ -88,14 +89,18 @@ fun VerificationCard(
     val canSubmit = status == "unverified" || status == "rejected"
 
     // Picked FRONT / BACK / SELFIE photo URIs (Photo Picker — no storage permission needed) + id no.
-    var frontUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var backUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var selfieUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var idNumber by remember { mutableStateOf("") }
+    // Staged in an activity-scoped view-model, not in a `remember`: this card is rendered INSIDE
+    // the Profile tab, and the bottom bar swaps tab bodies through `AnimatedContent`, so a
+    // `remember` here threw away three photo picks the moment the user glanced at another tab.
+    val draft = viewModel<FormDraftsViewModel>().verification
+    var frontUri by draft.frontUri
+    var backUri by draft.backUri
+    var selfieUri by draft.selfieUri
+    var idNumber by draft.idNumber
 
     // Clear the staged photos once a submission succeeds (status leaves the submittable states).
     androidx.compose.runtime.LaunchedEffect(status) {
-        if (!canSubmit) { frontUri = null; backUri = null; selfieUri = null; idNumber = "" }
+        if (!canSubmit) draft.clear()
     }
 
     val pickFront = rememberLauncherForActivityResult(

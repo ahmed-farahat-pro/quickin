@@ -129,13 +129,13 @@ The session store. Published: `isAuthenticated`, `user`, `errorMessage`, `isLoad
 ## 4. Major views / screens
 
 - **Explore (`ListingsView` + `ListingsViewModel`)** — primary tab. Search header (location/dates/guests), discovery filters (property type, amenities, sort, region), list ↔ map toggle. `ListingsMapView` renders Airbnb-style burgundy price pins. Cards push `ListingDetailView`.
-- **`ListingDetailView`** (1.1k lines) — photo hero, amenities, host card, reviews, wishlist heart, "Reserve" → `DateRangePicker` → `PaymentSheet`.
+- **`ListingDetailView`** (1.1k lines) — photo hero, amenities, host card, reviews, wishlist heart, "Reserve" → `DateRangePicker` → `PaymentSheet`. `previewAsGuest: true` renders it as a **guest preview** for the listing's own host: the host-only pricing-calendar shortcuts give way to the guest reserve panel, a banner says whether guests can reach the listing yet, and reserve / save / message / report are inert.
 - **`DateRangePicker` / `PaymentSheet`** — stay-quote calendar and the **mock** payment flow (card adds +5% surcharge, or bank transfer); `BookingService.reserve` then `pay`.
-- **Trips (`ReservationsView` / `ReservationDetailView`)** — guest bookings, cancellation (`CancellationPolicyView`), receipts, leave-a-review.
+- **Trips (`ReservationsView` / `ReservationDetailView`)** — guest bookings, cancellation (`CancellationPolicyView`), receipts, leave-a-review. The payment card on the detail screen branches on `PaymentFlowRules.stage(for:)`, never on a raw column: *Pay now* (confirmed, nothing submitted) / **the reviewer's rejection reason above a Try-again button** / *Payment under review* (submitted or escalated) / *Awaiting host approval* / nothing once paid. The rejection branch is what shows `payment_reject_reason` — without it a turned-down transfer looked exactly like a booking that had never been paid.
 - **Wishlist (`SavedView`)** — saved stays/experiences (auth-gated tab).
 - **Services (`ServicesView` / `ServiceDetailView`)** — experiences/add-ons; request flow.
 - **Profile (`ProfileView` / `ProfileSettingsView`)** — signed-in account; settings include language, currency, biometric toggle, become-host, ID verification, host entry points.
-- **Host suite** — `HostDashboardView`, `HostTabs`, `HostAnalyticsView`, `AddListingView` (1.2k lines; `LocationPickerMap` pin-picker), `AddServiceView`, `AvailabilityManagerView`, `HostProfileView`. Reached from Profile (unified account — there is no separate host tab set; everyone gets the single 5-tab guest layout).
+- **Host suite** — `HostDashboardView`, `HostTabs`, `HostAnalyticsView`, `AddListingView` (1.2k lines; `LocationPickerMap` pin-picker), `AddServiceView`, `AvailabilityManagerView`, `HostProfileView`. Each `HostListingRow` offers **See it as a guest**, which re-reads the listing from `GET /api/local/listings/:id` — authenticated, so an unpublished listing resolves, and *without* `?asHost`, so the prices are the guest's commission-inclusive ones — and presents `ListingDetailView(previewAsGuest: true)`. Reached from Profile (unified account — there is no separate host tab set; everyone gets the single 5-tab guest layout).
 - **AI** — `AITravelChatView`/`AITravelChatService` (chat), `AISearchView`/`AIService` (natural-language search), `ChatView`.
 - **Trust/verification** — `EgyptianIDScanView` (camera → OCR), `IdentityVerificationCard`, `TrustBadgesView`.
 - **Growth** — `GrowthViews` (discounts, seasonal pricing), `MySubscriptionsView`.
@@ -157,7 +157,7 @@ Consistent across all `*Service.swift`:
 
 ### Endpoints the app calls
 **Auth (backend):** `/api/auth/{signup,login,verify-otp,resend-otp,forgot-password,reset-password,google}`.
-**Local-stack API:** `/api/local/{listings,services,bookings,wishlist,profile,notifications,reviews,guest-reviews,service-requests,reports,receipts,referrals,regions,currencies,promo/validate,change-password,verification}`, `/api/local/host/{become,listings,bookings,services,earnings,analytics,service-requests}`, `/api/local/ai/{chat,search,listing-description}`, `/api/local/notifications/{register,read-all}`, `/api/local/users/…`.
+**Local-stack API:** `/api/local/{listings,services,bookings,wishlist,profile,notifications,reviews,guest-reviews,service-requests,reports,receipts,referrals,regions,resorts,currencies,promo/validate,change-password,verification}`, `/api/local/host/{become,listings,bookings,services,earnings,analytics,service-requests}`, `/api/local/ai/{chat,search,listing-description}`, `/api/local/notifications/{register,read-all}`, `/api/local/users/…`.
 **OCR (local server):** `Config.idOcrBaseURL + /scan-base64` (`EgyptianIDScanService.swift:80`).
 
 ---
@@ -183,6 +183,17 @@ Consistent across all `*Service.swift`:
   - **`97DNR5Y3Y5`** (mafesh's team) — has only a **Distribution** cert here, so it can't sign development builds. **Switch to it only when archiving for TestFlight.** Building dev with it gives "Profile doesn't include the selected signing certificate".
 - **DEBUG screenshot/UI-test hooks** (`QuickInApp.swift` `DebugRoute` + `AuthView.onAppear`): launch args/defaults `uitest` (skip splash), `uitestTab` (preselect tab), `uitestBioSheet` / `uitestBioButton` (force the biometric UI). No effect on normal launch.
 - See `mobile/ios/TESTFLIGHT.md` for the archive/upload steps.
+- **Unit tests** — there is no XCTest target. The pure rule files (no UIKit, no SwiftUI, no
+  network) are tested as plain executables built from the same sources the app compiles:
+  ```bash
+  cd mobile/ios && ./Tests/run.sh
+  ```
+  `Tests/` sits outside the target's `sources:` in `project.yml`, so none of it ships in the app.
+  Each suite mirrors the backend's `test/unit/*.test.mjs` and Android's `app/src/test/**` copy of
+  the same rules — a change to a shared rule belongs in all three, and these are what notice when
+  it isn't. Today: `ListingPricingRulesTests` (what a host may type
+  into a seasonal price field) and `PaymentFlowRulesTests` (which stage a reservation's payment
+  is at — the mirror of the backend's `src/lib/local/payment-flow-core.ts`).
 
 ---
 

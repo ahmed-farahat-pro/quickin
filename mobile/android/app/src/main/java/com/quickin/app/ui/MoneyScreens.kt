@@ -73,7 +73,12 @@ private val ErrorRed = Color(0xFFB3261E)
  * Host "Earnings & payouts" screen (reached from the host area). Three stat cards (total earned /
  * paid out / pending, all converted to the user's display currency via [CurrencyManager]) sit above
  * a per-booking breakdown — each row showing the stay, dates, the host's net, and a paid-out /
- * upcoming badge. Loads once on first appearance (`GET /api/local/host/earnings`).
+ * upcoming / cancelled badge. Loads once on first appearance (`GET /api/local/host/earnings`).
+ *
+ * Cancelled bookings appear here when the host kept money on them, with a line saying how much the
+ * guest was refunded. They are NOT a display quirk: a cancellation refunds a share of the stay, and
+ * the backend used to drop the row entirely, which deducted the host's full earnings even when the
+ * guest was refunded nothing.
  *
  * Bilingual + RTL-safe: every label is a string resource and rows are plain [Row]s that follow the
  * layout direction. Amounts are stored EGP and converted for DISPLAY only — bookings stay EGP.
@@ -262,15 +267,29 @@ private fun EarningRow(item: HostEarningItem) {
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(Modifier.width(8.dp))
-                MoneyStatusBadge(paidOut = item.isPaidOut)
+                MoneyStatusBadge(paidOut = item.isPaidOut, cancelled = item.cancelled)
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 Icon(Icons.Filled.DateRange, null, tint = Muted, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(item.dateRangeText, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
-            // Paid-out date, when released.
-            if (item.isPaidOut && !item.paidAt.isNullOrBlank()) {
+            // Why a cancelled booking is still earning. Without this the row reads as an
+            // unexplained part-payment — or, on a no-refund cancellation, as a stay that
+            // somehow paid out after being called off.
+            if (item.cancelled) {
+                Text(
+                    if (item.keptInFull) stringResource(R.string.money_cancelled_no_refund)
+                    else stringResource(R.string.money_cancelled_partial, item.refundPercent),
+                    color = Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+            // Paid-out date, when released. A cancellation has no payout date of its own —
+            // paid_at is when the GUEST paid, so it would read as a settlement that never
+            // happened.
+            if (item.isPaidOut && !item.cancelled && !item.paidAt.isNullOrBlank()) {
                 Text(
                     stringResource(R.string.money_paid_on, shortDate(item.paidAt)),
                     color = Muted,
@@ -308,11 +327,13 @@ private fun EarningRow(item: HostEarningItem) {
 
 /** A paid-out (green) / upcoming (gold) capsule for an earnings row. */
 @Composable
-private fun MoneyStatusBadge(paidOut: Boolean) {
-    val (bg, fg, label) = if (paidOut) {
-        Triple(Color(0xFFD9EBE0), SuccessGreen, stringResource(R.string.money_status_paid_out))
-    } else {
-        Triple(Color(0xFFFBEFD6), GoldDeep, stringResource(R.string.money_status_upcoming))
+private fun MoneyStatusBadge(paidOut: Boolean, cancelled: Boolean = false) {
+    val (bg, fg, label) = when {
+        // A cancelled row is settled, but badging it "Paid out" beside a stay that never
+        // happened is what makes the earnings look wrong. Name it for what it is.
+        cancelled -> Triple(Color(0xFFF3E4E4), ErrorRed, stringResource(R.string.money_cancelled))
+        paidOut -> Triple(Color(0xFFD9EBE0), SuccessGreen, stringResource(R.string.money_status_paid_out))
+        else -> Triple(Color(0xFFFBEFD6), GoldDeep, stringResource(R.string.money_status_upcoming))
     }
     Surface(shape = RoundedCornerShape(50), color = bg) {
         Text(

@@ -154,7 +154,7 @@ extension LocationSearchManager: CLLocationManagerDelegate {
 // MARK: - PlaceResult
 
 /// A single geocoded place: its coordinate plus readable title / subtitle and
-/// the city / country fields the listing form stores.
+/// the address / country fields the listing form stores.
 struct PlaceResult: Identifiable {
     let id = UUID()
     let coordinate: CLLocationCoordinate2D
@@ -162,8 +162,8 @@ struct PlaceResult: Identifiable {
     let title: String
     /// Secondary line (city, region, country) for the result row.
     let subtitle: String
-    /// City for the form's "Location (city)" field.
-    let city: String
+    /// Street / neighbourhood line for the form's "Address" field.
+    let address: String
     /// Country for the form's "Country" field.
     let country: String
 
@@ -171,10 +171,7 @@ struct PlaceResult: Identifiable {
         let placemark = mapItem.placemark
         self.coordinate = placemark.coordinate
         self.title = mapItem.name ?? placemark.name ?? "Selected place"
-        self.city = placemark.locality
-            ?? placemark.subAdministrativeArea
-            ?? placemark.administrativeArea
-            ?? ""
+        self.address = PlaceResult.address(for: placemark, placeName: mapItem.name ?? placemark.name)
         self.country = placemark.country ?? ""
         self.subtitle = PlaceResult.subtitle(for: placemark)
     }
@@ -184,12 +181,49 @@ struct PlaceResult: Identifiable {
         self.title = placemark.name
             ?? placemark.locality
             ?? "Current location"
-        self.city = placemark.locality
-            ?? placemark.subAdministrativeArea
-            ?? placemark.administrativeArea
-            ?? ""
+        self.address = PlaceResult.address(for: placemark, placeName: placemark.name)
         self.country = placemark.country ?? ""
         self.subtitle = PlaceResult.subtitle(for: placemark)
+    }
+
+    /// The line to put in the form's "Address" field: the most specific words the
+    /// placemark carries. Street first ("12 Marassi Rd"), then the landmark it
+    /// matched, then the neighbourhood — and the city ONLY when a coarse result
+    /// is all there is.
+    ///
+    /// The order matters: the Area chip above the field already names the city,
+    /// so filling this field with the city (which is all it used to do) put the
+    /// same word on the screen twice and made the two fields read as one asking
+    /// the same question.
+    private static func address(for placemark: CLPlacemark, placeName: String?) -> String {
+        var parts: [String] = []
+
+        if let street = street(for: placemark) {
+            parts.append(street)
+        } else if let name = placeName?.trimmedNonEmpty, name != placemark.locality {
+            // A landmark ("Marassi Beach Club") is a better address line than the
+            // city it sits in — but a result whose name IS the city is not.
+            parts.append(name)
+        }
+
+        if let neighbourhood = placemark.subLocality?.trimmedNonEmpty, !parts.contains(neighbourhood) {
+            parts.append(neighbourhood)
+        }
+
+        // Nothing finer came back (a city-level search result) — the city is then
+        // the only answer there is, and an empty field would be worse.
+        if parts.isEmpty, let city = placemark.locality?.trimmedNonEmpty {
+            parts.append(city)
+        }
+
+        return parts.joined(separator: ", ")
+    }
+
+    /// "12 Marassi Rd" / "Marassi Rd", or nil when the placemark has no street.
+    private static func street(for placemark: CLPlacemark) -> String? {
+        guard let road = placemark.thoroughfare?.trimmedNonEmpty else { return nil }
+        guard let number = placemark.subThoroughfare?.trimmedNonEmpty else { return road }
+        return "\(number) \(road)"
     }
 
     /// Builds a "City, Region, Country"-style subtitle from a placemark,
@@ -199,5 +233,14 @@ struct PlaceResult: Identifiable {
             .compactMap { $0 }
             .filter { !$0.isEmpty }
         return parts.isEmpty ? "" : parts.joined(separator: ", ")
+    }
+}
+
+private extension String {
+    /// The trimmed string, or nil when it holds nothing but whitespace — so an
+    /// all-spaces placemark component counts as absent rather than as an answer.
+    var trimmedNonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

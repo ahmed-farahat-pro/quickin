@@ -123,6 +123,44 @@ object SupabaseService {
     }
 
     /**
+     * The resort / compound catalog the host location step offers
+     * (`GET /api/local/resorts` → { "resorts": [ … ] }), narrowed to one region when given.
+     * Public — no auth, exactly like `/api/local/regions`: it is a list of compound names, and the
+     * host form needs it before the user has committed to anything.
+     *
+     * Returns an empty list on any failure, which the picker renders as the "Other — not listed"
+     * free-text path only. A catalog that didn't load must never be the reason a host can't finish
+     * a listing.
+     */
+    suspend fun fetchResorts(region: String? = null): List<ResortOption> = withContext(Dispatchers.IO) {
+        runCatching {
+            val query = if (region.isNullOrBlank()) "" else "?region=${URLEncoder.encode(region, "UTF-8")}"
+            val conn = (URL("${Config.API_BASE_URL}/api/local/resorts$query").openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Accept", "application/json")
+            }
+            try {
+                val code = conn.responseCode
+                if (code !in 200..299) return@runCatching emptyList<ResortOption>()
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = org.json.JSONObject(body).optJSONArray("resorts") ?: return@runCatching emptyList<ResortOption>()
+                val out = ArrayList<ResortOption>(arr.length())
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val id = o.optStringOrNull("id") ?: continue
+                    val name = o.optStringOrNull("name") ?: continue
+                    out.add(ResortOption(id = id, name = name, region = o.optString("region")))
+                }
+                out
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrElse { emptyList() }
+    }
+
+    /**
      * The listings published by a single host (`GET /api/local/listings?host=<host_id>`),
      * used by the listing detail's "More from this host" rail. Returns an empty list on any
      * failure (or a blank [hostId]) so the section can simply hide itself.
@@ -150,10 +188,18 @@ object SupabaseService {
 
     /**
      * Fetches a single listing by [listingId] (`GET /api/local/listings/:id`), used to open a
-     * shared deep link straight into its detail. Returns null on any failure (or a blank id) so
-     * the caller can fall back to opening the app normally rather than crashing.
+     * shared deep link straight into its detail, and to load a host's own listing for the
+     * "See it as a guest" preview. Returns null on any failure (or a blank id) so the caller
+     * can fall back to opening the app normally rather than crashing.
+     *
+     * Pass [token] to read as the signed-in user. The route answers 404 on a listing that is
+     * not published — one still in the review queue, or one the host took down — to everyone
+     * EXCEPT its owner, so without the header a host cannot resolve their own pending listing
+     * at all. It deliberately does NOT send `?asHost`: that flag picks the price PROJECTION,
+     * and both callers want the GUEST one. Host reads (`/api/local/host/listings`) carry the
+     * host's raw price, while a guest is quoted that plus the platform commission.
      */
-    suspend fun fetchListing(listingId: String): Listing? = withContext(Dispatchers.IO) {
+    suspend fun fetchListing(listingId: String, token: String? = null): Listing? = withContext(Dispatchers.IO) {
         if (listingId.isBlank()) return@withContext null
         runCatching {
             val urlStr = "${Config.API_BASE_URL}/api/local/listings/${URLEncoder.encode(listingId, "UTF-8")}"
@@ -162,6 +208,7 @@ object SupabaseService {
                 connectTimeout = 15_000
                 readTimeout = 15_000
                 setRequestProperty("Accept", "application/json")
+                if (!token.isNullOrBlank()) setRequestProperty("Authorization", "Bearer $token")
             }
             try {
                 val code = conn.responseCode
@@ -467,6 +514,16 @@ object SupabaseService {
                 if (!v.isNaN() && v > 0.0) monthlyPrices[key] = v
             }
         }
+        // Which weekdays the weekend rate is charged on — a JSON array [5, 6] keyed 0=Sun … 6=Sat,
+        // or absent/null when the host never chose. An EMPTY array is read as null rather than as
+        // "no day is a weekend": rows predating the write rules can hold `{}`, and the server
+        // prices those at the default weekend, so anything else here would contradict the quote.
+        val weekendDaysArr = if (o.isNull("weekend_days")) null else o.optJSONArray("weekend_days")
+        val weekendDays = weekendDaysArr?.let { arr ->
+            val out = ArrayList<Int>(arr.length())
+            for (j in 0 until arr.length()) out.add(arr.optInt(j, -1))
+            WeekendSchedule.normalize(out).takeIf { it.isNotEmpty() }
+        }
         return Listing(
             id = o.optString("id"),
             title = o.optString("title"),
@@ -476,6 +533,10 @@ object SupabaseService {
             hostId = o.optStringOrNull("host_id"),
             hostName = o.optStringOrNull("host_name"),
             region = o.optStringOrNull("region"),
+            // The compound: the catalog id, plus the name to display (the catalog row's, or the
+            // free text the host typed — the API has already picked between them).
+            resortId = o.optStringOrNull("resort_id"),
+            resort = o.optStringOrNull("resort"),
             propertyType = o.optStringOrNull("property_type"),
             pricePerNight = o.optDouble("price_per_night", 0.0),
             currency = o.optStringOrNull("currency"),
@@ -500,6 +561,7 @@ object SupabaseService {
             monthlyDiscount = o.optInt("monthly_discount", 0),
             // Seasonal/variable pricing: weekend nightly rate (null when unset) + per-month overrides.
             weekendPrice = o.optDoubleOrNull("weekend_price"),
+            weekendDays = weekendDays,
             monthlyPrices = monthlyPrices,
             // When the listing was created (ISO-8601); absent on feeds that don't select the
             // column → null, and the "Listed …" line on the host card simply doesn't render.
@@ -507,7 +569,22 @@ object SupabaseService {
             // The operator's reason for a rejection; absent on guest feeds (the column is
             // host-projection only) and on rejections left unexplained → null, and the host
             // card shows its generic "needs changes" copy instead.
-            reviewNote = o.optStringOrNull("review_note")
+            reviewNote = o.optStringOrNull("review_note"),
+            // Whether guests can see it. Absent means visible: a public read only ever returns
+            // published listings, so defaulting to false would badge every one of them "hidden".
+            isPublished = o.optBoolean("is_published", true),
+            // WHY it is down. All three ride only on the host projection, so a guest feed leaves
+            // them false — the honest answer for a listing nobody is holding down.
+            unpublishedByHost = o.optBoolean("unpublished_by_host", false),
+            unpublishedByAdmin = o.optBoolean("unpublished_by_admin", false),
+            unpublishedByVerification = o.optBoolean("unpublished_by_verification", false),
+            // Requests waiting on the host — the number a deactivate would decline.
+            pendingRequestCount = o.optInt("pending_request_count", 0),
+            // Whether a proof-of-ownership document is on file. Host projection only, and NOT
+            // implied by the approval status: the document is optional at create time, so a
+            // listing sits in the queue with nothing attached. Absent → false, which asks the
+            // host to upload rather than telling them to re-upload nothing.
+            hasOwnershipDoc = o.optBoolean("has_ownership_doc", false)
         )
     }
 }

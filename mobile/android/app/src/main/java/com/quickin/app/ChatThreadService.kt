@@ -22,17 +22,31 @@ data class ChatLine(
  * One row in the Messages inbox (`GET /api/local/chat`): a guest ↔ host conversation with the
  * listing it is about, the other party's name, and the latest message. [isHost] is true when the
  * signed-in user is the host side of the thread (drives the "Host" badge).
+ *
+ * The inbox carries TWO kinds of thread. [kind] `"listing"` is the pre-booking chat opened from a
+ * listing; `"booking"` is the thread inside a reservation request, which the inbox did not list at
+ * all until this shipped — a host's reply was delivered but the guest could only reach it by
+ * reopening the reservation. [id] stays opaque either way (a reservation thread reads
+ * `booking:<uuid>`) and is handed straight back to the API.
  */
 data class ConversationSummary(
     val id: String,
+    val kind: String?,
     val listingId: String?,
     val listingTitle: String?,
     val listingImage: String?,
     val otherName: String?,
     val lastMessage: String?,
     val lastMessageAt: String,
-    val isHost: Boolean
-)
+    val isHost: Boolean,
+    /** Reservation threads only — the stay, so a repeat guest's two threads about one listing
+     *  are told apart. */
+    val checkIn: String?,
+    val checkOut: String?
+) {
+    /** True when this row is the thread of a reservation request. */
+    val isReservation: Boolean get() = kind == "booking"
+}
 
 /**
  * Minimal HTTP client for the pre-booking chat API used from a listing's "Message host" flow.
@@ -76,13 +90,16 @@ object ChatThreadService {
             result.add(
                 ConversationSummary(
                     id = o.optString("id"),
+                    kind = o.optString("kind").takeUnless { it.isBlank() || it == "null" },
                     listingId = o.optString("listing_id").takeUnless { it.isBlank() || it == "null" },
                     listingTitle = o.optString("listing_title").takeUnless { it.isBlank() || it == "null" },
                     listingImage = o.optString("listing_image").takeUnless { it.isBlank() || it == "null" },
                     otherName = o.optString("other_name").takeUnless { it.isBlank() || it == "null" },
                     lastMessage = o.optString("last_message").takeUnless { it.isBlank() || it == "null" },
                     lastMessageAt = o.optString("last_message_at"),
-                    isHost = o.optBoolean("is_host", false)
+                    isHost = o.optBoolean("is_host", false),
+                    checkIn = o.optString("check_in").takeUnless { it.isBlank() || it == "null" },
+                    checkOut = o.optString("check_out").takeUnless { it.isBlank() || it == "null" }
                 )
             )
         }

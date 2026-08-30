@@ -529,7 +529,9 @@ object BookingService {
                         gross = e.optDouble("gross", 0.0).takeUnless { it.isNaN() } ?: 0.0,
                         net = e.optDouble("net", 0.0).takeUnless { it.isNaN() } ?: 0.0,
                         status = e.optStringOr("status", "upcoming"),
-                        paidAt = e.optStringOrNull("paid_at")
+                        paidAt = e.optStringOrNull("paid_at"),
+                        cancelled = e.optBoolean("cancelled", false),
+                        refundPercent = e.optInt("refundPercent", 0)
                     )
                 )
             }
@@ -720,11 +722,14 @@ object BookingService {
         lat: Double? = null,
         lng: Double? = null,
         region: String? = null,
+        /** The compound: the catalog id, or the name the host typed. See [ResortChoice]. */
+        resort: ResortChoice.Selection = ResortChoice.Selection.NONE,
         cancellationPolicy: String = "moderate",
         ownershipDoc: String? = null,
         weeklyDiscount: Int = 0,
         monthlyDiscount: Int = 0,
         weekendPrice: Double? = null,
+        weekendDays: Collection<Int> = WeekendSchedule.defaultDays,
         monthlyPrices: Map<String, Double> = emptyMap()
     ): Listing = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
@@ -734,6 +739,13 @@ object BookingService {
             put("country", country)
             // Curated browse area picked on the Location step (e.g. "Ain Sokhna").
             if (!region.isNullOrBlank()) put("region", region)
+            // The resort / compound: EITHER the catalog id or the host's own text, never both — a
+            // CHECK constraint enforces the pair server-side, and `resolveResortSelection` reads an
+            // id as the final answer. Neither is sent when the host said "not in a resort", which
+            // is a real answer and not a missing one.
+            val resortPayload = ResortChoice.payload(resort)
+            if (!resortPayload.id.isNullOrBlank()) put("resort_id", resortPayload.id)
+            else if (!resortPayload.name.isNullOrBlank()) put("resort_name", resortPayload.name)
             put("price_per_night", pricePerNight)
             put("bedrooms", bedrooms)
             put("beds", beds)
@@ -758,9 +770,10 @@ object BookingService {
             // Length-of-stay discounts (% off): weekly (≥7 nights) + monthly (≥28 nights).
             put("weekly_discount", weeklyDiscount.coerceIn(0, 100))
             put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
-            // Seasonal pricing — weekend nightly rate (number|null) + per-month overrides object.
-            // Send null explicitly when the host left the weekend field blank.
-            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
+            // Seasonal pricing — weekend nightly rate (number|null) + the days it applies to +
+            // per-month overrides object. Null is sent explicitly when the host left the weekend
+            // field blank.
+            putWeekend(weekendPrice, weekendDays)
             put("monthly_prices", monthlyPricesJson(monthlyPrices))
             // Ownership/proof document (data:image/* URL). Sending it queues the listing for review.
             if (!ownershipDoc.isNullOrBlank()) put("ownership_doc", ownershipDoc)
@@ -786,45 +799,21 @@ object BookingService {
     }
 
     /**
-     * Updates a listing's length-of-stay discounts as the host
-     * (`PATCH /api/local/listings/:id {weekly_discount, monthly_discount}`). Both are whole percents
-     * off (0–100); the backend applies them to booking totals (≥28 nights→monthly, ≥7→weekly).
-     * Returns the updated [Listing]. Throws [HttpError] (401 not signed in, 403 when the caller
-     * doesn't host this listing, 400 on validation).
+     * Writes the weekend rung of the ladder into a request body: the rate, and — only alongside a
+     * real rate — the days it is charged on.
+     *
+     * The pair travels together because that is how the server judges it: clearing the rate clears
+     * the days with it, and a rate with no day lit is refused rather than quietly stored where no
+     * night could ever be charged at it. Sending the rate ALONE is what used to leave every listing
+     * on Fri+Sat no matter what the host picked.
      */
-    suspend fun updateStayDiscounts(
-        token: String,
-        listingId: String,
-        weeklyDiscount: Int,
-        monthlyDiscount: Int
-    ): Listing = withContext(Dispatchers.IO) {
-        val body = JSONObject().apply {
-            put("weekly_discount", weeklyDiscount.coerceIn(0, 100))
-            put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
+    private fun JSONObject.putWeekend(weekendPrice: Double?, weekendDays: Collection<Int>) {
+        if (weekendPrice != null && weekendPrice > 0.0) {
+            put("weekend_price", weekendPrice)
+            put("weekend_days", JSONArray().apply { WeekendSchedule.normalize(weekendDays).forEach { put(it) } })
+        } else {
+            put("weekend_price", JSONObject.NULL)
         }
-        val text = send("PATCH", token, "/api/local/listings/$listingId", body)
-        SupabaseService.parseListing(JSONObject(text))
-    }
-
-    /**
-     * Updates a listing's seasonal/variable pricing as the host
-     * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`). [weekendPrice] is the
-     * Fri+Sat nightly rate in EGP (null clears it); [monthlyPrices] maps month "1".."12" → nightly
-     * EGP (only filled months are sent). Returns the updated [Listing]. Throws [HttpError] (401 not
-     * signed in, 403 when the caller doesn't host this listing, 400 on validation).
-     */
-    suspend fun updateSeasonalPricing(
-        token: String,
-        listingId: String,
-        weekendPrice: Double?,
-        monthlyPrices: Map<String, Double>
-    ): Listing = withContext(Dispatchers.IO) {
-        val body = JSONObject().apply {
-            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
-            put("monthly_prices", monthlyPricesJson(monthlyPrices))
-        }
-        val text = send("PATCH", token, "/api/local/listings/$listingId", body)
-        SupabaseService.parseListing(JSONObject(text))
     }
 
     /**
@@ -884,6 +873,9 @@ object BookingService {
         location: String,
         country: String,
         region: String,
+        /** The compound, or null to leave the two resort columns exactly as they are — an edit to
+         *  the price must not quietly clear a compound the host chose on the web. */
+        resort: ResortChoice.Selection?,
         pricePerNight: Double,
         maxGuests: Int,
         bedrooms: Int,
@@ -897,6 +889,7 @@ object BookingService {
         weeklyDiscount: Int,
         monthlyDiscount: Int,
         weekendPrice: Double?,
+        weekendDays: Collection<Int>,
         monthlyPrices: Map<String, Double>,
         images: List<String>?,
         ownershipDoc: String?
@@ -907,6 +900,14 @@ object BookingService {
             put("location", location)
             put("country", country)
             put("region", region)
+            // Sent only when the host actually changed the resort. An explicit null on BOTH keys is
+            // how "take this listing out of its compound" is said; the server clears the pair and
+            // keeps the region the host chose.
+            if (resort != null) {
+                val resortPayload = ResortChoice.payload(resort)
+                put("resort_id", resortPayload.id ?: JSONObject.NULL)
+                put("resort_name", if (resortPayload.id == null) resortPayload.name ?: JSONObject.NULL else JSONObject.NULL)
+            }
             put("price_per_night", pricePerNight)
             put("max_guests", maxGuests)
             put("bedrooms", bedrooms)
@@ -922,7 +923,7 @@ object BookingService {
             put("cancellation_policy", cancellationPolicy)
             put("weekly_discount", weeklyDiscount.coerceIn(0, 100))
             put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
-            put("weekend_price", if (weekendPrice != null && weekendPrice > 0.0) weekendPrice else JSONObject.NULL)
+            putWeekend(weekendPrice, weekendDays)
             put("monthly_prices", monthlyPricesJson(monthlyPrices))
             // Only sent when the photo set actually changed — an omitted key keeps the photos as-is.
             if (images != null) {
@@ -932,6 +933,59 @@ object BookingService {
         }
         val text = send("PATCH", token, "/api/local/listings/$listingId", body)
         SupabaseService.parseListing(JSONObject(text))
+    }
+
+    // ---- Listing visibility (host only) ---------------------------------------
+
+    /**
+     * What the backend did when the host flipped a listing's visibility
+     * (`PATCH /api/local/host/listings/:id/visibility`).
+     *
+     * [isPublished] is what the row ACTUALLY ended up as, which is not always what was asked: a
+     * reactivate comes back false when an account block, the identity gate or the review queue is
+     * still holding the listing, and [blockedBy] names which ("verification" | "staff" |
+     * "rejected" | "under_review"). [blockedMessage] is the server's own sentence for it, kept as
+     * a fallback for a code this build has no string for.
+     */
+    data class ListingVisibilityResult(
+        val isPublished: Boolean,
+        /** Booking requests the deactivate declined. Zero on a reactivate. */
+        val declinedRequests: Int,
+        val blockedBy: String?,
+        val blockedMessage: String?,
+        /** The refreshed listing, so the row can update without a refetch. */
+        val listing: Listing?
+    )
+
+    /**
+     * The host takes their own listing off the market, or puts it back.
+     *
+     * This is QuickIn's "delete my listing", and it deletes nothing. Bookings, reviews, messages
+     * and payment records all point at the listing id, so the row must survive; instead
+     * `is_published` goes false — search drops the listing, its public page 404s and no new
+     * booking can be made — while every existing reservation stays exactly as it was.
+     *
+     * **Deactivating declines every booking request still waiting on this host**
+     * ([ListingVisibilityResult.declinedRequests] says how many). Warn first, with the count from
+     * the listing's [Listing.pendingRequestCount], before calling this.
+     *
+     * Throws [HttpError] (401 not signed in, 403 when the caller doesn't host this listing).
+     */
+    suspend fun setListingPublished(
+        token: String,
+        listingId: String,
+        isPublished: Boolean
+    ): ListingVisibilityResult = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply { put("is_published", isPublished) }
+        val text = send("PATCH", token, "/api/local/host/listings/$listingId/visibility", body)
+        val o = JSONObject(text)
+        ListingVisibilityResult(
+            isPublished = o.optBoolean("is_published", false),
+            declinedRequests = o.optInt("declined_requests", 0),
+            blockedBy = o.optStringOrNull("blocked_by"),
+            blockedMessage = o.optStringOrNull("blocked_message"),
+            listing = o.optJSONObject("listing")?.let { SupabaseService.parseListing(it) }
+        )
     }
 
     // ---- Guest cancellation (quote + cancel) ----------------------------------
@@ -1090,6 +1144,11 @@ object BookingService {
         location = o.optStringOrNull("location"),
         image = o.optStringOrNull("image"),
         paymentStatus = o.optStringOr("payment_status", "unpaid"),
+        // The latest screenshot's verdict and, when it was turned down, WHY — the two fields the
+        // backend has always returned and the app used to drop on the floor, which is what left a
+        // guest looking at a bare "Pay now" after a rejection.
+        paymentProofStatus = o.optStringOrNull("payment_proof_status"),
+        paymentRejectReason = o.optStringOrNull("payment_reject_reason"),
         paidAt = o.optStringOrNull("paid_at"),
         region = o.optStringOrNull("region"),
         hostNotes = o.optStringOrNull("host_notes"),
@@ -1111,6 +1170,11 @@ object BookingService {
         guests = o.optInt("guests", 1),
         totalPrice = o.optDouble("total_price", 0.0),
         paymentStatus = o.optStringOr("payment_status", "unpaid"),
+        // The latest screenshot's verdict and, when it was turned down, WHY — the two fields the
+        // backend has always returned and the app used to drop on the floor, which is what left a
+        // guest looking at a bare "Pay now" after a rejection.
+        paymentProofStatus = o.optStringOrNull("payment_proof_status"),
+        paymentRejectReason = o.optStringOrNull("payment_reject_reason"),
         paidAt = o.optStringOrNull("paid_at"),
         region = o.optStringOrNull("region"),
         hostNotes = o.optStringOrNull("host_notes"),
@@ -1184,7 +1248,18 @@ object BookingService {
         checkOut = o.optStringOr("check_out", ""),
         guests = o.optInt("guests", 1),
         totalPrice = o.optDouble("total_price", 0.0),
-        status = o.optStringOr("status", "pending")
+        status = o.optStringOr("status", "pending"),
+        // The payment + refund columns behind the status filter's derived chips
+        // (Awaiting payment / Refunded / Partially refunded). All optStringOrNull:
+        // a JSON null must read back as null, never as the literal "null", or
+        // PaymentFlowRules would treat "null" as a real paid_at timestamp.
+        paymentState = o.optStringOrNull("payment_status"),
+        paymentProofStatus = o.optStringOrNull("payment_proof_status"),
+        paidAt = o.optStringOrNull("paid_at"),
+        // `refund_percent` is an int column. optInt cannot express "absent", and
+        // 0 is a REAL value here (a strict-policy cancellation refunds nothing),
+        // so absence is read explicitly rather than defaulted.
+        refundPercent = if (o.isNull("refund_percent")) null else o.optInt("refund_percent")
     )
 
     // ---- Stay guide (host-authored content on a confirmed booking) ------------

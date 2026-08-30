@@ -423,15 +423,27 @@ struct BookingService {
     // MARK: - Seasonal pricing (host)
 
     /// Update a listing's seasonal/variable pricing via
-    /// `PATCH /api/local/listings/:id` with `{ weekend_price, monthly_prices }`
-    /// (Bearer host). `weekendPrice` is the nightly EGP rate for Fri + Sat, or
-    /// `nil` to clear it; `monthlyPrices` maps month "1".."12" → nightly EGP
-    /// (only the months the host set). Returns the updated `Listing`.
+    /// `PATCH /api/local/listings/:id` with
+    /// `{ weekend_price, weekend_days, monthly_prices }` (Bearer host).
+    /// `weekendPrice` is the nightly EGP rate, or `nil` to clear it;
+    /// `weekendDays` are the weekdays it is charged on (`0`=Sun … `6`=Sat);
+    /// `monthlyPrices` maps month "1".."12" → nightly EGP (only the months the
+    /// host set). Returns the updated `Listing`.
+    ///
+    /// The days are sent only alongside a real rate, because that is how the
+    /// server judges the pair: clearing the rate clears the days with it, and a
+    /// rate with no day lit is refused rather than quietly stored where no night
+    /// could ever be charged at it.
     ///
     /// Throws `BookingError.notSignedIn` (no token / 401) or `BookingError.message`
     /// carrying the server's `{ error }` for other non-2xx (e.g. 403 not the host).
     @discardableResult
-    func setSeasonalPricing(listingID: String, weekendPrice: Double?, monthlyPrices: [String: Double]) async throws -> Listing {
+    func setSeasonalPricing(
+        listingID: String,
+        weekendPrice: Double?,
+        weekendDays: [Int],
+        monthlyPrices: [String: Double]
+    ) async throws -> Listing {
         guard let token else { throw BookingError.notSignedIn }
 
         let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
@@ -447,6 +459,7 @@ struct BookingService {
         ]
         if let weekendPrice, weekendPrice > 0 {
             body["weekend_price"] = weekendPrice
+            body["weekend_days"] = WeekendSchedule.normalize(weekendDays)
         } else {
             body["weekend_price"] = NSNull()
         }

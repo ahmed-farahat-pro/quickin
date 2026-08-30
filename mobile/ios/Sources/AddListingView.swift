@@ -30,6 +30,173 @@ enum ListingFormOptions {
     }
 }
 
+// MARK: - Shared listing title rule
+
+/// Whether a title reads as a title.
+///
+/// The wizard gated step 1 on `!title.isEmpty`, so `12345`, `@@@@@` and `-----`
+/// walked past Basics, through Location and Details, and were refused by the API
+/// on step 4 — three steps after the field that was wrong, with no way back to
+/// it but the Back button. The website never had the bug because `/host/new` is
+/// a single page whose only gate already runs this rule; a four-step wizard is
+/// where "validate on submit" turns into "validate three steps too late".
+///
+/// This is the Swift translation of `src/lib/local/listing-title-policy.ts`,
+/// which both web projects carry byte-identical (a parity script guards those
+/// two) and which the API runs on create and on PATCH. Android carries the same
+/// rule again in `ListingTitlePolicy.kt`. Both mobile copies are updated by
+/// hand, so the two numbers below are the thing to keep in step.
+///
+/// The rule that does the work is `letters`: a title must contain letters. Not
+/// "must be Latin", not "must not contain punctuation" — `Nile-view flat (2BR)`
+/// and `شقة بإطلالة على النيل` are both real titles, and Franco-Arabic writes
+/// real words with numerals (`Sa7el chalet`). What it refuses is a title with no
+/// letters *at all*.
+enum ListingTitlePolicy {
+    /// Enough letters to be a word. `A5` is a door number, not a listing title.
+    static let minLetters = 3
+
+    /// What the edit path has always capped titles at — refused, not truncated.
+    static let maxLength = 200
+
+    /// Why a title was refused. Mirrors `ListingTitleProblemCode` one-for-one.
+    enum Problem {
+        case required
+        case letters
+        case tooShort
+        case tooLong
+
+        /// The localization key for the sentence a host reads. The same four
+        /// sentences the website shows, in the same four languages.
+        var messageKey: String {
+            switch self {
+            case .required: return "listing.title.required"
+            case .letters:  return "listing.title.letters"
+            case .tooShort: return "listing.title.tooShort"
+            case .tooLong:  return "listing.title.tooLong"
+            }
+        }
+    }
+
+    /// Invisible characters people paste in without meaning to: the soft hyphen,
+    /// the Mongolian vowel separator, the zero-width spaces and bidi marks, the
+    /// BOM. They survive a `.trimmingCharacters` and render as nothing, so a
+    /// title made only of them would otherwise read as non-empty.
+    private static func isInvisible(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x00AD, 0x180E, 0xFEFF:      return true
+        case 0x200B...0x200F:             return true
+        case 0x202A...0x202E:             return true
+        case 0x2060...0x2064:             return true
+        default:                          return false
+        }
+    }
+
+    /// What gets stored: invisibles dropped, every run of whitespace collapsed to
+    /// one space, ends trimmed. `  Nile   view  ` and `Nile view` are one title,
+    /// and storing the first means the explore grid renders a gap nobody typed.
+    static func normalize(_ title: String) -> String {
+        let stripped = String(String.UnicodeScalarView(title.unicodeScalars.filter { !isInvisible($0) }))
+        return stripped.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    /// How many letters the title actually contains, in any script — the Swift
+    /// counterpart of the policy's `\p{L}` count.
+    private static func letterCount(_ title: String) -> Int {
+        title.reduce(into: 0) { total, ch in if ch.isLetter { total += 1 } }
+    }
+
+    /// Decide a title. Returns the first problem, or nil when it is acceptable.
+    ///
+    /// Order matters: `letters` is checked before `tooShort` so `@@@@@` is told
+    /// the thing that is actually wrong with it ("a title needs words") rather
+    /// than being sent back to add a sixth `@`.
+    static func check(_ title: String) -> Problem? {
+        let value = normalize(title)
+        if value.isEmpty { return .required }
+        // Count Unicode scalars, not Characters: the policy counts code points,
+        // and a Swift grapheme cluster can be several of them, so counting
+        // Characters would accept a title the API then refuses as too long.
+        if value.unicodeScalars.count > maxLength { return .tooLong }
+
+        let letters = letterCount(value)
+        if letters == 0 { return .letters }
+        if letters < minLetters { return .tooShort }
+        return nil
+    }
+
+    /// True when `check` has nothing to say — the gate on a Next button.
+    static func isValid(_ title: String) -> Bool {
+        check(title) == nil
+    }
+
+    /// The localized sentence for a problem, with the floors filled in.
+    @MainActor
+    static func message(_ problem: Problem) -> String {
+        switch problem {
+        case .tooShort:
+            return String(format: L.t(problem.messageKey), "\(minLetters)")
+        case .tooLong:
+            return String(format: L.t(problem.messageKey), "\(maxLength)")
+        case .required, .letters:
+            return L.t(problem.messageKey)
+        }
+    }
+}
+
+// MARK: - Shared listing capacity rule
+
+/// How small a place is allowed to claim to be.
+///
+/// The capacity steppers floored bedrooms, beds and bathrooms at **zero** — only
+/// "Max guests" had a floor of 1 — so a host could walk the wizard through with
+/// 0 bedrooms and 0 beds and publish a chalet whose card reads "0 bedrooms ·
+/// 0 beds · 0 baths". A stay with nowhere to sleep is not a stay, and those three
+/// numbers are what a guest filters and compares on. Android had the same hole
+/// (`min = 0` on the same three steppers) and so did the API, which floored the
+/// values at 0 on create and on PATCH.
+///
+/// This is the Swift translation of `src/lib/local/listing-capacity-policy.ts`,
+/// which both web projects carry byte-identical (a parity script guards those
+/// two) and which the API now runs on both doors. Android carries the same rule
+/// again in `ListingCapacityPolicy.kt`. Both mobile copies are updated by hand,
+/// so `minimum` below is the thing to keep in step.
+///
+/// **A studio is 1 bedroom, not 0.** The property type already says "Studio",
+/// and a capacity line of zeroes tells a guest nothing. If studios should be
+/// modelled with 0 bedrooms one day, `minimum` is the single constant to change
+/// here — and `MIN_CAPACITY` is its counterpart everywhere else.
+enum ListingCapacityPolicy {
+    /// The floor under every count. One, not zero.
+    static let minimum = 1
+
+    /// The largest value each stepper offers. No rule refuses a bigger number —
+    /// these are the ceilings the steppers have always had, kept so the control
+    /// stays usable rather than because 21 bedrooms is an error.
+    static let maxGuestsCeiling = 32
+    static let bedroomsCeiling = 20
+    static let bedsCeiling = 30
+    static let bathroomsCeiling = 20
+
+    /// True when all four counts clear the floor. One expression, shared by the
+    /// create wizard and the edit screen, so there is a single capacity rule on
+    /// iOS rather than one per screen.
+    static func isValid(maxGuests: Int, bedrooms: Int, beds: Int, bathrooms: Int) -> Bool {
+        [maxGuests, bedrooms, beds, bathrooms].allSatisfy { $0 >= minimum }
+    }
+
+    /// What the editor should show for a stored count.
+    ///
+    /// A **NULL** column is a question nobody asked, so it opens at the floor
+    /// rather than at 0 — seeding it with 0 would put words in a host's mouth and
+    /// then refuse them for it. A stored **0** is different: some host did press
+    /// Publish on it before this rule existed, so it is shown as it is and the
+    /// editor blocks Save until they raise it.
+    static func seed(_ stored: Int?) -> Int {
+        stored ?? minimum
+    }
+}
+
 // MARK: - Shared listing photo model
 
 /// One photo in a host photo editor. A photo already on the listing carries its
@@ -81,7 +248,9 @@ struct ListingPhotoDraft: Identifiable, Hashable {
 /// 4-step wizard (Basics → Location → Details → Review) over the same field set
 /// and the same create-listing networking the single-form version used.
 ///
-/// • Step 1 — Basics: title + description (both required), property type.
+/// • Step 1 — Basics: title, property type and description — all three
+///   marked required, because the step gates on the title and the
+///   description and the API refuses a listing with no property type.
 /// • Step 2 — Location: Google Maps draggable pin-picker + place search that
 ///   geocodes free text via the Google Geocoding HTTP API and recenters the map.
 ///   The area, the address and a pin are all required to advance.
@@ -145,21 +314,20 @@ struct AddListingView: View {
     @State private var monthlyDiscount = 0
 
     /// Optional seasonal pricing the host sets in the Details step. `weekendPrice`
-    /// is the EGP weekend nightly-rate text (empty = none); `monthlyPrices` maps
-    /// month "1".."12" → nightly-rate text (only filled months are sent). Sent as
-    /// `weekend_price` / `monthly_prices`.
+    /// is the EGP weekend nightly-rate text (empty = none); `weekendDays` are the
+    /// weekdays that rate is charged on (`0`=Sun … `6`=Sat, pre-filled with the
+    /// default weekend); `monthlyPrices` maps month "1".."12" → nightly-rate text
+    /// (only filled months are sent). Sent as `weekend_price` / `weekend_days` /
+    /// `monthly_prices`.
     @State private var weekendPrice = ""
+    @State private var weekendDays: Set<Int> = Set(WeekendSchedule.defaultDays)
     @State private var monthlyPrices: [String: String] = [:]
 
-    /// The ownership / proof document the host attaches in the Details step,
-    /// encoded as a `data:image/*;base64,…` URL (sent as `ownership_doc`). Empty
-    /// until a photo is picked + processed.
+    /// The ownership / proof document the host attaches in the Details step, as a
+    /// `data:image/*;base64,…` or `data:application/pdf;base64,…` URL (sent as
+    /// `ownership_doc`). Empty until a photo or PDF is picked + encoded by
+    /// `OwnershipDocPicker`, which owns the picking and the size check.
     @State private var ownershipDoc = ""
-    /// The PhotosPicker selection for the ownership document; processed into
-    /// `ownershipDoc` on change.
-    @State private var ownershipDocItem: PhotosPickerItem?
-    /// True while a freshly-picked ownership doc is being downscaled + encoded.
-    @State private var isProcessingDoc = false
 
     private let propertyTypes = ListingFormOptions.propertyTypes
     @State private var propertyType = ListingFormOptions.defaultPropertyType
@@ -169,6 +337,16 @@ struct AddListingView: View {
     private let regions = ListingFormOptions.regions
     /// Chosen region (nil until the host taps one). Required to advance.
     @State private var region: String?
+
+    /// The resort / compound the place sits in. `.none` until the host says
+    /// otherwise, which is a complete answer — plenty of places are not in one.
+    @State private var resort: ResortChoice.Selection = .none
+    /// The free text that goes with `.other`.
+    @State private var resortName = ""
+    /// The catalog for the chosen area (`GET /api/local/resorts?region=`),
+    /// refetched whenever the area changes.
+    @State private var resorts: [ResortOption] = []
+    @State private var isLoadingResorts = false
 
     /// Map coordinate chosen via the pin-picker / search (nil until placed).
     @State private var coordinate: CLLocationCoordinate2D?
@@ -226,35 +404,93 @@ struct AddListingView: View {
     /// Enough letters to be a place name. `12` is a door number, not an address.
     static let minLocationLetters = 3
 
+    /// What is wrong with the title, if anything. `ListingTitlePolicy` is the
+    /// same rule the API runs, so a title the wizard accepts is one the create
+    /// call accepts — `12345` used to clear this step and come back as a 400 on
+    /// step 4, which is the bug this property exists to end.
+    private var titleProblem: ListingTitlePolicy.Problem? {
+        ListingTitlePolicy.check(title)
+    }
+
     /// The title on its own. Kept apart from `step1Valid` because it is also what
     /// gates the AI description writer — folding the description requirement into
     /// that gate would lock the host out of the button that writes it for them.
-    private var titleValid: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty
-    }
+    /// (It also means the writer is no longer handed `12345` as the title to
+    /// compose a description from.)
+    private var titleValid: Bool { titleProblem == nil }
 
     // A listing needed only a title and a price to be created: no description, no
     // address, no photo. See listing-completeness-policy.ts on the web — these
     // three gates are the same rule, said in the order the steps are laid out.
-    private var step1Valid: Bool {
-        titleValid && letterCount(description) >= Self.minDescriptionLetters
+    //
+    // Each step answers with the SENTENCE that blocks it rather than a bare
+    // Bool, and `stepNValid` is derived from the sentence being nil. A greyed
+    // Next that will not say why is the other half of the reported bug — the
+    // host is left guessing which of five fields the app disagrees with — and
+    // deriving the gate from the reason is what stops the two from ever drifting
+    // apart. Each returns the FIRST unmet requirement, in the order the fields
+    // are laid out on the step, so a host who skipped several is pointed at the
+    // topmost one rather than at whichever the code looked at first (the web
+    // form orders its own checks the same way, for the same reason).
+    private var step1Blocker: String? {
+        // The title is the exception: when the host has typed something that is
+        // not a title, BasicsStep says so under the field itself, where the
+        // offending text is. Repeating it here would print the same sentence
+        // twice on one screen. An EMPTY title has nothing to sit under, so it is
+        // reported here like every other missing field.
+        if let problem = titleProblem, problem == .required {
+            return ListingTitlePolicy.message(problem)
+        }
+        if titleProblem != nil { return L.t("listing.blocked.title") }
+        if letterCount(description) < Self.minDescriptionLetters {
+            return String(format: L.t("listing.blocked.description"), "\(Self.minDescriptionLetters)")
+        }
+        return nil
     }
-    private var step2Valid: Bool {
-        region != nil
-            && coordinate != nil
-            && letterCount(location) >= Self.minLocationLetters
+    private var step2Blocker: String? {
+        if region == nil { return L.t("listing.blocked.region") }
+        // Only "Other" with no usable name is refused. Picking it and leaving the
+        // box blank is not "no resort": the server cannot tell the two apart, so
+        // it would save the listing with none at all and throw the host's answer
+        // away silently. See ResortChoice.
+        if let resortProblem = ResortChoice.blocker(resort, typedName: resortName) {
+            return resortProblem
+        }
+        if letterCount(location) < Self.minLocationLetters {
+            return String(format: L.t("listing.blocked.location"), "\(Self.minLocationLetters)")
+        }
+        if coordinate == nil { return L.t("listing.blocked.pin") }
+        return nil
     }
-    private var step3Valid: Bool { price > 0 && !photos.isEmpty }
+    private var step3Blocker: String? {
+        if !ListingCapacityPolicy.isValid(
+            maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms
+        ) {
+            return String(format: L.t("listing.blocked.capacity"), "\(ListingCapacityPolicy.minimum)")
+        }
+        if price <= 0 { return L.t("listing.blocked.price") }
+        if photos.isEmpty { return L.t("listing.blocked.photo") }
+        return nil
+    }
 
-    /// Whether the current step's required fields are satisfied (gates Next).
-    private var currentStepValid: Bool {
+    private var step1Valid: Bool { step1Blocker == nil }
+    private var step2Valid: Bool { step2Blocker == nil }
+    private var step3Valid: Bool { step3Blocker == nil }
+
+    /// Why the current step will not let the host continue, or nil when it will.
+    /// Rendered above the Next button so it is on screen without scrolling —
+    /// a reason a host has to go looking for is not much better than no reason.
+    private var currentStepBlocker: String? {
         switch step {
-        case 1:  return step1Valid
-        case 2:  return step2Valid
-        case 3:  return step3Valid
-        default: return true
+        case 1:  return step1Blocker
+        case 2:  return step2Blocker
+        case 3:  return step3Blocker
+        default: return nil
         }
     }
+
+    /// Whether the current step's required fields are satisfied (gates Next).
+    private var currentStepValid: Bool { currentStepBlocker == nil }
 
     private var canPublish: Bool {
         step1Valid && step2Valid && step3Valid && !isSaving
@@ -276,6 +512,7 @@ struct AddListingView: View {
                             description: $description,
                             propertyType: $propertyType,
                             propertyTypes: propertyTypes,
+                            titleProblem: titleProblem,
                             isWritingDescription: isWritingDescription,
                             canWrite: titleValid,
                             writerError: writerError,
@@ -286,6 +523,10 @@ struct AddListingView: View {
                         stepCard { LocationStep(
                             region: $region,
                             regions: regions,
+                            resort: $resort,
+                            resortName: $resortName,
+                            resorts: resorts,
+                            resortsLoading: isLoadingResorts,
                             location: $location,
                             country: $country,
                             coordinate: $coordinate,
@@ -310,10 +551,9 @@ struct AddListingView: View {
                             weeklyDiscount: $weeklyDiscount,
                             monthlyDiscount: $monthlyDiscount,
                             weekendPrice: $weekendPrice,
+                            weekendDays: $weekendDays,
                             monthlyPrices: $monthlyPrices,
                             ownershipDoc: $ownershipDoc,
-                            ownershipDocItem: $ownershipDocItem,
-                            isProcessingDoc: isProcessingDoc,
                             photos: $photos,
                             photoItems: $photoItems,
                             encodingPhotos: encodingPhotos,
@@ -324,6 +564,8 @@ struct AddListingView: View {
                         stepCard { ReviewStep(
                             title: title,
                             propertyType: propertyType,
+                            region: region,
+                            resort: resortSummary,
                             location: location,
                             country: country,
                             price: price,
@@ -345,6 +587,7 @@ struct AddListingView: View {
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .animation(.easeInOut(duration: 0.3), value: step)
 
+                    StepBlockerNote(message: currentStepBlocker)
                     navBar
                 }
             }
@@ -362,6 +605,10 @@ struct AddListingView: View {
         .onAppear { bindLocationCallback() }
         .task { commission = try? await HostService.shared.fetchCommission() }
         .task { if let g = try? await HostService.shared.fetchListingGate() { listingGate = g } }
+        // The catalog belongs to the area, so it is refetched whenever the area
+        // changes — and a resort that isn't in the new area's list is dropped
+        // rather than left showing under a region it doesn't belong to.
+        .task(id: region) { await loadResorts() }
         // Covers the wizard entirely when the host may not list. The editor is
         // deliberately NOT gated this way — a host must still be able to fix a
         // listing they already have.
@@ -372,10 +619,6 @@ struct AddListingView: View {
                     ListingGateBlockedView(gate: listingGate)
                 }
             }
-        }
-        // Downscale + encode a freshly-picked ownership document into a data URL.
-        .onChange(of: ownershipDocItem) { _, item in
-            Task { await processOwnershipDoc(item) }
         }
         // Downscale + encode freshly-picked listing photos into data URLs.
         .onChange(of: photoItems) { _, items in
@@ -499,56 +742,38 @@ struct AddListingView: View {
     /// once when the view appears so a fix recenters the map + fills the form.
     private func bindLocationCallback() {
         locationSearch.onLocation = { coord, place in
-            apply(coordinate: coord, city: place?.city, country: place?.country)
+            apply(coordinate: coord, address: place?.address, country: place?.country)
         }
     }
 
     /// Apply a search result the host picked: recenter the map, move the pin,
-    /// fill the city / country, and clear the result list.
+    /// fill the address / country, and clear the result list.
     private func applyPlace(_ place: PlaceResult) {
-        apply(coordinate: place.coordinate, city: place.city, country: place.country)
+        apply(coordinate: place.coordinate, address: place.address, country: place.country)
         locationSearch.clearResults()
     }
 
     /// Shared "place a pin at this coordinate + fill the text" routine used by
     /// both search-result selection and the current-location fix. Always
-    /// recenters the map; fills city / country only when those fields are empty
-    /// so it never clobbers what the host already typed.
-    private func apply(coordinate coord: CLLocationCoordinate2D, city: String?, country countryName: String?) {
+    /// recenters the map; fills address / country only when those fields are
+    /// empty so it never clobbers what the host already typed.
+    ///
+    /// `address` is the street / landmark line, not the city — see
+    /// `PlaceResult.address`. Filling the city here is what used to echo the
+    /// chosen area straight back into the field below it.
+    private func apply(coordinate coord: CLLocationCoordinate2D, address: String?, country countryName: String?) {
         self.coordinate = coord
         recenterTarget = coord
         recenterToken += 1
 
         if location.trimmingCharacters(in: .whitespaces).isEmpty,
-           let city, !city.isEmpty {
-            location = city
+           let address, !address.isEmpty {
+            location = address
         }
         if country.trimmingCharacters(in: .whitespaces).isEmpty,
            let countryName, !countryName.isEmpty {
             country = countryName
         }
-    }
-
-    // MARK: - Ownership document
-
-    /// Process an ownership document chosen via `PhotosPicker`: load its data off
-    /// the main thread, downscale to ≤1200px + JPEG-encode into a `data:` URL,
-    /// and stash it in `ownershipDoc` for the create request. On failure the
-    /// field stays empty and an inline error is shown on the Review step.
-    private func processOwnershipDoc(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        errorMessage = nil
-        isProcessingDoc = true
-        defer { isProcessingDoc = false }
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            let image = UIImage(data: data),
-            let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1200, quality: 0.8)
-        else {
-            errorMessage = L.t("trust.uploadError")
-            return
-        }
-        ownershipDoc = dataURL
     }
 
     // MARK: - Listing photos
@@ -567,6 +792,42 @@ struct AddListingView: View {
         let room = HostService.maxListingPhotos - photos.count
         guard room > 0 else { return }
         photos.append(contentsOf: await ListingPhotoDraft.encode(items, limit: room))
+    }
+
+    // MARK: - Resort catalog
+
+    /// Load the compounds for the chosen area. Best-effort: a failure leaves the
+    /// list empty and the picker still offers "Other", because a catalog that
+    /// didn't load must never be the reason a host can't finish a listing.
+    private func loadResorts() async {
+        guard let region, !region.isEmpty else {
+            resorts = []
+            if case .catalog = resort { resort = .none }
+            return
+        }
+        isLoadingResorts = true
+        defer { isLoadingResorts = false }
+        let loaded = await SupabaseService.shared.fetchResorts(region: region)
+        resorts = loaded
+        // A resort chosen under a different area is not this area's resort — and
+        // the server would derive the region back from it, quietly overruling the
+        // chip the host just tapped.
+        if case .catalog(let id) = resort, !loaded.contains(where: { $0.id == id }) {
+            resort = .none
+        }
+    }
+
+    /// What the review step shows for the resort: the catalog name, the text the
+    /// host typed, or nothing when they aren't in one.
+    private var resortSummary: String? {
+        switch resort {
+        case .none:
+            return nil
+        case .other:
+            return ResortChoice.normalizeName(resortName)
+        case .catalog(let id):
+            return resorts.first { $0.id == id }?.name
+        }
     }
 
     // MARK: - AI description writer
@@ -608,12 +869,53 @@ struct AddListingView: View {
         isSaving = true
         defer { isSaving = false }
 
+        // The seasonal rates, judged by the same rules the API runs — so a wizard
+        // that would come back 400 stops on the step that holds those fields
+        // instead of at the very end.
+        //
+        // The rate FIRST, and on its own: a `0` was parsed to nil here, sent as
+        // `weekend_price: null`, and stored as no weekend rate at all. The host
+        // finished the wizard, and their weekend pricing was simply not there.
+        let weekendCheck = ListingPricingRules.checkPrice(weekendPrice)
+        guard case .success(let weekendRate) = weekendCheck else {
+            if case .failure(let problem) = weekendCheck {
+                errorMessage = L.t(problem.weekendKey)
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+        // …and the twelve months under it, named one at a time.
+        let monthsCheck = ListingPricingRules.checkMonths(monthlyPrices)
+        guard case .success(let checkedMonths) = monthsCheck else {
+            if case .failure(let failure) = monthsCheck {
+                errorMessage = String(format: L.t(failure.problem.monthKey),
+                                      qkShortMonthSymbols(LocalizationManager.shared)[failure.month - 1])
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+        // The weekend rate and the days it applies to are one field, so the pair
+        // is judged together once both halves are known to be well-formed.
+        let schedule = WeekendSchedule.resolve(price: weekendRate, days: Array(weekendDays))
+        guard case .success(let weekendSchedule) = schedule else {
+            if case .failure(let problem) = schedule {
+                errorMessage = L.t(problem == .wholeWeek
+                                   ? "pricing.weekendDays.wholeWeek"
+                                   : "pricing.weekendDays.noDaysChosen")
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+
+        let resortPayload = ResortChoice.payload(resort, typedName: resortName)
         let payload = HostService.NewListing(
             title: title.trimmingCharacters(in: .whitespaces),
             description: description.trimmingCharacters(in: .whitespaces),
             location: location.trimmingCharacters(in: .whitespaces),
             country: country.trimmingCharacters(in: .whitespaces),
             region: region,
+            resortId: resortPayload.resortId,
+            resortName: resortPayload.resortName,
             pricePerNight: price,
             bedrooms: bedrooms,
             beds: beds,
@@ -625,8 +927,9 @@ struct AddListingView: View {
             cancellationPolicy: cancellationPolicy,
             weeklyDiscount: weeklyDiscount,
             monthlyDiscount: monthlyDiscount,
-            weekendPrice: SeasonalPricingFields.parseWeekend(weekendPrice),
-            monthlyPrices: SeasonalPricingFields.parseMonths(monthlyPrices),
+            weekendPrice: weekendRate,
+            weekendDays: weekendSchedule ?? WeekendSchedule.defaultDays,
+            monthlyPrices: checkedMonths,
             ownershipDoc: ownershipDoc,
             lat: coordinate?.latitude,
             lng: coordinate?.longitude
@@ -642,6 +945,40 @@ struct AddListingView: View {
     }
 }
 
+// MARK: - The reason a step will not advance
+
+/// One line above the Next button naming the first thing the current step is
+/// still waiting for, or nothing at all once the step is satisfied.
+///
+/// The wizard used to dim Next and say nothing, so a host whose title was
+/// `12345` — or whose description was nineteen letters — had a greyed button and
+/// no way to learn which field it was unhappy about. Both host wizards render
+/// this, and the sentence is the same value their `stepNBlocker` gates on, so
+/// the button and the explanation cannot disagree.
+struct StepBlockerNote: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkBurgundy)
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .transition(.opacity)
+            .animation(QKAnim.swap, value: message)
+            .accessibilityAddTraits(.isStaticText)
+        }
+    }
+}
+
 // MARK: - Step 1: Basics
 
 private struct BasicsStep: View {
@@ -651,6 +988,11 @@ private struct BasicsStep: View {
     @Binding var propertyType: String
     let propertyTypes: [String]
 
+    /// What is wrong with the title, decided by the parent via
+    /// `ListingTitlePolicy`. Rendered under the field — but only once the host
+    /// has typed something, so an untouched form is not scolded for being empty.
+    var titleProblem: ListingTitlePolicy.Problem? = nil
+
     /// Section 10 — AI writer wiring (owned by the parent `AddListingView`).
     var isWritingDescription: Bool = false
     /// Whether enough is entered (a title) to compose a description.
@@ -658,18 +1000,33 @@ private struct BasicsStep: View {
     var writerError: String? = nil
     var onWriteWithAI: () -> Void = {}
 
-    /// Marks the description mandatory. Off while creating (the backend accepts
-    /// a listing without one); on while editing, where `PATCH` rejects a blank
-    /// description — so the asterisk matches the rule that will be applied.
-    var descriptionRequired: Bool = false
-
     var body: some View {
-        FieldLabel("Title", required: true)
-        WizardTextField("e.g. Sea-view boutique apartment", text: $title)
+        // Every field on this step is marked, and every mark is honest: the step
+        // gates on the title AND the description (`step1Valid`), and the API's
+        // `checkListingCompleteness` refuses a listing with no property type.
+        //
+        // The description used to be the one that carried no asterisk while the
+        // create flow was the only caller that left `descriptionRequired` at its
+        // default — the host was stopped by a rule the form never stated, which
+        // is precisely the shape of bug listing-completeness-policy.ts exists to
+        // end. There is no flag any more, so no caller can opt back out of it.
+        FieldLabel(loc.t("listing.form.title"), required: true)
+        WizardTextField(loc.t("listing.form.titlePlaceholder"), text: $title)
+        // Said here, under the offending text, rather than three steps later in
+        // the API's reply. `.required` is deliberately excluded: an empty field
+        // has nothing to correct yet, and the step's blocker note above Next
+        // already asks for a title.
+        if let titleProblem, titleProblem != .required {
+            Text(ListingTitlePolicy.message(titleProblem))
+                .font(.footnote)
+                .foregroundStyle(Color.qkBurgundy)
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.opacity)
+        }
 
-        FieldLabel("Property type")
+        FieldLabel(loc.t("listing.form.propertyType"), required: true)
         Menu {
-            Picker("Property type", selection: $propertyType) {
+            Picker(loc.t("listing.form.propertyType"), selection: $propertyType) {
                 ForEach(propertyTypes, id: \.self) { Text($0).tag($0) }
             }
         } label: {
@@ -687,9 +1044,20 @@ private struct BasicsStep: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
 
-        FieldLabel("Description", required: descriptionRequired)
-        WizardTextField("Tell guests what makes your place special…",
+        FieldLabel(loc.t("listing.form.description"), required: true)
+        WizardTextField(loc.t("listing.form.descriptionPlaceholder"),
                         text: $description, axis: .vertical, lineLimit: 4...8)
+
+        // The same footnote LocationStep carries, for the same reason: an
+        // asterisk says a field is required, it does not say a description of
+        // nineteen letters still is not one. Naming the floor is what keeps a
+        // host from staring at a Next they have no way to un-grey.
+        Text(String(format: loc.t("listing.form.basicsHint"),
+                    "\(AddListingView.minDescriptionLetters)"))
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 2)
     }
 }
 
@@ -698,6 +1066,15 @@ private struct BasicsStep: View {
 private struct LocationStep: View {
     @Binding var region: String?
     let regions: [String]
+    /// The host's resort / compound answer, and the free text that goes with
+    /// `.other`. Optional by design — "not in a resort" is a real answer.
+    @Binding var resort: ResortChoice.Selection
+    @Binding var resortName: String
+    /// The catalog for the chosen area, from `GET /api/local/resorts?region=`.
+    /// Empty while it loads, and empty for good if the fetch failed — the picker
+    /// then offers "Other", so a catalog that didn't arrive can't block a listing.
+    let resorts: [ResortOption]
+    let resortsLoading: Bool
     @Binding var location: String
     @Binding var country: String
     @Binding var coordinate: CLLocationCoordinate2D?
@@ -709,15 +1086,45 @@ private struct LocationStep: View {
     var onSelect: (PlaceResult) -> Void
     var onUseCurrentLocation: () -> Void
 
-    /// Marks the city mandatory. Off while creating (the backend accepts a
-    /// listing without one); on while editing, where `PATCH` rejects a blank
-    /// location — so the asterisk matches the rule that will be applied.
-    var locationRequired: Bool = false
-
     var body: some View {
-        // Region first: the host picks the area, then drops the precise pin.
-        FieldLabel("Region", required: true)
+        // Area first: the host picks the browse area, then names the street and
+        // drops the precise pin. Three rungs of one ladder, widest first.
+        FieldLabel("Area", required: true)
         regionPicker
+        Text("The curated areas guests browse by. Pick the one your place belongs to — the exact address goes below.")
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+
+        // The compound, directly under the area it belongs to. The web listing
+        // form has asked this since the catalog shipped and both apps never did,
+        // so every listing created on a phone reached the database with no
+        // resort at all — invisible to the resort filters, and findable only by
+        // whatever the host happened to write on the address line.
+        //
+        // The options are narrowed to the chosen area, because picking a resort
+        // also SETS the region server-side and the two must not be able to
+        // disagree. Not marked required: a standalone flat is not in a compound,
+        // and the only answer that is ever refused is "Other" with no name.
+        FieldLabel("Resort / compound")
+        resortPicker
+        if resort == .other {
+            WizardTextField("Type the resort or compound name", text: $resortName)
+                .textInputAutocapitalization(.words)
+            // Said under the box the offending text is in — but not while it is
+            // still empty, which the blocker note above Next already asks for.
+            if let problem = ResortChoice.check(resortName), problem.code != .required {
+                Text(ResortChoice.message(problem))
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkBurgundy)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        Text(resort == .other
+             ? "We'll show what you type to guests, and our team will add it to the list."
+             : "Pick the compound your place is in. Choosing one also sets the area.")
+            .font(.footnote)
+            .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
 
         FieldLabel("Search for a place")
         searchField
@@ -800,13 +1207,18 @@ private struct LocationStep: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
 
-        FieldLabel("Location (city)", required: locationRequired)
-        WizardTextField("City", text: $location)
+        // The rung BELOW the area: the street / compound / landmark, NOT the city.
+        // Two of the four areas are city-shaped names ("Cairo", "El Gouna"), so a
+        // field labelled "City" under them read as the same question asked twice.
+        // Marked required because the step gates on it (see `step2Valid`) — an
+        // unexplained greyed-out Next is worse than an asterisk.
+        FieldLabel("Address", required: true)
+        WizardTextField("Street, compound or landmark", text: $location)
             .textInputAutocapitalization(.words)
 
         CountryPickerField(selection: $country, title: "Country")
 
-        Text("Pick a region, then drag the pin to fine-tune the exact spot. A region and a pin are both required to continue.")
+        Text("Pick your area, then search or drag the pin to the exact spot. An area, an address and a pin are all required to continue.")
             .font(.footnote)
             .foregroundStyle(Color.qkMuted)
             .padding(.top, 2)
@@ -814,7 +1226,7 @@ private struct LocationStep: View {
 
     // MARK: - Pieces
 
-    /// A wrapping grid of region chips. Tapping one selects it (burgundy fill);
+    /// A wrapping grid of area chips. Tapping one selects it (burgundy fill);
     /// the selection is required before the host can advance to Details.
     private var regionPicker: some View {
         let columns = [GridItem(.adaptive(minimum: 110), spacing: 10, alignment: .leading)]
@@ -843,6 +1255,50 @@ private struct LocationStep: View {
                 .accessibilityLabel(name)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
             }
+        }
+    }
+
+    /// The resort dropdown: "not in one", the catalog for this area, and the
+    /// free-text escape hatch. Same three-part shape as the web `<select>`.
+    private var resortPicker: some View {
+        Menu {
+            Button("Not in a resort or compound") { resort = .none }
+            ForEach(resorts) { option in
+                Button(option.name) { resort = .catalog(id: option.id) }
+            }
+            Button("Other — not listed") { resort = .other }
+        } label: {
+            HStack(spacing: 8) {
+                Text(resortLabel)
+                    .foregroundStyle(resort == .none ? Color.qkMuted : Color.qkInk)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if resortsLoading {
+                    ProgressView().controlSize(.small)
+                }
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkMuted)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 48)
+            .background(Color.qkCream)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .accessibilityLabel("Resort or compound")
+    }
+
+    /// What the closed picker reads. A catalog id whose row isn't in the list —
+    /// an area switched under a chosen resort — falls back to the neutral
+    /// wording rather than to a blank field.
+    private var resortLabel: String {
+        switch resort {
+        case .none:
+            return "Not in a resort or compound"
+        case .other:
+            return "Other — not listed"
+        case .catalog(let id):
+            return resorts.first { $0.id == id }?.name ?? "Selected resort"
         }
     }
 
@@ -936,31 +1392,51 @@ private struct DetailsStep: View {
     @Binding var weeklyDiscount: Int
     @Binding var monthlyDiscount: Int
     @Binding var weekendPrice: String
+    @Binding var weekendDays: Set<Int>
     @Binding var monthlyPrices: [String: String]
     @Binding var ownershipDoc: String
-    @Binding var ownershipDocItem: PhotosPickerItem?
-    let isProcessingDoc: Bool
     @Binding var photos: [ListingPhotoDraft]
     @Binding var photoItems: [PhotosPickerItem]
     let encodingPhotos: Bool
     /// Drives the "guests will see EGP X" hints. nil until the rate loads.
     let commission: CommissionInfo?
+    /// Why the last picked document was refused (too large, not a shape we
+    /// store), or nil. Shown under the picker — the wizard's own error line only
+    /// appears on Review, two steps after the host picked the file.
+    @State private var docProblem: String?
 
     var body: some View {
-        FieldLabel("Capacity")
+        FieldLabel("Capacity", required: true)
+        // Every count floors at 1. Bedrooms, beds and bathrooms used to floor at
+        // 0, so "0 bedrooms · 0 beds · 0 baths" was a publishable listing — see
+        // `ListingCapacityPolicy`.
         VStack(spacing: 0) {
-            WizardStepper("Max guests", value: $maxGuests, range: 1...32)
+            WizardStepper("Max guests", value: $maxGuests,
+                          range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.maxGuestsCeiling)
             Divider()
-            WizardStepper("Bedrooms", value: $bedrooms, range: 0...20)
+            WizardStepper("Bedrooms", value: $bedrooms,
+                          range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.bedroomsCeiling)
             Divider()
-            WizardStepper("Beds", value: $beds, range: 0...30)
+            WizardStepper("Beds", value: $beds,
+                          range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.bedsCeiling)
             Divider()
-            WizardStepper("Bathrooms", value: $bathrooms, range: 0...20)
+            WizardStepper("Bathrooms", value: $bathrooms,
+                          range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.bathroomsCeiling)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 4)
         .background(Color.qkCream)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Only reachable from the edit screen, where a listing created before
+        // this rule can arrive holding a 0: the stepper clamps new taps but
+        // cannot raise a value it was handed. Say what has to change rather than
+        // leaving Save greyed out with no reason.
+        if !ListingCapacityPolicy.isValid(maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms) {
+            Text("Each of these has to be at least \(ListingCapacityPolicy.minimum) — a place with no bedroom, bed or bathroom can’t be booked.")
+                .font(.footnote)
+                .foregroundStyle(Color.qkBurgundy)
+                .fixedSize(horizontal: false, vertical: true)
+        }
 
         FieldLabel("Price per night", required: true)
         HStack {
@@ -981,7 +1457,10 @@ private struct DetailsStep: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         GuestPriceHint(priceText: priceText, commission: commission)
 
-        FieldLabel(L.t("listing.photos"))
+        // Marked because `step3Valid` gates on it — a listing with no photo is
+        // refused by `checkListingPhotos` too. Same omission the description
+        // carried on the step before this one.
+        FieldLabel(L.t("listing.photos"), required: true)
         Text(L.t("listing.photosIntro"))
             .font(.footnote)
             .foregroundStyle(Color.qkMuted)
@@ -1009,7 +1488,7 @@ private struct DetailsStep: View {
             .foregroundStyle(Color.qkMuted)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, -4)
-        SeasonalPricingFields(weekend: $weekendPrice, months: $monthlyPrices)
+        SeasonalPricingFields(weekend: $weekendPrice, weekendDays: $weekendDays, months: $monthlyPrices)
         GuestPriceHint(priceText: weekendPrice, commission: commission)
 
         FieldLabel(L.t("approval.ownershipDoc"))
@@ -1019,24 +1498,33 @@ private struct DetailsStep: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.bottom, -4)
         ownershipDocPicker
+        if let docProblem {
+            Text(docProblem)
+                .font(.footnote)
+                .foregroundStyle(Color.qkBurgundy)
+                .fixedSize(horizontal: false, vertical: true)
+        }
 
-        Text("Set a nightly price in your local currency. You can change it later.")
+        Text(L.t("listing.form.detailsHint"))
             .font(.footnote)
             .foregroundStyle(Color.qkMuted)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 2)
     }
 
-    /// PhotosPicker for the ownership document. Shows a "document attached"
-    /// confirmation row once a photo has been processed into `ownershipDoc`.
+    /// Photo-or-PDF picker for the ownership document. Shows a "document
+    /// attached" confirmation row once a pick has been encoded into
+    /// `ownershipDoc`; a PDF stays a PDF, so the row names the format rather
+    /// than pretending there is a thumbnail to show.
     private var ownershipDocPicker: some View {
         let attached = !ownershipDoc.isEmpty
-        return PhotosPicker(
-            selection: $ownershipDocItem,
-            matching: .images,
-            photoLibrary: .shared()
-        ) {
+        let isPdf = OwnershipDocRules.isPdfDataURL(ownershipDoc)
+        return OwnershipDocPicker(
+            onPicked: { ownershipDoc = $0; docProblem = nil },
+            onProblem: { docProblem = $0 }
+        ) { isProcessing in
             HStack(spacing: 8) {
-                if isProcessingDoc {
+                if isProcessing {
                     ProgressView().controlSize(.small).tint(.qkBurgundy)
                 } else {
                     Image(systemName: attached ? "checkmark.circle.fill" : "doc.viewfinder")
@@ -1047,7 +1535,15 @@ private struct DetailsStep: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
-                if attached, !isProcessingDoc {
+                if attached, !isProcessing {
+                    if isPdf {
+                        Text("PDF")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.qkSuccess.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
                     Text(L.t("approval.changeDoc"))
                         .font(.footnote.weight(.medium))
                 }
@@ -1064,7 +1560,6 @@ private struct DetailsStep: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(isProcessingDoc)
     }
 }
 
@@ -1273,6 +1768,13 @@ private struct AmenitiesPicker: View {
 private struct ReviewStep: View {
     let title: String
     let propertyType: String
+    /// The curated browse area. Listed above the address so the summary reads as
+    /// the hierarchy the step asked for — area, then the street inside it.
+    let region: String?
+    /// The resort / compound as it will be stored — the catalog name or the
+    /// host's own text. `nil` when the place isn't in one, and the row is then
+    /// skipped rather than showing an em dash for a question with no answer.
+    let resort: String?
     let location: String
     let country: String
     let price: Double
@@ -1293,6 +1795,11 @@ private struct ReviewStep: View {
         let parts = [location, country].map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         return parts.isEmpty ? "—" : parts.joined(separator: ", ")
+    }
+
+    private var regionText: String {
+        let trimmed = region?.trimmingCharacters(in: .whitespaces) ?? ""
+        return trimmed.isEmpty ? "—" : trimmed
     }
 
     private var coordText: String {
@@ -1326,7 +1833,13 @@ private struct ReviewStep: View {
             Divider()
             SummaryRow(label: "Type", value: propertyType)
             Divider()
-            SummaryRow(label: "Location", value: placeText)
+            SummaryRow(label: "Area", value: regionText)
+            if let resort, !resort.isEmpty {
+                Divider()
+                SummaryRow(label: "Resort / compound", value: resort)
+            }
+            Divider()
+            SummaryRow(label: "Address", value: placeText)
             Divider()
             SummaryRow(label: "Price", value: price > 0 ? "EGP \(formatted(price)) / night" : "—")
             Divider()
@@ -1664,9 +2177,24 @@ struct EditListingView: View {
     @State private var selectedAmenities: Set<String>
     /// Seasonal pricing as the text the fields edit; parsed back on save.
     @State private var weekendPriceText: String
+    /// Which weekdays the weekend rate applies to (`0`=Sun … `6`=Sat), seeded
+    /// from the listing so opening the editor and saving cannot move a weekend
+    /// the host set somewhere else.
+    @State private var weekendDays: Set<Int>
     @State private var monthlyPriceTexts: [String: String]
     /// Map coordinate; mirrored into `draft.lat` / `draft.lng` on save.
     @State private var coordinate: CLLocationCoordinate2D?
+
+    /// The resort / compound, seeded from the listing, plus the free text that
+    /// goes with "Other" and the catalog for the current area.
+    @State private var resort: ResortChoice.Selection
+    @State private var resortName: String
+    @State private var resorts: [ResortOption] = []
+    @State private var isLoadingResorts = false
+    /// What the listing arrived with — the baseline the save diffs against, so
+    /// an edit to the price never rewrites a resort the host chose on the web.
+    private let seededResort: ResortChoice.Selection
+    private let seededResortName: String
 
     /// The desired final photo set (order = display order, first = cover). A mix
     /// of photos already on the listing and fresh picks.
@@ -1679,9 +2207,6 @@ struct EditListingView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var encodingPhotos = false
 
-    /// A replacement ownership document, if the host picks one.
-    @State private var ownershipDocItem: PhotosPickerItem?
-    @State private var isProcessingDoc = false
 
     /// Property types offered — the standard list plus whatever this listing
     /// already carries, so an edit can't silently rewrite it.
@@ -1718,9 +2243,26 @@ struct EditListingView: View {
             seeded.propertyType = ListingFormOptions.defaultPropertyType
         }
         _draft = State(initialValue: seeded)
+
+        // The listing points at a catalog row, carries free text, or neither.
+        let typedResort = listing.resortId == nil ? (ResortChoice.normalizeName(listing.resort) ?? "") : ""
+        let selection: ResortChoice.Selection
+        if let id = listing.resortId, !id.isEmpty {
+            selection = .catalog(id: id)
+        } else if !typedResort.isEmpty {
+            selection = .other
+        } else {
+            selection = .none
+        }
+        _resort = State(initialValue: selection)
+        _resortName = State(initialValue: typedResort)
+        seededResort = selection
+        seededResortName = typedResort
+
         _priceText = State(initialValue: listing.pricePerNight > 0 ? String(Int(listing.pricePerNight.rounded())) : "")
         _selectedAmenities = State(initialValue: Set(listing.amenities))
         _weekendPriceText = State(initialValue: listing.weekendPrice.map { String(Int($0.rounded())) } ?? "")
+        _weekendDays = State(initialValue: SeasonalPricingFields.seedWeekendDays(from: listing))
         _monthlyPriceTexts = State(initialValue: SeasonalPricingFields.seedMonths(from: listing.monthlyPrices))
         _coordinate = State(initialValue: listing.coordinate)
 
@@ -1750,19 +2292,74 @@ struct EditListingView: View {
         text.reduce(into: 0) { total, ch in if ch.isLetter { total += 1 } }
     }
 
-    private var step1Valid: Bool {
-        !draft.title.trimmingCharacters(in: .whitespaces).isEmpty
-            && letterCount(draft.description) >= AddListingView.minDescriptionLetters
+    /// What is wrong with the title, if anything — the same `ListingTitlePolicy`
+    /// the create wizard and the PATCH run. A rename to `@@@@@` used to clear
+    /// this step and bounce off the API after Save.
+    private var titleProblem: ListingTitlePolicy.Problem? {
+        ListingTitlePolicy.check(draft.title)
+    }
+
+    // Each step answers with the sentence that blocks it and derives its Bool
+    // from that, for the reason the create wizard does — see `step1Blocker`
+    // there. Every field is checked in the order it is laid out on the step.
+    private var step1Blocker: String? {
+        if let problem = titleProblem, problem == .required {
+            return ListingTitlePolicy.message(problem)
+        }
+        if titleProblem != nil { return loc.t("listing.blocked.title") }
+        if letterCount(draft.description) < AddListingView.minDescriptionLetters {
+            return String(format: loc.t("listing.blocked.description"),
+                          "\(AddListingView.minDescriptionLetters)")
+        }
+        return nil
     }
     /// The region has to be one the backend accepts — a listing carrying an
     /// older/unknown area has to be re-picked rather than 400 on save.
-    private var step2Valid: Bool {
+    private var step2Blocker: String? {
         let region = draft.region?.trimmingCharacters(in: .whitespaces) ?? ""
-        return ListingFormOptions.regions.contains { $0.caseInsensitiveCompare(region) == .orderedSame }
-            && coordinate != nil
-            && letterCount(draft.location) >= AddListingView.minLocationLetters
+        let known = ListingFormOptions.regions.contains { $0.caseInsensitiveCompare(region) == .orderedSame }
+        if !known { return loc.t("listing.blocked.region") }
+        if let resortProblem = ResortChoice.blocker(resort, typedName: resortName) {
+            return resortProblem
+        }
+        if letterCount(draft.location) < AddListingView.minLocationLetters {
+            return String(format: loc.t("listing.blocked.location"),
+                          "\(AddListingView.minLocationLetters)")
+        }
+        if coordinate == nil { return loc.t("listing.blocked.pin") }
+        return nil
     }
-    private var step3Valid: Bool { price > 0 }
+    /// Photos are not on this list (they travel through the /images routes), but
+    /// the capacity counts are: an edit may not take a listing below the floor,
+    /// and a row created before that floor existed can open here holding a 0.
+    private var step3Blocker: String? {
+        if !ListingCapacityPolicy.isValid(
+            maxGuests: draft.maxGuests,
+            bedrooms: draft.bedrooms,
+            beds: draft.beds,
+            bathrooms: draft.bathrooms
+        ) {
+            return String(format: loc.t("listing.blocked.capacity"),
+                          "\(ListingCapacityPolicy.minimum)")
+        }
+        if price <= 0 { return loc.t("listing.blocked.price") }
+        return nil
+    }
+
+    private var step1Valid: Bool { step1Blocker == nil }
+    private var step2Valid: Bool { step2Blocker == nil }
+    private var step3Valid: Bool { step3Blocker == nil }
+
+    /// Why the current step will not advance, or nil when it will. Rendered above
+    /// Next / Save changes.
+    private var currentStepBlocker: String? {
+        switch step {
+        case 1:  return step1Blocker
+        case 2:  return step2Blocker
+        case 3:  return step3Blocker
+        default: return nil
+        }
+    }
 
     private var currentStepValid: Bool {
         switch step {
@@ -1793,13 +2390,17 @@ struct EditListingView: View {
                             description: $draft.description,
                             propertyType: $draft.propertyType,
                             propertyTypes: propertyTypes,
-                            descriptionRequired: true
+                            titleProblem: titleProblem
                         ) }
                         .tag(1)
 
                         stepCard { LocationStep(
                             region: $draft.region,
                             regions: ListingFormOptions.regions,
+                            resort: $resort,
+                            resortName: $resortName,
+                            resorts: resorts,
+                            resortsLoading: isLoadingResorts,
                             location: $draft.location,
                             country: $draft.country,
                             coordinate: $coordinate,
@@ -1809,8 +2410,7 @@ struct EditListingView: View {
                             search: locationSearch,
                             onSearch: { Task { await locationSearch.search(searchQuery) } },
                             onSelect: { applyPlace($0) },
-                            onUseCurrentLocation: { locationSearch.requestCurrentLocation() },
-                            locationRequired: true
+                            onUseCurrentLocation: { locationSearch.requestCurrentLocation() }
                         ) }
                         .tag(2)
 
@@ -1825,10 +2425,9 @@ struct EditListingView: View {
                             weeklyDiscount: $draft.weeklyDiscount,
                             monthlyDiscount: $draft.monthlyDiscount,
                             weekendPrice: $weekendPriceText,
+                            weekendDays: $weekendDays,
                             monthlyPrices: $monthlyPriceTexts,
                             ownershipDoc: $draft.ownershipDoc,
-                            ownershipDocItem: $ownershipDocItem,
-                            isProcessingDoc: isProcessingDoc,
                             photos: $photos,
                             photoItems: $photoItems,
                             encodingPhotos: encodingPhotos,
@@ -1837,6 +2436,8 @@ struct EditListingView: View {
                         .tag(3)
 
                         stepCard { EditReviewStep(
+                            region: draft.region,
+                            resort: resortSummary,
                             title: draft.title,
                             propertyType: draft.propertyType,
                             location: draft.location,
@@ -1861,6 +2462,7 @@ struct EditListingView: View {
                     .tabViewStyle(.page(indexDisplayMode: .never))
                     .animation(.easeInOut(duration: 0.3), value: step)
 
+                    StepBlockerNote(message: currentStepBlocker)
                     navBar
                 }
 
@@ -1883,9 +2485,7 @@ struct EditListingView: View {
         .interactiveDismissDisabled(isSaving)
         .onAppear { bindLocationCallback() }
         .task { commission = try? await HostService.shared.fetchCommission() }
-        .onChange(of: ownershipDocItem) { _, item in
-            Task { await processOwnershipDoc(item) }
-        }
+        .task(id: draft.region) { await loadResorts() }
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             Task { await processPickedPhotos(items) }
@@ -2041,25 +2641,25 @@ struct EditListingView: View {
 
     private func bindLocationCallback() {
         locationSearch.onLocation = { coord, place in
-            apply(coordinate: coord, city: place?.city, country: place?.country)
+            apply(coordinate: coord, address: place?.address, country: place?.country)
         }
     }
 
     private func applyPlace(_ place: PlaceResult) {
-        apply(coordinate: place.coordinate, city: place.city, country: place.country)
+        apply(coordinate: place.coordinate, address: place.address, country: place.country)
         locationSearch.clearResults()
     }
 
-    /// Place the pin and fill city / country only when they're still empty, so a
-    /// search never clobbers what the listing already says.
-    private func apply(coordinate coord: CLLocationCoordinate2D, city: String?, country countryName: String?) {
+    /// Place the pin and fill address / country only when they're still empty, so
+    /// a search never clobbers what the listing already says.
+    private func apply(coordinate coord: CLLocationCoordinate2D, address: String?, country countryName: String?) {
         coordinate = coord
         recenterTarget = coord
         recenterToken += 1
 
         if draft.location.trimmingCharacters(in: .whitespaces).isEmpty,
-           let city, !city.isEmpty {
-            draft.location = city
+           let address, !address.isEmpty {
+            draft.location = address
         }
         if draft.country.trimmingCharacters(in: .whitespaces).isEmpty,
            let countryName, !countryName.isEmpty {
@@ -2068,23 +2668,6 @@ struct EditListingView: View {
     }
 
     // MARK: - Pickers
-
-    /// Downscale + encode a replacement ownership document into `draft.ownershipDoc`.
-    private func processOwnershipDoc(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        errorMessage = nil
-        isProcessingDoc = true
-        defer { isProcessingDoc = false }
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            let image = UIImage(data: data),
-            let dataURL = QKAvatarImage.makeDataURL(from: image, maxDimension: 1200, quality: 0.8)
-        else {
-            errorMessage = loc.t("trust.uploadError")
-            return
-        }
-        draft.ownershipDoc = dataURL
-    }
 
     /// Append freshly-picked photos, up to the shared cap.
     private func processPickedPhotos(_ items: [PhotosPickerItem]) async {
@@ -2109,12 +2692,52 @@ struct EditListingView: View {
         isSaving = true
         defer { isSaving = false }
 
+        // The seasonal rates, judged before anything is sent — the API refuses the
+        // same values, and a host is owed the reason beside the field rather than
+        // as a server error after a four-step wizard.
+        let weekendCheck = ListingPricingRules.checkPrice(weekendPriceText)
+        guard case .success(let weekendRate) = weekendCheck else {
+            if case .failure(let problem) = weekendCheck {
+                errorMessage = loc.t(problem.weekendKey)
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+        let monthsCheck = ListingPricingRules.checkMonths(monthlyPriceTexts)
+        guard case .success(let checkedMonths) = monthsCheck else {
+            if case .failure(let failure) = monthsCheck {
+                errorMessage = String(format: loc.t(failure.problem.monthKey),
+                                      qkShortMonthSymbols(loc)[failure.month - 1])
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+        // The rate and the days it applies to are one field, judged as a pair.
+        let schedule = WeekendSchedule.resolve(price: weekendRate, days: Array(weekendDays))
+        guard case .success(let resolvedDays) = schedule else {
+            if case .failure(let problem) = schedule {
+                errorMessage = loc.t(problem == .wholeWeek
+                                     ? "pricing.weekendDays.wholeWeek"
+                                     : "pricing.weekendDays.noDaysChosen")
+                withAnimation(QKAnim.swap) { step = 3 }
+            }
+            return
+        }
+
         draft.pricePerNight = price
-        draft.weekendPrice = SeasonalPricingFields.parseWeekend(weekendPriceText)
-        draft.monthlyPrices = SeasonalPricingFields.parseMonths(monthlyPriceTexts)
+        draft.weekendPrice = weekendRate
+        draft.weekendDays = resolvedDays ?? WeekendSchedule.defaultDays
+        draft.monthlyPrices = checkedMonths
         draft.amenities = orderedAmenities
         draft.lat = coordinate?.latitude
         draft.lng = coordinate?.longitude
+
+        // The resort columns are only written when the host actually changed the
+        // answer — see `ListingEdit.resortEdited`.
+        let resortPayload = ResortChoice.payload(resort, typedName: resortName)
+        draft.resortId = resortPayload.resortId
+        draft.resortName = resortPayload.resortName
+        draft.resortEdited = resortChanged
 
         do {
             var updated = try await HostService.shared.updateListing(id: listing.id, draft)
@@ -2125,6 +2748,48 @@ struct EditListingView: View {
             errorMessage = error.localizedDescription
             // Surface the failure on the step that carries the error line.
             withAnimation(.easeInOut(duration: 0.3)) { step = Self.totalSteps }
+        }
+    }
+
+    /// Whether the resort answer differs from what the listing arrived with. A
+    /// host who never opened the picker leaves both columns untouched.
+    private var resortChanged: Bool {
+        if resort != seededResort { return true }
+        guard resort == .other else { return false }
+        return ResortChoice.normalizeName(resortName) != ResortChoice.normalizeName(seededResortName)
+    }
+
+    /// Load the compounds for the current area. The listing's OWN resort is kept
+    /// in the list even when the area's catalog doesn't carry it — an admin may
+    /// have deactivated it since, and the picker must still be able to name what
+    /// the listing says today rather than showing a blank field.
+    private func loadResorts() async {
+        let region = draft.region?.trimmingCharacters(in: .whitespaces) ?? ""
+        isLoadingResorts = true
+        defer { isLoadingResorts = false }
+        var loaded = region.isEmpty ? [] : await SupabaseService.shared.fetchResorts(region: region)
+        if case .catalog(let id) = seededResort, !loaded.contains(where: { $0.id == id }) {
+            loaded.append(ResortOption(id: id, name: listing.resort ?? "", region: listing.region ?? region))
+        }
+        resorts = loaded
+        // A resort the host picked under a different area is dropped, as in the
+        // create wizard — its region would otherwise overrule the chip they just
+        // tapped. The listing's own resort survives, because it is in the list.
+        if case .catalog(let id) = resort, !loaded.contains(where: { $0.id == id }) {
+            resort = .none
+        }
+    }
+
+    /// What the review step shows for the resort — the catalog name, the typed
+    /// text, or nothing when the place isn't in one.
+    private var resortSummary: String? {
+        switch resort {
+        case .none:
+            return nil
+        case .other:
+            return ResortChoice.normalizeName(resortName)
+        case .catalog(let id):
+            return resorts.first { $0.id == id }?.name
         }
     }
 
@@ -2177,6 +2842,12 @@ struct EditListingView: View {
 /// layout the add wizard's review step uses.
 private struct EditReviewStep: View {
     @EnvironmentObject private var loc: LocalizationManager
+    /// The curated browse area, shown above the address for the same reason as
+    /// in `ReviewStep`.
+    let region: String?
+    /// The resort / compound as it will be stored; the row is skipped when the
+    /// place isn't in one. See `ReviewStep.resort`.
+    let resort: String?
     let title: String
     let propertyType: String
     let location: String
@@ -2200,6 +2871,11 @@ private struct EditReviewStep: View {
         let parts = [location, country].map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
         return parts.isEmpty ? "—" : parts.joined(separator: ", ")
+    }
+
+    private var regionText: String {
+        let trimmed = region?.trimmingCharacters(in: .whitespaces) ?? ""
+        return trimmed.isEmpty ? "—" : trimmed
     }
 
     private var coordText: String {
@@ -2249,6 +2925,12 @@ private struct EditReviewStep: View {
             SummaryRow(label: loc.t("listing.edit.field.title"), value: title.isEmpty ? "—" : title)
             Divider()
             SummaryRow(label: loc.t("listing.edit.field.type"), value: propertyType.isEmpty ? "—" : propertyType)
+            Divider()
+            SummaryRow(label: loc.t("listing.edit.field.area"), value: regionText)
+            if let resort, !resort.isEmpty {
+                Divider()
+                SummaryRow(label: loc.t("listing.edit.field.resort"), value: resort)
+            }
             Divider()
             SummaryRow(label: loc.t("listing.edit.field.location"), value: placeText)
             Divider()

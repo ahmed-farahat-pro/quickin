@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.ui.AddListingScreen
+import com.quickin.app.ui.FormDraftsViewModel
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
 import com.quickin.app.ui.ChatScreen
@@ -342,6 +343,8 @@ private fun MainApp() {
     val commission by hostViewModel.commission.collectAsState()
     // Whether this host may add a listing; the wizard shows the reason when not.
     val listingGate by hostViewModel.listingGate.collectAsState()
+    // The resort / compound catalog behind the host location step's picker, loaded per area.
+    val resortCatalog by hostViewModel.resorts.collectAsState()
     LaunchedEffect(Unit) {
         hostViewModel.loadCommission()
         hostViewModel.loadListingGate()
@@ -349,8 +352,9 @@ private fun MainApp() {
     // The host's full listing edit (every field + photos) — saving re-queues it for admin review.
     val editListingState by hostViewModel.edit.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
-    val stayDiscountState by hostViewModel.stayDiscount.collectAsState()
-    val seasonalPricingState by hostViewModel.seasonalPricing.collectAsState()
+    // The host's own takedown of a listing — QuickIn has no host-facing delete.
+    val listingVisibilityState by hostViewModel.visibility.collectAsState()
+    val guestPreviewState by hostViewModel.guestPreview.collectAsState()
 
     // Money views (Section 9 — MOCK): host earnings/payouts + guest receipts.
     val moneyViewModel: MoneyViewModel = viewModel()
@@ -382,6 +386,12 @@ private fun MainApp() {
 
     // The host's payout method — where QuickIn sends their earnings (Profile tab).
     val payoutViewModel: PayoutViewModel = viewModel()
+
+    // Half-finished host forms (add listing / add service) and the staged ID-verification photos.
+    // Held here, outside every composable, because the bottom bar and the host tab bar both REMOVE
+    // a tab's body from composition when you leave it — which is what threw a host's typing away.
+    // MainActivity only ever clears these on sign-out; the screens themselves do the editing.
+    val formDrafts: FormDraftsViewModel = viewModel()
     val payoutState by payoutViewModel.payout.collectAsState()
 
     // Wishlist (saved stays/experiences) + reviews (listing reviews + leave-a-review).
@@ -414,6 +424,11 @@ private fun MainApp() {
     // (locale-independent, unlike the translated display label).
     val currentTabKey = tabs.getOrNull(selectedTab)?.key
     var selectedListing by remember { mutableStateOf<Listing?>(null) }
+    // True when [selectedListing] is a host previewing their OWN listing as a guest sees it
+    // ("See it as a guest" on a host listing card). Drives the preview banner and switches every
+    // guest action off; also forces isOwnHost false so the guest reserve panel renders in place
+    // of the host-only editor / calendar / availability shortcuts.
+    var previewingAsGuest by remember { mutableStateOf(false) }
     // True while the host "Add a listing" route (full-screen) is open (from the Listings tab).
     var showAddListing by remember { mutableStateOf(false) }
     // The host's own listing being edited in the full editor (every field + photos), or null.
@@ -675,6 +690,9 @@ private fun MainApp() {
             showAddListing = false
             // Same for the listing editor — only a host can have one open.
             hostViewModel.resetEdit()
+            // And the add-listing wizard's state: it is activity-scoped, so without this the next
+            // account to sign in opens "Add a listing" onto the previous host's error.
+            hostViewModel.resetCreate()
             editingListing = null
         }
     }
@@ -728,6 +746,8 @@ private fun MainApp() {
             // Leave the host application form too, and drop whatever was typed into it.
             showHostApply = false
             authViewModel.resetHostApply()
+            // Same for the add-listing wizard — one account's failed attempt, never a shared cache.
+            hostViewModel.resetCreate()
             showNotifications = false
             showForgot = false
             selectedReservationId = null
@@ -742,6 +762,9 @@ private fun MainApp() {
             // Drop any in-flight mock payment too.
             pendingPayment = null
             bookingsViewModel.resetPayment()
+            // Half-written add-listing / add-service forms and staged ID photos are one account's
+            // work. They survive a tab switch on purpose — they must not survive a sign-out.
+            formDrafts.clearAll()
         }
     }
 
@@ -803,20 +826,32 @@ private fun MainApp() {
             // The listing editor sits above the detail / host dashboard it was opened from. (It
             // installs its own BackHandler while there are unsaved edits, which asks first.)
             editingListing != null -> { hostViewModel.resetEdit(); editingListing = null }
-            selectedListing != null -> { bookingsViewModel.resetReserve(); selectedListing = null }
+            // The pricing calendar sits above the listing detail (and above the host dashboard it
+            // can also be opened from) — Back closes it and returns to whichever one is beneath,
+            // refreshing the availability the host may have just changed.
+            calendarListing != null -> {
+                calendarListing?.let { availabilityViewModel.loadForListing(it.id) }
+                calendarListing = null
+            }
+            selectedListing != null -> {
+                bookingsViewModel.resetReserve()
+                selectedListing = null
+                previewingAsGuest = false
+            }
             selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
             showProfileSettings -> showProfileSettings = false
             showHostApply -> {
                 authViewModel.resetHostApply()
                 showHostApply = false
             }
-            calendarListing != null -> calendarListing = null
             showHostServices -> showHostServices = false
             disputeBooking != null -> disputeBooking = null
             chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
-            showHost -> showHost = false
+            // Closing the dashboard retires a finished publish's success card (the wizard tab
+            // shares this state), but keeps a failed attempt's error with the draft it describes.
+            showHost -> { hostViewModel.clearCreated(); showHost = false }
             showAnalytics -> showAnalytics = false
             // A conversation thread sits above the inbox — Back returns to the inbox first.
             openConversationThread != null -> openConversationThread = null
@@ -946,7 +981,10 @@ private fun MainApp() {
         /** Leaves the editor; a save that went through refreshes the detail behind it. */
         fun closeEditor() {
             editListingState.saved?.let { saved ->
-                if (selectedListing?.id == saved.id) selectedListing = saved
+                // Not while previewing: `saved` is the HOST projection (raw prices), and dropping
+                // it into a guest preview would quote the host their own pre-commission price —
+                // the very thing the preview exists to show correctly.
+                if (!previewingAsGuest && selectedListing?.id == saved.id) selectedListing = saved
             }
             hostViewModel.resetEdit()
             editingListing = null
@@ -955,12 +993,12 @@ private fun MainApp() {
             listing = editing,
             state = editListingState,
             onBack = { closeEditor() },
-            onSave = { title, description, location, country, region, price, maxGuests, bedrooms, beds, bathrooms, propertyType, amenities, lat, lng, cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices, images, ownershipDoc ->
+            onSave = { title, description, location, country, region, resort, price, maxGuests, bedrooms, beds, bathrooms, propertyType, amenities, lat, lng, cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices, images, ownershipDoc ->
                 hostViewModel.updateListing(
-                    editing.id, title, description, location, country, region, price,
+                    editing.id, title, description, location, country, region, resort, price,
                     maxGuests, bedrooms, beds, bathrooms, propertyType, amenities, lat, lng,
-                    cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices,
-                    images, ownershipDoc
+                    cancellationPolicy, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays,
+                    monthlyPrices, images, ownershipDoc
                 )
             },
             // The same AI description writer the add-listing wizard uses.
@@ -970,9 +1008,25 @@ private fun MainApp() {
             },
             onConsumeGeneratedDescription = hostViewModel::consumeGeneratedDescription,
             onClearAiWriter = hostViewModel::clearAiWriter,
+            resortCatalog = resortCatalog,
+            onLoadResorts = hostViewModel::loadResorts,
             commission = commission
         )
         return
+    }
+
+    // "See it as a guest" landed: the host's own listing, re-read from the GUEST projection, is
+    // ready to show. Swap it in as the open detail and mark the screen a preview, then clear the
+    // one-shot so re-opening the same card fetches again (its price or photos may have changed).
+    LaunchedEffect(guestPreviewState.listing) {
+        guestPreviewState.listing?.let { preview ->
+            bookingsViewModel.resetReserve()
+            reviewsViewModel.clearListingReviews()
+            availabilityViewModel.clearHost()
+            previewingAsGuest = true
+            selectedListing = preview
+            hostViewModel.clearGuestPreview()
+        }
     }
 
     val current = selectedListing
@@ -1015,10 +1069,13 @@ private fun MainApp() {
             trustViewModel.resetReport()
         }
         // True when the signed-in user is this listing's host — unlocks the availability manager.
-        val isOwnHost = authState.isAuthenticated &&
+        // Deliberately false while previewing: the host is standing in for a guest, and the point
+        // of the preview is the guest's side of the screen.
+        val isOwnHost = !previewingAsGuest && authState.isAuthenticated &&
             !authState.userId.isNullOrBlank() && authState.userId == current.hostId
         ListingDetailScreen(
             listing = current,
+            previewAsGuest = previewingAsGuest,
             onBack = {
                 bookingsViewModel.resetReserve()
                 reviewsViewModel.clearListingReviews()
@@ -1028,6 +1085,7 @@ private fun MainApp() {
                 trustViewModel.clearHostBadges()
                 trustViewModel.resetReport()
                 selectedListing = null
+                previewingAsGuest = false
             },
             reserveState = reserveState,
             onReserve = { checkIn, checkOut, adults, children, infants, pets ->
@@ -1037,6 +1095,7 @@ private fun MainApp() {
                 authViewModel.clearError()
                 bookingsViewModel.resetReserve()
                 selectedListing = null
+                previewingAsGuest = false
                 showAuth = true
             },
             onResetReserve = bookingsViewModel::resetReserve,
@@ -1049,6 +1108,7 @@ private fun MainApp() {
                     bookingsViewModel.resetReserve()
                     reviewsViewModel.clearListingReviews()
                     selectedListing = null
+                    previewingAsGuest = false
                     showAuth = true
                 }
             },
@@ -1222,7 +1282,8 @@ private fun MainApp() {
             onCreateService = { title, category, description, location, price, imageUrl ->
                 servicesViewModel.createService(title, category, description, location, price, imageUrl)
             },
-            onResetCreate = servicesViewModel::resetCreate
+            onResetCreate = servicesViewModel::resetCreate,
+            onSetServicePublished = { id, published -> servicesViewModel.setServicePublished(id, published) }
         )
         return
     }
@@ -1279,12 +1340,12 @@ private fun MainApp() {
             // transfer is the reservation's exact total.
             onPayNow = {
                 val r = detailState.reservation
-                // Defense in depth: the "Pay now" button is already gated on host approval,
-                // but re-check here so the payment sheet can ONLY open for an approved
-                // (status == "confirmed") and still-unpaid reservation. Anything else is a
-                // no-op — the backend also rejects paying a non-confirmed booking.
-                val canPay = r != null && r.status.equals("confirmed", ignoreCase = true) && !r.isPaid
-                if (r != null && canPay) {
+                // Defense in depth: the button is already gated on the payment stage, but re-ask
+                // the shared rule here so the sheet can ONLY open for a reservation that is
+                // genuinely payable — approved and awaiting payment, or rejected and being retried.
+                // The old hand-rolled test (confirmed && !isPaid) also let it open while a
+                // screenshot was still under review, which invites a second transfer for one stay.
+                if (r != null && r.canPay) {
                     val nights = nightsBetween(r.checkIn, r.checkOut).coerceAtLeast(1)
                     bookingsViewModel.resetPayment()
                     // Carry the EXACT booking total (the amount to transfer via Instapay).
@@ -1334,14 +1395,16 @@ private fun MainApp() {
                 hostViewModel.resetCreate()
                 showAddListing = false
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
-                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
-                    weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
+                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc,
+                    weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices
                 )
             },
             onResetCreate = hostViewModel::resetCreate,
+            resortCatalog = resortCatalog,
+            onLoadResorts = hostViewModel::loadResorts,
             // Section 10 — AI listing-description writer.
             aiWriter = aiWriterState,
             onGenerateDescription = { title, location, region, propertyType, bedrooms, maxGuests, amenities, notes ->
@@ -1363,15 +1426,19 @@ private fun MainApp() {
             reviewGuestsState = reviewGuestsState,
             listingsState = hostListingsState,
             onLoadListings = hostViewModel::loadHostListings,
-            onOpenListing = { listing -> selectedListing = listing },
+            // "See it as a guest" — NOT `selectedListing = listing`. The card's copy came from
+            // `GET /api/local/host/listings`, whose prices are the host's RAW amounts; a guest is
+            // quoted those plus the platform commission. Re-read the guest projection instead
+            // (see HostViewModel.openGuestPreview), and present it when it lands.
+            onOpenListing = { listing -> hostViewModel.openGuestPreview(listing.id) },
+            guestPreviewState = guestPreviewState,
             onEditListing = { listing -> editingListing = listing },
+            onOpenCalendar = { listing -> calendarListing = listing },
             ownershipState = ownershipDocState,
             onReuploadDoc = { id, doc -> hostViewModel.reuploadOwnershipDoc(id, doc) },
-            stayDiscountState = stayDiscountState,
-            onSaveStayDiscounts = { id, weekly, monthly -> hostViewModel.setStayDiscounts(id, weekly, monthly) },
-            seasonalPricingState = seasonalPricingState,
-            onSaveSeasonalPricing = { id, weekend, monthly -> hostViewModel.setSeasonalPricing(id, weekend, monthly) },
-            onBack = { showHost = false },
+            visibilityState = listingVisibilityState,
+            onSetPublished = { id, published -> hostViewModel.setListingPublished(id, published) },
+            onBack = { hostViewModel.clearCreated(); showHost = false },
             onLoadBookings = hostViewModel::loadHostBookings,
             onConfirm = { id -> hostViewModel.act(id, "confirm") },
             onReject = { id -> hostViewModel.act(id, "reject") },
@@ -1383,14 +1450,16 @@ private fun MainApp() {
             onSubmitGuestReview = { bookingId, rating, comment ->
                 reviewsViewModel.submitGuestReview(bookingId, rating, comment)
             },
-            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices ->
+            onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
-                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, cancellationPolicy, ownershipDoc,
-                    weeklyDiscount, monthlyDiscount, weekendPrice, monthlyPrices
+                    maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc,
+                    weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices
                 )
             },
             onResetCreate = hostViewModel::resetCreate,
+            resortCatalog = resortCatalog,
+            onLoadResorts = hostViewModel::loadResorts,
             // Section 10 — AI listing-description writer.
             aiWriter = aiWriterState,
             onGenerateDescription = { title, location, region, propertyType, bedrooms, maxGuests, amenities, notes ->

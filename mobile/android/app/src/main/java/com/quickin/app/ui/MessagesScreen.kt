@@ -280,6 +280,36 @@ private fun ConversationRow(convo: ConversationSummary, onClick: () -> Unit) {
                         modifier = Modifier.padding(top = 1.dp)
                     )
                 }
+                // A reservation thread and a pre-booking thread with the same person about the
+                // same listing look identical without this — and a repeat guest can have one
+                // row per stay.
+                if (convo.isReservation) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 3.dp)
+                    ) {
+                        Surface(shape = CircleShape, color = Burgundy.copy(alpha = 0.08f)) {
+                            Text(
+                                stringResource(R.string.messages_reservation_badge),
+                                color = Burgundy,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                        val stay = inboxStayRange(convo.checkIn, convo.checkOut)
+                        if (stay.isNotEmpty()) {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stay,
+                                color = Muted,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
                 Text(
                     convo.lastMessage ?: stringResource(R.string.messages_no_messages),
                     color = if (convo.lastMessage != null) Muted else Muted.copy(alpha = 0.7f),
@@ -338,6 +368,16 @@ private fun MessagesSignIn(onBack: () -> Unit) {
             }
         }
     }
+}
+
+/** "12 Sep – 15 Sep" for a reservation thread's stay; empty when either date is missing or
+ *  unparseable, so a bad row loses a subtitle rather than the whole inbox. */
+private fun inboxStayRange(checkIn: String?, checkOut: String?): String {
+    if (checkIn.isNullOrBlank() || checkOut.isNullOrBlank()) return ""
+    val short = DateTimeFormatter.ofPattern("d MMM")
+    val from = runCatching { java.time.LocalDate.parse(checkIn).format(short) }.getOrNull() ?: return ""
+    val to = runCatching { java.time.LocalDate.parse(checkOut).format(short) }.getOrNull() ?: return ""
+    return "$from – $to"
 }
 
 /** Short relative label ("just now", "2h ago", "3d ago"); falls back to the raw string. */

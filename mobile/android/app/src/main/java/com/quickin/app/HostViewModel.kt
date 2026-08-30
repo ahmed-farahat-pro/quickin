@@ -30,6 +30,24 @@ data class CreateListingUiState(
 )
 
 /**
+ * The resort / compound catalog behind the host location step's picker
+ * (`GET /api/local/resorts?region=`).
+ *
+ * [region] is the area the list belongs to, so a stale catalog is never shown under a newly picked
+ * chip. An empty [resorts] with [isLoading] false means either "this area has no catalog entries
+ * yet" or "the fetch failed" — the picker treats both the same way, offering the free-text "Other"
+ * path, because a catalog that didn't arrive must not stop a host finishing a listing.
+ */
+data class ResortCatalogUiState(
+    val region: String? = null,
+    val isLoading: Boolean = false,
+    val resorts: List<ResortOption> = emptyList(),
+    /** True once a fetch for [region] has come back — including one that came back empty, which is
+     *  what stops an area with no catalog entries being re-requested on every recomposition. */
+    val loaded: Boolean = false
+)
+
+/**
  * State for the host's full listing edit (`PATCH /api/local/listings/:id`) — every field plus the
  * photo set, saved in one request. [listingId] tags which listing is being saved; [saved] carries
  * the listing the backend returned, which is already back to `approval_status = "pending"` and
@@ -67,34 +85,6 @@ data class CancellationPolicyUiState(
 )
 
 /**
- * State for the host editing a listing's length-of-stay discounts
- * (`PATCH /api/local/listings/:id {weekly_discount, monthly_discount}`), from the inline editor on
- * a host listing card. [listingId] tags which listing is being saved (drives a per-card spinner);
- * [savedId] is set after a successful PATCH so the card can show a confirmation.
- */
-data class StayDiscountUiState(
-    val listingId: String? = null,
-    val isSaving: Boolean = false,
-    val error: String? = null,
-    /** Id of the listing whose discounts were just saved successfully, or null. */
-    val savedId: String? = null
-)
-
-/**
- * State for the host editing a listing's seasonal/variable pricing
- * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`), from the inline editor on a
- * host listing card. [listingId] tags which listing is being saved (drives a per-card spinner);
- * [savedId] is set after a successful PATCH so the card can show a confirmation.
- */
-data class SeasonalPricingUiState(
-    val listingId: String? = null,
-    val isSaving: Boolean = false,
-    val error: String? = null,
-    /** Id of the listing whose seasonal pricing was just saved successfully, or null. */
-    val savedId: String? = null
-)
-
-/**
  * State for the host (re)submitting a listing's ownership/proof document
  * (`PATCH /api/local/listings/:id {ownership_doc}`), from a pending/rejected listing card.
  * [listingId] tags which listing is uploading (drives a per-card spinner); [submittedId] is set
@@ -109,6 +99,23 @@ data class OwnershipDocUiState(
 )
 
 /**
+ * State for the host taking one of their own listings off the market, or putting it back
+ * (`PATCH /api/local/host/listings/:id/visibility`).
+ *
+ * [listingId] tags which card is acting (drives a per-card spinner). [message] is what ACTUALLY
+ * happened, in the host's words — "3 booking requests were declined", or "reactivated, but it
+ * stays hidden until…" — because a reactivate can legitimately come back still hidden and saying
+ * "it's live again" then would be a lie.
+ */
+data class ListingVisibilityUiState(
+    val listingId: String? = null,
+    val isSubmitting: Boolean = false,
+    val error: String? = null,
+    /** Outcome line for the card, or null when there is nothing worth saying. */
+    val message: String? = null
+)
+
+/**
  * State for the AI listing-description writer in the Add-listing flow (Section 10,
  * `POST /api/local/ai/listing-description`). [isWriting] drives the button's loading state;
  * [generated] carries the freshly-written description for the wizard to drop into the editable
@@ -118,6 +125,25 @@ data class AiWriterUiState(
     val isWriting: Boolean = false,
     /** The AI-written description, pending insertion into the form; null once consumed. */
     val generated: String? = null,
+    val error: String? = null
+)
+
+/**
+ * State for "See it as a guest" — the host opening one of their own listings the way a guest
+ * meets it, which is the only way to check a listing that is still waiting on approval.
+ *
+ * [listingId] tags which card is loading (per-card spinner). [listing] is the GUEST projection
+ * fetched from `GET /api/local/listings/:id`, deliberately NOT the copy the dashboard already
+ * holds: host reads come back from the backend's `LISTING_COLS_HOST`, whose prices are the
+ * host's own raw amounts, while a guest is quoted those plus the platform commission. Previewing
+ * the local object showed the host a nightly rate no guest will ever be offered — the single
+ * number the preview exists to check.
+ */
+data class GuestPreviewUiState(
+    val listingId: String? = null,
+    val isLoading: Boolean = false,
+    /** The guest-projection listing, ready to present; null until the read lands. */
+    val listing: Listing? = null,
     val error: String? = null
 )
 
@@ -149,6 +175,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _create = MutableStateFlow(CreateListingUiState())
     val create: StateFlow<CreateListingUiState> = _create.asStateFlow()
+
+    private val _resorts = MutableStateFlow(ResortCatalogUiState())
+    val resorts: StateFlow<ResortCatalogUiState> = _resorts.asStateFlow()
 
     private val _listings = MutableStateFlow(HostListingsUiState())
     val listings: StateFlow<HostListingsUiState> = _listings.asStateFlow()
@@ -196,11 +225,8 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     private val _ownershipDoc = MutableStateFlow(OwnershipDocUiState())
     val ownershipDoc: StateFlow<OwnershipDocUiState> = _ownershipDoc.asStateFlow()
 
-    private val _stayDiscount = MutableStateFlow(StayDiscountUiState())
-    val stayDiscount: StateFlow<StayDiscountUiState> = _stayDiscount.asStateFlow()
-
-    private val _seasonalPricing = MutableStateFlow(SeasonalPricingUiState())
-    val seasonalPricing: StateFlow<SeasonalPricingUiState> = _seasonalPricing.asStateFlow()
+    private val _visibility = MutableStateFlow(ListingVisibilityUiState())
+    val visibility: StateFlow<ListingVisibilityUiState> = _visibility.asStateFlow()
 
     private val _aiWriter = MutableStateFlow(AiWriterUiState())
     val aiWriter: StateFlow<AiWriterUiState> = _aiWriter.asStateFlow()
@@ -208,7 +234,41 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     private val _analytics = MutableStateFlow(HostAnalyticsUiState())
     val analytics: StateFlow<HostAnalyticsUiState> = _analytics.asStateFlow()
 
+    private val _guestPreview = MutableStateFlow(GuestPreviewUiState())
+    val guestPreview: StateFlow<GuestPreviewUiState> = _guestPreview.asStateFlow()
+
     private fun token(): String? = prefs.getString(AuthViewModel.KEY_TOKEN, null)
+
+    // ---- "See it as a guest" --------------------------------------------------
+
+    /**
+     * Loads [listingId] as a GUEST sees it, for the host to preview.
+     *
+     * Authenticated, because the route 404s an unpublished listing to everyone but its owner —
+     * and every listing still in the review queue is unpublished, which is exactly the case the
+     * preview is for. No `?asHost`, because the prices have to be the guest's. See
+     * [GuestPreviewUiState].
+     */
+    fun openGuestPreview(listingId: String) {
+        val token = token()
+        _guestPreview.value = GuestPreviewUiState(listingId = listingId, isLoading = true)
+        viewModelScope.launch {
+            val listing = SupabaseService.fetchListing(listingId, token)
+            _guestPreview.value = if (listing != null) {
+                GuestPreviewUiState(listingId = listingId, listing = listing)
+            } else {
+                GuestPreviewUiState(
+                    listingId = listingId,
+                    error = getApplication<Application>().getString(R.string.preview_guest_failed)
+                )
+            }
+        }
+    }
+
+    /** Clears the preview — once the UI has presented it, and when the host closes it. */
+    fun clearGuestPreview() {
+        _guestPreview.value = GuestPreviewUiState()
+    }
 
     // ---- Own listings ---------------------------------------------------------
 
@@ -284,8 +344,42 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Creates a listing as the signed-in host. Numeric fields are parsed leniently
-     * (defaults: price 0, guests/bedrooms/beds/baths 1) and clamped to sane minimums.
+     * (defaults: price 0, guests/bedrooms/beds/baths 1).
+     *
+     * The four capacity counts are clamped to [ListingCapacityPolicy.MINIMUM], not to 0 —
+     * bedrooms, beds and bathrooms used to floor at zero here, which is how a chalet with
+     * nowhere to sleep reached the API. The wizard already refuses to advance past a
+     * below-floor count, so this clamp is the belt to that screen's braces rather than the
+     * rule itself; the API refuses a 0 outright either way.
      */
+    /**
+     * Load the compounds for one curated area, for the host location step's picker. Re-requesting
+     * the area already held is a no-op, so the composable can call this on every recomposition.
+     *
+     * Public and unauthenticated server-side, and best-effort here: a failure answers an empty
+     * catalog rather than an error, because the resort question is optional and the "Other" path
+     * still works without a list.
+     */
+    fun loadResorts(region: String?) {
+        val area = region?.trim().orEmpty()
+        if (area.isEmpty()) {
+            _resorts.value = ResortCatalogUiState()
+            return
+        }
+        val current = _resorts.value
+        if (current.region == area && (current.isLoading || current.loaded)) return
+        _resorts.value = ResortCatalogUiState(region = area, isLoading = true)
+        viewModelScope.launch {
+            val loaded = SupabaseService.fetchResorts(area)
+            // Guard against a slow response for an area the host has since moved off.
+            if (_resorts.value.region == area) {
+                _resorts.value = ResortCatalogUiState(
+                    region = area, isLoading = false, resorts = loaded, loaded = true
+                )
+            }
+        }
+    }
+
     fun createListing(
         title: String,
         description: String,
@@ -302,11 +396,15 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         lat: Double? = null,
         lng: Double? = null,
         region: String? = null,
+        /** The resort / compound the host picked, or [ResortChoice.Selection.NONE] when the place
+         *  isn't in one — a complete answer, and the wizard's default. */
+        resort: ResortChoice.Selection = ResortChoice.Selection.NONE,
         cancellationPolicy: String = "moderate",
         ownershipDoc: String? = null,
         weeklyDiscount: String = "0",
         monthlyDiscount: String = "0",
         weekendPrice: String = "",
+        weekendDays: Collection<Int> = WeekendSchedule.defaultDays,
         monthlyPrices: Map<String, Double> = emptyMap()
     ) {
         if (_create.value.isSubmitting) return
@@ -322,6 +420,19 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             _create.value = CreateListingUiState(error = "Please choose an area.")
             return
         }
+        // "Other" with nothing typed is not "no resort": the server cannot tell the two apart, so
+        // it would save the listing with none at all and throw the host's answer away silently.
+        ResortChoice.blocker(resort)?.let {
+            _create.value = CreateListingUiState(error = it)
+            return
+        }
+        // The seasonal rates and the days the weekend rate applies to, judged as one thing — the
+        // API refuses a zero rate, a zero month, the whole week and a rate with no day left lit,
+        // so the host is told here rather than by a 400 after the form has been filled in.
+        seasonalProblem(weekendPrice, weekendDays, monthlyPrices)?.let {
+            _create.value = CreateListingUiState(error = it)
+            return
+        }
         _create.value = CreateListingUiState(isSubmitting = true)
         viewModelScope.launch {
             try {
@@ -332,21 +443,23 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     location = location.trim(),
                     country = country.trim(),
                     pricePerNight = pricePerNight.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0,
-                    bedrooms = bedrooms.toIntOrNull()?.coerceAtLeast(0) ?: 1,
-                    beds = beds.toIntOrNull()?.coerceAtLeast(0) ?: 1,
-                    bathrooms = bathrooms.toIntOrNull()?.coerceAtLeast(0) ?: 1,
-                    maxGuests = maxGuests.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                    bedrooms = bedrooms.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    beds = beds.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    bathrooms = bathrooms.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    maxGuests = maxGuests.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
                     propertyType = propertyType.trim().ifBlank { "House" },
                     images = images,
                     amenities = amenities,
                     lat = lat,
                     lng = lng,
                     region = region.trim(),
+                    resort = resort,
                     cancellationPolicy = cancellationPolicy,
                     ownershipDoc = ownershipDoc,
                     weeklyDiscount = weeklyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
                     monthlyDiscount = monthlyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
-                    weekendPrice = weekendPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                    weekendPrice = ListingPricingRules.checkPrice(weekendPrice).getOrNull(),
+                    weekendDays = weekendDays,
                     monthlyPrices = monthlyPrices.filterValues { it > 0.0 }
                 )
                 _create.value = CreateListingUiState(created = listing)
@@ -364,6 +477,19 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     /** Resets the create-listing form (after dismissing success, to add another). */
     fun resetCreate() {
         _create.value = CreateListingUiState()
+    }
+
+    /**
+     * Drops a finished publish's success card, but deliberately LEAVES a failed attempt's error
+     * alone. This state outlives every host screen (the view-model is activity-scoped), and the
+     * two halves want opposite lifetimes: the error describes the draft the host still has in
+     * [com.quickin.app.ui.FormDraftsViewModel], so it belongs with that draft, while [created]
+     * describes a listing that is already filed. Without this, publishing from the dashboard's
+     * "Add listing" tab and coming back showed the "Submitted for review" card again instead of
+     * the wizard — a screen the returning host can do nothing with.
+     */
+    fun clearCreated() {
+        if (_create.value.created != null) _create.value = CreateListingUiState()
     }
 
     // ---- Edit listing (full edit → back to review) -----------------------------
@@ -387,6 +513,9 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         location: String,
         country: String,
         region: String?,
+        /** The resort / compound, or null when the host never touched the field — the two columns
+         *  are then left exactly as they are. */
+        resort: ResortChoice.Selection?,
         pricePerNight: String,
         maxGuests: String,
         bedrooms: String,
@@ -400,6 +529,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         weeklyDiscount: String,
         monthlyDiscount: String,
         weekendPrice: String,
+        weekendDays: Collection<Int>,
         monthlyPrices: Map<String, Double>,
         images: List<String>?,
         ownershipDoc: String?
@@ -422,6 +552,14 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             _edit.value = EditListingUiState(listingId = listingId, error = "Please choose an area.")
             return
         }
+        resort?.let { ResortChoice.blocker(it) }?.let {
+            _edit.value = EditListingUiState(listingId = listingId, error = it)
+            return
+        }
+        seasonalProblem(weekendPrice, weekendDays, monthlyPrices)?.let {
+            _edit.value = EditListingUiState(listingId = listingId, error = it)
+            return
+        }
         val price = pricePerNight.toDoubleOrNull() ?: 0.0
         if (price <= 0.0) {
             _edit.value = EditListingUiState(
@@ -441,11 +579,14 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     location = location.trim(),
                     country = country.trim(),
                     region = region.trim(),
+                    resort = resort,
                     pricePerNight = price,
-                    maxGuests = maxGuests.toIntOrNull()?.coerceAtLeast(1) ?: 1,
-                    bedrooms = bedrooms.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                    beds = beds.toIntOrNull()?.coerceAtLeast(0) ?: 0,
-                    bathrooms = bathrooms.toIntOrNull()?.coerceAtLeast(0) ?: 0,
+                    // Same floor on the edit door: a listing may not be edited down to a
+                    // place with no bedroom, bed or bathroom. See ListingCapacityPolicy.
+                    maxGuests = maxGuests.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    bedrooms = bedrooms.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    beds = beds.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
+                    bathrooms = bathrooms.toIntOrNull()?.coerceAtLeast(ListingCapacityPolicy.MINIMUM) ?: 1,
                     propertyType = propertyType.trim().ifBlank { "House" },
                     amenities = amenities,
                     lat = lat,
@@ -453,7 +594,8 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     cancellationPolicy = cancellationPolicy,
                     weeklyDiscount = weeklyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
                     monthlyDiscount = monthlyDiscount.toIntOrNull()?.coerceIn(0, 100) ?: 0,
-                    weekendPrice = weekendPrice.toDoubleOrNull()?.takeIf { it > 0.0 },
+                    weekendPrice = ListingPricingRules.checkPrice(weekendPrice).getOrNull(),
+                    weekendDays = weekendDays,
                     monthlyPrices = monthlyPrices.filterValues { it > 0.0 },
                     images = images,
                     ownershipDoc = ownershipDoc
@@ -475,6 +617,92 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
     /** Clears the edit state (on leaving the editor / after the saved confirmation). */
     fun resetEdit() {
         _edit.value = EditListingUiState()
+    }
+
+    // ---- Listing visibility (the host's own takedown) --------------------------
+
+    /**
+     * Takes [listingId] off the market, or puts it back
+     * (`PATCH /api/local/host/listings/:id/visibility`).
+     *
+     * This is QuickIn's "delete my listing" and it deletes nothing: bookings, reviews, messages
+     * and payment records all point at the listing id, so the row survives and `is_published`
+     * carries the meaning instead. Reservations the host already confirmed are untouched.
+     *
+     * **Deactivating declines every booking request still waiting on this host.** The screen
+     * confirms with the count from [Listing.pendingRequestCount] BEFORE calling this; here we
+     * only report how many actually went.
+     *
+     * The response is folded into the listings cache, so the card's badge, its button and the
+     * status filter all follow without a refetch — and it is folded from what the server ACTUALLY
+     * did, not from what was asked, because a reactivate comes back still hidden when an account
+     * block, the identity gate or the review queue is also holding the listing.
+     */
+    fun setListingPublished(listingId: String, isPublished: Boolean) {
+        if (_visibility.value.isSubmitting) return
+        val token = token() ?: run {
+            _visibility.value = ListingVisibilityUiState(listingId = listingId, error = "Please sign in as the host.")
+            return
+        }
+        _visibility.value = ListingVisibilityUiState(listingId = listingId, isSubmitting = true)
+        viewModelScope.launch {
+            try {
+                val result = BookingService.setListingPublished(token, listingId, isPublished)
+                _visibility.value = ListingVisibilityUiState(
+                    listingId = listingId,
+                    message = visibilityMessage(isPublished, result)
+                )
+                _listings.value = _listings.value.copy(
+                    listings = _listings.value.listings.map {
+                        if (it.id != listingId) it
+                        // Prefer the listing the server echoed — it carries the fresh approval
+                        // state and pending count too. The local patch is the fallback for a
+                        // response that omitted it.
+                        else result.listing ?: it.copy(
+                            isPublished = result.isPublished,
+                            unpublishedByHost = !isPublished,
+                            pendingRequestCount = if (isPublished) it.pendingRequestCount else 0
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                _visibility.value = ListingVisibilityUiState(
+                    listingId = listingId,
+                    error = humanError(
+                        e,
+                        if (isPublished) "Couldn't reactivate this listing." else "Couldn't deactivate this listing."
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * The one line the card shows after a visibility change, or null when the outcome speaks for
+     * itself (a clean reactivate, or a deactivate that had no requests waiting).
+     */
+    private fun visibilityMessage(
+        asked: Boolean,
+        result: BookingService.ListingVisibilityResult
+    ): String? = when {
+        // Asked to go live and did not: name who is still holding it. The server's own sentence
+        // is the fallback for a code this build has no wording for.
+        asked && !result.isPublished -> when (result.blockedBy) {
+            "verification" -> "Reactivated — but your listing stays hidden until your identity is verified again."
+            "staff" -> "Reactivated — but your listing stays hidden while our team reviews it. Contact support for details."
+            "rejected" -> "Reactivated — but your listing stays hidden because it wasn't approved. Fix the points in the review note and resubmit."
+            "under_review" -> "Reactivated — your listing goes live as soon as our team approves it."
+            else -> result.blockedMessage?.takeIf { it.isNotBlank() }
+        }
+        !asked && result.declinedRequests > 0 ->
+            if (result.declinedRequests == 1) "1 booking request was declined."
+            else "${result.declinedRequests} booking requests were declined."
+        else -> null
+    }
+
+    /** Clears the visibility outcome (after the card has shown it). */
+    fun clearVisibilityMessage() {
+        _visibility.value = ListingVisibilityUiState()
     }
 
     // ---- Edit cancellation policy ---------------------------------------------
@@ -518,102 +746,65 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         _policy.value = CancellationPolicyUiState()
     }
 
-    // ---- Edit length-of-stay discounts ----------------------------------------
+    // ---- The weekend rate and the days it applies to ---------------------------
 
     /**
-     * Updates [listingId]'s weekly/monthly length-of-stay discounts (% off) as the host
-     * (`PATCH /api/local/listings/:id {weekly_discount, monthly_discount}`). On success folds the
-     * new values into the host's listings cache and publishes [StayDiscountUiState.savedId] so the
-     * card can confirm. Surfaces [error] on failure.
+     * The message for a (rate, days) pair the API would refuse, or null when it is fine.
+     *
+     * English here, like every other guard in this view model — the screens carry the localized
+     * copy beside the day pills and stop before they ever reach this. This is the backstop for a
+     * caller that didn't, and its wording matches what the server would have answered.
      */
-    fun setStayDiscounts(listingId: String, weeklyDiscount: Int, monthlyDiscount: Int) {
-        if (_stayDiscount.value.isSaving) return
-        val token = token() ?: run {
-            _stayDiscount.value = StayDiscountUiState(listingId = listingId, error = "Please sign in as the host.")
-            return
-        }
-        _stayDiscount.value = StayDiscountUiState(listingId = listingId, isSaving = true)
-        viewModelScope.launch {
-            try {
-                val updated = BookingService.updateStayDiscounts(token, listingId, weeklyDiscount, monthlyDiscount)
-                _stayDiscount.value = StayDiscountUiState(listingId = listingId, savedId = listingId)
-                // Keep the host's own-listings cache in sync so the card reflects the new discounts.
-                _listings.value = _listings.value.copy(
-                    listings = _listings.value.listings.map {
-                        if (it.id == listingId) {
-                            it.copy(
-                                weeklyDiscount = updated.weeklyDiscount,
-                                monthlyDiscount = updated.monthlyDiscount
-                            )
-                        } else it
-                    }
-                )
-            } catch (e: Exception) {
-                _stayDiscount.value = StayDiscountUiState(
-                    listingId = listingId,
-                    error = humanError(e, "Couldn't update the discounts.")
-                )
-            }
-        }
-    }
-
-    /** Clears the stay-discount edit state (after showing the confirmation / error). */
-    fun clearStayDiscount() {
-        _stayDiscount.value = StayDiscountUiState()
-    }
-
-    // ---- Edit seasonal pricing ------------------------------------------------
-
     /**
-     * Updates [listingId]'s seasonal/variable pricing as the host
-     * (`PATCH /api/local/listings/:id {weekend_price, monthly_prices}`). [weekendPrice] is the
-     * Fri+Sat nightly rate (null/0 clears it); [monthlyPrices] maps month "1".."12" → nightly EGP
-     * (only positive values are sent). On success folds the new values into the host's listings
-     * cache and publishes [SeasonalPricingUiState.savedId] so the card can confirm. Surfaces [error].
+     * Everything that can be wrong with a listing's seasonal pricing, as one sentence, or null.
+     *
+     * A backstop behind the screens, which say the same things in the host's own language beside
+     * the offending field (see ListingPricingRules + the `blocker` chains in the wizard and the
+     * editor). It exists because this used to be the LAST place a `0` could have been caught and
+     * it did the opposite: `toDoubleOrNull()?.takeIf { it > 0.0 }` read a typed zero and an empty
+     * field as the same thing, sent `weekend_price: null`, and the listing saved with no weekend
+     * rate at all.
+     *
+     * Order matters: the rate is judged before the days, because WeekendSchedule.resolve answers
+     * "no rate, no days, no problem" to a 0 — correctly, since it may only ever be handed a rate
+     * that is already known to be one.
      */
-    fun setSeasonalPricing(listingId: String, weekendPrice: Double?, monthlyPrices: Map<String, Double>) {
-        if (_seasonalPricing.value.isSaving) return
-        val token = token() ?: run {
-            _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, error = "Please sign in as the host.")
-            return
-        }
-        _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, isSaving = true)
-        viewModelScope.launch {
-            try {
-                val cleaned = monthlyPrices.filterValues { it > 0.0 }
-                val updated = BookingService.updateSeasonalPricing(token, listingId, weekendPrice?.takeIf { it > 0.0 }, cleaned)
-                _seasonalPricing.value = SeasonalPricingUiState(listingId = listingId, savedId = listingId)
-                // Keep the host's own-listings cache in sync so the card reflects the new pricing.
-                _listings.value = _listings.value.copy(
-                    listings = _listings.value.listings.map {
-                        if (it.id == listingId) {
-                            it.copy(
-                                weekendPrice = updated.weekendPrice,
-                                monthlyPrices = updated.monthlyPrices
-                            )
-                        } else it
-                    }
-                )
-            } catch (e: Exception) {
-                _seasonalPricing.value = SeasonalPricingUiState(
-                    listingId = listingId,
-                    error = humanError(e, "Couldn't update the pricing.")
-                )
-            }
-        }
+    private fun seasonalProblem(
+        weekendPrice: String,
+        weekendDays: Collection<Int>,
+        monthlyPrices: Map<String, Double> = emptyMap()
+    ): String? {
+        ListingPricingRules.problemWith(weekendPrice)?.let { return weekendPriceProblemMessage(it) }
+        val rate = ListingPricingRules.checkPrice(weekendPrice).getOrNull()
+        // The months arrive already parsed, so a zero here is a caller that skipped its own gate.
+        monthlyPrices.entries.sortedBy { it.key.toIntOrNull() ?: 0 }.firstOrNull { it.value <= 0.0 }
+            ?.let { return "The rate for month ${it.key} must be greater than 0, or leave it empty." }
+        val err = WeekendSchedule.resolve(rate, weekendDays).exceptionOrNull() ?: return null
+        return weekendProblemMessage((err as WeekendDaysException).problem)
     }
 
-    /** Clears the seasonal-pricing edit state (after showing the confirmation / error). */
-    fun clearSeasonalPricing() {
-        _seasonalPricing.value = SeasonalPricingUiState()
+    private fun weekendPriceProblemMessage(problem: ListingPricingRules.Problem): String =
+        when (problem) {
+            ListingPricingRules.Problem.NOT_POSITIVE ->
+                "Weekend price must be greater than 0, or leave it empty."
+            ListingPricingRules.Problem.NOT_A_NUMBER ->
+                "Weekend price must be a number, or leave it empty."
+        }
+
+    private fun weekendProblemMessage(problem: WeekendSchedule.Problem): String = when (problem) {
+        WeekendSchedule.Problem.WHOLE_WEEK ->
+            "Weekend pricing cannot apply to all seven days — set the nightly price instead."
+        WeekendSchedule.Problem.NO_DAYS_CHOSEN ->
+            "Pick at least one weekend day, or clear the weekend price."
     }
 
     // ---- (Re)submit ownership document ----------------------------------------
 
     /**
      * (Re)submits [listingId]'s ownership/proof document as the host
-     * (`PATCH /api/local/listings/:id {ownership_doc}`). [ownershipDoc] is a `data:image/...;base64`
-     * data URL. On success the listing is re-queued to "pending"; we fold the updated approval state
+     * (`PATCH /api/local/listings/:id {ownership_doc}`). [ownershipDoc] is an image or
+     * `application/pdf` base64 data URL, already checked by [OwnershipDocLoader] — a deed reaches a
+     * host as either. On success the listing is re-queued to "pending"; we fold the updated approval state
      * into the host's own-listings cache so the badge flips to "Pending review" immediately.
      */
     fun reuploadOwnershipDoc(listingId: String, ownershipDoc: String) {
@@ -623,7 +814,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (ownershipDoc.isBlank()) {
-            _ownershipDoc.value = OwnershipDocUiState(listingId = listingId, error = "Couldn't read that image.")
+            _ownershipDoc.value = OwnershipDocUiState(listingId = listingId, error = "Couldn't read that document.")
             return
         }
         _ownershipDoc.value = OwnershipDocUiState(listingId = listingId, isSubmitting = true)
@@ -631,10 +822,14 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val updated = BookingService.updateOwnershipDoc(token, listingId, ownershipDoc)
                 _ownershipDoc.value = OwnershipDocUiState(listingId = listingId, submittedId = listingId)
-                // Keep the host's own-listings cache in sync so the approval badge updates in place.
+                // Keep the host's own-listings cache in sync so the approval badge updates in
+                // place — and so does the button, which now certainly has a document to
+                // re-upload whatever the (guest-projection) PATCH response says.
                 _listings.value = _listings.value.copy(
                     listings = _listings.value.listings.map {
-                        if (it.id == listingId) it.copy(approvalStatus = updated.approvalStatus) else it
+                        if (it.id == listingId) {
+                            it.copy(approvalStatus = updated.approvalStatus, hasOwnershipDoc = true)
+                        } else it
                     }
                 )
             } catch (e: Exception) {

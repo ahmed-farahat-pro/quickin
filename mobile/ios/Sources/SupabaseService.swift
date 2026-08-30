@@ -107,9 +107,25 @@ struct SupabaseService {
         return try JSONDecoder().decode([Listing].self, from: data)
     }
 
+    /// The persisted bearer token, or `nil` when browsing as a guest. Read here
+    /// for one call only — `fetchListing(id:)` — see the note on it.
+    private var token: String? {
+        let value = UserDefaults.standard.string(forKey: AuthStore.tokenKey)
+        return (value?.isEmpty == false) ? value : nil
+    }
+
     /// Fetch a single listing by id (`GET /api/local/listings/:id`). Used to
     /// resolve an incoming deep link (`/explore/<id>`) into a full `Listing` so
-    /// the detail screen can be presented. Throws on a non-2xx (e.g. 404).
+    /// the detail screen can be presented, and to load the host's own listing for
+    /// the guest preview. Throws on a non-2xx (e.g. 404).
+    ///
+    /// Carries the bearer token when there is one. The route answers 404 on a
+    /// listing that is not published — a listing still under review, or one a host
+    /// took down — to everyone EXCEPT its owner, so without the header a host
+    /// cannot resolve their own pending listing at all. It deliberately does NOT
+    /// pass `?asHost`: that flag picks the price projection, and a preview of what
+    /// guests see has to carry the guest's commission-inclusive prices, not the
+    /// host's raw ones.
     func fetchListing(id: String) async throws -> Listing {
         let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
         let url = URL(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)")!
@@ -117,6 +133,9 @@ struct SupabaseService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -170,6 +189,34 @@ struct SupabaseService {
             throw SupabaseError.server(status: http.statusCode, body: body)
         }
         return try JSONDecoder().decode([RegionFacet].self, from: data)
+    }
+
+    /// The resort / compound catalog the host location step offers
+    /// (`GET /api/local/resorts` → `{ resorts: [ResortOption] }`), narrowed to
+    /// one region when given. Public — no auth, exactly like `/api/local/regions`:
+    /// it is a list of compound names, and the host form needs it before the
+    /// user has committed to anything.
+    ///
+    /// Best-effort: any failure answers an empty catalog, which the picker
+    /// renders as the "Other — not listed" free-text path only. A catalog that
+    /// didn't load must never be the reason a host can't finish a listing.
+    func fetchResorts(region: String? = nil) async -> [ResortOption] {
+        struct Envelope: Decodable { let resorts: [ResortOption] }
+        var components = URLComponents(string: "\(Config.apiBaseURL)/api/local/resorts")!
+        if let region, !region.isEmpty {
+            components.queryItems = [URLQueryItem(name: "region", value: region)]
+        }
+        guard let url = components.url else { return [] }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              let envelope = try? JSONDecoder().decode(Envelope.self, from: data)
+        else { return [] }
+        return envelope.resorts
     }
 
     /// Place autocomplete for the Explore search bar

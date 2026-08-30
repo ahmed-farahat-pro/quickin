@@ -1,5 +1,62 @@
 package com.quickin.app
 
+/**
+ * The rules for the weekend rung of the pricing ladder: which weekdays a listing's
+ * [Listing.weekendPrice] is charged on, and what a (rate, days) pair may be.
+ *
+ * The Kotlin twin of `listing-pricing-core.ts` on the server, which is the file the website and
+ * the API both run. Keep the answers below in step with `resolveWeekendSchedule` there — the API
+ * refuses the same two sets this refuses, and a host should be told by the screen they are typing
+ * into rather than by a save that comes back 400.
+ */
+object WeekendSchedule {
+    /** Egypt's weekend, and the fallback when a host never chose (`weekend_days` is NULL). */
+    val defaultDays: List<Int> = listOf(5, 6)
+
+    /** Days in a week — the ceiling a weekend has to stay under. */
+    const val DAYS_IN_WEEK = 7
+
+    /** Why a chosen day set cannot be saved. */
+    enum class Problem {
+        /** All seven days, which leaves the nightly price applying to no night. */
+        WHOLE_WEEK,
+
+        /** A rate was typed with no day left lit to charge it on. */
+        NO_DAYS_CHOSEN
+    }
+
+    /** Keep whole days in 0..6, drop repeats, sort ascending. */
+    fun normalize(raw: Collection<Int>): List<Int> =
+        raw.filter { it in 0 until DAYS_IN_WEEK }.distinct().sorted()
+
+    /**
+     * The days a listing actually prices at its weekend rate — the host's own set, or the default
+     * when they never chose. What the server's ladder does, so a preview here matches the quote.
+     */
+    fun effective(days: List<Int>?): List<Int> =
+        if (days.isNullOrEmpty()) defaultDays else normalize(days)
+
+    /**
+     * Judge a (rate, days) pair as ONE thing, the way the API does.
+     *
+     * - no rate → no days, and never an error: clearing the weekend price is how a host turns
+     *   weekend pricing off, and refusing that save would strand them on a form they are in the
+     *   middle of fixing.
+     * - all seven days → [Problem.WHOLE_WEEK].
+     * - no days under a real rate → [Problem.NO_DAYS_CHOSEN].
+     */
+    fun resolve(price: Double?, days: Collection<Int>): Result<List<Int>?> {
+        if (price == null || price <= 0.0) return Result.success(null)
+        val cleaned = normalize(days)
+        if (cleaned.size >= DAYS_IN_WEEK) return Result.failure(WeekendDaysException(Problem.WHOLE_WEEK))
+        if (cleaned.isEmpty()) return Result.failure(WeekendDaysException(Problem.NO_DAYS_CHOSEN))
+        return Result.success(cleaned)
+    }
+}
+
+/** Carries a [WeekendSchedule.Problem] out of [WeekendSchedule.resolve] as a `Result` failure. */
+class WeekendDaysException(val problem: WeekendSchedule.Problem) : Exception(problem.name)
+
 /** A photo attached to a listing (from the `listing_images` table). */
 data class ListingImage(
     val url: String,
@@ -23,6 +80,18 @@ data class Listing(
     val hostName: String? = null,
     /** Curated area the listing belongs to (e.g. "North Coast", "El Gouna"); null when unset. */
     val region: String? = null,
+    /**
+     * The catalog resort this listing belongs to (parsed from "resort_id"); null when the host
+     * typed their own compound name or picked none — the two are mutually exclusive server-side.
+     * Seeds the host editor's resort picker.
+     */
+    val resortId: String? = null,
+    /**
+     * The resort / compound to SHOW: the catalog resort's name when [resortId] is set, otherwise
+     * whatever the host typed (parsed from the API's derived "resort" field, not from a column).
+     * Null when the place isn't in one.
+     */
+    val resort: String? = null,
     /**
      * The listing's property type (e.g. "Apartment", "Villa", "Chalet", "House"); null when unset.
      * Parsed from the JSON key "property_type" (see SupabaseService.parseListing). Surfaced as a
@@ -77,11 +146,22 @@ data class Listing(
      */
     val monthlyDiscount: Int = 0,
     /**
-     * Host-set weekend nightly rate in EGP for Friday + Saturday nights (parsed from
-     * "weekend_price"; null when the host hasn't set one). When present, weekend nights are quoted
-     * at this rate instead of [pricePerNight]. Drives the "weekend & seasonal rates apply" note.
+     * Host-set weekend nightly rate in EGP (parsed from "weekend_price"; null when the host hasn't
+     * set one). When present, weekend nights are quoted at this rate instead of [pricePerNight].
+     * Drives the "weekend & seasonal rates apply" note. Which nights count is [weekendDays] — NOT
+     * a fixed Friday + Saturday.
      */
     val weekendPrice: Double? = null,
+    /**
+     * Which weekdays [weekendPrice] is charged on, `0`=Sun … `6`=Sat (parsed from "weekend_days";
+     * null when the host never chose, which means the default weekend applies — see
+     * [WeekendSchedule.effective]).
+     *
+     * A weekend is not Friday and Saturday everywhere, nor for every property, so this is the
+     * host's answer and not a constant. Both apps used to have no picker at all and told the host
+     * the rate applied "(Fri–Sat)"; the column existed and the backend simply never sent it.
+     */
+    val weekendDays: List<Int>? = null,
     /**
      * Host-set per-month nightly overrides in EGP, keyed by month number "1".."12" (parsed from the
      * "monthly_prices" JSON object; empty when none). A night that falls in a listed month is quoted
@@ -104,7 +184,50 @@ data class Listing(
      * "Rejected" badge on the host's own listing cards, which fall back to generic guidance
      * when it is null. Cleared server-side the moment the listing goes back to "pending".
      */
-    val reviewNote: String? = null
+    val reviewNote: String? = null,
+    /**
+     * Whether guests can see this listing at all (parsed from "is_published"; defaults to true,
+     * because a public read only ever returns published listings and defaulting to false there
+     * would badge every one of them "hidden").
+     *
+     * QuickIn has no host-facing delete and will not have one: bookings, reviews, messages and
+     * payment records all point at the listing id, so "remove my listing" is this flag going
+     * false — search drops the listing, its public page 404s, no new booking can be made — while
+     * every existing reservation stays exactly as it was.
+     */
+    val isPublished: Boolean = true,
+    /**
+     * The HOST took this listing down themselves (parsed from "unpublished_by_host"). HOST READS
+     * ONLY — absent on a guest feed, where false is the honest answer.
+     *
+     * Four parties can hold a listing off the market (the host, an operator, an account block,
+     * the identity gate) and each may only release its own grip, so this is a dedicated flag
+     * rather than an inference from [isPublished]. It is the one the host can clear, and the one
+     * the Deactivate / Reactivate button acts on.
+     */
+    val unpublishedByHost: Boolean = false,
+    /** HOST READS ONLY. An account block hid it; only a staff restore undoes it. */
+    val unpublishedByAdmin: Boolean = false,
+    /** HOST READS ONLY. The identity gate hid it; only re-verifying undoes it. */
+    val unpublishedByVerification: Boolean = false,
+    /**
+     * HOST READS ONLY. Booking requests still waiting on this host (parsed from
+     * "pending_request_count"; 0 when absent). Deactivating declines all of them, so the
+     * confirmation dialog names this number BEFORE the host commits.
+     */
+    val pendingRequestCount: Int = 0,
+    /**
+     * HOST READS ONLY. Whether a proof-of-ownership document is on file (parsed from
+     * "has_ownership_doc"; false when absent). A flag, never the document — that stays
+     * admin-only and is served one at a time from an audited endpoint.
+     *
+     * A different question from [approvalStatus]: the document is OPTIONAL at create time, so a
+     * listing reaches the moderation queue as "pending" with nothing attached. This is what lets
+     * the host card offer "Upload ownership document" instead of "Re-upload ownership document"
+     * to a host who has never uploaded one. Defaulting to false asks for the document either
+     * way, which is the safe direction — the wrong "Re-upload" claims one is already on file.
+     */
+    val hasOwnershipDoc: Boolean = false
 ) {
     /**
      * Photo URLs sorted by their order. Empty when the listing has no photos — callers
@@ -139,6 +262,28 @@ data class Listing(
     /** True when staff rejected the ownership document and the listing needs a resubmission. */
     val isRejected: Boolean
         get() = approval == ListingApproval.Rejected
+
+    /**
+     * The single state the host's own listing row is shown in — moderation and visibility folded
+     * together, because from the host's side "why can nobody see this?" has one answer, not two,
+     * and a listing can be approved and hidden at the same time.
+     *
+     * Mirrors `hostVisibilityState()` in the backend's `host-visibility-core.ts`, the module the
+     * API enforces the same rules from, so the badge, the filter chip and the button can never
+     * disagree with the write.
+     */
+    val hostVisibility: HostVisibility
+        get() = when {
+            // The host's own decision outranks the moderation states: it is what the button acts
+            // on, and it is why the listing will STAY hidden even after the queue approves it.
+            unpublishedByHost -> HostVisibility.Deactivated
+            approval == ListingApproval.Rejected -> HostVisibility.Rejected
+            approval == ListingApproval.Pending -> HostVisibility.UnderReview
+            isPublished -> HostVisibility.Live
+            // Unpublished, approved, and not by the host: an operator takedown, an account block,
+            // or the identity gate. Nothing the host can undo.
+            else -> HostVisibility.Blocked
+        }
 
     /** True when the host offers any length-of-stay discount (weekly or monthly). */
     val hasStayDiscount: Boolean
@@ -340,6 +485,32 @@ enum class ListingApproval(
 }
 
 /**
+ * What a host is shown for one of their OWN listings: the union of moderation state and
+ * visibility. Mirrors `HostVisibility` in the backend's `host-visibility-core.ts`.
+ *
+ * [Deactivated] is the host's own takedown — the only one they can undo, and the state the
+ * Deactivate / Reactivate button acts on. [Blocked] is "unpublished, but not by you": an
+ * operator takedown, an account block, or the identity gate. The host cannot clear it, so the
+ * row says so instead of looking live or offering a button the API would refuse.
+ */
+enum class HostVisibility {
+    Live,
+    Deactivated,
+    UnderReview,
+    Rejected,
+    Blocked;
+
+    /** Whether the host may take this listing down — true unless they already have, or unless
+     *  someone else is holding it, which is not theirs to compound. */
+    val canDeactivate: Boolean
+        get() = this != Deactivated && this != Blocked
+
+    /** Whether the host may put it back. Only what they hid themselves. */
+    val canReactivate: Boolean
+        get() = this == Deactivated
+}
+
+/**
  * A single guest review for a listing (from `GET /api/local/reviews?listing_id=ID`).
  * [createdAt] is an ISO-8601 timestamp; the UI shows the short date.
  * [photos] are the reviewer's attached photo URLs (each a `data:image/…` data URL or an
@@ -402,6 +573,20 @@ data class ReviewableStay(
 }
 
 /**
+ * One resort / compound from `GET /api/local/resorts` (optionally narrowed to a region), e.g.
+ * {"id":"…","name":"Marassi","region":"North Coast"}. Drives the host location step's resort
+ * picker. Only ACTIVE resorts are returned — a retired one stays valid on the listings that
+ * already point at it, but is no longer offered.
+ */
+data class ResortOption(
+    val id: String,
+    val name: String,
+    /** The curated area the resort belongs to. Picking the resort is what sets the listing's
+     *  region server-side, which is the point of the pairing. */
+    val region: String
+)
+
+/**
  * A curated browse region with its live listing count (from `GET /api/local/regions`),
  * e.g. {"region": "Ain Sokhna", "count": 2}. Rendered as a filter chip ("Ain Sokhna · 2")
  * in the explore screen.
@@ -429,6 +614,15 @@ data class Booking(
     val image: String?,
     /** Payment state, "unpaid" | "paid" (parsed from "payment_status"); defaults to "unpaid". */
     val paymentStatus: String = "unpaid",
+    /**
+     * The latest transfer screenshot's own verdict — "submitted" | "approved" | "rejected" |
+     * "disputed" (from "payment_proof_status"); null when the guest has never uploaded one. Read
+     * together with [paymentStatus] by [PaymentFlowRules]: neither column alone tells the whole
+     * story.
+     */
+    val paymentProofStatus: String? = null,
+    /** Why the reviewer turned the last screenshot down (from "payment_reject_reason"); null unless rejected. */
+    val paymentRejectReason: String? = null,
     /** ISO-8601 timestamp the booking was paid, or null when still unpaid (from "paid_at"). */
     val paidAt: String? = null,
     /** The listing's city / curated area (parsed from "region"); null when absent. */
@@ -456,9 +650,17 @@ data class Booking(
     val dateRangeText: String
         get() = "$checkIn → $checkOut"
 
-    /** True once the (mock) payment has gone through — the booking is paid + confirmed. */
+    /** Where this booking sits in the payment flow — the shared rule, not a column comparison. */
+    val paymentStage: PaymentFlowRules.Stage
+        get() = PaymentFlowRules.stage(status, paymentStatus, paymentProofStatus, paidAt)
+
+    /**
+     * True once the payment has gone through. Asks [PaymentFlowRules] rather than comparing
+     * `payment_status` by hand, so an approved proof whose rollup never landed still reads as paid
+     * — exactly as the server sees it.
+     */
     val isPaid: Boolean
-        get() = paymentStatus.equals("paid", ignoreCase = true)
+        get() = paymentStage == PaymentFlowRules.Stage.Paid
 
     /** True once this booking has been cancelled (so the cancel action is hidden). */
     val isCancelled: Boolean
@@ -598,6 +800,17 @@ data class Reservation(
     val totalPrice: Double,
     /** Payment state, "unpaid" | "paid" (parsed from "payment_status"); defaults to "unpaid". */
     val paymentStatus: String = "unpaid",
+    /**
+     * The latest transfer screenshot's own verdict — "submitted" | "approved" | "rejected" |
+     * "disputed" (from "payment_proof_status"); null when the guest has never uploaded one.
+     */
+    val paymentProofStatus: String? = null,
+    /**
+     * Why the reviewer turned the last screenshot down (from "payment_reject_reason"); null unless
+     * the payment was rejected. This is the admin's own words and the only explanation the guest
+     * ever gets — without it a rejection is indistinguishable from never having paid.
+     */
+    val paymentRejectReason: String? = null,
     /** ISO-8601 timestamp the booking was paid, or null when still unpaid (from "paid_at"). */
     val paidAt: String? = null,
     /** The listing's city / curated area (parsed from "region"); null when absent. */
@@ -624,18 +837,43 @@ data class Reservation(
     val cityText: String?
         get() = region?.takeUnless { it.isBlank() } ?: location?.takeUnless { it.isBlank() }
 
-    /** True once the (mock) payment has gone through. Unpaid reservations can offer "Pay now". */
+    /**
+     * Where this reservation sits in the payment flow, decided by [PaymentFlowRules] — the Kotlin
+     * twin of the backend's `paymentStageFor`, and the only thing the payment card is allowed to
+     * branch on. Testing `payment_status` by hand is what hid a rejection behind a bare "Pay now".
+     */
+    val paymentStage: PaymentFlowRules.Stage
+        get() = PaymentFlowRules.stage(status, paymentStatus, paymentProofStatus, paidAt)
+
+    /** True once the payment has gone through. Unpaid reservations can offer "Pay now". */
     val isPaid: Boolean
-        get() = paymentStatus.equals("paid", ignoreCase = true)
+        get() = paymentStage == PaymentFlowRules.Stage.Paid
+
+    /** True when the guest may (re)submit a transfer — a rejected screenshot is payable. */
+    val canPay: Boolean
+        get() = PaymentFlowRules.canPay(paymentStage)
+
+    /**
+     * The reviewer's own words on why the last transfer was turned down, shown verbatim to the
+     * guest. Null unless this reservation is actually at [PaymentFlowRules.Stage.Rejected], so a
+     * reason left on the row from an earlier round can never surface beside a payment that has
+     * since been accepted.
+     */
+    val paymentRejectReasonText: String?
+        get() = if (paymentStage == PaymentFlowRules.Stage.Rejected) {
+            PaymentFlowRules.rejectReasonText(paymentRejectReason)
+        } else {
+            null
+        }
 
     /** True while the request is still waiting on the host — no code, and therefore no QR, yet. */
     val isAwaitingApproval: Boolean
         get() = BookingStatus.from(status) == BookingStatus.Pending
 
     /**
-     * True once the host has APPROVED this reservation — the gate for issuing a stay pass.
-     * `completed` counts: it is only reachable from `confirmed`, and the code stays valid for the
-     * guest's records. Pending / rejected / cancelled do not.
+     * True once the host has APPROVED this reservation. NOT the pass gate — see [isLiveStayPass].
+     * Approval mints the reservation code, but the guest pays afterwards, so an approved
+     * reservation can still owe every piastre.
      */
     val isApproved: Boolean
         get() = when (BookingStatus.from(status)) {
@@ -644,27 +882,75 @@ data class Reservation(
         }
 
     /**
+     * True once the payment has been APPROVED, per [PaymentFlowRules] — the same rule the server
+     * runs. `payment_status == "paid"` is what the backend writes, but [paidAt] is stamped in the
+     * same statement and an approved `payment_proofs` row proves it too, so any of the three is
+     * enough. A screenshot merely `submitted` (or `disputed`) is not money in the account and is
+     * none of them.
+     */
+    val isPaymentApproved: Boolean
+        get() = paymentStage == PaymentFlowRules.Stage.Paid
+
+    /**
+     * THE rule for "this reservation's stay pass is live", mirroring the backend's
+     * `isLiveStayPass` (src/lib/local/payment-flow-core.ts) and iOS's
+     * `ReservationDetail.isLiveStayPass`. One definition on every surface.
+     *
+     * `confirmed` **AND paid**, plus `completed` unconditionally:
+     *  - `confirmed` alone is NOT enough. It only means the host accepted the request; the code is
+     *    minted at that transition and payment happens afterwards. Gating on the status alone put a
+     *    working QR on the host's and the guest's screen the instant Approve was tapped, for a stay
+     *    nobody had paid for.
+     *  - `completed` keeps its pass whatever the payment columns say — the stay happened, so the
+     *    pass is the guest's receipt of it.
+     *  - `pending` never had a code; `cancelled`/`rejected` keep theirs but the pass is dead.
+     */
+    val isLiveStayPass: Boolean
+        get() = when (BookingStatus.from(status)) {
+            BookingStatus.Completed -> true
+            BookingStatus.Confirmed -> isPaymentApproved
+            else -> false
+        }
+
+    /**
      * The public stay-pass URL this reservation's QR encodes, or **null when no pass exists yet**.
-     * This is the single gate for the QR card, the "open stay pass" tap target and the stay guide:
-     * both halves of the rule live here — the booking must be [isApproved] AND carry a real
-     * [reservationCode] (never blank, never the literal "null" — see [ShareLinks.stay]). A pending
-     * request shows the "your QR appears once confirmed" placeholder instead.
+     * This is the single gate for the QR card, the "open stay pass" tap target and the guest's view
+     * of the stay guide: both halves of the rule live here — the booking must be [isLiveStayPass]
+     * AND carry a real [reservationCode] (never blank, never the literal "null" — see
+     * [ShareLinks.stay]). Anything else shows a placeholder instead.
      */
     val stayPassUrl: String?
-        get() = if (isApproved) ShareLinks.stay(reservationCode) else null
+        get() = if (isLiveStayPass) ShareLinks.stay(reservationCode) else null
+
+    /**
+     * True when [reservationCode] is a usable code — not blank, not the literal "null" that
+     * `JSONObject#optString` hands back for a JSON null. The string half of the pass gate, and
+     * deliberately the same test [ShareLinks.stay] applies before building a URL. Kept free of
+     * `android.net.Uri` so the gate stays assertable in a plain JVM unit test.
+     */
+    val hasReservationCode: Boolean
+        get() = reservationCode?.trim()?.let { it.isNotEmpty() && !it.equals("null", true) } == true
 
     /** True when there is a real pass to render (QR + code + stay link + guide). */
     val hasStayPass: Boolean
-        get() = stayPassUrl != null
+        get() = isLiveStayPass && hasReservationCode
 
     /**
-     * True when the HOST may still edit the stay guide. Deliberately narrower than [hasStayPass]:
-     * the backend's stay-guide INSERT requires `b.status = 'confirmed'`, so offering the editor on a
-     * `completed` booking would show controls whose Save returns 403. The guest's read-only view
-     * stays on [hasStayPass] (a checked-out guest keeps access to the guide).
+     * True when the pass is held up by the PAYMENT rather than by the host — the host has approved
+     * and the money is what's outstanding. Lets the placeholder say something the guest can act on.
+     */
+    val isAwaitingPaymentForPass: Boolean
+        get() = !hasStayPass && BookingStatus.from(status) == BookingStatus.Confirmed
+
+    /**
+     * True when the HOST may still edit the stay guide. Deliberately LOOSER than [hasStayPass] on
+     * payment and narrower on status: the backend's stay-guide INSERT requires
+     * `b.status = 'confirmed'`, so a `completed` booking would show controls whose Save returns 403,
+     * while an unpaid one is fine — the host should be writing their check-in notes while the guest
+     * pays. The guest's read-only view stays on [hasStayPass], so nothing reaches them early.
      */
     val canEditStayGuide: Boolean
-        get() = hasStayPass && BookingStatus.from(status) == BookingStatus.Confirmed
+        get() = BookingStatus.from(status) == BookingStatus.Confirmed && hasReservationCode
 
     /** True once this reservation has been cancelled. */
     val isCancelled: Boolean
@@ -848,7 +1134,25 @@ data class HostBooking(
     val checkOut: String,
     val guests: Int,
     val totalPrice: Double,
-    val status: String
+    val status: String,
+    /**
+     * The raw `bookings.payment_status` rollup ("unpaid" | "submitted" | "paid" | "rejected" |
+     * "disputed", plus the retired gateway's values). Null on an older response that omitted it.
+     */
+    val paymentState: String? = null,
+    /**
+     * The latest `payment_proofs.status` — the screenshot's own verdict; null when the guest has
+     * never uploaded one. Two columns describe the same thing and can disagree, which is why
+     * [PaymentFlowRules] reads both rather than comparing one.
+     */
+    val paymentProofStatus: String? = null,
+    /** Stamped when the payment was approved; null while it is outstanding. */
+    val paidAt: String? = null,
+    /**
+     * Percent of the total refunded on cancel (0–100); null when never cancelled. Splits the
+     * Cancelled chip into Cancelled / Refunded / Partially refunded.
+     */
+    val refundPercent: Int? = null
 ) {
     val totalText: String
         get() = "EGP " + totalPrice.toInt()
@@ -859,6 +1163,30 @@ data class HostBooking(
     /** Only pending requests get Confirm / Reject actions. */
     val isPending: Boolean
         get() = status.equals("pending", ignoreCase = true)
+
+    /**
+     * Where this reservation's money stands, from the one rule the server, the web and iOS all
+     * run. Never compare the payment columns by hand — that is how the guest UI once asked for
+     * payment a second time on a transfer already under review.
+     */
+    val paymentStage: PaymentFlowRules.Stage
+        get() = PaymentFlowRules.stage(
+            status = status,
+            paymentState = paymentState,
+            proofStatus = paymentProofStatus,
+            paidAt = paidAt,
+        )
+
+    /** Which status chip this reservation is filed behind. */
+    val filterBucket: HostBookingFilterRules.Bucket
+        get() = HostBookingFilterRules.bucketFor(
+            status = status,
+            paymentStage = paymentStage,
+            refundPercent = refundPercent,
+            // A separate question from the stage, which calls everything cancelled
+            // NotPayable and so cannot tell a refund from a booking nobody ever paid for.
+            wasPaid = PaymentFlowRules.everPaid(paymentState, paymentProofStatus, paidAt),
+        )
 }
 
 /**
@@ -895,7 +1223,23 @@ data class Service(
     val imageUrl: String?,
     val lat: Double? = null,
     val lng: Double? = null,
-    val isPublished: Boolean = true
+    val isPublished: Boolean = true,
+    /**
+     * The HOST took this service down themselves (parsed from "unpublished_by_host"). HOST READS
+     * ONLY — absent on a public feed, where false is the honest answer.
+     *
+     * The services twin of [Listing.unpublishedByHost], and for the same reason: `service_requests`
+     * point at this row, so there is no host-facing delete. "Remove my service" is [isPublished]
+     * going false, which the browse list and the request endpoint both honour. Kept as its own
+     * flag rather than inferred, so a service STAFF hid is not one the host can republish.
+     */
+    val unpublishedByHost: Boolean = false,
+    /**
+     * HOST READS ONLY. Requests still waiting on this host (parsed from "pending_request_count";
+     * 0 when absent). Deactivating declines all of them, so the confirmation names this number
+     * BEFORE the host commits.
+     */
+    val pendingRequestCount: Int = 0
 ) {
     /** The experience photo URL, or null when there is none (render a placeholder instead). */
     val image: String?
@@ -1148,7 +1492,9 @@ data class Commission(
  * been released, [pending] what's still upcoming, and [commissionRate] the live platform rate as a
  * fraction (e.g. 0.1). Nothing here is reduced by it: the commission is charged on top to the guest,
  * never withheld from the host, so [guestPaid] minus [totalEarned] is the platform's cut.
- * [recent] is the per-booking breakdown shown under the stat cards.
+ * [recent] is the per-booking breakdown shown under the stat cards, which now INCLUDES cancelled
+ * bookings the host kept money on — a cancellation refunds a share of the stay, not all of it, so
+ * dropping the row (which the backend used to do) deducted earnings for a refund that never happened.
  */
 data class HostEarnings(
     val currency: String = "EGP",
@@ -1174,6 +1520,10 @@ data class HostEarnings(
  * their FULL raw price, so `gross - net` is the platform's cut, not a deduction. Both EGP. [status] is "paid_out"
  * (already released) or "upcoming" (still pending); [paidAt] is the ISO-8601 payout timestamp,
  * null while upcoming.
+ *
+ * When [cancelled] is true both amounts are already net of [refundPercent] — a cancellation the
+ * guest was refunded 50% of leaves half the stay's money behind, and the host keeps half of their
+ * price. Such a row always reads "paid_out": the stay will never happen, so nothing is pending.
  */
 data class HostEarningItem(
     val bookingId: String,
@@ -1185,8 +1535,17 @@ data class HostEarningItem(
     /** "paid_out" | "upcoming" (parsed from "status"); defaults to "upcoming". */
     val status: String = "upcoming",
     /** ISO-8601 payout timestamp, or null while the stay is still upcoming (from "paid_at"). */
-    val paidAt: String? = null
+    val paidAt: String? = null,
+    /** True when the booking was cancelled and the host still kept part (or all) of it. Absent on
+     *  older backends, which never returned cancelled rows at all — so `false` is the right default. */
+    val cancelled: Boolean = false,
+    /** Share of the guest's money returned, 0–100. Only meaningful when [cancelled]. */
+    val refundPercent: Int = 0
 ) {
+    /** True for a cancellation the guest was refunded nothing on — the host keeps their full price. */
+    val keptInFull: Boolean
+        get() = cancelled && refundPercent <= 0
+
     /** "2027-03-10 → 2027-03-14" */
     val dateRangeText: String
         get() = "$checkIn → $checkOut"

@@ -114,7 +114,7 @@ because the mobile apps and the web both call cross-origin.
 |---|---|---|
 | `local/host/listings` | GET | Signed-in host's own listings. |
 | `local/host/bookings` | GET | All bookings across the host's listings. |
-| `local/host/earnings` | GET | Host's mock earnings + payout summary. |
+| `local/host/earnings` | GET | Host's mock earnings + payout summary. Cancelled bookings are worth what was **not** refunded, not zero — each `recent[]` row carries `cancelled` + `refundPercent`. See the backend README, *What a host keeps when a booking is cancelled*. |
 | `local/host/analytics` | GET | Host performance dashboard. |
 | `local/host/services` | GET | Host's own services. |
 | `local/host/service-requests` | GET | Inbox of requests across the host's services. |

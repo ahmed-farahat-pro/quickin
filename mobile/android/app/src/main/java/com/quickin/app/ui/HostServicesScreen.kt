@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Sailing
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,11 +35,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -59,6 +62,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.quickin.app.CreateServiceUiState
 import com.quickin.app.R
@@ -83,6 +87,10 @@ private val HostSuccessGreen = Color(0xFF2E7D32)
  *  • My services — the host's published services (`GET /api/local/host/services`).
  *  • Add service — a form that POSTs `/api/local/services`.
  */
+/** The destructive red used by the deactivate confirmation. File-private, matching how the
+ *  rest of this package spells it — there is no shared token in ui.theme. */
+private val ErrorRed = Color(0xFFB3261E)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostServicesScreen(
@@ -97,6 +105,9 @@ fun HostServicesScreen(
         location: String, price: String, imageUrl: String
     ) -> Unit,
     onResetCreate: () -> Unit,
+    /** Takes a service off the market, or puts it back — the services twin of the host's
+     *  listing Deactivate. There is no delete: requests point at the row. */
+    onSetServicePublished: (serviceId: String, isPublished: Boolean) -> Unit = { _, _ -> },
     contentPadding: PaddingValues = PaddingValues()
 ) {
     var tab by remember { mutableIntStateOf(0) }
@@ -128,10 +139,11 @@ fun HostServicesScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = tab,
                 containerColor = CreamPage,
                 contentColor = Burgundy,
+                edgePadding = 0.dp,
                 indicator = { positions ->
                     if (tab < positions.size) {
                         TabRowDefaults.SecondaryIndicator(
@@ -144,21 +156,21 @@ fun HostServicesScreen(
                 Tab(
                     selected = tab == 0,
                     onClick = { tab = 0 },
-                    text = { Text("Requests", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("Requests", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
                 Tab(
                     selected = tab == 1,
                     onClick = { tab = 1 },
-                    text = { Text("My services", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("My services", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
                 Tab(
                     selected = tab == 2,
                     onClick = { tab = 2 },
-                    text = { Text("Add service", fontWeight = FontWeight.SemiBold) },
+                    text = { Text("Add service", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     selectedContentColor = Burgundy,
                     unselectedContentColor = Muted
                 )
@@ -171,7 +183,7 @@ fun HostServicesScreen(
                     onConfirm = onConfirm,
                     onReject = onReject
                 )
-                1 -> MyServicesTab(state = state, onLoad = onLoad)
+                1 -> MyServicesTab(state = state, onLoad = onLoad, onSetPublished = onSetServicePublished)
                 else -> AddServiceTab(
                     state = createState,
                     onCreate = onCreateService,
@@ -324,7 +336,11 @@ private fun HostServiceRequestCard(
 // ---- My-services tab --------------------------------------------------------
 
 @Composable
-private fun MyServicesTab(state: HostServicesUiState, onLoad: () -> Unit) {
+private fun MyServicesTab(
+    state: HostServicesUiState,
+    onLoad: () -> Unit,
+    onSetPublished: (serviceId: String, isPublished: Boolean) -> Unit = { _, _ -> }
+) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when {
             state.isLoading && state.services.isEmpty() -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -345,7 +361,11 @@ private fun MyServicesTab(state: HostServicesUiState, onLoad: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(state.services) { service ->
-                    HostServiceCard(service)
+                    HostServiceCard(
+                        service = service,
+                        busy = state.actingOn == service.id,
+                        onSetPublished = onSetPublished
+                    )
                 }
             }
         }
@@ -353,7 +373,14 @@ private fun MyServicesTab(state: HostServicesUiState, onLoad: () -> Unit) {
 }
 
 @Composable
-private fun HostServiceCard(service: Service) {
+private fun HostServiceCard(
+    service: Service,
+    busy: Boolean = false,
+    /** Takes the service off the market, or puts it back — there is no delete. */
+    onSetPublished: (serviceId: String, isPublished: Boolean) -> Unit = { _, _ -> }
+) {
+    var confirming by remember { mutableStateOf(false) }
+    val deactivated = service.unpublishedByHost
     BoutiqueCard(
         modifier = Modifier.fillMaxWidth(),
         shadow = 8.dp,
@@ -404,8 +431,97 @@ private fun HostServiceCard(service: Service) {
                     }
                 }
                 Text(service.priceText, color = Burgundy, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(top = 10.dp))
+
+                // Only shown when it is down. A "Published" badge on every card would be noise —
+                // live is the state a host assumes.
+                if (deactivated) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Tan,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        Text(
+                            "Deactivated",
+                            color = Muted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { if (deactivated) onSetPublished(service.id, true) else confirming = true },
+                    enabled = !busy,
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (deactivated) Burgundy else Tan),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.White,
+                        contentColor = if (deactivated) Burgundy else Muted
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(46.dp).padding(top = 0.dp)
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(color = Muted, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else {
+                        Text(if (deactivated) "Reactivate" else "Deactivate", fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
+    }
+
+    if (confirming) {
+        val pending = service.pendingRequestCount
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Deactivate this service?", fontWeight = FontWeight.Bold, color = Ink) },
+            text = {
+                Column {
+                    Text(
+                        "\u201C${service.title}\u201D will disappear from the services list and " +
+                            "nobody will be able to request it.",
+                        color = Ink,
+                        fontSize = 14.sp
+                    )
+                    // Nothing is said about pending requests when there are none.
+                    if (pending > 0) {
+                        Text(
+                            if (pending == 1) {
+                                "1 request still waiting on you will be declined."
+                            } else {
+                                "$pending requests still waiting on you will be declined."
+                            },
+                            color = ErrorRed,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
+                    Text(
+                        "Nothing is deleted. Requests you already confirmed stay exactly as they " +
+                            "are, and you can reactivate this service at any time.",
+                        color = Muted,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onSetPublished(service.id, false)
+                }) {
+                    Text("Deactivate", color = ErrorRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) {
+                    Text("Keep it live", color = Ink)
+                }
+            },
+            containerColor = Color.White
+        )
     }
 }
 
@@ -420,8 +536,16 @@ private fun AddServiceTab(
     ) -> Unit,
     onReset: () -> Unit
 ) {
+    // The typed fields live in an activity-scoped view-model, NOT in this composable: the tab bar
+    // above is a bare `when (tab)`, so leaving "Add service" REMOVES this form from composition
+    // and a `remember` here would take the host's typing with it. See [FormDraftsViewModel].
+    val draft = viewModel<FormDraftsViewModel>().service
+
     // A created service replaces the form with a success card.
     if (state.created != null) {
+        // Published — the draft has done its job. Wipe it, or "Add another service" would open
+        // the form on the one we just published.
+        LaunchedEffect(state.created.id) { draft.clear() }
         Box(modifier = Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Animated drawn-on checkmark (qkDraw + qkPop) for the published moment.
@@ -444,12 +568,13 @@ private fun AddServiceTab(
         return
     }
 
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var imageUrl by remember { mutableStateOf("") }
+    // Delegated to the retained draft, so a trip to "Requests" and back finds the form as it was.
+    var title by draft.title
+    var category by draft.category
+    var description by draft.description
+    var location by draft.location
+    var price by draft.price
+    var imageUrl by draft.imageUrl
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

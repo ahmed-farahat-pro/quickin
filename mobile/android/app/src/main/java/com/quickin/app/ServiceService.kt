@@ -231,8 +231,47 @@ object ServiceService {
         imageUrl = o.optStringOrNull("image_url"),
         lat = o.optDouble("lat").takeUnless { it.isNaN() },
         lng = o.optDouble("lng").takeUnless { it.isNaN() },
-        isPublished = o.optBoolean("is_published", true)
+        isPublished = o.optBoolean("is_published", true),
+        // Host projection only — a public feed omits both, and false / 0 is correct there.
+        unpublishedByHost = o.optBoolean("unpublished_by_host", false),
+        pendingRequestCount = o.optInt("pending_request_count", 0)
     )
+
+    /** What the backend did when the host flipped a service's visibility. */
+    data class ServiceVisibilityResult(
+        val isPublished: Boolean,
+        /** Requests the deactivate declined. Zero on a reactivate. */
+        val declinedRequests: Int,
+        val service: Service?
+    )
+
+    /**
+     * The host takes their own service off the market, or puts it back
+     * (`PATCH /api/local/host/services/:id/visibility`) — the services twin of
+     * [BookingService.setListingPublished].
+     *
+     * Nothing is deleted: `service_requests` point at this row, so "remove my service" is
+     * `is_published` going false. The browse list drops it and the backend refuses a new request
+     * for it. **Deactivating declines every request still waiting on the host**, so the screen
+     * confirms with [Service.pendingRequestCount] first.
+     *
+     * Unlike a listing there is no moderation queue and no identity gate here, so a reactivate
+     * always goes live and there is nothing to report back.
+     */
+    suspend fun setServicePublished(
+        token: String,
+        serviceId: String,
+        isPublished: Boolean
+    ): ServiceVisibilityResult = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply { put("is_published", isPublished) }
+        val text = send("PATCH", token, "/api/local/host/services/$serviceId/visibility", body)
+        val o = JSONObject(text)
+        ServiceVisibilityResult(
+            isPublished = o.optBoolean("is_published", false),
+            declinedRequests = o.optInt("declined_requests", 0),
+            service = o.optJSONObject("service")?.let { parseService(it) }
+        )
+    }
 
     private fun parseServiceRequests(json: String): List<ServiceRequest> {
         val arr = JSONArray(json)

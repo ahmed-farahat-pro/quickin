@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,13 +55,16 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
@@ -118,6 +122,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -159,6 +164,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
+import com.quickin.app.ui.theme.Gold
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
@@ -192,6 +198,11 @@ private const val EGYPT_ZOOM = 5.5f
  *               into the pricing calendar and the full editor (matches the web `/host` dashboard).
  *               Length-of-stay discounts and seasonal pricing are NOT edited here: they belong to
  *               the listing editor, same as on web and iOS.
+ *
+ * Above the tabs sits a quick-action shelf into Earnings, Analytics and Services. Those three
+ * screens have always existed on Android but were only reachable from Profile -> Hosting, which
+ * is why they read as "missing" next to the iOS dashboard that lists them inline. The Profile
+ * rows stay: this adds a second door to the same three screens, it does not move them.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -225,6 +236,12 @@ fun HostScreen(
     onMessage: (String) -> Unit,
     onLoadReviewableGuests: () -> Unit = {},
     onSubmitGuestReview: (bookingId: String, rating: Int, comment: String) -> Unit = { _, _, _ -> },
+    /** Opens "Earnings & payouts" (`GET /api/local/host/earnings`). Also on Profile -> Hosting. */
+    onOpenEarnings: () -> Unit = {},
+    /** Opens the host analytics dashboard (`GET /api/local/host/analytics`). */
+    onOpenAnalytics: () -> Unit = {},
+    /** Opens the host's services + subscription-request inbox (`GET /api/local/host/services`). */
+    onOpenServices: () -> Unit = {},
     onCreateListing: (
         title: String, description: String, location: String, country: String,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
@@ -277,6 +294,15 @@ fun HostScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
+            // Quick actions into the three host screens that are NOT tabs. Kept to one
+            // compact shelf rather than three more tabs: the tab row already scrolls, and
+            // a fourth/fifth/sixth tab would push "Listings" further off-screen.
+            HostQuickActions(
+                onOpenEarnings = onOpenEarnings,
+                onOpenAnalytics = onOpenAnalytics,
+                onOpenServices = onOpenServices
+            )
+
             ScrollableTabRow(
                 selectedTabIndex = tab,
                 containerColor = CreamPage,
@@ -363,6 +389,95 @@ fun HostScreen(
                     embedded = true
                 )
             }
+        }
+    }
+}
+
+/**
+ * The three host screens that live outside the tab set — Earnings, Analytics, Services — as a
+ * compact shelf under the top bar, so they are visible from every tab.
+ *
+ * Deliberately icon-over-label tiles rather than [SettingsRow]s: three stacked rows would cost
+ * ~210dp and push the tab row below the fold on a short phone, which is the discoverability
+ * problem this is meant to fix, not repeat. Strings are the ones the Profile rows already use,
+ * so this adds no new translations.
+ */
+@Composable
+private fun HostQuickActions(
+    onOpenEarnings: () -> Unit,
+    onOpenAnalytics: () -> Unit,
+    onOpenServices: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        HostQuickAction(
+            icon = Icons.Filled.Payments,
+            label = stringResource(com.quickin.app.R.string.money_earnings),
+            accent = Gold,
+            onClick = onOpenEarnings,
+            modifier = Modifier.weight(1f)
+        )
+        HostQuickAction(
+            icon = Icons.Filled.Insights,
+            label = stringResource(com.quickin.app.R.string.analytics_title),
+            accent = Burgundy,
+            onClick = onOpenAnalytics,
+            modifier = Modifier.weight(1f)
+        )
+        HostQuickAction(
+            icon = Icons.Filled.Sailing,
+            label = stringResource(com.quickin.app.R.string.profile_host_services),
+            accent = Burgundy,
+            onClick = onOpenServices,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/** One tile of [HostQuickActions]: icon in a tinted circle over a single-line label. */
+@Composable
+private fun HostQuickAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        modifier = modifier
+            .qkPress(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(accent.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(
+                label,
+                color = Ink,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

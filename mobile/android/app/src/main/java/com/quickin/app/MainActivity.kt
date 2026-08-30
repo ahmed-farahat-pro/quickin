@@ -811,7 +811,8 @@ private fun MainApp() {
         showProfileSettings || showHostApply || showHostServices ||
         chatBooking != null || disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showMessages || openConversationThread != null ||
-        showNotifications || showAnalytics || otpOpen || forgotOpen || authOpen
+        showNotifications || showAnalytics || showEarnings || showReceipts ||
+        otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
         when {
             // The mock payment sheet sits on top of everything — Back closes it (unless paying).
@@ -846,15 +847,22 @@ private fun MainApp() {
                 authViewModel.resetHostApply()
                 showHostApply = false
             }
-            showHostServices -> showHostServices = false
             disputeBooking != null -> disputeBooking = null
             chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
+            // Earnings / Analytics / Services / Receipts are full-screen and render BEFORE the
+            // host dashboard, so they must close before it — otherwise Back dismisses the
+            // dashboard underneath and the screen on top appears to ignore the gesture. All four
+            // are reachable from the dashboard's quick-action shelf as well as from Profile, and
+            // closing one returns to whichever of those opened it.
+            showEarnings -> showEarnings = false
+            showAnalytics -> showAnalytics = false
+            showHostServices -> showHostServices = false
+            showReceipts -> showReceipts = false
             // Closing the dashboard retires a finished publish's success card (the wizard tab
             // shares this state), but keeps a failed attempt's error with the draft it describes.
             showHost -> { hostViewModel.clearCreated(); showHost = false }
-            showAnalytics -> showAnalytics = false
             // A conversation thread sits above the inbox — Back returns to the inbox first.
             openConversationThread != null -> openConversationThread = null
             showMessages -> showMessages = false
@@ -1451,6 +1459,21 @@ private fun MainApp() {
             onLoadReviewableGuests = reviewsViewModel::loadReviewableGuests,
             onSubmitGuestReview = { bookingId, rating, comment ->
                 reviewsViewModel.submitGuestReview(bookingId, rating, comment)
+            },
+            // The host dashboard's quick-action shelf. Same three destinations the
+            // Profile -> Hosting rows open, loaded the same way — the host screen is
+            // simply a second door, so neither entry point can drift from the other.
+            onOpenEarnings = {
+                moneyViewModel.loadEarnings()
+                showEarnings = true
+            },
+            onOpenAnalytics = {
+                hostViewModel.loadAnalytics()
+                showAnalytics = true
+            },
+            onOpenServices = {
+                servicesViewModel.loadHost()
+                showHostServices = true
             },
             onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices ->
                 hostViewModel.createListing(

@@ -116,6 +116,48 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     )
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
+    /**
+     * True while the one-time "you're an approved host" welcome is owed to the signed-in account.
+     *
+     * Approval happens in `/ops`, out of the app's sight: the account simply starts answering
+     * `is_host: true` on its next read, with nothing on screen to mark it. Seeded here from the
+     * CACHED host flag so a relaunch paints it immediately, then re-decided by [refreshHostWelcome]
+     * on every [persistUser] — which is what carries an approval that landed while the app was
+     * closed. [HostWelcomeRules] owns the decision; this only reads and writes the stored id.
+     */
+    private val _hostWelcome = MutableStateFlow(
+        HostWelcomeRules.shouldWelcome(
+            isHost = prefs.getBoolean(KEY_IS_HOST, false),
+            userId = prefs.getString(KEY_USER_ID, null),
+            shownFor = prefs.getString(HostWelcomeRules.KEY_HOST_WELCOME_SHOWN_FOR, null)
+        )
+    )
+    val hostWelcome: StateFlow<Boolean> = _hostWelcome.asStateFlow()
+
+    /**
+     * Re-ask [HostWelcomeRules] whether the current account is still owed the welcome. Called after
+     * every authoritative account read, so the server flipping `is_host` is what surfaces it.
+     */
+    private fun refreshHostWelcome() {
+        _hostWelcome.value = HostWelcomeRules.shouldWelcome(
+            isHost = _state.value.isHost,
+            userId = _state.value.userId,
+            shownFor = prefs.getString(HostWelcomeRules.KEY_HOST_WELCOME_SHOWN_FOR, null)
+        )
+    }
+
+    /**
+     * Retire the welcome for this account and hide it. Writing the id BEFORE clearing the flag
+     * matters: opening the dashboard also dismisses the card, and an unwritten id would greet the
+     * host again on their way back.
+     */
+    fun dismissHostWelcome() {
+        HostWelcomeRules.shownFor(_state.value.userId)?.let {
+            prefs.edit().putString(HostWelcomeRules.KEY_HOST_WELCOME_SHOWN_FOR, it).apply()
+        }
+        _hostWelcome.value = false
+    }
+
     private val _forgot = MutableStateFlow(ForgotPasswordUiState())
     /** Drives the standalone "Forgot password" route (email → code + new password). */
     val forgot: StateFlow<ForgotPasswordUiState> = _forgot.asStateFlow()
@@ -456,6 +498,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         // Drop any pending "enable biometric" offer too.
         _biometricEnrollOffer.value = null
         _hostApply.value = HostApplyUiState()
+        // Nobody is signed in, so nobody is owed a welcome. The STORED id is deliberately kept:
+        // it is per account, so the same host signing back in is not congratulated twice, while a
+        // different host on this phone still gets their own.
+        _hostWelcome.value = false
         _state.value = AuthUiState(isAuthenticated = false)
     }
 
@@ -564,6 +610,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 BiometricAuthManager.canAuthenticate(getApplication()) &&
                 !isSessionAlreadyEnrolled(result)
             ) result else null
+        refreshHostWelcome()
     }
 
     /**
@@ -594,6 +641,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             hostType = result.hostType,
             hostReviewNote = result.hostReviewNote
         )
+        // AFTER the state is adopted, never before: an approval only exists in the response we
+        // just took, and asking first would greet the host a launch late.
+        refreshHostWelcome()
     }
 
     /**

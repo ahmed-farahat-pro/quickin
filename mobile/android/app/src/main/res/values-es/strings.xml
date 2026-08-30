@@ -89,6 +89,14 @@
     <string name="profile_my_subscriptions_sub">Sus solicitudes de experiencias</string>
     <string name="profile_host_dashboard">Panel del anfitrión</string>
     <string name="profile_host_dashboard_sub">Anuncios &amp;amp; solicitudes de reserva</string>
+
+    <!-- La bienvenida que se muestra una sola vez tras la aprobación, y el acceso
+         directo permanente de la cabecera. -->
+    <string name="host_welcome_title">Ya es anfitrión aprobado</string>
+    <string name="host_welcome_sub">Su panel de anfitrión está listo: añada un anuncio, fije sus precios y responda a las solicitudes de reserva.</string>
+    <string name="host_welcome_cta">Abrir el panel de anfitrión</string>
+    <string name="host_welcome_dismiss">Ahora no</string>
+    <string name="cd_host_dashboard">Panel de anfitrión</string>
     <string name="profile_host_services">Servicios del anfitrión</string>
     <string name="profile_host_services_sub">Experiencias &amp;amp; suscripciones</string>
     <string name="profile_log_out">Cerrar sesión</string>
@@ -467,12 +475,15 @@
     <string name="listing_resort_name_required">Escribe el nombre del resort o complejo, o elige otra opción.</string>
     <string name="listing_resort_name_letters">Escribe el nombre del resort o complejo con letras \u2014 no puede contener solo símbolos o números.</string>
     <string name="listing_resort_name_too_short">Escribe el nombre completo del resort o complejo \u2014 debe tener al menos %1$d letras.</string>
-    <string name="listing_blocked_capacity">Huéspedes, dormitorios, camas y baños deben ser al menos %1$d.</string>
 
     <!-- Missing until now, so both fell back to English on a Spanish phone. -->
     <string name="listing_edit_needs_pin">Sitúe su alojamiento en el mapa.</string>
     <string name="listing_edit_needs_photo">Un anuncio necesita al menos una foto.</string>
     <string name="listing_capacity_floor">Dormitorios, camas, baños y huéspedes deben ser al menos %1$d — un alojamiento sin dónde dormir no se puede reservar.</string>
+    <string name="listing_capacity_bedrooms_max">Un alojamiento de tipo %1$s no puede tener más de %2$d dormitorios.</string>
+    <string name="listing_capacity_bedrooms_exact">Un alojamiento de tipo %1$s es una sola estancia: tiene exactamente %2$d dormitorio.</string>
+    <string name="listing_capacity_bedrooms_max_any">Un anuncio no puede tener más de %1$d dormitorios.</string>
+    <string name="listing_capacity_other_max">Huéspedes, camas y baños no pueden superar %1$d, %2$d y %3$d.</string>
     <string name="listing_edit_discard_title">¿Descartar sus cambios?</string>
     <string name="listing_edit_discard_body">Sus cambios en este anuncio no se han guardado.</string>
     <string name="listing_edit_discard_confirm">Descartar</string>
@@ -868,6 +879,7 @@
     <string name="host_booking_filter_partially_refunded">Parcialmente reembolsada</string>
     <string name="host_booking_filter_empty_all">No hay solicitudes de reserva</string>
     <string name="host_booking_filter_empty_filtered">No hay reservas en este estado.</string>
+    <string name="host_booking_guest_fallback">Huésped</string>
 
     <!-- Filtro de estado de las reservas del huésped -->
     <string name="reservation_filter_pending">Pendiente de aprobación</string>

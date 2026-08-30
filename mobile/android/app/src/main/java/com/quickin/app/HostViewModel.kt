@@ -325,7 +325,13 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val updated = BookingService.updateBookingStatus(token, bookingId, action)
-                val merged = _bookings.value.bookings.map { if (it.id == updated.id) updated else it }
+                // PATCH /bookings/:id answers with the plain booking projection, which carries no
+                // `guest_name` — only the host inbox query joins it. Replacing the row wholesale
+                // would therefore blank the guest's name the moment the host acted on the request,
+                // so the name already on screen is kept unless the response actually supplies one.
+                val merged = _bookings.value.bookings.map {
+                    if (it.id == updated.id) updated.copy(guestName = updated.guestName ?: it.guestName) else it
+                }
                 _bookings.value = _bookings.value.copy(
                     bookings = merged,
                     actingOn = null,

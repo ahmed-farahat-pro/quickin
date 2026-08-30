@@ -255,8 +255,17 @@ tab, not a separate tab set — the tab set never changes on role.
   `payment_reject_reason` — without it a turned-down transfer looked exactly like a booking
   that had never been paid. Guarded by `PaymentFlowRulesTest`
   (`./gradlew testDebugUnitTest`), the mirror of the same suite on iOS and the backend.
-- `ProfileScreen` — avatar/bio, received reviews, ID verification, "Become a host", and
-  the entry points to host/settings/subscriptions/receipts/earnings/analytics screens.
+- `ProfileScreen` — avatar/bio, received reviews, ID verification, and the entry points to
+  host/settings/subscriptions/receipts/earnings/analytics screens. **Hosting leads the scroll for
+  every account**: a host sees the burgundy `HostDashboardCard` (and, once, the `HostWelcomeCard`
+  announcing their approval) directly under the identity, exactly where a guest sees
+  `HostApplicationCard` / "Become a host". The dashboard row used to lead a "Hosting" section far
+  below Account, Receipts, Messages and Currency, so approval *reduced* the feature's visibility.
+  The same dashboard is one tap from Explore and Trips too, via an `AddHome` disc in
+  `QkBrandHeader`'s trailing slot that renders only when the server says `is_host`. Whether the
+  welcome is still owed is `HostWelcomeRules` (guarded by `HostWelcomeRulesTest`, the mirror of
+  iOS's `HostWelcomeRulesTests`); `AuthViewModel.hostWelcome` / `dismissHostWelcome` own the
+  per-account `SharedPreferences` id it is keyed on.
 
 **Full-screen overlays** (each an `if (…) return` in precedence order, `:737-1198`):
 `PaymentSheet` (mock) → `HostProfileScreen` → `ListingDetailScreen` → `ServiceDetailScreen` →

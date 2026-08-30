@@ -56,3 +56,15 @@ swiftc -o "$OUT/reservation-filter" \
   Sources/HostBookingFilterRules.swift \
   Sources/PaymentFlowRules.swift
 "$OUT/reservation-filter"
+
+echo "\nHostWelcomeRules — when a newly approved host is shown their dashboard once\n"
+swiftc -o "$OUT/host-welcome-rules" \
+  Tests/HostWelcomeRulesTests/main.swift \
+  Sources/HostWelcomeRules.swift
+"$OUT/host-welcome-rules"
+
+echo "\nListingCapacityPolicy — how small, and how large, a place may claim to be\n"
+swiftc -o "$OUT/listing-capacity-policy" \
+  Tests/ListingCapacityPolicyTests/main.swift \
+  Sources/ListingCapacityPolicy.swift
+"$OUT/listing-capacity-policy"

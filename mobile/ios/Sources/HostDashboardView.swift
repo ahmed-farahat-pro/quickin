@@ -438,8 +438,18 @@ struct HostRequestCard: View {
                     .foregroundStyle(Color.qkInk)
                     .lineLimit(1)
                 Spacer()
-                StatusBadge(status: booking.bookingStatus, onPhoto: false)
+                // The bucket, not just the status: `bookings.status` reads "confirmed"
+                // from the moment the host taps Accept, so on its own the badge called
+                // an unpaid stay and a paid one the same green "Confirmed". Same fold
+                // the chip row above the list runs, so the two always agree.
+                StatusBadge(status: booking.bookingStatus, onPhoto: false, hostBucket: booking.filterBucket)
             }
+            // Who actually sent this request, directly under the listing title — a host with
+            // several requests on the same place has nothing else to tell them apart by.
+            Label(guestDisplayName, systemImage: "person.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.qkInk)
+                .lineLimit(1)
             if let location = booking.location {
                 Label(location, systemImage: "mappin.and.ellipse")
                     .font(.subheadline)
@@ -503,6 +513,16 @@ struct HostRequestCard: View {
                     : L.t("host.action.confirm.body")
             )
         }
+    }
+
+    /// Who sent this request, ready to render: the guest's own name, or a generic
+    /// "Guest" when their account is gone. Never empty. Lives here rather than on
+    /// `HostBooking` because `L.t` is main-actor isolated and the model is not.
+    private var guestDisplayName: String {
+        guard let name = booking.guestName,
+              !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return L.t("host.booking.guestFallback") }
+        return name
     }
 
     /// Opens the per-booking chat with the guest.

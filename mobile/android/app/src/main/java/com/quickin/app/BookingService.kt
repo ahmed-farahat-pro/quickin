@@ -1244,6 +1244,9 @@ object BookingService {
         reservationCode = o.optStringOrNull("reservation_code"),
         title = o.optStringOr("title", ""),
         location = o.optStringOrNull("location"),
+        // Host-only, and null when the guest's account is gone. optStringOrNull, never bare
+        // optString — that is how a deleted guest would be introduced to the host as "null".
+        guestName = o.optStringOrNull("guest_name"),
         checkIn = o.optStringOr("check_in", ""),
         checkOut = o.optStringOr("check_out", ""),
         guests = o.optInt("guests", 1),

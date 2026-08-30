@@ -560,6 +560,15 @@ enum Strings {
         "profile.editProfile.subtitle": "Update your photo, bio, name & details.",
         "profile.hostDashboard": "Host dashboard",
         "profile.hostDashboard.subtitle": "Add listings & manage reservation requests.",
+
+        // The one-time "you're approved" welcome, plus the always-visible header
+        // shortcut. Approval is an admin action the app only learns about by
+        // re-reading the account, so this is the app's only chance to mark it.
+        "host.welcome.title": "You're an approved host",
+        "host.welcome.subtitle": "Your Host Dashboard is ready — add a listing, set your prices, and answer reservation requests.",
+        "host.welcome.cta": "Open Host dashboard",
+        "host.welcome.dismiss": "Not now",
+        "host.headerAction": "Host dashboard",
         "profile.becomeHost": "Become a host",
         "profile.becomeHost.subtitle": "Apply in a minute — our team reviews every application.",
 
@@ -709,6 +718,9 @@ enum Strings {
         "host.action.reject.title": "Reject this reservation?",
         "host.action.reject.body": "The guest will be told their request was declined. This can\u{2019}t be undone.",
         "host.message": "Message",
+        // The requesting guest on a reservation card. The fallback stands in when their
+        // account has been deleted, so the row never renders nameless.
+        "host.booking.guestFallback": "Guest",
         "host.status.live": "Live",
         // %@ = "27 Jul 2026"
         "host.listing.listedOn": "Listed %@",
@@ -830,6 +842,10 @@ enum Strings {
         "listing.blocked.resortName.letters": "Write the resort or compound name in words \u{2014} it can't be only symbols or numbers.",
         "listing.blocked.resortName.tooShort": "Give the full resort or compound name \u{2014} it needs at least %@ letters.",
         "listing.blocked.capacity": "Guests, bedrooms, beds and bathrooms must each be at least %@.",
+        "listing.blocked.bedroomsMax": "A %1$@ can have at most %2$@ bedrooms.",
+        "listing.blocked.bedroomsExact": "A %1$@ is a single room — it has exactly %2$@ bedroom.",
+        "listing.blocked.bedroomsMaxAny": "A listing can have at most %@ bedrooms.",
+        "listing.blocked.capacityMax": "Guests, beds and bathrooms can be at most %1$@, %2$@ and %3$@.",
         "listing.blocked.price": "Price per night must be more than 0.",
         "listing.blocked.photo": "A listing needs at least one photo.",
 
@@ -1622,6 +1638,13 @@ enum Strings {
         "profile.editProfile.subtitle": "حدّث صورتك ونبذتك واسمك وبياناتك.",
         "profile.hostDashboard": "لوحة المضيف",
         "profile.hostDashboard.subtitle": "أضف الإعلانات وأدر طلبات الحجز.",
+
+        // الترحيب الذي يظهر مرة واحدة بعد الموافقة، واختصار الرأس الدائم.
+        "host.welcome.title": "تمت الموافقة عليك كمضيف",
+        "host.welcome.subtitle": "لوحة المضيف جاهزة — أضف إعلانًا، وحدد أسعارك، وردّ على طلبات الحجز.",
+        "host.welcome.cta": "افتح لوحة المضيف",
+        "host.welcome.dismiss": "ليس الآن",
+        "host.headerAction": "لوحة المضيف",
         "profile.becomeHost": "كن مضيفًا",
         "profile.becomeHost.subtitle": "قدّم طلبك في دقيقة — يراجع فريقنا كل طلب.",
 
@@ -1764,6 +1787,7 @@ enum Strings {
         "host.action.reject.title": "رفض هذا الحجز؟",
         "host.action.reject.body": "سيتم إبلاغ الضيف برفض طلبه، ولا يمكن التراجع عن هذا الإجراء.",
         "host.message": "مراسلة",
+        "host.booking.guestFallback": "ضيف",
         "host.status.live": "منشور",
         "host.listing.listedOn": "تم الإدراج في %@",
         "host.filter.published": "منشور",
@@ -1868,6 +1892,10 @@ enum Strings {
         "listing.blocked.resortName.letters": "اكتب اسم المنتجع أو الكمبوند بالحروف \u{2014} لا يمكن أن يتكوّن من رموز أو أرقام فقط.",
         "listing.blocked.resortName.tooShort": "اكتب اسم المنتجع أو الكمبوند كاملاً \u{2014} يجب ألا يقل عن %@ أحرف.",
         "listing.blocked.capacity": "يجب ألا يقل عدد الضيوف وغرف النوم والأسرّة والحمامات عن %@.",
+        "listing.blocked.bedroomsMax": "لا يمكن أن يزيد عدد غرف النوم في %1$@ عن %2$@.",
+        "listing.blocked.bedroomsExact": "%1$@ عبارة عن غرفة واحدة — عدد غرف النوم فيه %2$@ بالضبط.",
+        "listing.blocked.bedroomsMaxAny": "لا يمكن أن يزيد عدد غرف النوم عن %@.",
+        "listing.blocked.capacityMax": "لا يزيد عدد الضيوف والأسرّة والحمامات عن %1$@ و%2$@ و%3$@ على الترتيب.",
         "listing.blocked.price": "يجب أن يكون سعر الليلة أكبر من 0.",
         "listing.blocked.photo": "يحتاج الإعلان إلى صورة واحدة على الأقل.",
 
@@ -2602,6 +2630,14 @@ enum Strings {
         "profile.editProfile.subtitle": "Mettez à jour votre photo, votre bio, votre nom et vos informations.",
         "profile.hostDashboard": "Tableau de bord hôte",
         "profile.hostDashboard.subtitle": "Ajoutez des annonces et gérez les demandes de réservation.",
+
+        // Le message de bienvenue affiché une seule fois après l'approbation, et
+        // le raccourci permanent de l'en-tête.
+        "host.welcome.title": "Vous êtes un hôte approuvé",
+        "host.welcome.subtitle": "Votre tableau de bord hôte est prêt — ajoutez une annonce, fixez vos prix et répondez aux demandes de réservation.",
+        "host.welcome.cta": "Ouvrir le tableau de bord hôte",
+        "host.welcome.dismiss": "Plus tard",
+        "host.headerAction": "Tableau de bord hôte",
         "profile.becomeHost": "Devenir hôte",
         "profile.becomeHost.subtitle": "Postulez en une minute — notre équipe examine chaque demande.",
 
@@ -2740,6 +2776,7 @@ enum Strings {
         "host.action.reject.title": "Refuser cette réservation ?",
         "host.action.reject.body": "Le voyageur sera informé que sa demande a été refusée. Cette action est irréversible.",
         "host.message": "Message",
+        "host.booking.guestFallback": "Voyageur",
         "host.status.live": "En ligne",
         "host.listing.listedOn": "Publiée le %@",
         "host.filter.published": "Publié",
@@ -2842,6 +2879,10 @@ enum Strings {
         "listing.blocked.resortName.letters": "\u{00C9}crivez le nom du resort ou de la r\u{00E9}sidence en toutes lettres \u{2014} il ne peut pas contenir uniquement des symboles ou des chiffres.",
         "listing.blocked.resortName.tooShort": "Indiquez le nom complet du resort ou de la r\u{00E9}sidence \u{2014} il doit contenir au moins %@ lettres.",
         "listing.blocked.capacity": "Voyageurs, chambres, lits et salles de bain doivent être d'au moins %@.",
+        "listing.blocked.bedroomsMax": "Un logement de type %1$@ ne peut pas avoir plus de %2$@ chambres.",
+        "listing.blocked.bedroomsExact": "Un logement de type %1$@ est une pièce unique — il compte exactement %2$@ chambre.",
+        "listing.blocked.bedroomsMaxAny": "Une annonce ne peut pas avoir plus de %@ chambres.",
+        "listing.blocked.capacityMax": "Voyageurs, lits et salles de bain ne peuvent pas dépasser %1$@, %2$@ et %3$@.",
         "listing.blocked.price": "Le prix par nuit doit être supérieur à 0.",
         "listing.blocked.photo": "Une annonce doit avoir au moins une photo.",
 
@@ -3552,6 +3593,14 @@ enum Strings {
         "profile.editProfile.subtitle": "Actualice su foto, biografía, nombre y datos.",
         "profile.hostDashboard": "Panel de anfitrión",
         "profile.hostDashboard.subtitle": "Añada anuncios y gestione las solicitudes de reserva.",
+
+        // La bienvenida que se muestra una sola vez tras la aprobación, y el
+        // acceso directo permanente de la cabecera.
+        "host.welcome.title": "Ya es anfitrión aprobado",
+        "host.welcome.subtitle": "Su panel de anfitrión está listo: añada un anuncio, fije sus precios y responda a las solicitudes de reserva.",
+        "host.welcome.cta": "Abrir el panel de anfitrión",
+        "host.welcome.dismiss": "Ahora no",
+        "host.headerAction": "Panel de anfitrión",
         "profile.becomeHost": "Conviértete en anfitrión",
         "profile.becomeHost.subtitle": "Solicítalo en un minuto: nuestro equipo revisa cada solicitud.",
 
@@ -3690,6 +3739,7 @@ enum Strings {
         "host.action.reject.title": "\u{00BF}Rechazar esta reserva?",
         "host.action.reject.body": "Se avisará al huésped de que su solicitud fue rechazada. Esta acción no se puede deshacer.",
         "host.message": "Mensaje",
+        "host.booking.guestFallback": "Huésped",
         "host.status.live": "Publicado",
         "host.listing.listedOn": "Publicado el %@",
         "host.filter.published": "Publicado",
@@ -3792,6 +3842,10 @@ enum Strings {
         "listing.blocked.resortName.letters": "Escribe el nombre del resort o complejo con letras \u{2014} no puede contener solo s\u{00ED}mbolos o n\u{00FA}meros.",
         "listing.blocked.resortName.tooShort": "Escribe el nombre completo del resort o complejo \u{2014} debe tener al menos %@ letras.",
         "listing.blocked.capacity": "Huéspedes, dormitorios, camas y baños deben ser al menos %@.",
+        "listing.blocked.bedroomsMax": "Un alojamiento de tipo %1$@ no puede tener más de %2$@ dormitorios.",
+        "listing.blocked.bedroomsExact": "Un alojamiento de tipo %1$@ es una sola estancia: tiene exactamente %2$@ dormitorio.",
+        "listing.blocked.bedroomsMaxAny": "Un anuncio no puede tener más de %@ dormitorios.",
+        "listing.blocked.capacityMax": "Huéspedes, camas y baños no pueden superar %1$@, %2$@ y %3$@.",
         "listing.blocked.price": "El precio por noche debe ser mayor que 0.",
         "listing.blocked.photo": "Un anuncio necesita al menos una foto.",
 

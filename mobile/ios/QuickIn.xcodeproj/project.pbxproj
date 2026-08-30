@@ -67,6 +67,7 @@
 		8E6B995EAB8DB9033F8FF8C8 /* EmailRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02598A5DAFB87E9C3BBE983 /* EmailRules.swift */; };
 		957E7380E07B8CC3821D7BEA /* DateRangePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4EC358BF841135A80B7F9C /* DateRangePicker.swift */; };
 		95FF345C1EF999184F72F96B /* OwnershipDocPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7180CFB14E51B269C4223BBF /* OwnershipDocPicker.swift */; };
+		961C121875F5CDE9C4B8310E /* HostWelcomeRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D5ECA9D1875567A60ABB71 /* HostWelcomeRules.swift */; };
 		972B9A14617E75E6981E1577 /* PaymentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42DF93A288577203F495EEF5 /* PaymentSheet.swift */; };
 		99F9AB654948C770E2BD4BA7 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60CD5546CCAB282408048FA /* Config.swift */; };
 		9BB6EB10340C33DA709DE0B3 /* AddServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F47E4D69BCE7B5BD61AA4CC /* AddServiceView.swift */; };
@@ -87,6 +88,7 @@
 		BEC3B1E8BCFDD35FB16C58F6 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CED25EE45FBA5A1539A92B /* OTPVerificationView.swift */; };
 		C55487BE6EEAD4C13DC67996 /* DesignKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = D587744AA4C862A7D6A42180 /* DesignKit.swift */; };
 		C77A7C8BDE913302E295DF7E /* CancellationPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE9CB11B80F0D87F6F22CA87 /* CancellationPolicyView.swift */; };
+		C7DAF5B0AE81DCC2DF89E8F4 /* ListingCapacityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B4671FF2BB2B4E2DD9E67F /* ListingCapacityPolicy.swift */; };
 		C88A8FF61C90A899C65299B3 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68956C154CDD6E39CF7573F1 /* AuthService.swift */; };
 		C8B1005EE65879A85C46F29C /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A907C68E4532DF9C4F9917FD /* SplashView.swift */; };
 		C8B96A8D9A8D78470E7DBD61 /* CancellationOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 984F21BD8780B8CBD4B111A6 /* CancellationOutcome.swift */; };
@@ -137,6 +139,7 @@
 		3EA4843395698B645C141F0A /* WishlistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistStore.swift; sourceTree = "<group>"; };
 		3F0A1F4B1652E954203516E6 /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
 		3FA3EF2BC72AF13D0892428C /* GuestReviewViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestReviewViews.swift; sourceTree = "<group>"; };
+		40B4671FF2BB2B4E2DD9E67F /* ListingCapacityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingCapacityPolicy.swift; sourceTree = "<group>"; };
 		42DF93A288577203F495EEF5 /* PaymentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentSheet.swift; sourceTree = "<group>"; };
 		46777BA5B7CA0FD87BDA49FF /* ServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesView.swift; sourceTree = "<group>"; };
 		4CC0D0162466B929761D78FF /* TrustBadgesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustBadgesView.swift; sourceTree = "<group>"; };
@@ -193,6 +196,7 @@
 		BC9FA3A19876C08BF97B6E09 /* PushManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushManager.swift; sourceTree = "<group>"; };
 		C06FB6843DC2F72744566032 /* ConversationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationService.swift; sourceTree = "<group>"; };
 		C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSettingsView.swift; sourceTree = "<group>"; };
+		C3D5ECA9D1875567A60ABB71 /* HostWelcomeRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWelcomeRules.swift; sourceTree = "<group>"; };
 		C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneRules.swift; sourceTree = "<group>"; };
 		CB52C8948744ACE9887DB2B9 /* HostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostService.swift; sourceTree = "<group>"; };
 		CD46225D720A1A95E7745EC1 /* BiometricAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuth.swift; sourceTree = "<group>"; };
@@ -273,8 +277,10 @@
 				CB52C8948744ACE9887DB2B9 /* HostService.swift */,
 				E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */,
 				3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */,
+				C3D5ECA9D1875567A60ABB71 /* HostWelcomeRules.swift */,
 				534A1FBDA698E580073B5474 /* IDChangeRequestView.swift */,
 				D726EF27316C30A43919B02D /* IdentityVerificationCard.swift */,
+				40B4671FF2BB2B4E2DD9E67F /* ListingCapacityPolicy.swift */,
 				2B64B52903D80D34CB25CB57 /* ListingDetailView.swift */,
 				8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */,
 				26C6902F1E775B689DC20591 /* ListingPricingRules.swift */,
@@ -473,8 +479,10 @@
 				0D147128BEE051F5D60C0E62 /* HostService.swift in Sources */,
 				456848BB76A1571E669A0C0A /* HostServicesSection.swift in Sources */,
 				3625CCC97E934F5DD1F07DC6 /* HostTabs.swift in Sources */,
+				961C121875F5CDE9C4B8310E /* HostWelcomeRules.swift in Sources */,
 				22E6E80C1811D262F135C0C0 /* IDChangeRequestView.swift in Sources */,
 				CD5AC268E002E6587EE37408 /* IdentityVerificationCard.swift in Sources */,
+				C7DAF5B0AE81DCC2DF89E8F4 /* ListingCapacityPolicy.swift in Sources */,
 				7FA570807B8E74483CF88830 /* ListingDetailView.swift in Sources */,
 				DFB1243FA53554A6D74E9C4E /* ListingGeoPolicy.swift in Sources */,
 				F503394F93A017D46C96ECB7 /* ListingPricingRules.swift in Sources */,
@@ -608,7 +616,7 @@
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
 				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 33;
+				CURRENT_PROJECT_VERSION = 34;
 				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -687,7 +695,7 @@
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
 				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 33;
+				CURRENT_PROJECT_VERSION = 34;
 				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

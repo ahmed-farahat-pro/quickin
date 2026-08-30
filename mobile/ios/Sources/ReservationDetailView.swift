@@ -1397,10 +1397,22 @@ struct ReservationDetailView: View {
             return
         }
         guard let url = URL(string: "\(Config.apiBaseURL)/api/wallet/pass/\(viewModel.bookingID)") else { return }
+        // The pass embeds the reservation code, so the backend authenticates this
+        // route to the same guest/host/admin rule as the sibling booking routes.
+        // Without the bearer token every request comes back 401 "Not signed in",
+        // which is what surfaced as "Could not create the pass".
+        guard let token = auth.currentToken else {
+            walletError = "Please sign in again to add your pass."
+            return
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.apple.pkpass", forHTTPHeaderField: "Accept")
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                walletError = "Couldn't create the pass. Please try again."
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                walletError = Self.walletErrorMessage(status: status, body: data)
                 return
             }
             let pass = try PKPass(data: data)
@@ -1411,6 +1423,27 @@ struct ReservationDetailView: View {
             Self.topViewController()?.present(addVC, animated: true)
         } catch {
             walletError = "Couldn't add to Wallet. Please try again."
+        }
+    }
+
+    /// Turn a failed pass response into something the guest can act on, rather
+    /// than the blanket "couldn't create the pass" that kept the 401 invisible.
+    /// Only the 400s carry a message worth showing verbatim — those are the
+    /// gating reasons ("Reservation must be paid and confirmed first"). The
+    /// other statuses answer with terms for us, not the guest ("Not allowed"),
+    /// so they get a phrasing that says what to do about it.
+    private static func walletErrorMessage(status: Int, body: Data) -> String {
+        switch status {
+        case 400:
+            let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+            if let message = json?["error"] as? String, !message.isEmpty { return message }
+            return "This reservation isn't ready for a pass yet."
+        // The 30-day token expired, or the account was blocked since it was issued.
+        case 401: return "Please sign in again to add your pass."
+        case 403: return "This reservation's pass isn't available to your account."
+        case 404: return "This reservation is no longer available."
+        case 501: return "Wallet passes aren't available right now."
+        default:  return "Couldn't create the pass. Please try again."
         }
     }
 
@@ -1923,6 +1956,16 @@ struct StatusBadge: View {
     ///
     /// Takes precedence over `paid`, which can only describe three of the states.
     var bucket: ReservationFilterRules.Bucket? = nil
+    /// The chip this reservation is filed under on the HOST dashboard. Pass it from
+    /// the host requests list, where `bucket` (a guest-side fold) does not apply.
+    ///
+    /// Only `.awaitingPayment` changes anything: `bookings.status` flips to
+    /// confirmed the moment the host taps Accept, so the raw status could not tell
+    /// an accepted-and-paid stay from one still owed money — the host read both as
+    /// the same green "Confirmed". Every other bucket says what `status.label`
+    /// already says, so it falls through. `nil` on the guest views and the service
+    /// requests, which have no host chip row to agree with.
+    var hostBucket: HostBookingFilterRules.Bucket? = nil
 
     var body: some View {
         HStack(spacing: 6) {
@@ -1952,6 +1995,10 @@ struct StatusBadge: View {
     /// the plain `status.label` (host dashboard, service requests).
     @MainActor
     private var displayLabel: String {
+        // Ahead of everything: an accepted stay nobody has paid for is not "Confirmed".
+        // Same wording as the chip above the list, from the same fold, so a card and
+        // the chip it sits under can never disagree.
+        if hostBucket == .awaitingPayment { return L.t("host.bookingFilter.awaitingPayment") }
         if let bucket { return bucket.badgeLabel }
         guard let paid else { return status.label }
         switch status {
@@ -1966,7 +2013,7 @@ struct StatusBadge: View {
         // to do yet", and colouring it green beside the paid stays would say the money
         // has cleared. The refunds keep the cancelled colouring: they ARE cancelled
         // bookings, and a colour of their own would read as a fourth kind of ending.
-        if bucket == .underReview { return .qkGold }
+        if bucket == .underReview || hostBucket == .awaitingPayment { return .qkGold }
         switch status {
         case .confirmed: return .qkSuccess
         case .pending: return .qkGold
@@ -1979,7 +2026,7 @@ struct StatusBadge: View {
 
     private var foreground: Color {
         if onPhoto { return .white }
-        if bucket == .underReview { return .qkGoldDeep }
+        if bucket == .underReview || hostBucket == .awaitingPayment { return .qkGoldDeep }
         switch status {
         case .confirmed: return .qkSuccess
         case .pending: return .qkGoldDeep

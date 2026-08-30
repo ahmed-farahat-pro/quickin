@@ -194,6 +194,39 @@ extension QKBrandHeader where Trailing == EmptyView {
     }
 }
 
+// MARK: - Hosting shortcut (host-only, every root banner)
+
+/// The always-visible way into the Host Dashboard: a frosted disc on the brand
+/// banner, rendered only for an account the SERVER reports as `is_host`.
+///
+/// The reported defect: after approval the dashboard was reachable from exactly
+/// one place — a card near the bottom of the Profile scroll, below Terms &
+/// Privacy — so hosts could not find the surface their whole account is for.
+/// This puts it one tap from Explore and Trips, the two tabs a host actually
+/// lives in, without touching the unified tab set (everyone, host or guest,
+/// keeps the same five tabs — see `RootView`).
+///
+/// Renders nothing at all for a guest, so it is safe to drop into any banner's
+/// trailing slot unconditionally. Needs an enclosing `NavigationStack`, which
+/// every root tab already has.
+struct QKHostHeaderButton: View {
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var loc: LocalizationManager
+
+    var body: some View {
+        // `is_host` only — an application still under review must not open a
+        // dashboard the backend will refuse to fill.
+        if auth.user?.isHost == true {
+            QKHeaderIconButton(
+                systemName: "house.lodge.fill",
+                accessibilityLabel: loc.t("host.headerAction")
+            ) {
+                HostDashboardView()
+            }
+        }
+    }
+}
+
 // MARK: - Header accessory button (frosted cream, for the burgundy banner)
 
 /// A circular header action that sits on the burgundy banner: a frosted cream

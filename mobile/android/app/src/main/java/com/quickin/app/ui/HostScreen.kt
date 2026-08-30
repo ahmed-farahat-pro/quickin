@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
@@ -1676,7 +1677,26 @@ private fun HostBookingCard(
         Column(modifier = Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(booking.title, fontWeight = FontWeight.Bold, color = Ink, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
-                StatusBadge(booking.status)
+                // The bucket, not just the status: `bookings.status` reads "confirmed" from
+                // the moment the host taps Accept, so on its own the badge called an unpaid
+                // stay and a paid one the same green "Confirmed". It is the same fold the
+                // chip row above the list runs, so the two always agree.
+                StatusBadge(booking.status, hostBucket = booking.filterBucket)
+            }
+            // Who actually sent this request. It sits directly under the listing title because a
+            // host with several requests on the same place has nothing else to tell them apart by.
+            // Deleted accounts come back with no name, so this row always renders SOMETHING.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                Icon(Icons.Filled.Person, null, tint = Burgundy, modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    booking.guestName?.takeUnless { it.isBlank() }
+                        ?: stringResource(com.quickin.app.R.string.host_booking_guest_fallback),
+                    color = Ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
             }
             if (booking.location != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -2241,9 +2261,11 @@ private fun AddListingTab(
         // The capacity floor is the same one the API refuses a create on — see
         // ListingCapacityPolicy — so this gate only says early what the server would say late.
         2 -> when {
-            !ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms) -> stringResource(
-                com.quickin.app.R.string.listing_blocked_capacity, ListingCapacityPolicy.MINIMUM
-            )
+            capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType) != null ->
+                stringResource(
+                    capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType)!!,
+                    *capacityBlockerArgs(maxGuests, bedrooms, beds, bathrooms, propertyType)
+                )
             // `isNotBlank()` was the old gate, which let "0" through to a 400 — and the sentence
             // shown here says "more than 0", so the check has to mean it. Same test the editor
             // and the API already run.
@@ -2317,6 +2339,7 @@ private fun AddListingTab(
                         picked = pickedLatLng, onPick = { pickedLatLng = it }
                     )
                     2 -> StepDetails(
+                        propertyType = propertyType,
                         maxGuests = maxGuests, onMaxGuests = { maxGuests = it },
                         bedrooms = bedrooms, onBedrooms = { bedrooms = it },
                         beds = beds, onBeds = { beds = it },
@@ -2931,9 +2954,68 @@ internal fun GuestPriceHint(priceText: String, commission: Commission?) {
 
 // ---- Step 3: Details --------------------------------------------------------
 
+/**
+ * Which sentence explains why the capacity counts are not acceptable, or null when they are.
+ *
+ * Shared by the add-listing wizard and the listing editor so the two cannot drift, and returning
+ * a string resource id rather than a string so both can call it outside a @Composable.
+ *
+ * Three distinct things can be wrong and they need different sentences: a count below the floor
+ * (the pre-existing rule), a bedroom count above what this property type allows (the per-type
+ * table), and — reachable only from a value some other client stored, since the steppers clamp —
+ * one of the other three counts above its blanket ceiling. The caller supplies the format
+ * arguments, which differ per sentence; [capacityBlockerArgs] is the matching list.
+ */
+internal fun capacityBlockerRes(
+    maxGuests: String?, bedrooms: String?, beds: String?, bathrooms: String?, propertyType: String?
+): Int? = when {
+    ListingCapacityPolicy.isBelowFloor(maxGuests, bedrooms, beds, bathrooms) ->
+        com.quickin.app.R.string.listing_capacity_floor
+    ListingCapacityPolicy.exceedsBedroomCeiling(bedrooms, propertyType) ->
+        when {
+            // A type product's table does not name is refused impersonally — naming it would
+            // state a per-type rule that does not exist.
+            ListingCapacityPolicy.namedType(propertyType) == null ->
+                com.quickin.app.R.string.listing_capacity_bedrooms_max_any
+            // A studio's ceiling equals the floor, so "at most 1" is true but reads like room to
+            // manoeuvre. Say the shape of the place instead.
+            ListingCapacityPolicy.maxBedrooms(propertyType) == ListingCapacityPolicy.MINIMUM ->
+                com.quickin.app.R.string.listing_capacity_bedrooms_exact
+            else -> com.quickin.app.R.string.listing_capacity_bedrooms_max
+        }
+    ListingCapacityPolicy.exceedsOtherCeiling(maxGuests, beds, bathrooms) ->
+        com.quickin.app.R.string.listing_capacity_other_max
+    else -> null
+}
+
+/** The format arguments [capacityBlockerRes]'s sentence expects, in order. */
+internal fun capacityBlockerArgs(
+    maxGuests: String?, bedrooms: String?, beds: String?, bathrooms: String?, propertyType: String?
+): Array<Any> = when (capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType)) {
+    com.quickin.app.R.string.listing_capacity_floor -> arrayOf(ListingCapacityPolicy.MINIMUM)
+    com.quickin.app.R.string.listing_capacity_bedrooms_max_any ->
+        arrayOf(ListingCapacityPolicy.maxBedrooms(propertyType))
+    com.quickin.app.R.string.listing_capacity_bedrooms_max,
+    com.quickin.app.R.string.listing_capacity_bedrooms_exact -> arrayOf(
+        ListingCapacityPolicy.namedType(propertyType) ?: "",
+        ListingCapacityPolicy.maxBedrooms(propertyType)
+    )
+    com.quickin.app.R.string.listing_capacity_other_max -> arrayOf(
+        ListingCapacityPolicy.MAX_GUESTS_CEILING,
+        ListingCapacityPolicy.BEDS_CEILING,
+        ListingCapacityPolicy.BATHROOMS_CEILING
+    )
+    else -> emptyArray()
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun StepDetails(
+    /**
+     * The type picked back on step 1. Read-only here — it sizes the bedroom stepper and names the
+     * type in the sentence under the steppers.
+     */
+    propertyType: String,
     maxGuests: String, onMaxGuests: (String) -> Unit,
     bedrooms: String, onBedrooms: (String) -> Unit,
     beds: String, onBeds: (String) -> Unit,
@@ -2990,7 +3072,9 @@ internal fun StepDetails(
         label = "Bedrooms",
         value = bedrooms,
         min = ListingCapacityPolicy.MINIMUM,
-        max = ListingCapacityPolicy.BEDROOMS_CEILING,
+        // A Cabin stops at 3, a Villa at 8 — the control itself refuses what the rule refuses,
+        // rather than running to 20 and failing on Next.
+        max = ListingCapacityPolicy.maxBedrooms(propertyType),
         onChange = onBedrooms
     )
     CounterStepper(
@@ -3007,12 +3091,17 @@ internal fun StepDetails(
         max = ListingCapacityPolicy.BATHROOMS_CEILING,
         onChange = onBathrooms
     )
-    // Only reachable from the listing editor, where a row created before this rule can arrive
-    // holding a 0: the stepper clamps new taps but cannot raise a value it was handed. Say what
-    // has to change rather than leaving Save greyed out with no reason.
-    if (!ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms)) {
+    // The stepper clamps new taps but cannot lower a value it was handed, so two things reach
+    // here: a row created before this rule (a stored 0, or a Studio holding 27,373 bedrooms), and
+    // a host who set 6 bedrooms as a Villa and then walked back to step 1 and chose Cabin. Say
+    // what has to change rather than leaving Next / Save greyed out with no reason.
+    val capacityProblem = capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType)
+    if (capacityProblem != null) {
         Text(
-            stringResource(com.quickin.app.R.string.listing_capacity_floor, ListingCapacityPolicy.MINIMUM),
+            stringResource(
+                capacityProblem,
+                *capacityBlockerArgs(maxGuests, bedrooms, beds, bathrooms, propertyType)
+            ),
             color = Burgundy,
             fontSize = 13.sp
         )

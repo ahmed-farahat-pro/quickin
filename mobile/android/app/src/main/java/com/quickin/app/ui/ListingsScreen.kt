@@ -53,6 +53,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DateRange
@@ -132,6 +133,10 @@ fun ListingsScreen(
     onSignIn: () -> Unit = {},
     userInitials: String = "",
     onOpenProfile: () -> Unit = {},
+    /** The server's `is_host`: gates the banner's hosting shortcut. Never a local guess. */
+    isHost: Boolean = false,
+    /** Opens the host dashboard from the banner's hosting shortcut. */
+    onOpenHost: () -> Unit = {},
     unreadCount: Int = 0,
     onOpenNotifications: () -> Unit = {},
     /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
@@ -184,6 +189,8 @@ fun ListingsScreen(
                 ExploreChrome(
                     state = state,
                     isAuthenticated = isAuthenticated,
+                    isHost = isHost,
+                    onOpenHost = onOpenHost,
                     userInitials = userInitials,
                     unreadCount = unreadCount,
                     onSignIn = onSignIn,
@@ -293,6 +300,8 @@ fun ListingsScreen(
 private fun ExploreChrome(
     state: ListingsUiState,
     isAuthenticated: Boolean,
+    isHost: Boolean,
+    onOpenHost: () -> Unit,
     userInitials: String,
     unreadCount: Int,
     onSignIn: () -> Unit,
@@ -316,6 +325,15 @@ private fun ExploreChrome(
             subtitle = stringResource(R.string.home_subtitle),
             wordmark = true
         ) {
+            // Host-only, and invisible to a guest: the way into the dashboard from the tab a host
+            // opens most. Leads the accessory row so the account disc stays outermost.
+            if (isHost) {
+                QkHeaderIconButton(
+                    icon = Icons.Filled.AddHome,
+                    contentDescription = stringResource(R.string.cd_host_dashboard),
+                    onClick = onOpenHost
+                )
+            }
             // Signed in: profile avatar, the messages inbox and the notifications bell.
             // Signed out: the account disc alone, which opens login/signup — the same
             // affordance iOS gives a guest.

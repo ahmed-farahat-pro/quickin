@@ -27,13 +27,20 @@ struct ListingsView: View {
                             subtitle: loc.t("home.subtitle"),
                             wordmark: true
                         ) {
-                            AnimatedProfileAvatar(
-                                user: auth.user,
-                                isAuthenticated: auth.isAuthenticated,
-                                onOpenProfile: onOpenProfile,
-                                onSignIn: { showingAuth = true },
-                                onDark: true
-                            )
+                            HStack(spacing: 10) {
+                                // Host-only, and invisible to a guest: the way
+                                // into the dashboard from the tab a host opens
+                                // most. Sits before the avatar so the account
+                                // disc stays the outermost accessory.
+                                QKHostHeaderButton()
+                                AnimatedProfileAvatar(
+                                    user: auth.user,
+                                    isAuthenticated: auth.isAuthenticated,
+                                    onOpenProfile: onOpenProfile,
+                                    onSignIn: { showingAuth = true },
+                                    onDark: true
+                                )
+                            }
                         }
 
                         // Discovery chrome — also scrolls with the page.

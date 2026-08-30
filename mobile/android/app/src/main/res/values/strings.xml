@@ -115,6 +115,15 @@
     <string name="profile_my_subscriptions_sub">Your experience requests</string>
     <string name="profile_host_dashboard">Host dashboard</string>
     <string name="profile_host_dashboard_sub">Listings &amp; reservation requests</string>
+
+    <!-- The one-time "you're approved" welcome, plus the always-visible header shortcut.
+         Approval is an admin action the app only learns about by re-reading the account,
+         so this is the app's only chance to mark it. -->
+    <string name="host_welcome_title">You\'re an approved host</string>
+    <string name="host_welcome_sub">Your Host Dashboard is ready — add a listing, set your prices, and answer reservation requests.</string>
+    <string name="host_welcome_cta">Open Host dashboard</string>
+    <string name="host_welcome_dismiss">Not now</string>
+    <string name="cd_host_dashboard">Host dashboard</string>
     <string name="profile_host_services">Host services</string>
     <string name="profile_host_services_sub">Experiences &amp; subscriptions</string>
     <string name="profile_log_out">Log out</string>
@@ -565,8 +574,11 @@
     <string name="listing_resort_name_required">Type the resort or compound name, or pick a different option.</string>
     <string name="listing_resort_name_letters">Write the resort or compound name in words \u2014 it can\'t be only symbols or numbers.</string>
     <string name="listing_resort_name_too_short">Give the full resort or compound name \u2014 it needs at least %1$d letters.</string>
-    <string name="listing_blocked_capacity">Guests, bedrooms, beds and bathrooms must each be at least %1$d.</string>
     <string name="listing_capacity_floor">Bedrooms, beds, bathrooms and guests must each be at least %1$d — a place with nowhere to sleep can’t be booked.</string>
+    <string name="listing_capacity_bedrooms_max">A %1$s can have at most %2$d bedrooms.</string>
+    <string name="listing_capacity_bedrooms_exact">A %1$s is a single room — it has exactly %2$d bedroom.</string>
+    <string name="listing_capacity_bedrooms_max_any">A listing can have at most %1$d bedrooms.</string>
+    <string name="listing_capacity_other_max">Guests, beds and bathrooms can be at most %1$d, %2$d and %3$d.</string>
     <string name="listing_edit_discard_title">Discard your changes?</string>
     <string name="listing_edit_discard_body">Your edits to this listing haven\'t been saved.</string>
     <string name="listing_edit_discard_confirm">Discard</string>
@@ -988,6 +1000,9 @@
     <string name="host_booking_filter_partially_refunded">Partially refunded</string>
     <string name="host_booking_filter_empty_all">No reservation requests</string>
     <string name="host_booking_filter_empty_filtered">No reservations in this status.</string>
+    <!-- The requesting guest on a host's reservation card. The fallback stands in when the
+         guest's account has been deleted, so the row never renders nameless. -->
+    <string name="host_booking_guest_fallback">Guest</string>
 
     <!-- Guest reservation status filter (Trips). "All" reuses filter_all. -->
     <string name="reservation_filter_pending">Pending approval</string>

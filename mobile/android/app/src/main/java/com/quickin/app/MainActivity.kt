@@ -417,6 +417,8 @@ private fun MainApp() {
     // Profile). A host keeps every guest ability and reaches host features (manage listings +
     // incoming reservations) from the Profile tab — the whole tab set no longer switches on role.
     val isHost = authState.isHost
+    // Whether this device still owes the account the one-time host welcome (see HostWelcomeRules).
+    val hostWelcome by authViewModel.hostWelcome.collectAsState()
     val tabs = GUEST_TABS
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -1615,6 +1617,10 @@ private fun MainApp() {
                     onClearFilters = listingsViewModel::clearFilters,
                     onSearchArea = listingsViewModel::searchArea,
                     isAuthenticated = authState.isAuthenticated,
+                    // The banner's hosting shortcut — the always-visible way into the dashboard,
+                    // rendered only for an account the SERVER calls a host.
+                    isHost = isHost,
+                    onOpenHost = { showHost = true },
                     onSignIn = {
                         authViewModel.clearError()
                         showAuth = true
@@ -1687,6 +1693,8 @@ private fun MainApp() {
                         showAuth = true
                     },
                     onRetry = bookingsViewModel::loadReservations,
+                    isHost = isHost,
+                    onOpenHost = { showHost = true },
                     onExplore = { selectedTab = 0 },
                     onOpen = { booking -> selectedReservationId = booking.id },
                     canReview = { booking -> reviewsViewModel.canReview(booking.id) },
@@ -1726,6 +1734,9 @@ private fun MainApp() {
                             showHostApply = true
                         },
                         onOpenHost = { showHost = true },
+                        // The one-time "you're an approved host" welcome above the dashboard card.
+                        hostWelcome = hostWelcome,
+                        onDismissHostWelcome = authViewModel::dismissHostWelcome,
                         onOpenHostServices = {
                             servicesViewModel.loadHost()
                             showHostServices = true

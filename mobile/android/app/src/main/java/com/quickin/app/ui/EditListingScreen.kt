@@ -337,11 +337,16 @@ fun EditListingScreen(
         badMonthRate != null -> stringResource(
             monthPriceProblemRes(badMonthRate.problem), stringResource(monthNameRes(badMonthRate.month))
         )
-        // Bedrooms, beds, bathrooms and guests, all floored at 1. A listing published before
-        // that floor existed opens here holding a 0, and the PATCH refuses it now — see
-        // ListingCapacityPolicy — so this says it where the host can fix it.
-        !ListingCapacityPolicy.allValid(maxGuests, bedrooms, beds, bathrooms) ->
-            stringResource(R.string.listing_capacity_floor, ListingCapacityPolicy.MINIMUM)
+        // Bedrooms, beds, bathrooms and guests, floored at 1 and capped from above — bedrooms by
+        // what the chosen property type allows. A listing published before either rule opens here
+        // holding a 0 or a 27,373, and the PATCH refuses both now — see ListingCapacityPolicy —
+        // so this says it where the host can fix it. Judged against the type this SAVE will
+        // store, because retyping a Villa as a Cabin changes both halves of the rule at once.
+        capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType) != null ->
+            stringResource(
+                capacityBlockerRes(maxGuests, bedrooms, beds, bathrooms, propertyType)!!,
+                *capacityBlockerArgs(maxGuests, bedrooms, beds, bathrooms, propertyType)
+            )
         !hasChanges -> stringResource(R.string.listing_edit_no_changes)
         else -> null
     }
@@ -424,6 +429,7 @@ fun EditListingScreen(
 
                 SectionHeader(stringResource(R.string.listing_edit_section_details))
                 StepDetails(
+                    propertyType = propertyType,
                     maxGuests = maxGuests, onMaxGuests = { maxGuests = it },
                     bedrooms = bedrooms, onBedrooms = { bedrooms = it },
                     beds = beds, onBeds = { beds = it },

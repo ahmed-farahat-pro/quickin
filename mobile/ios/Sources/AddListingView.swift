@@ -145,57 +145,10 @@ enum ListingTitlePolicy {
 }
 
 // MARK: - Shared listing capacity rule
-
-/// How small a place is allowed to claim to be.
-///
-/// The capacity steppers floored bedrooms, beds and bathrooms at **zero** — only
-/// "Max guests" had a floor of 1 — so a host could walk the wizard through with
-/// 0 bedrooms and 0 beds and publish a chalet whose card reads "0 bedrooms ·
-/// 0 beds · 0 baths". A stay with nowhere to sleep is not a stay, and those three
-/// numbers are what a guest filters and compares on. Android had the same hole
-/// (`min = 0` on the same three steppers) and so did the API, which floored the
-/// values at 0 on create and on PATCH.
-///
-/// This is the Swift translation of `src/lib/local/listing-capacity-policy.ts`,
-/// which both web projects carry byte-identical (a parity script guards those
-/// two) and which the API now runs on both doors. Android carries the same rule
-/// again in `ListingCapacityPolicy.kt`. Both mobile copies are updated by hand,
-/// so `minimum` below is the thing to keep in step.
-///
-/// **A studio is 1 bedroom, not 0.** The property type already says "Studio",
-/// and a capacity line of zeroes tells a guest nothing. If studios should be
-/// modelled with 0 bedrooms one day, `minimum` is the single constant to change
-/// here — and `MIN_CAPACITY` is its counterpart everywhere else.
-enum ListingCapacityPolicy {
-    /// The floor under every count. One, not zero.
-    static let minimum = 1
-
-    /// The largest value each stepper offers. No rule refuses a bigger number —
-    /// these are the ceilings the steppers have always had, kept so the control
-    /// stays usable rather than because 21 bedrooms is an error.
-    static let maxGuestsCeiling = 32
-    static let bedroomsCeiling = 20
-    static let bedsCeiling = 30
-    static let bathroomsCeiling = 20
-
-    /// True when all four counts clear the floor. One expression, shared by the
-    /// create wizard and the edit screen, so there is a single capacity rule on
-    /// iOS rather than one per screen.
-    static func isValid(maxGuests: Int, bedrooms: Int, beds: Int, bathrooms: Int) -> Bool {
-        [maxGuests, bedrooms, beds, bathrooms].allSatisfy { $0 >= minimum }
-    }
-
-    /// What the editor should show for a stored count.
-    ///
-    /// A **NULL** column is a question nobody asked, so it opens at the floor
-    /// rather than at 0 — seeding it with 0 would put words in a host's mouth and
-    /// then refuse them for it. A stored **0** is different: some host did press
-    /// Publish on it before this rule existed, so it is shown as it is and the
-    /// editor blocks Save until they raise it.
-    static func seed(_ stored: Int?) -> Int {
-        stored ?? minimum
-    }
-}
+//
+// Moved to Sources/ListingCapacityPolicy.swift: the rule grew a per-property-type
+// bedroom table and is now large enough to want its own tests, and a file that
+// imports SwiftUI cannot be compiled by Tests/run.sh. Same enum, same name.
 
 // MARK: - Shared listing photo model
 
@@ -462,11 +415,62 @@ struct AddListingView: View {
         if coordinate == nil { return L.t("listing.blocked.pin") }
         return nil
     }
-    private var step3Blocker: String? {
-        if !ListingCapacityPolicy.isValid(
+    /// Why the capacity counts will not let the host continue, or nil.
+    ///
+    /// Shared by the create wizard and the edit screen so the two cannot drift,
+    /// and `static` so the edit screen (a separate View) can call it. The rule
+    /// itself is `ListingCapacityPolicy`; this is only which sentence explains
+    /// which half of it.
+    ///
+    /// Three distinct things can be wrong and they need different sentences: a
+    /// count below the floor (the pre-existing rule), a bedroom count above what
+    /// this property type allows (the per-type table), and — reachable only from
+    /// a value some other client stored, since the steppers clamp — one of the
+    /// other three counts above its blanket ceiling.
+    static func capacityBlocker(
+        maxGuests: Int,
+        bedrooms: Int,
+        beds: Int,
+        bathrooms: Int,
+        propertyType: String,
+        t: (String) -> String
+    ) -> String? {
+        if ListingCapacityPolicy.isBelowFloor(
             maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms
         ) {
-            return String(format: L.t("listing.blocked.capacity"), "\(ListingCapacityPolicy.minimum)")
+            return String(format: t("listing.blocked.capacity"), "\(ListingCapacityPolicy.minimum)")
+        }
+        if ListingCapacityPolicy.exceedsBedroomCeiling(bedrooms, propertyType: propertyType) {
+            let max = ListingCapacityPolicy.maxBedrooms(for: propertyType)
+            // A type product's table does not name is refused impersonally —
+            // naming it would state a per-type rule that does not exist.
+            guard let named = ListingCapacityPolicy.namedType(propertyType) else {
+                return String(format: t("listing.blocked.bedroomsMaxAny"), "\(max)")
+            }
+            // A studio's ceiling equals the floor, so "at most 1" is true but
+            // reads like room to manoeuvre. Say the shape of the place instead.
+            let key = max == ListingCapacityPolicy.minimum
+                ? "listing.blocked.bedroomsExact"
+                : "listing.blocked.bedroomsMax"
+            return String(format: t(key), named, "\(max)")
+        }
+        if ListingCapacityPolicy.exceedsOtherCeiling(
+            maxGuests: maxGuests, beds: beds, bathrooms: bathrooms
+        ) {
+            return String(format: t("listing.blocked.capacityMax"),
+                          "\(ListingCapacityPolicy.maxGuestsCeiling)",
+                          "\(ListingCapacityPolicy.bedsCeiling)",
+                          "\(ListingCapacityPolicy.bathroomsCeiling)")
+        }
+        return nil
+    }
+
+    private var step3Blocker: String? {
+        if let capacityProblem = Self.capacityBlocker(
+            maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms,
+            propertyType: propertyType, t: { L.t($0) }
+        ) {
+            return capacityProblem
         }
         if price <= 0 { return L.t("listing.blocked.price") }
         if photos.isEmpty { return L.t("listing.blocked.photo") }
@@ -541,6 +545,7 @@ struct AddListingView: View {
                         .tag(2)
 
                         stepCard { DetailsStep(
+                            propertyType: propertyType,
                             maxGuests: $maxGuests,
                             bedrooms: $bedrooms,
                             beds: $beds,
@@ -1382,6 +1387,9 @@ private struct LocationStep: View {
 // MARK: - Step 3: Details
 
 private struct DetailsStep: View {
+    /// The type picked back on step 1. Read-only here — it sizes the bedroom
+    /// stepper and names the type in the sentence under the box.
+    let propertyType: String
     @Binding var maxGuests: Int
     @Binding var bedrooms: Int
     @Binding var beds: Int
@@ -1404,18 +1412,28 @@ private struct DetailsStep: View {
     /// store), or nil. Shown under the picker — the wizard's own error line only
     /// appears on Review, two steps after the host picked the file.
     @State private var docProblem: String?
+    @EnvironmentObject private var loc: LocalizationManager
+
+    /// How high the bedroom stepper goes for this kind of place. A Cabin stops
+    /// at 3, a Villa at 8 — the control itself refuses what the rule refuses,
+    /// rather than scrolling to 20 and failing on Next.
+    private var bedroomsCeiling: Int {
+        ListingCapacityPolicy.maxBedrooms(for: propertyType)
+    }
 
     var body: some View {
         FieldLabel("Capacity", required: true)
-        // Every count floors at 1. Bedrooms, beds and bathrooms used to floor at
-        // 0, so "0 bedrooms · 0 beds · 0 baths" was a publishable listing — see
-        // `ListingCapacityPolicy`.
+        // Every count floors at 1 and stops at a ceiling. Bedrooms, beds and
+        // bathrooms used to floor at 0, so "0 bedrooms · 0 beds · 0 baths" was a
+        // publishable listing; the bedroom stepper used to run to 20 whatever the
+        // place was, so a Cabin could claim 12. The bedroom ceiling now comes
+        // from the property type picked on step 1 — see `ListingCapacityPolicy`.
         VStack(spacing: 0) {
             WizardStepper("Max guests", value: $maxGuests,
                           range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.maxGuestsCeiling)
             Divider()
             WizardStepper("Bedrooms", value: $bedrooms,
-                          range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.bedroomsCeiling)
+                          range: ListingCapacityPolicy.minimum...bedroomsCeiling)
             Divider()
             WizardStepper("Beds", value: $beds,
                           range: ListingCapacityPolicy.minimum...ListingCapacityPolicy.bedsCeiling)
@@ -1427,12 +1445,16 @@ private struct DetailsStep: View {
         .padding(.vertical, 4)
         .background(Color.qkCream)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        // Only reachable from the edit screen, where a listing created before
-        // this rule can arrive holding a 0: the stepper clamps new taps but
-        // cannot raise a value it was handed. Say what has to change rather than
-        // leaving Save greyed out with no reason.
-        if !ListingCapacityPolicy.isValid(maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms) {
-            Text("Each of these has to be at least \(ListingCapacityPolicy.minimum) — a place with no bedroom, bed or bathroom can’t be booked.")
+        // The stepper clamps new taps but cannot lower a value it was handed, so
+        // two things reach here: a listing created before this rule (a stored 0,
+        // or a Studio holding 27,373 bedrooms), and a host who set 6 bedrooms as
+        // a Villa and then walked back to step 1 and chose Cabin. Say what has to
+        // change rather than leaving Next greyed out with no reason.
+        if let problem = AddListingView.capacityBlocker(
+            maxGuests: maxGuests, bedrooms: bedrooms, beds: beds, bathrooms: bathrooms,
+            propertyType: propertyType, t: { loc.t($0) }
+        ) {
+            Text(problem)
                 .font(.footnote)
                 .foregroundStyle(Color.qkBurgundy)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2333,14 +2355,15 @@ struct EditListingView: View {
     /// the capacity counts are: an edit may not take a listing below the floor,
     /// and a row created before that floor existed can open here holding a 0.
     private var step3Blocker: String? {
-        if !ListingCapacityPolicy.isValid(
+        if let capacityProblem = AddListingView.capacityBlocker(
             maxGuests: draft.maxGuests,
             bedrooms: draft.bedrooms,
             beds: draft.beds,
-            bathrooms: draft.bathrooms
+            bathrooms: draft.bathrooms,
+            propertyType: draft.propertyType,
+            t: { loc.t($0) }
         ) {
-            return String(format: loc.t("listing.blocked.capacity"),
-                          "\(ListingCapacityPolicy.minimum)")
+            return capacityProblem
         }
         if price <= 0 { return loc.t("listing.blocked.price") }
         return nil
@@ -2415,6 +2438,7 @@ struct EditListingView: View {
                         .tag(2)
 
                         stepCard { DetailsStep(
+                            propertyType: draft.propertyType,
                             maxGuests: $draft.maxGuests,
                             bedrooms: $draft.bedrooms,
                             beds: $draft.beds,

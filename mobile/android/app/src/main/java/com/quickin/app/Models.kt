@@ -1130,6 +1130,13 @@ data class HostBooking(
     val reservationCode: String?,
     val title: String,
     val location: String?,
+    /**
+     * The requesting guest's full name, from the host-only `guest_name` column. Null when the
+     * guest's account has been deleted (the backend LEFT JOINs so the host keeps the record of
+     * the stay) — the card falls back to a generic "Guest" rather than rendering nothing, which
+     * is what left a host unable to tell one incoming request from another.
+     */
+    val guestName: String? = null,
     val checkIn: String,
     val checkOut: String,
     val guests: Int,

@@ -108,6 +108,13 @@
     <string name="profile_my_subscriptions_sub">طلبات التجارب الخاصة بك</string>
     <string name="profile_host_dashboard">لوحة المضيف</string>
     <string name="profile_host_dashboard_sub">العقارات وطلبات الحجز</string>
+
+    <!-- الترحيب الذي يظهر مرة واحدة بعد الموافقة، واختصار الرأس الدائم. -->
+    <string name="host_welcome_title">تمت الموافقة عليك كمضيف</string>
+    <string name="host_welcome_sub">لوحة المضيف جاهزة — أضف إعلانًا، وحدد أسعارك، وردّ على طلبات الحجز.</string>
+    <string name="host_welcome_cta">افتح لوحة المضيف</string>
+    <string name="host_welcome_dismiss">ليس الآن</string>
+    <string name="cd_host_dashboard">لوحة المضيف</string>
     <string name="profile_host_services">خدمات المضيف</string>
     <string name="profile_host_services_sub">التجارب والاشتراكات</string>
     <string name="profile_log_out">تسجيل الخروج</string>
@@ -544,12 +551,15 @@
     <string name="listing_resort_name_required">اكتب اسم المنتجع أو الكمبوند، أو اختر خياراً آخر.</string>
     <string name="listing_resort_name_letters">اكتب اسم المنتجع أو الكمبوند بالحروف \u2014 لا يمكن أن يتكوّن من رموز أو أرقام فقط.</string>
     <string name="listing_resort_name_too_short">اكتب اسم المنتجع أو الكمبوند كاملاً \u2014 يجب ألا يقل عن %1$d أحرف.</string>
-    <string name="listing_blocked_capacity">يجب ألا يقل عدد الضيوف وغرف النوم والأسرّة والحمامات عن %1$d.</string>
 
     <!-- Missing until now, so both fell back to English on an Arabic phone. -->
     <string name="listing_edit_needs_pin">حدّد موقع مكانك على الخريطة.</string>
     <string name="listing_edit_needs_photo">يحتاج الإعلان إلى صورة واحدة على الأقل.</string>
     <string name="listing_capacity_floor">يجب ألا يقل عدد غرف النوم والأسرّة والحمّامات والضيوف عن %1$d لكلٍّ منها — لا يمكن حجز مكان بلا مكان للنوم.</string>
+    <string name="listing_capacity_bedrooms_max">لا يمكن أن يزيد عدد غرف النوم في %1$s عن %2$d.</string>
+    <string name="listing_capacity_bedrooms_exact">%1$s عبارة عن غرفة واحدة — عدد غرف النوم فيه %2$d بالضبط.</string>
+    <string name="listing_capacity_bedrooms_max_any">لا يمكن أن يزيد عدد غرف النوم عن %1$d.</string>
+    <string name="listing_capacity_other_max">لا يزيد عدد الضيوف والأسرّة والحمامات عن %1$d و%2$d و%3$d على الترتيب.</string>
     <string name="listing_edit_discard_title">تجاهل تغييراتك؟</string>
     <string name="listing_edit_discard_body">لم يتم حفظ تعديلاتك على هذا الإعلان.</string>
     <string name="listing_edit_discard_confirm">تجاهل</string>
@@ -966,6 +976,7 @@
     <string name="host_booking_filter_partially_refunded">مسترد جزئيًا</string>
     <string name="host_booking_filter_empty_all">لا توجد طلبات حجز</string>
     <string name="host_booking_filter_empty_filtered">لا توجد حجوزات بهذه الحالة.</string>
+    <string name="host_booking_guest_fallback">ضيف</string>
 
     <!-- مرشّح حالة حجوزات الضيف -->
     <string name="reservation_filter_pending">في انتظار الموافقة</string>

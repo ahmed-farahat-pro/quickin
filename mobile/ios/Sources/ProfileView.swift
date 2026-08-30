@@ -17,6 +17,9 @@ struct ProfileView: View {
     @State private var showDeleteConfirm = false
     /// True while the account-deletion request is in flight.
     @State private var isDeletingAccount = false
+    /// True while the one-time "you're an approved host" welcome is showing.
+    /// Decided by `HostWelcomeRules` against a per-account id in `UserDefaults`.
+    @State private var showHostWelcome = false
 
     var body: some View {
         NavigationStack {
@@ -43,10 +46,16 @@ struct ProfileView: View {
                             avatar
                             identity
                             badges
-                            // Become a host — surfaced right under the identity for non-hosts so
-                            // it's the first thing they see, instead of being buried near the bottom.
-                            // Renders whichever of the four application states applies.
-                            if !isHost {
+                            // Hosting sits right under the identity for EVERY account, so the
+                            // surface a host needs most is the first thing they see. It used to
+                            // be the reverse: a guest's "Become a host" card was up here while
+                            // the approved host's dashboard was buried below Terms & Privacy —
+                            // approval made the feature HARDER to find than applying for it.
+                            if isHost {
+                                if showHostWelcome { hostWelcomeCard }
+                                hostEntry
+                            } else {
+                                // Renders whichever of the four application states applies.
                                 hostApplicationSection
                             }
                             IdentityVerificationCard()
@@ -62,9 +71,6 @@ struct ProfileView: View {
                             languageEntry
                             currencyEntry
                             legalSection
-                            if isHost {
-                                hostEntry
-                            }
                             Spacer(minLength: 8)
                             logoutButton
                             deleteAccountButton
@@ -91,6 +97,10 @@ struct ProfileView: View {
                 // Only non-hosts have an application worth reading (a host's
                 // surface is the dashboard, not the four-state card).
                 if !isHost { await hostApplication.refresh() }
+                // AFTER the session refresh, never before: an approval that
+                // landed while the app was closed only exists in the response
+                // above, and asking first would greet the host a launch late.
+                refreshHostWelcome()
                 await notifications.refresh()
                 await header.refresh()
             }
@@ -99,9 +109,11 @@ struct ProfileView: View {
         .onChange(of: auth.user?.id) { _, _ in
             header.reset()
             hostApplication.reset()
+            showHostWelcome = false
             Task {
                 await header.refresh()
                 if !isHost { await hostApplication.refresh() }
+                refreshHostWelcome()
             }
         }
         // Become a host: the application form (also used to reapply after a
@@ -404,6 +416,100 @@ struct ProfileView: View {
         }
         .padding(16)
         .qkCard(cornerRadius: 18)
+    }
+
+    /// The one-time "you're an approved host" welcome, shown above `hostEntry`
+    /// the first time this device sees the account come back with `is_host`.
+    ///
+    /// Approval happens in `/ops`, out of the app's sight: the account simply
+    /// starts answering `is_host: true` on its next read, with nothing on screen
+    /// to mark it. Without this the host has to *notice* that a card changed near
+    /// the top of a screen they may not open for days.
+    ///
+    /// Deliberately a cream-and-gold card rather than a second burgundy one, so
+    /// it reads as a note ABOUT the dashboard sitting underneath it instead of a
+    /// duplicate of it. It appears once per account (`HostWelcomeRules`); the
+    /// permanent ways in — this card's neighbour and the banner shortcut on
+    /// Explore and Trips — carry the discovery from then on.
+    private var hostWelcomeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.qkGoldDeep)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(loc.t("host.welcome.title"))
+                        .font(.system(size: 17, weight: .bold, design: .serif))
+                        .foregroundStyle(Color.qkInk)
+                    Text(loc.t("host.welcome.subtitle"))
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                // Opening the dashboard IS the acknowledgement — a host who has
+                // been there does not need welcoming to it again.
+                NavigationLink {
+                    HostDashboardView()
+                } label: {
+                    Text(loc.t("host.welcome.cta"))
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.qkCream)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 11)
+                        .background(LinearGradient.qkBurgundyCTA)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.qkTap)
+                .simultaneousGesture(TapGesture().onEnded { dismissHostWelcome() })
+
+                Button {
+                    dismissHostWelcome()
+                } label: {
+                    Text(loc.t("host.welcome.dismiss"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.qkMuted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 11)
+                }
+                .buttonStyle(.qkTap)
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.qkSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.qkGold.opacity(0.55), lineWidth: 1.5)
+        )
+        .shadow(color: Color.qkGoldDeep.opacity(0.16), radius: 14, x: 0, y: 8)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    /// Ask `HostWelcomeRules` whether this account is still owed the welcome.
+    /// Called after every session refresh, so an approval that landed while the
+    /// app was closed shows up the moment the profile is opened.
+    private func refreshHostWelcome() {
+        showHostWelcome = HostWelcomeRules.shouldWelcome(
+            isHost: isHost,
+            userID: auth.user?.id,
+            announcedTo: UserDefaults.standard.string(forKey: HostWelcomeRules.storageKey)
+        )
+    }
+
+    /// Retire the welcome for this account and hide it. Writing the id BEFORE
+    /// the animation matters: the card is dismissed by navigating away from it
+    /// too, and an unwritten id would greet the host again on their way back.
+    private func dismissHostWelcome() {
+        if let id = HostWelcomeRules.announced(userID: auth.user?.id) {
+            UserDefaults.standard.set(id, forKey: HostWelcomeRules.storageKey)
+        }
+        withAnimation(.easeInOut(duration: 0.25)) { showHostWelcome = false }
     }
 
     /// Host-only entry into the host dashboard (add listing + reservation

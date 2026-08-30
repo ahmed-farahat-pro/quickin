@@ -245,18 +245,34 @@ private fun QkBrandTitle(title: String, wordmark: Boolean, reveal: Float) {
     )
 
     if (wordmark) {
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = Cream)) { append("Quick") }
-                withStyle(SpanStyle(color = GoldLight)) { append("In") }
-            },
-            fontSize = 38.sp,
-            fontWeight = FontWeight.Black,
-            fontFamily = FontFamily.Serif,
-            style = androidx.compose.ui.text.TextStyle(shadow = titleShadow),
-            maxLines = 1,
-            modifier = riseModifier
-        )
+        // Shrink-to-fit, the Compose equivalent of iOS's `minimumScaleFactor(0.7)`. The wordmark
+        // shares its row with the accessories, and Explore carries four of them for a host
+        // (hosting · avatar · messages · bell) — one more than the width fits at 38sp, which used
+        // to clip the brand mark mid-letter to "QuickI". Giving way a few points is the right
+        // trade: the wordmark stays whole and the accessories stay reachable.
+        BoxWithConstraints(modifier = riseModifier) {
+            // Keyed on the measured width so the size is re-derived whenever the accessory row
+            // changes — a host signing out gets the full-size wordmark back, instead of being
+            // left at whatever the crowded layout shrank it to.
+            var size by remember(maxWidth) { mutableStateOf(38.sp) }
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = Cream)) { append("Quick") }
+                    withStyle(SpanStyle(color = GoldLight)) { append("In") }
+                },
+                fontSize = size,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Serif,
+                style = androidx.compose.ui.text.TextStyle(shadow = titleShadow),
+                maxLines = 1,
+                softWrap = false,
+                onTextLayout = { layout ->
+                    // Step down until it fits, then stop. Floored at 0.7× like iOS, so a very
+                    // narrow screen shows a smaller wordmark rather than an unreadable one.
+                    if (layout.hasVisualOverflow && size > 27.sp) size *= 0.94f
+                }
+            )
+        }
     } else {
         Text(
             title,

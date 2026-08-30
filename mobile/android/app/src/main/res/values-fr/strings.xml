@@ -89,6 +89,14 @@
     <string name="profile_my_subscriptions_sub">Vos demandes d\'expériences</string>
     <string name="profile_host_dashboard">Tableau de bord hôte</string>
     <string name="profile_host_dashboard_sub">Annonces &amp;amp; demandes de réservation</string>
+
+    <!-- Le message de bienvenue affiché une seule fois après l'approbation, et le
+         raccourci permanent de l'en-tête. -->
+    <string name="host_welcome_title">Vous êtes un hôte approuvé</string>
+    <string name="host_welcome_sub">Votre tableau de bord hôte est prêt — ajoutez une annonce, fixez vos prix et répondez aux demandes de réservation.</string>
+    <string name="host_welcome_cta">Ouvrir le tableau de bord hôte</string>
+    <string name="host_welcome_dismiss">Plus tard</string>
+    <string name="cd_host_dashboard">Tableau de bord hôte</string>
     <string name="profile_host_services">Services hôte</string>
     <string name="profile_host_services_sub">Expériences &amp;amp; abonnements</string>
     <string name="profile_log_out">Se déconnecter</string>
@@ -467,12 +475,15 @@
     <string name="listing_resort_name_required">Saisissez le nom du resort ou de la résidence, ou choisissez une autre option.</string>
     <string name="listing_resort_name_letters">Écrivez le nom du resort ou de la résidence en toutes lettres \u2014 il ne peut pas contenir uniquement des symboles ou des chiffres.</string>
     <string name="listing_resort_name_too_short">Indiquez le nom complet du resort ou de la résidence \u2014 il doit contenir au moins %1$d lettres.</string>
-    <string name="listing_blocked_capacity">Voyageurs, chambres, lits et salles de bain doivent être d\'au moins %1$d.</string>
 
     <!-- Missing until now, so both fell back to English on a French phone. -->
     <string name="listing_edit_needs_pin">Placez votre logement sur la carte.</string>
     <string name="listing_edit_needs_photo">Une annonce doit avoir au moins une photo.</string>
     <string name="listing_capacity_floor">Chambres, lits, salles de bain et voyageurs doivent être au moins %1$d — un logement sans couchage ne peut pas être réservé.</string>
+    <string name="listing_capacity_bedrooms_max">Un logement de type %1$s ne peut pas avoir plus de %2$d chambres.</string>
+    <string name="listing_capacity_bedrooms_exact">Un logement de type %1$s est une pièce unique — il compte exactement %2$d chambre.</string>
+    <string name="listing_capacity_bedrooms_max_any">Une annonce ne peut pas avoir plus de %1$d chambres.</string>
+    <string name="listing_capacity_other_max">Voyageurs, lits et salles de bain ne peuvent pas dépasser %1$d, %2$d et %3$d.</string>
     <string name="listing_edit_discard_title">Abandonner vos modifications ?</string>
     <string name="listing_edit_discard_body">Vos modifications de cette annonce n\'ont pas été enregistrées.</string>
     <string name="listing_edit_discard_confirm">Abandonner</string>
@@ -868,6 +879,7 @@
     <string name="host_booking_filter_partially_refunded">Partiellement remboursée</string>
     <string name="host_booking_filter_empty_all">Aucune demande de réservation</string>
     <string name="host_booking_filter_empty_filtered">Aucune réservation dans ce statut.</string>
+    <string name="host_booking_guest_fallback">Voyageur</string>
 
     <!-- Filtre de statut des réservations du voyageur -->
     <string name="reservation_filter_pending">En attente d\'approbation</string>

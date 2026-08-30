@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
@@ -82,6 +83,10 @@ fun ReservationsScreen(
     state: ReservationsUiState,
     onSignIn: () -> Unit,
     onRetry: () -> Unit,
+    /** The server's `is_host`: gates the banner's hosting shortcut. Never a local guess. */
+    isHost: Boolean = false,
+    /** Opens the host dashboard from the banner's hosting shortcut. */
+    onOpenHost: () -> Unit = {},
     onExplore: () -> Unit = {},
     onOpen: (Booking) -> Unit = {},
     canReview: (Booking) -> Boolean = { false },
@@ -100,13 +105,22 @@ fun ReservationsScreen(
         modifier = Modifier.padding(contentPadding),
         // The QuickIn brand banner in place of a stock title bar (iOS `ReservationsView`).
         topBar = {
-            // No trailing action: iOS puts a "My subscriptions" button here, but that
-            // screen has no entry point on Android any more.
+            // iOS also puts a "My subscriptions" button here, but that screen has no entry point
+            // on Android any more — so the hosting shortcut is the only accessory. It renders for
+            // a host alone: a host's OWN reservations inbox lives in the dashboard, not in Trips.
             QkBrandHeader(
                 eyebrow = stringResource(R.string.reservations_eyebrow),
                 title = stringResource(R.string.reservations_title),
                 subtitle = stringResource(R.string.reservations_subtitle)
-            )
+            ) {
+                if (isHost) {
+                    QkHeaderIconButton(
+                        icon = Icons.Filled.AddHome,
+                        contentDescription = stringResource(R.string.cd_host_dashboard),
+                        onClick = onOpenHost
+                    )
+                }
+            }
         }
     ) { padding ->
         Box(

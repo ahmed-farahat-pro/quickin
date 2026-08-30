@@ -76,11 +76,17 @@ struct ReservationsView: View {
                         title: loc.t("reservations.myTrips"),
                         subtitle: loc.t("reservations.subtitle")
                     ) {
-                        QKHeaderIconButton(
-                            systemName: "sparkles",
-                            accessibilityLabel: loc.t("reservations.mySubscriptions")
-                        ) {
-                            MySubscriptionsView()
+                        HStack(spacing: 10) {
+                            // Host-only; renders nothing for a guest. A host's
+                            // own reservations inbox lives in the dashboard, not
+                            // in Trips, so this is the shortcut across.
+                            QKHostHeaderButton()
+                            QKHeaderIconButton(
+                                systemName: "sparkles",
+                                accessibilityLabel: loc.t("reservations.mySubscriptions")
+                            ) {
+                                MySubscriptionsView()
+                            }
                         }
                     }
                     content

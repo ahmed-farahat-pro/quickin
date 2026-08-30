@@ -134,8 +134,8 @@ The session store. Published: `isAuthenticated`, `user`, `errorMessage`, `isLoad
 - **Trips (`ReservationsView` / `ReservationDetailView`)** — guest bookings, cancellation (`CancellationPolicyView`), receipts, leave-a-review. The payment card on the detail screen branches on `PaymentFlowRules.stage(for:)`, never on a raw column: *Pay now* (confirmed, nothing submitted) / **the reviewer's rejection reason above a Try-again button** / *Payment under review* (submitted or escalated) / *Awaiting host approval* / nothing once paid. The rejection branch is what shows `payment_reject_reason` — without it a turned-down transfer looked exactly like a booking that had never been paid.
 - **Wishlist (`SavedView`)** — saved stays/experiences (auth-gated tab).
 - **Services (`ServicesView` / `ServiceDetailView`)** — experiences/add-ons; request flow.
-- **Profile (`ProfileView` / `ProfileSettingsView`)** — signed-in account; settings include language, currency, biometric toggle, become-host, ID verification, host entry points.
-- **Host suite** — `HostDashboardView`, `HostTabs`, `HostAnalyticsView`, `AddListingView` (1.2k lines; `LocationPickerMap` pin-picker), `AddServiceView`, `AvailabilityManagerView`, `HostProfileView`. Each `HostListingRow` offers **See it as a guest**, which re-reads the listing from `GET /api/local/listings/:id` — authenticated, so an unpublished listing resolves, and *without* `?asHost`, so the prices are the guest's commission-inclusive ones — and presents `ListingDetailView(previewAsGuest: true)`. Reached from Profile (unified account — there is no separate host tab set; everyone gets the single 5-tab guest layout).
+- **Profile (`ProfileView` / `ProfileSettingsView`)** — signed-in account; settings include language, currency, biometric toggle, become-host, ID verification, host entry points. **Hosting leads the scroll for every account**: a host sees the burgundy dashboard card (plus the one-time approval welcome) directly under the identity, exactly where a guest sees "Become a host". It used to sit second-to-last, below Terms & Privacy, which made approval *reduce* the feature's visibility.
+- **Host suite** — `HostDashboardView`, `HostTabs`, `HostAnalyticsView`, `AddListingView` (1.2k lines; `LocationPickerMap` pin-picker), `AddServiceView`, `AvailabilityManagerView`, `HostProfileView`. Each `HostListingRow` offers **See it as a guest**, which re-reads the listing from `GET /api/local/listings/:id` — authenticated, so an unpublished listing resolves, and *without* `?asHost`, so the prices are the guest's commission-inclusive ones — and presents `ListingDetailView(previewAsGuest: true)`. Reached from the top of Profile and from `QKHostHeaderButton` — a frosted lodge disc in the brand banner on Explore and Trips, rendered only when the server says `is_host`, so the dashboard is one tap from the tabs a host lives in (unified account — there is no separate host tab set; everyone gets the single 5-tab guest layout). `HostTabs.swift` is the **dead** host-only tab set from before that decision; nothing references it.
 - **AI** — `AITravelChatView`/`AITravelChatService` (chat), `AISearchView`/`AIService` (natural-language search), `ChatView`.
 - **Trust/verification** — `EgyptianIDScanView` (camera → OCR), `IdentityVerificationCard`, `TrustBadgesView`.
 - **Growth** — `GrowthViews` (discounts, seasonal pricing), `MySubscriptionsView`.
@@ -192,8 +192,10 @@ Consistent across all `*Service.swift`:
   Each suite mirrors the backend's `test/unit/*.test.mjs` and Android's `app/src/test/**` copy of
   the same rules — a change to a shared rule belongs in all three, and these are what notice when
   it isn't. Today: `ListingPricingRulesTests` (what a host may type
-  into a seasonal price field) and `PaymentFlowRulesTests` (which stage a reservation's payment
-  is at — the mirror of the backend's `src/lib/local/payment-flow-core.ts`).
+  into a seasonal price field), `PaymentFlowRulesTests` (which stage a reservation's payment
+  is at — the mirror of the backend's `src/lib/local/payment-flow-core.ts`) and
+  `HostWelcomeRulesTests` (whether a newly approved host is still owed the one-time dashboard
+  welcome — keyed per account, so a shared phone welcomes each host exactly once).
 
 ---
 
@@ -216,7 +218,7 @@ Consistent across all `*Service.swift`:
 - **Signing: wrong team blocks device builds.** Default/dev = `U4NBL42U65`; `97DNR5Y3Y5` is TestFlight-distribution only and will fail development signing.
 - **Project is generated.** Edit `project.yml` and re-run `xcodegen generate`; do not hand-edit `QuickIn.xcodeproj` (the working tree shows `project.pbxproj` churns).
 - **Signup never logs you in.** It returns `{ pending: true }` and forces OTP. Login of an unverified email returns **403** (not a generic failure) — `AuthStore` specifically inspects `needsVerification` to branch, so don't treat 403 as "wrong password".
-- **`isHost` is the source of truth, not `role`.** `AuthUser.init(from:)` infers `isHost` from `role == "host"` for legacy payloads; UI branches on `isHost`. Unified account — no host/guest choice at sign-in, and no separate host tab set (host features live under Profile).
+- **`isHost` is the source of truth, not `role`.** `AuthUser.init(from:)` infers `isHost` from `role == "host"` for legacy payloads; UI branches on `isHost`. Unified account — no host/guest choice at sign-in, and no separate host tab set. Host features are reached from the top of Profile and from the banner's hosting disc on Explore / Trips (`QKHostHeaderButton`), both gated on the server's `is_host` alone.
 - **Tokens are read straight from `UserDefaults` (`qk_token`) by every service**, decoupled from `AuthStore`. If you change the persistence key, update `AuthStore.tokenKey` (services reference it).
 - **Logout intentionally keeps the biometric Keychain session** so "Sign in with Face ID" survives logout. It's cleared only by turning Face ID off in Profile → Security, or replaced by a fresh password login. (`AuthStore.logout()`, `AuthService.swift:564`.)
 - **Biometric deferred-login dance:** when biometrics are available but no session is stored, sign-in uses `loginDeferred` and holds the session out of `isAuthenticated` until the "Enable Face ID?" sheet is answered (`AuthView.handle`/`finishAuthenticated`). Forgetting to call `commitDeferredSession` would leave the user "authenticated server-side but not signed in" in the UI.

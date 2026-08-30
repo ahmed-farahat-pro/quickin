@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.HourglassTop
@@ -84,6 +85,7 @@ import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Gold
+import com.quickin.app.ui.theme.GoldDeep
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.SuccessGreen
@@ -120,6 +122,10 @@ fun ProfileScreen(
     /** Opens the "Apply to host" form (a first application, or a re-application after a rejection). */
     onOpenHostApplication: () -> Unit = {},
     onOpenHost: () -> Unit = {},
+    /** True while this account is still owed the one-time "you're an approved host" welcome. */
+    hostWelcome: Boolean = false,
+    /** Retires that welcome for this account (tapping its CTA or "Not now"). */
+    onDismissHostWelcome: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
@@ -256,14 +262,32 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Become a host — surfaced at the very top so it's the first thing a guest sees instead of
-            // being buried below the settings sections. The card renders whichever of the four
-            // application states the SERVER reports (none / pending / rejected / approved).
-            HostApplicationCard(
-                status = state.hostStatus,
-                reviewNote = state.hostReviewNote,
-                onApply = onOpenHostApplication
-            )
+            // Hosting sits at the very top for EVERY account, so the surface a host needs most is
+            // the first thing they see. It used to be the reverse: a guest's "Become a host" card
+            // was up here while an approved host's dashboard sat in a section below Account,
+            // Receipts, Messages and Currency — approval made the feature HARDER to find than
+            // applying for it did.
+            if (isHost) {
+                if (hostWelcome) {
+                    HostWelcomeCard(
+                        onOpenDashboard = {
+                            onDismissHostWelcome()
+                            onOpenHost()
+                        },
+                        onDismiss = onDismissHostWelcome
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                HostDashboardCard(onClick = onOpenHost)
+            } else {
+                // The card renders whichever of the four application states the SERVER reports
+                // (none / pending / rejected / approved).
+                HostApplicationCard(
+                    status = state.hostStatus,
+                    reviewNote = state.hostReviewNote,
+                    onApply = onOpenHostApplication
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -325,18 +349,12 @@ fun ProfileScreen(
             SectionHeader(stringResource(R.string.money_currency), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
             CurrencyPicker()
 
-            // Hosting section — host management entries. The non-host "Become a host" card now lives at
-            // the top of the profile (above), so this whole section only renders for a host.
+            // Hosting section — the REST of the host management entries. The dashboard row that used
+            // to lead this section now sits at the top of the profile (above) as a card, so it is
+            // deliberately not repeated here; the money / analytics / services screens stay.
             if (isHost) {
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-                SettingsRow(
-                    icon = Icons.Filled.AddHome,
-                    title = stringResource(R.string.profile_host_dashboard),
-                    subtitle = stringResource(R.string.profile_host_dashboard_sub),
-                    onClick = onOpenHost
-                )
-                Spacer(modifier = Modifier.height(12.dp))
                 // "Earnings & payouts" — host money view (Section 9).
                 SettingsRow(
                     icon = Icons.Filled.Payments,
@@ -671,6 +689,109 @@ fun ProfileSignInCta(
  * Applying never grants hosting by itself — only an admin approval flips `is_host`.
  */
 @Composable
+private fun HostDashboardCard(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(BurgundyGradient, RoundedCornerShape(18.dp))
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Filled.AddHome, contentDescription = null, tint = Cream, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(13.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.profile_host_dashboard),
+                    color = Cream,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                Text(
+                    stringResource(R.string.profile_host_dashboard_sub),
+                    color = Cream.copy(alpha = 0.82f),
+                    fontSize = 12.5.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Cream, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/**
+ * The one-time "you're an approved host" welcome, shown above [HostDashboardCard] the first time
+ * this device sees the account come back with `is_host` ([HostWelcomeRules]).
+ *
+ * Approval happens in `/ops`, out of the app's sight: the account simply starts answering
+ * `is_host: true` on its next read, with nothing on screen to mark it. Without this the host has
+ * to *notice* that a card changed near the top of a screen they may not open for days.
+ *
+ * Deliberately a cream-and-gold card rather than a second burgundy one, so it reads as a note
+ * ABOUT the dashboard sitting underneath it instead of a duplicate of it.
+ */
+@Composable
+private fun HostWelcomeCard(onOpenDashboard: () -> Unit, onDismiss: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(18.dp))
+            .border(1.5.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(18.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(Icons.Filled.Verified, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.host_welcome_title),
+                    color = Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+                Text(
+                    stringResource(R.string.host_welcome_sub),
+                    color = Muted,
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Opening the dashboard IS the acknowledgement — a host who has been there does not
+            // need welcoming to it again.
+            GradientButton(onClick = onOpenDashboard, radius = 22.dp, height = 44.dp) {
+                Text(
+                    stringResource(R.string.host_welcome_cta),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+            TextButton(onClick = onDismiss) {
+                Text(
+                    stringResource(R.string.host_welcome_dismiss),
+                    color = Muted,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun HostApplicationCard(status: String, reviewNote: String?, onApply: () -> Unit) {
     BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
@@ -732,7 +853,8 @@ private fun HostApplicationCard(status: String, reviewNote: String?, onApply: ()
             }
 
             // Only "none" and "rejected" can act — a pending application is read-only, and an
-            // approved account uses the Hosting section below.
+            // approved account never renders this card at all (the caller shows the dashboard
+            // card instead). The `approved` arm is kept only as belt-and-braces.
             if (status != HOST_STATUS_PENDING && status != HOST_STATUS_APPROVED) {
                 Spacer(Modifier.height(14.dp))
                 GradientButton(

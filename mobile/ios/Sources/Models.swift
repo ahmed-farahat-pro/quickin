@@ -671,6 +671,12 @@ struct HostBooking: Codable, Identifiable, Hashable {
     let reservationCode: String?
     let title: String?
     let location: String?
+    /// The requesting guest's full name, from the host-only `guest_name` column.
+    /// `nil` when their account has been deleted — the backend LEFT JOINs so the
+    /// host keeps the record of the stay — and on an older response that omitted
+    /// it. The card falls back to a generic "Guest" so it is never nameless
+    /// (the fallback lives in the view: `L.t` is main-actor isolated).
+    let guestName: String?
     let checkIn: String
     let checkOut: String
     let guests: Int
@@ -693,6 +699,7 @@ struct HostBooking: Codable, Identifiable, Hashable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, location, guests, status
+        case guestName = "guest_name"
         case reservationCode = "reservation_code"
         case checkIn = "check_in"
         case checkOut = "check_out"

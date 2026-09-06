@@ -9,21 +9,25 @@ plugins {
 
 android {
     namespace = "com.quickin.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.quickin.app"
         minSdk = 26
-        targetSdk = 35
+        // Play requires targetSdk 36 (Android 16) for new uploads as of 2026;
+        // an app on 35 is rejected. compileSdk moves with it — targetSdk may
+        // never exceed compileSdk.
+        targetSdk = 36
         // Play rejects a versionCode that has EVER been used ("Version code N has already
         // been used"), and it can only ever increase — you can never go back down. Codes
         // 1 and 2 are burned. Rather than incrementing one at a time and burning an upload
         // per collision, this switches to a derived scheme: MAJOR*10000 + MINOR*100 + PATCH.
-        // 1.2.0 → 10200. Every future bump follows the same formula from versionName, so a
-        // collision is impossible as long as versionName goes up.
-        versionCode = 10200
-        // Kept in step with the iOS MARKETING_VERSION in mobile/ios/project.yml.
-        versionName = "1.2.0"
+        // 1.5.0 → 10500. Every future bump follows the same formula from versionName, so a
+        // collision is impossible as long as versionName goes up. Burned on Play already:
+        // 1, 2 and 10200 — 10500 clears all of them and matches the iOS train.
+        versionCode = 10500
+        // Kept in step with the iOS MARKETING_VERSION in mobile/ios/project.yml (1.5.0).
+        versionName = "1.5.0"
 
         // Google Maps API key for the (optional) Google Maps Explore map. Defaults to "" so the
         // app builds and runs with the osmdroid price-pill fallback when no key is provided.

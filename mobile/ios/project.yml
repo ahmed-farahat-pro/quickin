@@ -105,7 +105,8 @@ targets:
         # 2026-08-22, which is what opened 1.4.0. fastlane's beta lane now checks
         # this against App Store Connect before it archives and tells you what to
         # bump to, so a closed train costs a second rather than a full build.
-        MARKETING_VERSION: "1.4.0"
+        # 1.4.0 closed in turn, which is what opened 1.5.0.
+        MARKETING_VERSION: "1.5.0"
         # Build number must be unique across every train, forever — a number is
         # burned even by an upload that later goes INVALID. fastlane's beta lane
         # overrides this at build time with (highest number it can find) + 1, and

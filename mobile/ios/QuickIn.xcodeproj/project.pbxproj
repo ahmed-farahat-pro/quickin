@@ -33,6 +33,7 @@
 		3625CCC97E934F5DD1F07DC6 /* HostTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */; };
 		36CD78C15BD27AA964B9504B /* ListingsMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2009920185CD3646C275D761 /* ListingsMapView.swift */; };
 		386FD4149BBB3E15F527DD08 /* ReviewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F062E400006FB206A7F4885D /* ReviewService.swift */; };
+		3A08458AD227E77B7086F1B5 /* ListingPhotoUpload.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33D667C8A2B5D1C3075116D /* ListingPhotoUpload.swift */; };
 		3D17FC92E6ADBED6473EFB62 /* PhotoPickerLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7813E64C89905768E8507B2D /* PhotoPickerLoader.swift */; };
 		456848BB76A1571E669A0C0A /* HostServicesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65CD8F2A7131C7EA976878F /* HostServicesSection.swift */; };
 		457BC6A4981F4D6565DEB1DE /* PolicyWarningBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72721440DE7CCA97D228B2C /* PolicyWarningBanner.swift */; };
@@ -196,6 +197,7 @@
 		BC9FA3A19876C08BF97B6E09 /* PushManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushManager.swift; sourceTree = "<group>"; };
 		C06FB6843DC2F72744566032 /* ConversationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationService.swift; sourceTree = "<group>"; };
 		C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSettingsView.swift; sourceTree = "<group>"; };
+		C33D667C8A2B5D1C3075116D /* ListingPhotoUpload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingPhotoUpload.swift; sourceTree = "<group>"; };
 		C3D5ECA9D1875567A60ABB71 /* HostWelcomeRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostWelcomeRules.swift; sourceTree = "<group>"; };
 		C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneRules.swift; sourceTree = "<group>"; };
 		CB52C8948744ACE9887DB2B9 /* HostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostService.swift; sourceTree = "<group>"; };
@@ -283,6 +285,7 @@
 				40B4671FF2BB2B4E2DD9E67F /* ListingCapacityPolicy.swift */,
 				2B64B52903D80D34CB25CB57 /* ListingDetailView.swift */,
 				8A3E4380798DA7F0EFC96531 /* ListingGeoPolicy.swift */,
+				C33D667C8A2B5D1C3075116D /* ListingPhotoUpload.swift */,
 				26C6902F1E775B689DC20591 /* ListingPricingRules.swift */,
 				2009920185CD3646C275D761 /* ListingsMapView.swift */,
 				6194B50F23543B7BD6ED9848 /* ListingsView.swift */,
@@ -485,6 +488,7 @@
 				C7DAF5B0AE81DCC2DF89E8F4 /* ListingCapacityPolicy.swift in Sources */,
 				7FA570807B8E74483CF88830 /* ListingDetailView.swift in Sources */,
 				DFB1243FA53554A6D74E9C4E /* ListingGeoPolicy.swift in Sources */,
+				3A08458AD227E77B7086F1B5 /* ListingPhotoUpload.swift in Sources */,
 				F503394F93A017D46C96ECB7 /* ListingPricingRules.swift in Sources */,
 				36CD78C15BD27AA964B9504B /* ListingsMapView.swift in Sources */,
 				0EBCC2FF2EFB4774BA1F7246 /* ListingsView.swift in Sources */,
@@ -614,10 +618,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 34;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 28;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -625,7 +629,6 @@
 				);
 				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -693,10 +696,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
-				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
-				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 34;
-				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 28;
+				DEVELOPMENT_TEAM = U4NBL42U65;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -704,7 +707,6 @@
 				);
 				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

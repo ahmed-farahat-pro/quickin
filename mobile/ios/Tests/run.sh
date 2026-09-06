@@ -68,3 +68,9 @@ swiftc -o "$OUT/listing-capacity-policy" \
   Tests/ListingCapacityPolicyTests/main.swift \
   Sources/ListingCapacityPolicy.swift
 "$OUT/listing-capacity-policy"
+
+echo "\nListingPhotoUpload — how a listing's photos are split so no request is refused as too big\n"
+swiftc -o "$OUT/listing-photo-upload" \
+  Tests/ListingPhotoUploadTests/main.swift \
+  Sources/ListingPhotoUpload.swift
+"$OUT/listing-photo-upload"

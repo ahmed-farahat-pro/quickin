@@ -317,6 +317,12 @@ struct AddListingView: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+
+    /// Set once the create POST has succeeded — the listing EXISTS from here on,
+    /// even if some of its photos didn't make it. The footer stops offering
+    /// "Submit for review" at that point: a host who reads a failure over a
+    /// listing that was created taps Submit again and ends up with two.
+    @State private var submitted = false
     /// The platform commission, so the price fields can show the host what a
     /// guest will actually pay. Advisory only — the server prices the listing
     /// either way — so a failed fetch just leaves the hint hidden.
@@ -672,7 +678,7 @@ struct AddListingView: View {
     /// Bottom Back / Next (or Publish) bar.
     private var navBar: some View {
         HStack(spacing: 12) {
-            if step > 1 {
+            if step > 1, !submitted {
                 Button { goBack() } label: {
                     Text("Back")
                         .fontWeight(.semibold)
@@ -695,6 +701,12 @@ struct AddListingView: View {
                 }
                 .buttonStyle(QKPressStyle())
                 .disabled(!currentStepValid)
+            } else if submitted {
+                // The listing exists; the only thing left to do is leave.
+                Button { dismiss() } label: {
+                    QKPrimaryButtonLabel(title: L.t("common.done"))
+                }
+                .buttonStyle(QKPressStyle())
             } else {
                 Button { Task { await submit() } } label: {
                     QKPrimaryButtonLabel(title: L.t("approval.submitForReview"), isLoading: isSaving)
@@ -941,12 +953,34 @@ struct AddListingView: View {
         )
 
         do {
-            _ = try await HostService.shared.createListing(payload)
+            let outcome = try await HostService.shared.createListing(payload)
+            // The dashboard has a new listing either way.
             onCreated()
-            dismiss()
+            if outcome.isComplete {
+                dismiss()
+                return
+            }
+            // The listing was created but not everything reached it. Say which
+            // part, and stay open with the button turned into Done — see
+            // `submitted`.
+            submitted = true
+            errorMessage = partialNotice(outcome)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// The sentence for a create that landed the listing but not all of it: what
+    /// exists, then what is missing and where the host fixes it.
+    private func partialNotice(_ outcome: HostService.CreateOutcome) -> String {
+        var parts = [L.t("listing.partial.created")]
+        if outcome.photosMissing > 0 {
+            parts.append(String(format: L.t("listing.partial.photos"), "\(outcome.photosMissing)"))
+        }
+        if outcome.documentMissing {
+            parts.append(L.t("listing.partial.doc"))
+        }
+        return parts.joined(separator: " ")
     }
 }
 
@@ -2834,11 +2868,15 @@ struct EditListingView: View {
             serverPhotos = current.sortedImages.map(ListingPhotoDraft.init)
         }
 
-        // 2. Photos the host added — uploaded once, in display order.
+        // 2. Photos the host added — in display order, and in as many requests
+        //    as the body limit needs. All of them at once is a 413 the server
+        //    never sees (see `ListingPhotoUpload`); one batch per request also
+        //    means a failure halfway keeps the batches that landed, which is what
+        //    makes tapping Save again resume rather than duplicate.
         let addedURLs = photos.filter { !$0.isExisting }.map(\.url)
-        if !addedURLs.isEmpty {
+        for batch in ListingPhotoUpload.batches(addedURLs) {
             let knownIDs = Set(serverPhotos.compactMap(\.imageID))
-            current = try await HostService.shared.addListingPhotos(listingID: listing.id, urls: addedURLs)
+            current = try await HostService.shared.addListingPhotos(listingID: listing.id, urls: batch)
             // The rows the listing just gained, in the order they were sent.
             var freshIDs = current.sortedImages.compactMap(\.id).filter { !knownIDs.contains($0) }
             photos = photos.map { photo in

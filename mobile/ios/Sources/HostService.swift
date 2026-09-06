@@ -27,8 +27,12 @@ struct HostService {
 
     private let session: URLSession = {
         let cfg = URLSessionConfiguration.default
-        // Create + ownership-doc PATCH carry a base64 image, so allow extra time.
-        cfg.timeoutIntervalForRequest = 20
+        // Create, the photo appends and the ownership-doc PATCH all carry base64
+        // images — megabytes of them, from a phone on 4G. This is the idle
+        // timeout, so it only fires when the upload has actually stalled; at 20s
+        // a host on a weak signal was told the create failed while it was still
+        // going out, and tapping Submit again is how a listing gets made twice.
+        cfg.timeoutIntervalForRequest = 60
         cfg.waitsForConnectivity = true
         return URLSession(configuration: cfg)
     }()
@@ -106,18 +110,34 @@ struct HostService {
         var lng: Double?
     }
 
-    /// Create a listing. Throws `HostError.forbidden` when the signed-in account
-    /// isn't a host (backend 403), `HostError.message` for other 4xx/5xx.
-    @discardableResult
-    func createListing(_ listing: NewListing) async throws -> Listing {
-        guard let token else { throw HostError.notSignedIn }
+    /// What one create attempt actually landed.
+    ///
+    /// A listing's photos do not all fit in one request — see `ListingPhotoUpload`
+    /// for why — so a create is a POST followed by the appends its photos need.
+    /// The POST either creates the listing or throws; a later append that fails
+    /// must NOT throw, because by then the listing exists, and a host told
+    /// "Couldn't create the listing" taps Submit again and ends up with two.
+    struct CreateOutcome {
+        /// The listing as the server last echoed it.
+        let listing: Listing
+        /// Photos that never landed, because an append request failed. The host
+        /// adds them from "Edit listing"; the listing itself is fine.
+        let photosMissing: Int
+        /// True when the ownership document had to travel in its own PATCH and
+        /// that PATCH failed. The dashboard offers to re-submit it.
+        let documentMissing: Bool
 
-        let url = URL(string: "\(Config.apiBaseURL)/api/local/listings")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        /// Everything the host filled in reached the server.
+        var isComplete: Bool { photosMissing == 0 && !documentMissing }
+    }
+
+    /// Create a listing. Throws `HostError.forbidden` when the signed-in account
+    /// isn't a host (backend 403), `HostError.message` for other 4xx/5xx — and
+    /// only for the POST that creates the row. Photos that fail to follow it are
+    /// reported in the outcome instead, never thrown.
+    @discardableResult
+    func createListing(_ listing: NewListing) async throws -> CreateOutcome {
+        guard token != nil else { throw HostError.notSignedIn }
 
         var body: [String: Any] = [
             "title": listing.title,
@@ -131,9 +151,6 @@ struct HostService {
             "max_guests": listing.maxGuests,
             "property_type": listing.propertyType,
         ]
-        // Device photos (each a data: URL or http(s) URL) in display order; `[]`
-        // when the host added none. The first image is the listing cover.
-        body["images"] = listing.images
         body["amenities"] = listing.amenities
         // Host-set cancellation policy (backend `cancellation_policy` column).
         body["cancellation_policy"] = listing.cancellationPolicy.rawValue
@@ -155,12 +172,6 @@ struct HostService {
         }
         // Only forward the months the host actually filled with a positive rate.
         body["monthly_prices"] = listing.monthlyPrices.filter { $0.value > 0 }
-        // Ownership / proof document (data: URL). When present the backend queues
-        // the new listing for review; included only when the host attached one.
-        let trimmedDoc = listing.ownershipDoc.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedDoc.isEmpty {
-            body["ownership_doc"] = trimmedDoc
-        }
         // Curated browse region the host selected (backend `region` column).
         if let region = listing.region?.trimmingCharacters(in: .whitespacesAndNewlines),
            !region.isEmpty {
@@ -183,6 +194,72 @@ struct HostService {
             body["lat"] = lat
             body["lng"] = lng
         }
+
+        // Everything above is text. The photos and the ownership document are the
+        // only multi-MB things a host sends, and all of them in one body is what
+        // Vercel refused with a bare 413 before the function ran — so the body is
+        // measured here (a description is host-written and has no useful upper
+        // bound to assume) and the photos are dealt out across as many requests
+        // as they need. Ownership / proof document (data: URL): its presence is
+        // also what queues the new listing for review.
+        let doc = listing.ownershipDoc.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fixedBytes = (try? JSONSerialization.data(withJSONObject: body).count) ?? 8_192
+        // `"ownership_doc":` and the comma around it, on top of the value itself.
+        let docBytes = doc.isEmpty ? 0 : ListingPhotoUpload.bodyBytes(doc) + 16
+        let plan = ListingPhotoUpload.plan(
+            photos: listing.images,
+            docBytes: docBytes,
+            fixedBytes: fixedBytes
+        )
+
+        // Device photos (each a data: URL or http(s) URL) in display order; `[]`
+        // when the host added none. The first image is the listing cover.
+        body["images"] = plan.withCreate
+        if !doc.isEmpty, !plan.docDeferred { body["ownership_doc"] = doc }
+
+        var created = try await postListing(body)
+
+        // The photos that did not fit. A failure here stops the run rather than
+        // trying the rest: the usual cause is the connection, and eight more
+        // doomed uploads only make the host wait longer to be told.
+        var photosMissing = 0
+        for (index, batch) in plan.appended.enumerated() {
+            do {
+                created = try await addListingPhotos(listingID: created.id, urls: batch)
+            } catch {
+                photosMissing = plan.appended[index...].reduce(0) { $0 + $1.count }
+                break
+            }
+        }
+
+        var documentMissing = false
+        if plan.docDeferred, !doc.isEmpty {
+            do {
+                created = try await resubmitOwnershipDoc(listingID: created.id, doc: doc)
+            } catch {
+                documentMissing = true
+            }
+        }
+
+        return CreateOutcome(
+            listing: created,
+            photosMissing: photosMissing,
+            documentMissing: documentMissing
+        )
+    }
+
+    /// The `POST /api/local/listings` that creates the row. Separate from
+    /// `sendListing` only for its 403, which is about the account's role rather
+    /// than about owning a listing that does not exist yet.
+    private func postListing(_ body: [String: Any]) async throws -> Listing {
+        guard let token else { throw HostError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/listings")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
@@ -384,6 +461,13 @@ struct HostService {
     /// entry is a `data:image/*;base64,…` URL produced by
     /// `QKAvatarImage.makeDataURL` (or an `http(s)` URL). They land after the
     /// existing photos, in the order given.
+    ///
+    /// ONE request, so callers must hand it a batch that fits the body limit —
+    /// `ListingPhotoUpload.batches` decides what fits. Passing ten phone photos
+    /// at once is the 413 this call exists to route around. Batching is left to
+    /// the caller because it is the caller that knows how to resume: the editor
+    /// re-seeds its photo rows from every response, so a batch that fails is
+    /// retried without re-uploading the ones that landed.
     @discardableResult
     func addListingPhotos(listingID: String, urls: [String]) async throws -> Listing {
         try await sendListing(

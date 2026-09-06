@@ -807,6 +807,13 @@ enum Strings {
         "listing.movePhotoDown": "Move photo down",
         // %@ = the photo cap (10)
         "listing.photoCap": "You can add up to %@ photos.",
+        // A create that landed the listing but not all of its photos — the
+        // wizard says so and stops offering Submit, because "couldn't create the
+        // listing" over a listing that exists is how a host makes a second one.
+        // %@ = how many photos are missing.
+        "listing.partial.created": "Your listing was created.",
+        "listing.partial.photos": "%@ of your photos couldn't be uploaded — add them from Edit listing.",
+        "listing.partial.doc": "Your ownership document couldn't be uploaded — re-submit it from your listing.",
 
         // Host listing form — the Basics step, shared by the add wizard and the
         // editor. All three fields gate the step, so all three are marked; the
@@ -1867,6 +1874,10 @@ enum Strings {
         "listing.movePhotoDown": "تحريك الصورة لأسفل",
         // %@ = the photo cap (10)
         "listing.photoCap": "يمكنك إضافة حتى %@ صور.",
+        // %@ = عدد الصور التي لم تُحمَّل
+        "listing.partial.created": "تم إنشاء إعلانك.",
+        "listing.partial.photos": "لم يتم تحميل %@ من صورك — أضفها من تعديل الإعلان.",
+        "listing.partial.doc": "لم يتم تحميل مستند الملكية — أعد إرساله من إعلانك.",
 
         // Host listing form \u{2014} Basics step
         "listing.form.title": "العنوان",
@@ -2854,6 +2865,10 @@ enum Strings {
         "listing.movePhotoDown": "Déplacer la photo vers le bas",
         // %@ = the photo cap (10)
         "listing.photoCap": "Vous pouvez ajouter jusqu'à %@ photos.",
+        // %@ = le nombre de photos manquantes
+        "listing.partial.created": "Votre annonce a été créée.",
+        "listing.partial.photos": "%@ de vos photos n'ont pas pu être envoyées — ajoutez-les depuis Modifier l'annonce.",
+        "listing.partial.doc": "Votre document de propriété n'a pas pu être envoyé — renvoyez-le depuis votre annonce.",
 
         // Host listing form \u{2014} Basics step
         "listing.form.title": "Titre",
@@ -3817,6 +3832,10 @@ enum Strings {
         "listing.movePhotoDown": "Mover la foto hacia abajo",
         // %@ = the photo cap (10)
         "listing.photoCap": "Puedes añadir hasta %@ fotos.",
+        // %@ = cuántas fotos faltan
+        "listing.partial.created": "Tu anuncio se ha creado.",
+        "listing.partial.photos": "No se pudieron subir %@ de tus fotos: añádelas desde Editar anuncio.",
+        "listing.partial.doc": "No se pudo subir tu documento de propiedad: vuelve a enviarlo desde tu anuncio.",
 
         // Host listing form \u{2014} Basics step
         "listing.form.title": "Título",

@@ -26,7 +26,16 @@ data class CreateListingUiState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     /** Set on a 201; carries the created listing so the form can show success. */
-    val created: Listing? = null
+    val created: Listing? = null,
+    /**
+     * Photos the create landed without. A listing's photos travel in several requests (see
+     * [ListingPhotoUpload]), and one of them can fail after the listing itself exists — so this is
+     * a note on the success card, not an error: telling a host "couldn't publish" over a listing
+     * that WAS published is how they end up publishing it twice.
+     */
+    val photosMissing: Int = 0,
+    /** Same, for an ownership document that had to travel in its own request. */
+    val documentMissing: Boolean = false
 )
 
 /**
@@ -442,7 +451,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
         _create.value = CreateListingUiState(isSubmitting = true)
         viewModelScope.launch {
             try {
-                val listing = BookingService.createListing(
+                val result = BookingService.createListing(
                     token = token,
                     title = title.trim(),
                     description = description.trim(),
@@ -468,10 +477,14 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
                     weekendDays = weekendDays,
                     monthlyPrices = monthlyPrices.filterValues { it > 0.0 }
                 )
-                _create.value = CreateListingUiState(created = listing)
+                _create.value = CreateListingUiState(
+                    created = result.listing,
+                    photosMissing = result.photosMissing,
+                    documentMissing = result.documentMissing
+                )
                 // Surface the new listing in the host's "Listings" tab immediately.
                 _listings.value = _listings.value.copy(
-                    listings = listOf(listing) + _listings.value.listings,
+                    listings = listOf(result.listing) + _listings.value.listings,
                     loaded = true
                 )
             } catch (e: Exception) {

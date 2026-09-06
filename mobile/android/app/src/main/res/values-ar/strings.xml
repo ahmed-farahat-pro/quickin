@@ -517,6 +517,9 @@
     <string name="approval_upload_ownership_doc">رفع مستند إثبات الملكية</string>
     <string name="approval_submitted_for_review">تم الإرسال للمراجعة</string>
     <string name="approval_pending_note">إعلانك قيد المراجعة وغير متاح للعامة بعد. سنُعلمك بمجرد الموافقة عليه.</string>
+    <!-- %1$d = عدد الصور التي لم تُحمَّل -->
+    <string name="listing_partial_photos">لم يتم تحميل %1$d من صورك — أضفها من تعديل الإعلان.</string>
+    <string name="listing_partial_doc">لم يتم تحميل مستند الملكية — أعد إرساله من إعلانك.</string>
     <string name="approval_rejected_note">تم رفض مستند الملكية. أعد رفعه لإرسال إعلانك للمراجعة مرة أخرى.</string>
     <string name="approval_rejected_reason">سبب عدم الموافقة</string>
     <string name="approval_doc_resubmitted">تم إرسال المستند. إعلانك قيد المراجعة مرة أخرى.</string>

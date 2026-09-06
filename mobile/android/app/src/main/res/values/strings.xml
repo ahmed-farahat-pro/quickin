@@ -532,6 +532,11 @@
     <string name="approval_upload_ownership_doc">Upload ownership document</string>
     <string name="approval_submitted_for_review">Submitted for review</string>
     <string name="approval_pending_note">Your listing is under review and isn\'t public yet. We\'ll let you know once it\'s approved.</string>
+    <!-- A create that landed the listing but not all of its photos. Shown UNDER the success card,
+         never as an error: the listing exists, and telling a host otherwise is how they publish it
+         twice. %1$d = how many photos are missing. -->
+    <string name="listing_partial_photos">%1$d of your photos couldn\'t be uploaded — add them from Edit listing.</string>
+    <string name="listing_partial_doc">Your ownership document couldn\'t be uploaded — re-submit it from your listing.</string>
     <string name="approval_rejected_note">Your ownership document was declined. Re-upload it to submit your listing for review again.</string>
     <string name="approval_rejected_reason">Why it wasn\'t approved</string>
     <string name="approval_doc_resubmitted">Document submitted. Your listing is under review again.</string>

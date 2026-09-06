@@ -1,5 +1,6 @@
 package com.quickin.app
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -69,6 +70,8 @@ sealed interface AuthOutcome {
  *   POST {base}/api/local/host/apply {full_name,national_id,…}      -> {ok,host_status,application} | {error}
  */
 object AuthService {
+
+    private const val TAG = "AuthService"
 
     /** Thrown so callers can distinguish a dead session (401) from validation/conflict (400/409). */
     class HttpError(val code: Int, message: String) : RuntimeException(message)
@@ -196,6 +199,12 @@ object AuthService {
         }
         val (code, text) = request("/api/auth/google", body)
         if (code !in 200..299) {
+            // The banner can only show `error` ("Google sign-in failed"), but the route also
+            // returns a `detail` naming the actual cause — "Audience mismatch", "Invalid token
+            // signature", "Token expired". Dropping it left a backend rejection indistinguishable
+            // from a Play-services one AND invisible in logcat, so log the raw body here:
+            //   adb logcat -s AuthService
+            Log.w(TAG, "Google sign-in rejected by the backend: HTTP $code $text")
             throw RuntimeException(extractError(text, code))
         }
         parseAuth(text)

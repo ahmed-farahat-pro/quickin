@@ -27,6 +27,34 @@ object BookingService {
     class HttpError(val code: Int, message: String) : RuntimeException(message)
 
     /**
+     * How long to wait for a reply to a request that carries photos. The server uploads every
+     * photo in the body to Blob before it answers, so these are the slowest calls the app makes and
+     * the 15s the rest use is not enough for a batch of them.
+     */
+    private const val PHOTO_READ_TIMEOUT_MS = 60_000
+
+    /**
+     * What one create attempt actually landed.
+     *
+     * A listing's photos do not all fit in one request — see [ListingPhotoUpload] for why — so a
+     * create is a POST followed by the appends its photos need. The POST either creates the listing
+     * or throws; a later append that fails must NOT throw, because by then the listing exists, and
+     * a host told "couldn't publish the listing" taps Publish again and ends up with two.
+     */
+    data class CreateListingResult(
+        /** The listing as the server last echoed it. */
+        val listing: Listing,
+        /** Photos that never landed, because an append request failed. The host adds them from
+         *  "Edit listing"; the listing itself is fine. */
+        val photosMissing: Int,
+        /** True when the ownership document had to travel in its own PATCH and that PATCH failed. */
+        val documentMissing: Boolean
+    ) {
+        /** Everything the host filled in reached the server. */
+        val isComplete: Boolean get() = photosMissing == 0 && !documentMissing
+    }
+
+    /**
      * Reserves [listingId] for the given range. Dates must be yyyy-MM-dd.
      * Throws [HttpError] (401 not signed in, 400 e.g. "Those dates are not available").
      */
@@ -731,7 +759,7 @@ object BookingService {
         weekendPrice: Double? = null,
         weekendDays: Collection<Int> = WeekendSchedule.defaultDays,
         monthlyPrices: Map<String, Double> = emptyMap()
-    ): Listing = withContext(Dispatchers.IO) {
+    ): CreateListingResult = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("title", title)
             put("description", description)
@@ -758,9 +786,6 @@ object BookingService {
                 put("lat", lat)
                 put("lng", lng)
             }
-            // Listing photos: an array of strings, each a data:image/jpeg;base64 data URL (from the
-            // device picker) or an http(s) URL. The first is the cover. Blank entries are dropped.
-            put("images", JSONArray().apply { images.forEach { if (it.isNotBlank()) put(it) } })
             // Selected amenity labels (e.g. "WiFi", "Pool"); always sent (possibly empty).
             val amenityArr = JSONArray()
             amenities.forEach { amenityArr.put(it) }
@@ -775,10 +800,88 @@ object BookingService {
             // field blank.
             putWeekend(weekendPrice, weekendDays)
             put("monthly_prices", monthlyPricesJson(monthlyPrices))
-            // Ownership/proof document (data:image/* URL). Sending it queues the listing for review.
-            if (!ownershipDoc.isNullOrBlank()) put("ownership_doc", ownershipDoc)
         }
-        val text = send("POST", token, "/api/local/listings", body)
+
+        // Everything above is text. The photos and the ownership document are the only multi-MB
+        // things a host sends, and all of them in one body is what Vercel refuses with a bare 413
+        // before the function runs — so the body is measured here (a description is host-written
+        // and has no useful upper bound to assume) and the photos are dealt out across as many
+        // requests as they need. Listing photos are data:image/jpeg;base64 URLs from the device
+        // picker or http(s) URLs; the first is the cover, and blank entries are dropped. Sending
+        // the ownership/proof document is what queues the listing for review.
+        val photos = images.filter { it.isNotBlank() }
+        val doc = ownershipDoc?.trim().orEmpty()
+        val fixedBytes = body.toString().toByteArray(Charsets.UTF_8).size
+        // `"ownership_doc":` and the comma around it, on top of the value itself.
+        val docBytes = if (doc.isBlank()) 0 else ListingPhotoUpload.bodyBytes(doc) + 16
+        val plan = ListingPhotoUpload.plan(photos, docBytes, fixedBytes)
+        body.put("images", JSONArray().apply { plan.withRequest.forEach { put(it) } })
+        if (doc.isNotBlank() && !plan.docDeferred) body.put("ownership_doc", doc)
+
+        var created = SupabaseService.parseListing(
+            JSONObject(send("POST", token, "/api/local/listings", body, PHOTO_READ_TIMEOUT_MS))
+        )
+
+        // The photos that did not fit. A failure here stops the run rather than trying the rest:
+        // the usual cause is the connection, and more doomed uploads only make the host wait longer
+        // to be told. Deliberately not rethrown — see [CreateListingResult].
+        var photosMissing = 0
+        for ((index, batch) in plan.appended.withIndex()) {
+            try {
+                created = addListingPhotos(token, created.id, batch)
+            } catch (e: Exception) {
+                photosMissing = plan.appended.drop(index).sumOf { it.size }
+                break
+            }
+        }
+
+        var documentMissing = false
+        if (plan.docDeferred && doc.isNotBlank()) {
+            try {
+                created = submitOwnershipDoc(token, created.id, doc)
+            } catch (e: Exception) {
+                documentMissing = true
+            }
+        }
+
+        CreateListingResult(created, photosMissing, documentMissing)
+    }
+
+    /**
+     * Appends photos to a listing (`POST /api/local/listings/:id/images`). Each entry is a
+     * `data:image/…;base64,…` URL or an http(s) URL; they land after the existing photos, in the
+     * order given, and the listing goes back to the admin queue.
+     *
+     * ONE request, so callers must hand it a batch that fits the body limit —
+     * [ListingPhotoUpload.batches] decides what fits. Passing ten phone photos at once is the 413
+     * this call exists to route around.
+     */
+    suspend fun addListingPhotos(
+        token: String,
+        listingId: String,
+        urls: List<String>
+    ): Listing = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("images", JSONArray().apply { urls.forEach { if (it.isNotBlank()) put(it) } })
+        }
+        val text = send("POST", token, "/api/local/listings/$listingId/images", body, PHOTO_READ_TIMEOUT_MS)
+        SupabaseService.parseListing(JSONObject(text))
+    }
+
+    /**
+     * (Re)submits a listing's ownership / proof document
+     * (`PATCH /api/local/listings/:id {ownership_doc}`), re-queuing it for review.
+     *
+     * A document may be up to 3.5M chars (see [OwnershipDocRules]), which on its own is most of a
+     * request body — so when it cannot share one with the listing's photos it is sent here instead.
+     */
+    suspend fun submitOwnershipDoc(
+        token: String,
+        listingId: String,
+        doc: String
+    ): Listing = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply { put("ownership_doc", doc) }
+        val text = send("PATCH", token, "/api/local/listings/$listingId", body, PHOTO_READ_TIMEOUT_MS)
         SupabaseService.parseListing(JSONObject(text))
     }
 
@@ -853,11 +956,19 @@ object BookingService {
      * carries the "under review" state and the caller never needs a refetch.
      *
      * [images] is the FULL replacement photo set in display order (index 0 = cover), which is how
-     * the editor persists every photo change — add, delete, reorder and set-cover — atomically with
-     * the rest of the edit. Pass null to leave the listing's photos untouched (nothing is
-     * re-uploaded when the host only changed, say, the price). The per-photo endpoints
-     * (`/images`, `/images/:imageId`) exist too, but each applies immediately — the editor stages
-     * changes locally so the single Save is what puts the listing back in review.
+     * the editor persists every photo change — add, delete, reorder and set-cover — with the rest
+     * of the edit. Pass null to leave the listing's photos untouched (nothing is re-uploaded when
+     * the host only changed, say, the price). The per-photo endpoints (`/images`,
+     * `/images/:imageId`) exist too, but each applies immediately — the editor stages changes
+     * locally so the single Save is what puts the listing back in review.
+     *
+     * A replacement set of phone photos does not fit in one request body (Vercel answers 413 over
+     * ~4.5 MB, before the function runs — see [ListingPhotoUpload]), so the PATCH carries the
+     * prefix of the set that fits and `POST /listings/:id/images` appends the tail. Deferring from
+     * the END is what keeps the order the host arranged: the appends land after the prefix, which
+     * is exactly where those photos belong. A failure part-way DOES throw here, unlike on the
+     * create path — the whole edit is a replacement, so tapping Save again sends the same set and
+     * converges rather than duplicating anything.
      *
      * [ownershipDoc] (a `data:image/...;base64` URL) is only sent when the host attached a fresh
      * document; a blank value is omitted so the existing one is kept.
@@ -925,14 +1036,27 @@ object BookingService {
             put("monthly_discount", monthlyDiscount.coerceIn(0, 100))
             putWeekend(weekendPrice, weekendDays)
             put("monthly_prices", monthlyPricesJson(monthlyPrices))
-            // Only sent when the photo set actually changed — an omitted key keeps the photos as-is.
-            if (images != null) {
-                put("images", JSONArray().apply { images.forEach { if (it.isNotBlank()) put(it) } })
-            }
-            if (!ownershipDoc.isNullOrBlank()) put("ownership_doc", ownershipDoc)
         }
-        val text = send("PATCH", token, "/api/local/listings/$listingId", body)
-        SupabaseService.parseListing(JSONObject(text))
+
+        // The photos and the document, split across as many requests as they need — measured
+        // against the body the fields above actually produce. See the note on [images] up top.
+        val photos = images?.filter { it.isNotBlank() }
+        val doc = ownershipDoc?.trim().orEmpty()
+        val fixedBytes = body.toString().toByteArray(Charsets.UTF_8).size
+        val docBytes = if (doc.isBlank()) 0 else ListingPhotoUpload.bodyBytes(doc) + 16
+        val plan = ListingPhotoUpload.plan(photos ?: emptyList(), docBytes, fixedBytes)
+        // Only sent when the photo set actually changed — an omitted key keeps the photos as-is.
+        if (photos != null) {
+            body.put("images", JSONArray().apply { plan.withRequest.forEach { put(it) } })
+        }
+        if (doc.isNotBlank() && !plan.docDeferred) body.put("ownership_doc", doc)
+
+        var updated = SupabaseService.parseListing(
+            JSONObject(send("PATCH", token, "/api/local/listings/$listingId", body, PHOTO_READ_TIMEOUT_MS))
+        )
+        for (batch in plan.appended) updated = addListingPhotos(token, listingId, batch)
+        if (plan.docDeferred && doc.isNotBlank()) updated = submitOwnershipDoc(token, listingId, doc)
+        updated
     }
 
     // ---- Listing visibility (host only) ---------------------------------------
@@ -1068,11 +1192,17 @@ object BookingService {
     }
 
     /** Authenticated [method] (POST/PATCH) with a JSON body; returns the body or throws [HttpError]. */
-    private fun send(method: String, token: String, path: String, body: JSONObject): String {
+    private fun send(
+        method: String,
+        token: String,
+        path: String,
+        body: JSONObject,
+        readTimeoutMs: Int = 15_000
+    ): String {
         val conn = (URL("${Config.API_BASE_URL}$path").openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 15_000
-            readTimeout = 15_000
+            readTimeout = readTimeoutMs
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")

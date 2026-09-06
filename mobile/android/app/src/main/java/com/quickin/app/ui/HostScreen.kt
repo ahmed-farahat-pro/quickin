@@ -2190,6 +2190,27 @@ private fun AddListingTab(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 6.dp)
                 )
+                // Photos travel in several requests (see ListingPhotoUpload) and one of them can
+                // fail after the listing itself exists. That is a note here, not an error screen:
+                // the listing WAS published, and saying otherwise is how a host publishes it twice.
+                if (state.photosMissing > 0) {
+                    Text(
+                        stringResource(com.quickin.app.R.string.listing_partial_photos, state.photosMissing),
+                        color = Ink,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+                if (state.documentMissing) {
+                    Text(
+                        stringResource(com.quickin.app.R.string.listing_partial_doc),
+                        color = Ink,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
                 GradientButton(
                     onClick = onReset,
                     height = 52.dp,

@@ -441,6 +441,9 @@
     <string name="approval_upload_ownership_doc">Subir documento de propiedad</string>
     <string name="approval_submitted_for_review">Enviado para revisión</string>
     <string name="approval_pending_note">Su anuncio está en revisión y aún no es público. Le avisaremos en cuanto se apruebe.</string>
+    <!-- %1$d = cuántas fotos faltan -->
+    <string name="listing_partial_photos">No se pudieron subir %1$d de tus fotos: añádelas desde Editar anuncio.</string>
+    <string name="listing_partial_doc">No se pudo subir tu documento de propiedad: vuelve a enviarlo desde tu anuncio.</string>
     <string name="approval_rejected_note">Su documento de propiedad fue rechazado. Vuelva a subirlo para enviar su anuncio a revisión de nuevo.</string>
     <string name="approval_rejected_reason">Por qué no se aprobó</string>
     <string name="approval_doc_resubmitted">Documento enviado. Su anuncio está de nuevo en revisión.</string>

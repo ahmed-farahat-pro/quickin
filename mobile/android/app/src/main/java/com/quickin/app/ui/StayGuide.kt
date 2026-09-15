@@ -66,6 +66,7 @@ import com.quickin.app.Qr
 import com.quickin.app.R
 import com.quickin.app.StayGuideItem
 import com.quickin.app.StayGuideKind
+import com.quickin.app.StayGuideRules
 import com.quickin.app.openLink
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
@@ -93,9 +94,12 @@ private const val GUIDE_PHOTO_MAX_DIM = 1200
  * server agrees: `listStayGuide` returns an empty guide to a guest without a live pass.
  *
  * The HOST is gated on [canEdit] instead — approval, not payment — so they can write their check-in
- * notes while the guest pays; a host on an unapproved booking gets one line explaining that
- * approving the request unlocks the editor. A guest whose host hasn't written anything gets nothing
- * at all — no empty state for content that isn't theirs.
+ * notes while the guest pays; a host whose request is still PENDING gets one line explaining that
+ * approving it unlocks the editor. A guest whose host hasn't written anything gets nothing at all —
+ * no empty state for content that isn't theirs.
+ *
+ * [isHost] must be the host of THIS reservation ([Reservation.isViewerHost]), never the
+ * account-level `is_host`; which of the four faces that role sees is [StayGuideRules.viewFor].
  */
 @Composable
 fun StayGuideSection(
@@ -103,6 +107,7 @@ fun StayGuideSection(
     isHost: Boolean,
     hasStayPass: Boolean,
     canEdit: Boolean,
+    awaitingApproval: Boolean,
     loading: Boolean,
     saving: Boolean,
     error: String?,
@@ -111,16 +116,25 @@ fun StayGuideSection(
     onMoveItem: (index: Int, up: Boolean) -> Unit,
     onDeleteItem: (itemId: String) -> Unit
 ) {
-    // A host sees the section as soon as they can edit it (approved), even while the stay is
-    // unpaid; a guest only once their pass is live.
-    val visible = if (isHost) canEdit || hasStayPass else hasStayPass
-    if (!visible) {
-        if (isHost) StayGuideLockedCard()
-        return
+    // Which face to show is a rule, not a chain of ifs here — see StayGuideRules for why, and for
+    // the rejected-booking note this replaced.
+    val view = StayGuideRules.viewFor(
+        isHost = isHost,
+        hasStayPass = hasStayPass,
+        canEdit = canEdit,
+        awaitingApproval = awaitingApproval,
+        itemCount = items.size,
+        loading = loading
+    )
+    when (view) {
+        StayGuideRules.View.Hidden -> return
+        StayGuideRules.View.AwaitingApproval -> {
+            StayGuideLockedCard()
+            return
+        }
+        StayGuideRules.View.Editor, StayGuideRules.View.ReadOnly -> Unit
     }
-    // Only the editor justifies an otherwise-empty card. A host who can no longer edit (checked-out
-    // booking) reads it exactly like a guest, so an empty guide renders nothing for them too.
-    if (!(isHost && canEdit) && items.isEmpty() && !loading) return
+    val editing = view == StayGuideRules.View.Editor
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -155,7 +169,7 @@ fun StayGuideSection(
                 Text(error, color = GuideErrorRed, fontSize = 13.sp)
             }
 
-            if (isHost && canEdit) {
+            if (editing) {
                 Text(
                     stringResource(R.string.stay_guide_host_hint),
                     color = Muted,
@@ -184,7 +198,11 @@ fun StayGuideSection(
     }
 }
 
-/** Shown to a host on a booking they haven't approved: the guide unlocks at confirmation. */
+/**
+ * Shown to the host of a request that is still PENDING: the builder unlocks when they approve it.
+ * Gated by [StayGuideRules.View.AwaitingApproval], which is what keeps this promise of a future
+ * unlock off a booking that was rejected or cancelled — one it can no longer keep.
+ */
 @Composable
 private fun StayGuideLockedCard() {
     Surface(

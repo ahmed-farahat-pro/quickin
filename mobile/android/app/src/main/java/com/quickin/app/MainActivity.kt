@@ -1369,8 +1369,11 @@ private fun MainApp() {
             onSubmitReview = { rating, comment, photos ->
                 reviewsViewModel.submitReview(reservationId, rating, comment, photos)
             },
-            // Hosts get an editable "From your host" notes panel; guests see notes read-only.
-            isHost = isHost,
+            // Who is looking, so the screen can ask whether this account hosts THIS reservation.
+            // The account-level flag is only the fallback for a payload without a `host_id` —
+            // passing it as the gate is what put the host's controls on a guest's own trip.
+            viewerId = authState.userId,
+            accountIsHost = isHost,
             notesSaving = detailState.savingNotes,
             notesError = detailState.notesError,
             onSaveHostNotes = { notes -> bookingsViewModel.setHostNotes(reservationId, notes) },

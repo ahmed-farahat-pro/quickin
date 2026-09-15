@@ -779,6 +779,14 @@ data class ReferredFriend(
 }
 
 /**
+ * A trimmed id, or null when there isn't one — blank, absent, or the literal "null" that
+ * `JSONObject#optString` hands back for a JSON null. The same test [Reservation.hasReservationCode]
+ * applies to the reservation code, kept here so identity comparisons can't be won by two "null"s.
+ */
+private fun String?.usableId(): String? =
+    this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+
+/**
  * Full reservation detail (from `GET /api/local/bookings/:id`). Adds the
  * [reservationCode] used to generate the in-app QR card; the user's list endpoint
  * doesn't carry the code, so the detail screen fetches this richer shape.
@@ -825,7 +833,13 @@ data class Reservation(
     /** ISO-8601 timestamp the booking was cancelled, or null when still active (from "cancelled_at"). */
     val cancelledAt: String? = null,
     /** Percent of the total refunded on cancel (0–100), or null when never cancelled (from "refund_percent"). */
-    val refundPercent: Int? = null
+    val refundPercent: Int? = null,
+    /**
+     * The id of the account that HOSTS this reservation's listing (parsed from "host_id", which the
+     * backend's `BOOKING_COLS` selects as `l.host_id`). Null only when a backend predating the field
+     * answers without it — read it through [isViewerHost], never directly.
+     */
+    val hostId: String? = null
 ) {
     val totalText: String
         get() = "EGP " + totalPrice.toInt()
@@ -951,6 +965,32 @@ data class Reservation(
      */
     val canEditStayGuide: Boolean
         get() = BookingStatus.from(status) == BookingStatus.Confirmed && hasReservationCode
+
+    /**
+     * True when the signed-in account is the HOST **OF THIS RESERVATION** — the only thing the
+     * host-only affordances on the detail screen (the stay-guide builder, the editable "From your
+     * host" notes) may be gated on. [canEditStayGuide] answers "is this booking in a state the
+     * guide can be written in"; this answers "and are you the person allowed to write it". Both
+     * halves are required.
+     *
+     * THE regression this exists for: the screen gated those controls on `AuthUiState.isHost`, an
+     * ACCOUNT-level flag meaning "this account owns at least one listing". Under the unified
+     * account a host is also an ordinary guest, so a host opening their OWN trip — or any guest who
+     * happens to host something — was handed the stay-guide builder for a listing they do not own,
+     * the moment their reservation was accepted. Every Save behind it answers 403.
+     *
+     * [hostId] is authoritative whenever the backend sends it (it always does — `BOOKING_COLS`
+     * selects `l.host_id`). [accountIsHost] is only the fallback for a backend that omits it, and
+     * decides nothing once an id has arrived. Mirrors iOS's `ReservationDetailView.isHost(_:)`.
+     *
+     * @param viewerId the signed-in account's id (`AuthUiState.userId`).
+     * @param accountIsHost the account-level `is_host` flag, used ONLY when [hostId] is absent.
+     */
+    fun isViewerHost(viewerId: String?, accountIsHost: Boolean): Boolean {
+        val host = hostId.usableId() ?: return accountIsHost
+        val viewer = viewerId.usableId() ?: return false
+        return host.equals(viewer, ignoreCase = true)
+    }
 
     /** True once this reservation has been cancelled. */
     val isCancelled: Boolean

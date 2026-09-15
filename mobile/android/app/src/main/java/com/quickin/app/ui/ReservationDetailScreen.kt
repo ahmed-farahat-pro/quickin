@@ -104,8 +104,17 @@ fun ReservationDetailScreen(
     reviewSubmitting: Boolean = false,
     reviewError: String? = null,
     onSubmitReview: (rating: Int, comment: String, photos: List<String>) -> Unit = { _, _, _ -> },
-    /** True when the signed-in account is a host — unlocks the editable host-notes panel. */
-    isHost: Boolean = false,
+    /**
+     * The signed-in account's id. Compared against the reservation's own `host_id` to decide
+     * whether the viewer hosts THIS stay — the gate on every host-only control below.
+     */
+    viewerId: String? = null,
+    /**
+     * The account-level `is_host` flag ("this account owns at least one listing"). NOT a gate on
+     * its own: it only stands in when the backend omits the reservation's `host_id`. Gating the
+     * host controls on it directly is what put the stay-guide builder on a guest's screen.
+     */
+    accountIsHost: Boolean = false,
     /** True while a host-notes save is in flight. */
     notesSaving: Boolean = false,
     /** Error from the last host-notes save, or null. */
@@ -192,7 +201,8 @@ fun ReservationDetailScreen(
                     reviewSubmitting = reviewSubmitting,
                     reviewError = reviewError,
                     onSubmitReview = onSubmitReview,
-                    isHost = isHost,
+                    viewerId = viewerId,
+                    accountIsHost = accountIsHost,
                     notesSaving = notesSaving,
                     notesError = notesError,
                     onSaveHostNotes = onSaveHostNotes,
@@ -229,7 +239,8 @@ private fun ReservationCardContent(
     reviewSubmitting: Boolean = false,
     reviewError: String? = null,
     onSubmitReview: (rating: Int, comment: String, photos: List<String>) -> Unit = { _, _, _ -> },
-    isHost: Boolean = false,
+    viewerId: String? = null,
+    accountIsHost: Boolean = false,
     notesSaving: Boolean = false,
     notesError: String? = null,
     onSaveHostNotes: (notes: String) -> Unit = {},
@@ -314,6 +325,12 @@ private fun ReservationCardContent(
             ) { ReservationPassBody(reservation = reservation, stayUrl = null) }
         }
 
+        // Who is looking. The host-only controls below hang off the RESERVATION's host, never off
+        // the account-level "do you own any listing" flag — under the unified account a host is
+        // also an ordinary guest, and that flag handed them (and any other hosting guest) the
+        // stay-guide builder on their own trip the moment it was accepted.
+        val isHost = reservation.isViewerHost(viewerId, accountIsHost)
+
         // "From your host" — guests see notes read-only; hosts get an inline editor below.
         HostNotesCard(
             notes = reservation.hostNotes,
@@ -325,12 +342,14 @@ private fun ReservationCardContent(
 
         // The host-authored stay guide. Guests see it read-only, gated on the pass (approved AND
         // paid); the host gets the editor as soon as they approve, so they can write it while the
-        // guest pays.
+        // guest pays. `awaitingApproval` is what keeps the host's "approve it and you can build
+        // one" note on a request that can still BE approved, rather than on a rejected one.
         StayGuideSection(
             items = guide,
             isHost = isHost,
             hasStayPass = reservation.hasStayPass,
             canEdit = reservation.canEditStayGuide,
+            awaitingApproval = reservation.isAwaitingApproval,
             loading = guideLoading,
             saving = guideSaving,
             error = guideError,

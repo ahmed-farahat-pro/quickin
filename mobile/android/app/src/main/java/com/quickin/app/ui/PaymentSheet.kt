@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ContentCopy
@@ -118,9 +121,17 @@ fun PaymentSheet(
         containerColor = CreamPage,
         contentColor = Ink
     ) {
+        // The body MUST scroll. Its natural height (amount card + method picker + a
+        // destination card that can carry a 164dp QR or four bank fields + the screenshot
+        // slot + submit) overruns a phone screen, and a ModalBottomSheet caps its content at
+        // the available height — so without this the screenshot picker and the submit button
+        // are simply clipped away with no way to reach them, which reads as "Android has no
+        // proof upload". iOS has always wrapped the same body in a ScrollView.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

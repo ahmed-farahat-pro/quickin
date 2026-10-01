@@ -256,7 +256,6 @@ struct ReservationDetailView: View {
                     stayGuideCard(detail)
                     hostNotesEditor(detail)
                     stayGuideEditor(detail)
-                    messagesButton
                     disputeButton(detail)
                     detailsCard(detail)
                     cancellationCard(detail)
@@ -309,34 +308,6 @@ struct ReservationDetailView: View {
             }
             .buttonStyle(.qkTap)
         } }
-    }
-
-    /// Opens the per-booking chat with the host.
-    private var messagesButton: some View {
-        NavigationLink {
-            ChatView(bookingID: viewModel.bookingID)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .foregroundStyle(Color.qkBurgundy)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Messages")
-                        .font(.headline)
-                        .foregroundStyle(Color.qkInk)
-                    Text("Chat with your host about this stay.")
-                        .font(.caption)
-                        .foregroundStyle(Color.qkMuted)
-                }
-                Spacer()
-                Image(systemName: "chevron.forward")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.qkTan4)
-            }
-            .padding(16)
-            .qkCard()
-        }
-        .buttonStyle(.qkTap)
     }
 
     /// "Leave a review" entry shown only for a reviewable stay; after the user

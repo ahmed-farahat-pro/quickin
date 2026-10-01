@@ -1237,22 +1237,6 @@ data class HostBooking(
 }
 
 /**
- * A single chat message on a booking thread (from
- * `GET /api/local/bookings/:id/messages`, oldest-first). The screen decides
- * left/right alignment by comparing [senderId] to the signed-in user's id.
- */
-data class ChatMessage(
-    val id: String,
-    val senderId: String,
-    val senderName: String,
-    val body: String,
-    val createdAt: String
-) {
-    /** True when this message was sent by the user whose id is [myId]. */
-    fun isMine(myId: String?): Boolean = !myId.isNullOrBlank() && senderId == myId
-}
-
-/**
  * A standalone bookable experience (jet ski, diving, yacht…) from
  * `GET /api/local/services`. Users "subscribe" to a service, which creates a
  * pending [ServiceRequest] the host then confirms / rejects — mirroring bookings.

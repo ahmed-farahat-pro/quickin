@@ -53,6 +53,7 @@ final class NotificationsViewModel: ObservableObject {
 /// (e.g. from the Profile tab), so it sets a title but not its own stack.
 struct NotificationsView: View {
     @StateObject private var viewModel = NotificationsViewModel()
+    @EnvironmentObject private var deepLink: DeepLinkRouter
 
     var body: some View {
         ZStack {
@@ -91,6 +92,10 @@ struct NotificationsView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.items) { item in
                         Button {
+                            // A comment / reply opens that listing's comments;
+                            // every other type (incl. the retired `message`)
+                            // just marks the row read.
+                            deepLink.openNotification(type: item.type, link: item.link)
                             Task { await viewModel.markRead(id: item.id) }
                         } label: {
                             NotificationRow(notification: item)
@@ -168,9 +173,9 @@ struct NotificationRow: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                // Title + relative time on one line, the time pinned trailing
-                // (mirrors the Messages inbox row). `firstTextBaseline` keeps
-                // the time aligned to the first line of a wrapping title.
+                // Title + relative time on one line, the time pinned trailing.
+                // `firstTextBaseline` keeps the time aligned to the first line
+                // of a wrapping title.
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(notification.title)
                         .font(.subheadline.weight(notification.read ? .semibold : .bold))
@@ -209,7 +214,7 @@ struct NotificationRow: View {
 /// and predictable next to a title ("5m ago", "2h ago", "3d ago") instead of the
 /// formatter's chattier "2 hr. ago" / "3 mo. ago", and so anything older than a
 /// week degrades to a short absolute date.
-private enum QKRelativeTime {
+enum QKRelativeTime {
     private static let minute: TimeInterval = 60
     private static let hour: TimeInterval = 60 * 60
     private static let day: TimeInterval = 24 * 60 * 60
@@ -271,5 +276,6 @@ private enum QKRelativeTime {
 #Preview {
     NavigationStack {
         NotificationsView()
+            .environmentObject(DeepLinkRouter())
     }
 }

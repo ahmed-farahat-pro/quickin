@@ -336,34 +336,6 @@ object BookingService {
             parseReservation(JSONObject(text))
         }
 
-    // ---- Chat (booking thread) ------------------------------------------------
-
-    /**
-     * Loads the per-booking message thread, oldest-first
-     * (`GET /api/local/bookings/:id/messages`). Throws [HttpError]
-     * (401 not signed in, 403 / 404 when the booking isn't the caller's).
-     */
-    suspend fun fetchMessages(token: String, bookingId: String): List<ChatMessage> =
-        withContext(Dispatchers.IO) {
-            val text = get(token, "/api/local/bookings/$bookingId/messages")
-            val arr = JSONArray(text)
-            val out = ArrayList<ChatMessage>(arr.length())
-            for (i in 0 until arr.length()) out.add(parseMessage(arr.getJSONObject(i)))
-            out
-        }
-
-    /**
-     * Posts a message to the booking thread
-     * (`POST /api/local/bookings/:id/messages {body}`). Returns the created
-     * message (201). Throws [HttpError] (401 / 403 / 400 on empty body).
-     */
-    suspend fun sendMessage(token: String, bookingId: String, body: String): ChatMessage =
-        withContext(Dispatchers.IO) {
-            val payload = JSONObject().apply { put("body", body) }
-            val text = send("POST", token, "/api/local/bookings/$bookingId/messages", payload)
-            parseMessage(JSONObject(text))
-        }
-
     // ---- Host -----------------------------------------------------------------
 
     /**
@@ -1363,14 +1335,6 @@ object BookingService {
             referred = friends
         )
     }
-
-    private fun parseMessage(o: JSONObject): ChatMessage = ChatMessage(
-        id = o.optStringOr("id", ""),
-        senderId = o.optStringOr("sender_id", ""),
-        senderName = o.optStringOr("sender_name", "Guest"),
-        body = o.optStringOr("body", ""),
-        createdAt = o.optStringOr("created_at", "")
-    )
 
     private fun parseHostBooking(o: JSONObject): HostBooking = HostBooking(
         id = o.optStringOr("id", ""),

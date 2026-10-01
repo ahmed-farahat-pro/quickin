@@ -25,7 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
@@ -128,8 +128,10 @@ fun ProfileScreen(
     onDismissHostWelcome: () -> Unit = {},
     onOpenHostServices: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
-    onOpenMessages: () -> Unit = {},
+    /** Opens the host's "Guest questions" (comments across their listings). Hosts only. */
+    onOpenGuestQuestions: () -> Unit = {},
+    /** Unanswered guest questions, for the row's subtitle. */
+    guestQuestionsUnanswered: Int = 0,
     /** Opens the guest's itemized receipts list (Section 9 — money views). */
     onOpenReceipts: () -> Unit = {},
     /** Opens the host's earnings & payouts screen (Section 9 — money views, host only). */
@@ -335,14 +337,21 @@ fun ProfileScreen(
                 subtitle = stringResource(R.string.money_receipts_sub),
                 onClick = onOpenReceipts
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            // "Messages" — the guest ↔ host conversation inbox (web /messages parity).
-            SettingsRow(
-                icon = Icons.Filled.ChatBubbleOutline,
-                title = stringResource(R.string.profile_messages),
-                subtitle = stringResource(R.string.profile_messages_sub),
-                onClick = onOpenMessages
-            )
+            // "Guest questions" — where Messages used to be (host ⇄ guest messaging was removed;
+            // guests now ask in a listing's public comments). Hosts only.
+            if (isHost) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsRow(
+                    icon = Icons.Filled.QuestionAnswer,
+                    title = stringResource(R.string.host_questions_title),
+                    subtitle = if (guestQuestionsUnanswered > 0) {
+                        stringResource(R.string.host_questions_count, guestQuestionsUnanswered)
+                    } else {
+                        stringResource(R.string.host_questions_none)
+                    },
+                    onClick = onOpenGuestQuestions
+                )
+            }
 
             // Currency section — multi-currency display switcher (Section 9 — money views).
             Spacer(modifier = Modifier.height(24.dp))

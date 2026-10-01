@@ -18,4 +18,11 @@ final class AppNavigation: ObservableObject {
 
     /// Set by a Siri shortcut; consumed (and reset to nil) by `RootView`.
     @Published var pendingSection: Section?
+
+    /// A tapped push notification's `link` (the payload carries only that).
+    /// Set by `AppDelegate`; consumed (and reset to nil) at the app root,
+    /// which hands it to `DeepLinkRouter.openNotification`. Held here rather
+    /// than routed directly because a cold-launch tap arrives before the
+    /// SwiftUI tree (and its router) exists.
+    @Published var pendingNotificationLink: String?
 }

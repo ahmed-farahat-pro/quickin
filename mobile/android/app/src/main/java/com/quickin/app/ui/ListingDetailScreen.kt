@@ -32,7 +32,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -157,11 +156,20 @@ fun ListingDetailScreen(
     onOpenListing: (Listing) -> Unit = {},
     /** Opens the host's public profile (reviews + their other listings) from the "Hosted by" row. */
     onOpenHostProfile: () -> Unit = {},
-    /**
-     * Opens the pre-booking chat with this listing's host. Receives the listing id and the resolved
-     * host display name (falls back to "Host"). No-op by default so the param stays non-breaking.
-     */
-    onMessageHost: (listingId: String, hostName: String) -> Unit = { _, _ -> },
+    /** This listing's public "Questions & comments" (replaced host ⇄ guest messaging). */
+    commentsState: com.quickin.app.ListingCommentsUiState = com.quickin.app.ListingCommentsUiState(),
+    /** Signed in at all — signed out gets the "Sign in to ask a question" prompt. */
+    isSignedIn: Boolean = false,
+    onRetryComments: () -> Unit = {},
+    onPostComment: (body: String) -> Unit = {},
+    onDeleteComment: (commentId: String) -> Unit = {},
+    onSaveCommentReply: (commentId: String, body: String) -> Unit = { _, _ -> },
+    onDeleteCommentReply: (commentId: String) -> Unit = {},
+    onAcknowledgeCommentWarning: () -> Unit = {},
+    onDismissCommentError: () -> Unit = {},
+    /** Scroll to the comments section once (a comment / reply notification opened this). */
+    focusComments: Boolean = false,
+    onCommentsFocused: () -> Unit = {},
     /** Booked + host-blocked spans for this listing; greys out those days in the reserve picker. */
     unavailableRanges: List<com.quickin.app.AvailabilityRange> = emptyList(),
     /**
@@ -210,9 +218,9 @@ fun ListingDetailScreen(
      * dashboard's "See it as a guest".
      *
      * Two effects. A banner above the photo says what this is and, when the listing is not
-     * live, why a guest could not reach it. And every guest action (reserve, save, message,
-     * report) becomes inert: a preview that could file a booking request, open a conversation
-     * with yourself or report your own place is not a preview.
+     * live, why a guest could not reach it. And every guest action (reserve, save, comment,
+     * report) becomes inert: a preview that could file a booking request, post a question on
+     * your own listing or report your own place is not a preview.
      *
      * The caller also passes `isOwnHost = false` here, so the guest reserve panel renders in
      * place of the host-only editor / calendar / availability shortcuts — the whole point being
@@ -234,6 +242,17 @@ fun ListingDetailScreen(
     /** Runs [action], or swallows it and says why when this is a preview. */
     fun guestAction(action: () -> Unit) {
         if (previewAsGuest) showPreviewNotice = true else action()
+    }
+
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Opened from a comment / reply notification: bring "Questions & comments" into view once.
+    // Items before it: the optional preview banner, the hero, the main content column.
+    LaunchedEffect(focusComments, listing.id) {
+        if (focusComments) {
+            val index = (if (previewAsGuest) 1 else 0) + 2
+            runCatching { listState.animateScrollToItem(index) }
+            onCommentsFocused()
+        }
     }
 
     // A signed-out report attempt routes to sign-in (closing the sheet + resetting state first).
@@ -306,6 +325,7 @@ fun ListingDetailScreen(
         }
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -385,31 +405,6 @@ fun ListingDetailScreen(
                             }
                         }
                     }
-                    // "Message host" — opens the pre-booking chat. Hidden on your own listing.
-                    if ((!listing.hostName.isNullOrBlank() || !listing.hostId.isNullOrBlank()) && !isOwnHost) {
-                        val messageHostName = listing.hostName?.takeUnless { it.isBlank() } ?: "Host"
-                        OutlinedButton(
-                            onClick = { guestAction { onMessageHost(listing.id, messageHostName) } },
-                            shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(1.dp, Burgundy),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.White,
-                                contentColor = Burgundy
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Message,
-                                contentDescription = null,
-                                tint = Burgundy,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Message host", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        }
-                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -463,8 +458,28 @@ fun ListingDetailScreen(
 
                     // Guest reviews for this stay (real, from GET /api/local/reviews?listing_id=).
                     ReviewsSection(listing = listing, state = reviewsState)
-
-                    // "Report this listing" — opens the report bottom sheet (Trust & Safety).
+                }
+            }
+            // "Questions & comments" — its own item so a comment notification can scroll to it.
+            item(key = "comments") {
+                ListingCommentsSection(
+                    state = commentsState,
+                    isSignedIn = isSignedIn,
+                    onSignIn = onSignIn,
+                    onRetry = onRetryComments,
+                    onPost = onPostComment,
+                    onDelete = onDeleteComment,
+                    onSaveReply = onSaveCommentReply,
+                    onDeleteReply = onDeleteCommentReply,
+                    onAcknowledgeWarning = onAcknowledgeCommentWarning,
+                    onDismissError = onDismissCommentError,
+                    guestAction = { action -> guestAction(action) },
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 20.dp)
+                )
+            }
+            item {
+                // "Report this listing" — opens the report bottom sheet (Trust & Safety).
+                Box(Modifier.padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
                     ReportListingRow(onClick = { guestAction { showReportSheet = true } })
                 }
             }

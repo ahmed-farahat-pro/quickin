@@ -201,7 +201,7 @@ struct QKStarRating: View {
 // MARK: - Gradient avatar
 
 /// Circular initials avatar with a brand/gold gradient + soft glow. Used for the
-/// profile header, host rows and chat. `gold == true` switches the burgundy
+/// profile header, host rows and comments. `gold == true` switches the burgundy
 /// gradient to the gold avatar gradient (host / superhost accent).
 struct QKAvatar: View {
     let initials: String

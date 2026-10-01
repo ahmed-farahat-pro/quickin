@@ -222,7 +222,7 @@
     <string name="detail_nights">%1$s × %2$d nuit(s)</string>
     <string name="detail_reserve">Réserver</string>
     <string name="detail_own_listing">Ceci est votre annonce</string>
-    <string name="detail_own_listing_hint">Vous ne pouvez pas réserver ni contacter votre propre logement.</string>
+    <string name="detail_own_listing_hint">Vous ne pouvez pas réserver votre propre logement.</string>
     <string name="detail_sign_in_to_reserve">Connectez-vous pour réserver</string>
     <string name="detail_request_sent">Demande envoyée</string>
     <string name="detail_waiting_host_stay">En attente de la confirmation de votre séjour par l\'hôte à %1$s.</string>
@@ -326,7 +326,6 @@
     <string name="reservation_code_label">Code de réservation</string>
     <string name="reservation_dates">Dates</string>
     <string name="reservation_guests_label">Voyageurs</string>
-    <string name="reservation_messages">Messages</string>
     <string name="reservation_show_qr">Présentez ce code QR à l\'arrivée.</string>
     <string name="reservation_no_code">Aucun code</string>
     <string name="reservation_scan_or_tap">Scannez ou appuyez pour ouvrir votre pass de séjour</string>
@@ -380,7 +379,7 @@
     <string name="wishlist_empty_subtitle">Appuyez sur le cœur d\'un séjour ou d\'une expérience pour l\'enregistrer ici.</string>
     <string name="wishlist_sign_in">Connectez-vous pour enregistrer vos favoris.</string>
     <string name="notif_channel_name">Notifications</string>
-    <string name="notif_channel_desc">Mises à jour de réservation, messages et rappels</string>
+    <string name="notif_channel_desc">Mises à jour de réservation, questions et rappels</string>
     <string name="ai_title">Conciergerie de voyage</string>
     <string name="ai_subtitle">Votre guide IA des séjours de charme en Égypte</string>
     <string name="ai_greeting">Bonjour ! Je suis votre conciergerie de voyage. Demandez-moi où aller, le meilleur moment pour partir ou quoi faire — et je vous aiderai à planifier le voyage idéal.</string>
@@ -649,20 +648,41 @@
     <string name="shortcut_profile_short">Profil</string>
     <string name="shortcut_profile_long">Mon profil</string>
 
-    <!-- Messages inbox (guest <-> host conversations) -->
-    <string name="messages_title">Messages</string>
-    <string name="messages_error_title">Impossible de charger les messages</string>
-    <string name="messages_empty_title">Aucun message pour l\'instant</string>
-    <string name="messages_empty_body">Lorsque vous écrivez à un hôte ou à un voyageur, la conversation apparaît ici.</string>
-    <string name="messages_no_messages">Aucun message</string>
-    <string name="messages_host_badge">Hôte</string>
-    <string name="messages_reservation_badge">Réservation</string>
-    <string name="messages_sign_in_title">Connectez-vous pour voir vos messages</string>
-    <string name="messages_sign_in_body">Vos conversations avec les hôtes et les voyageurs se trouvent ici.</string>
-    <string name="profile_messages">Messages</string>
-    <string name="profile_messages_sub">Échangez avec hôtes et voyageurs</string>
-    <string name="cd_messages">Messages</string>
-
+    <!-- Listing comments (public Q&A) + host "Guest questions" -->
+    <string name="comments_title">Questions et commentaires</string>
+    <string name="comments_input_hint">Posez une question à l\'hôte…</string>
+    <string name="comments_post">Publier</string>
+    <string name="comments_public_hint">Les commentaires sont publics. Ne partagez pas de numéro de téléphone ni de coordonnées.</string>
+    <string name="comments_sign_in">Connectez-vous pour poser une question</string>
+    <string name="comments_empty">Aucune question pour l\'instant. Soyez le premier à demander.</string>
+    <string name="comments_empty_host">Aucune question sur cette annonce pour l\'instant.</string>
+    <string name="comments_loading">Chargement des commentaires…</string>
+    <string name="comments_load_error">Impossible de charger les commentaires.</string>
+    <string name="comments_delete">Supprimer</string>
+    <string name="comments_delete_title">Supprimer ce commentaire ?</string>
+    <string name="comments_delete_body">Il sera retiré de cette annonce pour tout le monde.</string>
+    <string name="comments_reply">Répondre</string>
+    <string name="comments_edit_reply">Modifier la réponse</string>
+    <string name="comments_delete_reply">Supprimer la réponse</string>
+    <string name="comments_host_label">Hôte</string>
+    <string name="comments_you_label">Vous</string>
+    <string name="comments_reply_hint">Écrivez votre réponse…</string>
+    <string name="comments_save_reply">Enregistrer la réponse</string>
+    <string name="comments_reply_title">Répondre à %1$s</string>
+    <string name="comments_post_failed">Impossible de publier votre commentaire.</string>
+    <string name="comments_reply_failed">Impossible d\'enregistrer votre réponse.</string>
+    <string name="comments_delete_failed">Impossible de supprimer.</string>
+    <string name="comments_warning_ack">Merci. Vous pouvez publier à nouveau.</string>
+    <string name="host_questions_title">Questions des voyageurs</string>
+    <string name="host_questions_short">Questions</string>
+    <string name="host_questions_none">Aucune question sans réponse</string>
+    <string name="host_questions_count">%1$d sans réponse</string>
+    <string name="host_questions_empty_title">Aucune question pour l\'instant</string>
+    <string name="host_questions_empty_body">Quand des voyageurs posent des questions sur vos annonces, elles apparaissent ici.</string>
+    <string name="host_questions_unanswered">Sans réponse</string>
+    <string name="host_questions_answered">Répondu</string>
+    <string name="host_questions_view_listing">Voir l\'annonce</string>
+    <string name="host_questions_error">Impossible de charger les questions des voyageurs.</string>
     <!-- Support & legal (Profile tab) -->
     <string name="profile_support_legal">Assistance et mentions légales</string>
     <string name="legal_terms">Conditions d\'utilisation</string>
@@ -841,7 +861,7 @@
     <string name="calendar_open">Calendrier des tarifs</string>
     <string name="preview_guest_action">Voir en tant que voyageur</string>
     <string name="preview_guest_title">Aperçu voyageur</string>
-    <string name="preview_guest_body">Votre annonce exactement telle qu\'un voyageur la découvre. Rien ici ne réserve, n\'enregistre ni n\'envoie de message.</string>
+    <string name="preview_guest_body">Votre annonce exactement telle qu\'un voyageur la découvre. Rien ici ne réserve, n\'enregistre ni ne publie.</string>
     <string name="preview_guest_under_review">Elle est encore en cours d\'examen, les voyageurs ne peuvent donc pas encore la trouver.</string>
     <string name="preview_guest_hidden">Elle n\'est pas visible par les voyageurs pour le moment.</string>
     <string name="preview_guest_blocked_title">Aperçu uniquement</string>

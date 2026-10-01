@@ -1134,48 +1134,6 @@ extension Array where Element == StayGuideItem {
     }
 }
 
-/// A single message in a per-booking host ↔ guest thread, returned by
-/// `GET /api/local/bookings/:id/messages` (oldest-first) and `POST` on send.
-struct ChatMessage: Codable, Identifiable, Hashable {
-    let id: String
-    let senderID: String
-    let senderName: String?
-    let body: String
-    let createdAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, body
-        case senderID = "sender_id"
-        case senderName = "sender_name"
-        case createdAt = "created_at"
-    }
-
-    /// "9:41 AM" style time for the bubble footnote, parsed from the ISO
-    /// `created_at`. Empty when the timestamp is missing or unparseable.
-    var timeText: String {
-        guard let createdAt, let date = ChatMessage.parseDate(createdAt) else { return "" }
-        return ChatMessage.timeFormatter.string(from: date)
-    }
-
-    /// Parse an ISO-8601 timestamp, tolerating both with- and without-fractional
-    /// seconds (Postgres `timestamptz` serializes either way).
-    private static func parseDate(_ raw: String) -> Date? {
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = withFraction.date(from: raw) { return d }
-        let plain = ISO8601DateFormatter()
-        plain.formatOptions = [.withInternetDateTime]
-        return plain.date(from: raw)
-    }
-
-    private static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.dateFormat = "h:mm a"
-        return f
-    }()
-}
-
 extension Booking {
     /// Shared "Jul 10 → Jul 14" range formatter used by the booking models.
     static func format(checkIn: String, checkOut: String) -> String {
@@ -1490,8 +1448,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case let t where t.contains("service"),
              let t where t.contains("subscription"):
             return "sparkles"
-        case let t where t.contains("message"),
-             let t where t.contains("chat"):
+        case let t where t.contains("comment"):
             return "bubble.left.fill"
         case let t where t.contains("review"):
             return "star.fill"

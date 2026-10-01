@@ -16,8 +16,6 @@ import Foundation
 ///   GET   {base}/api/local/host/application  → HostApplicationState
 ///   PATCH {base}/api/local/bookings/:id      → updated booking  (confirm | reject)
 ///   GET   {base}/api/local/bookings/:id      → ReservationDetail
-///   GET   {base}/api/local/bookings/:id/messages → [ChatMessage] (oldest-first)
-///   POST  {base}/api/local/bookings/:id/messages → 201 ChatMessage  ({ body })
 ///   GET   {base}/api/local/bookings/:id/stay-guide           → [StayGuideItem] (host or guest)
 ///   POST  {base}/api/local/bookings/:id/stay-guide           → 201 StayGuideItem (host, confirmed only)
 ///   PATCH {base}/api/local/bookings/:id/stay-guide/:itemId   → StayGuideItem   (host only)
@@ -1012,42 +1010,6 @@ struct HostService {
         return try JSONDecoder().decode(CurrencyRates.self, from: data)
     }
 
-    // MARK: - Booking chat (host ↔ guest)
-
-    /// Fetch the message thread for a booking, oldest-first. Used by `ChatView`
-    /// for the initial load and the ~4s poll.
-    func fetchMessages(bookingID: String) async throws -> [ChatMessage] {
-        try await get("\(Config.apiBaseURL)/api/local/bookings/\(bookingID)/messages", as: [ChatMessage].self)
-    }
-
-    /// Send a message in a booking thread. Returns the created message (201).
-    @discardableResult
-    func sendMessage(bookingID: String, body: String) async throws -> ChatMessage {
-        guard let token else { throw HostError.notSignedIn }
-
-        let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(bookingID)/messages")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["body": body])
-
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw HostError.message("Invalid response from the server.")
-        }
-        if (200...299).contains(http.statusCode) {
-            return try JSONDecoder().decode(ChatMessage.self, from: data)
-        }
-        if http.statusCode == 401 { throw HostError.notSignedIn }
-        // 409 + { policyWarning } — a moderator's warning is waiting to be read.
-        if http.statusCode == 409, let w = PolicyWarningBody.decode(data) {
-            throw HostError.policyWarning(id: w.id, text: w.message)
-        }
-        throw HostError.message(Self.decodeError(data) ?? "Couldn't send the message (\(http.statusCode)).")
-    }
-
     // MARK: - Helpers
 
     /// Authenticated GET → decoded `T`. Maps 401 to `.notSignedIn`.
@@ -1091,24 +1053,20 @@ enum HostError: LocalizedError {
     case notSignedIn
     case forbidden(String)
     case message(String)
-    /// A moderator issued a policy warning the user hasn't read. Chat stays
-    /// closed until they acknowledge it — see `PolicyWarningService`. Carries the
-    /// warning so the composer can show it without a second round trip.
-    case policyWarning(id: String, text: String)
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn:        return "Sign in to continue"
         case let .forbidden(text): return text
         case let .message(text):   return text
-        case let .policyWarning(_, text): return text
         }
     }
 }
 
 /// Decodes the `{ error, policyWarning: { id, message } }` body the API answers
-/// with (HTTP 409) while a warning is unacknowledged. Returns nil for any other
-/// body, so callers can fall through to their normal error handling.
+/// with (HTTP 409) while a moderator's warning is unacknowledged — on a listing
+/// comment or a host reply. Returns nil for any other body, so callers can fall
+/// through to their normal error handling.
 enum PolicyWarningBody {
     static func decode(_ data: Data) -> (id: String, message: String)? {
         struct Body: Decodable {
@@ -1122,7 +1080,7 @@ enum PolicyWarningBody {
 
 /// The user's acknowledgement of a policy warning.
 /// `POST {base}/api/local/policy-warning { id }` — until this succeeds every
-/// chat send answers 409 with the same warning.
+/// comment or host reply answers 409 with the same warning.
 enum PolicyWarningService {
     static func acknowledge(id: String) async throws {
         let stored = UserDefaults.standard.string(forKey: AuthStore.tokenKey)

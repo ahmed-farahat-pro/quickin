@@ -50,6 +50,12 @@ struct QuickInApp: App {
                         deepLink.handle(url)
                     }
                 }
+                // A tapped push (comment / reply → that listing's comments).
+                .onReceive(AppNavigation.shared.$pendingNotificationLink) { link in
+                    guard let link else { return }
+                    AppNavigation.shared.pendingNotificationLink = nil
+                    deepLink.openNotification(type: nil, link: link)
+                }
                 // Present the deep-linked entity over whatever tab is showing,
                 // in its own navigation stack (guest detail experience).
                 .fullScreenCover(item: $deepLink.route) { route in

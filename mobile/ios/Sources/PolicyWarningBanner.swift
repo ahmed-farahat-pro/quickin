@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// The acknowledge gate, shown in place of the chat composer.
+/// The acknowledge gate, shown in place of the comment / reply composer.
 ///
 /// A moderator issued a warning about sharing contact details and the server is
-/// refusing this user's messages (HTTP 409) until they confirm they have read
-/// it. Nothing else notifies them — no email, no push — so this banner IS the
-/// delivery, which is why it replaces the composer rather than sitting above it:
-/// a notice you can ignore while still typing is not a gate.
+/// refusing this user's comments and host replies (HTTP 409) until they confirm
+/// they have read it. Nothing else notifies them — no email, no push — so this
+/// banner IS the delivery, which is why it replaces the composer rather than
+/// sitting above it: a notice you can ignore while still typing is not a gate.
 ///
-/// Used by both `ChatView` (booking threads) and `ConversationChatView`
-/// (pre-booking threads).
+/// Used by `ListingCommentsSection` (listing detail) and `HostGuestQuestionsView`.
 struct PolicyWarningBanner: View {
     let text: String
     let isAcknowledging: Bool
@@ -17,7 +16,7 @@ struct PolicyWarningBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(L.t("chat.warningTitle"), systemImage: "exclamationmark.triangle.fill")
+            Label(L.t("policyWarning.title"), systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(Color.qkBurgundy)
 
@@ -32,7 +31,7 @@ struct PolicyWarningBanner: View {
                     if isAcknowledging {
                         ProgressView().tint(.white)
                     } else {
-                        Text(L.t("chat.warningAck")).font(.subheadline.weight(.bold))
+                        Text(L.t("policyWarning.ack")).font(.subheadline.weight(.bold))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -50,8 +49,5 @@ struct PolicyWarningBanner: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.qkBurgundy.opacity(0.35), lineWidth: 1)
         )
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
     }
 }

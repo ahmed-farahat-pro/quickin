@@ -267,7 +267,7 @@
     <string name="detail_nights">%1$s × %2$d night(s)</string>
     <string name="detail_reserve">Reserve</string>
     <string name="detail_own_listing">This is your listing</string>
-    <string name="detail_own_listing_hint">You can\'t book or message your own place.</string>
+    <string name="detail_own_listing_hint">You can\'t book your own place.</string>
     <string name="detail_sign_in_to_reserve">Sign in to reserve</string>
     <string name="detail_request_sent">Request sent</string>
     <string name="detail_waiting_host_stay">Waiting for the host to confirm your stay at %1$s.</string>
@@ -385,7 +385,6 @@
     <string name="reservation_code_label">Reservation code</string>
     <string name="reservation_dates">Dates</string>
     <string name="reservation_guests_label">Guests</string>
-    <string name="reservation_messages">Messages</string>
     <string name="reservation_show_qr">Show this QR code at check-in.</string>
     <string name="reservation_no_code">No code</string>
     <string name="reservation_scan_or_tap">Scan or tap to open your stay pass</string>
@@ -456,7 +455,7 @@
 
     <!-- Push notifications (FCM) -->
     <string name="notif_channel_name">Notifications</string>
-    <string name="notif_channel_desc">Booking updates, messages and reminders</string>
+    <string name="notif_channel_desc">Booking updates, questions and reminders</string>
 
     <!-- AI travel concierge -->
     <string name="ai_title">Travel concierge</string>
@@ -763,20 +762,41 @@
     <string name="pricing_month_11">November</string>
     <string name="pricing_month_12">December</string>
 
-    <!-- Messages inbox (guest <-> host conversations) -->
-    <string name="messages_title">Messages</string>
-    <string name="messages_error_title">Couldn\'t load messages</string>
-    <string name="messages_empty_title">No messages yet</string>
-    <string name="messages_empty_body">When you message a host or a guest, the conversation shows up here.</string>
-    <string name="messages_no_messages">No messages yet</string>
-    <string name="messages_host_badge">Host</string>
-    <string name="messages_reservation_badge">Reservation</string>
-    <string name="messages_sign_in_title">Sign in to see your messages</string>
-    <string name="messages_sign_in_body">Your conversations with hosts and guests live here.</string>
-    <string name="profile_messages">Messages</string>
-    <string name="profile_messages_sub">Chat with hosts and guests</string>
-    <string name="cd_messages">Messages</string>
-
+    <!-- Listing comments (public Q&A) + host "Guest questions" -->
+    <string name="comments_title">Questions &amp; comments</string>
+    <string name="comments_input_hint">Ask the host a question…</string>
+    <string name="comments_post">Post</string>
+    <string name="comments_public_hint">Comments are public. Don\'t share phone numbers or contact details.</string>
+    <string name="comments_sign_in">Sign in to ask a question</string>
+    <string name="comments_empty">No questions yet. Be the first to ask.</string>
+    <string name="comments_empty_host">No questions on this listing yet.</string>
+    <string name="comments_loading">Loading comments…</string>
+    <string name="comments_load_error">Couldn\'t load comments.</string>
+    <string name="comments_delete">Delete</string>
+    <string name="comments_delete_title">Delete this comment?</string>
+    <string name="comments_delete_body">It will be removed from this listing for everyone.</string>
+    <string name="comments_reply">Reply</string>
+    <string name="comments_edit_reply">Edit reply</string>
+    <string name="comments_delete_reply">Delete reply</string>
+    <string name="comments_host_label">Host</string>
+    <string name="comments_you_label">You</string>
+    <string name="comments_reply_hint">Write your reply…</string>
+    <string name="comments_save_reply">Save reply</string>
+    <string name="comments_reply_title">Reply to %1$s</string>
+    <string name="comments_post_failed">Couldn\'t post your comment.</string>
+    <string name="comments_reply_failed">Couldn\'t save your reply.</string>
+    <string name="comments_delete_failed">Couldn\'t delete that.</string>
+    <string name="comments_warning_ack">Thanks. You can post again now.</string>
+    <string name="host_questions_title">Guest questions</string>
+    <string name="host_questions_short">Questions</string>
+    <string name="host_questions_none">No unanswered questions</string>
+    <string name="host_questions_count">%1$d unanswered</string>
+    <string name="host_questions_empty_title">No questions yet</string>
+    <string name="host_questions_empty_body">When guests ask about your listings, their questions show up here.</string>
+    <string name="host_questions_unanswered">Unanswered</string>
+    <string name="host_questions_answered">Answered</string>
+    <string name="host_questions_view_listing">View listing</string>
+    <string name="host_questions_error">Couldn\'t load guest questions.</string>
     <!-- Support & legal (Profile tab) -->
     <string name="profile_support_legal">Support &amp; legal</string>
     <string name="legal_terms">Terms of Service</string>
@@ -961,7 +981,7 @@
          host listing card; the banner + blocked-action note live on the detail screen it opens. -->
     <string name="preview_guest_action">See it as a guest</string>
     <string name="preview_guest_title">Guest preview</string>
-    <string name="preview_guest_body">Your listing exactly as a guest meets it. Nothing here books, saves or sends a message.</string>
+    <string name="preview_guest_body">Your listing exactly as a guest meets it. Nothing here books, saves or posts.</string>
     <string name="preview_guest_under_review">It\'s still under review, so guests can\'t find it yet.</string>
     <string name="preview_guest_hidden">It isn\'t visible to guests right now.</string>
     <string name="preview_guest_blocked_title">Preview only</string>

@@ -67,7 +67,9 @@ class QuickInMessagingService : FirebaseMessagingService() {
                 ?: message.data["body"]
                 ?: message.data["message"]
                 ?: return
-            val link = message.data["link"]
+            // `message` pushes (host ⇄ guest messaging was removed) never route anywhere; a
+            // relative `/explore/<id>#comments` link is rewritten to the app scheme.
+            val link = CommentRules.pushLink(message.data["type"], message.data["link"])
             showNotification(title, body, link)
         }
     }
@@ -79,7 +81,7 @@ class QuickInMessagingService : FirebaseMessagingService() {
         // intent data with ACTION_VIEW so MainActivity.handleIntent routes it (App Link / quickin://);
         // otherwise we just bring the app to the front.
         val intent = if (!link.isNullOrBlank()) {
-            Intent(Intent.ACTION_VIEW, Uri.parse(link)).setPackage(packageName)
+            Intent(Intent.ACTION_VIEW, Uri.parse(link)).setClass(this, MainActivity::class.java)
         } else {
             Intent(this, MainActivity::class.java)
         }.apply {

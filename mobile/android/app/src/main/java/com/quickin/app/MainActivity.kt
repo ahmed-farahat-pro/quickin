@@ -77,7 +77,6 @@ import com.quickin.app.ui.AddListingScreen
 import com.quickin.app.ui.FormDraftsViewModel
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
-import com.quickin.app.ui.ChatScreen
 import com.quickin.app.ui.DisputeScreen
 import com.quickin.app.ui.EditListingScreen
 import com.quickin.app.ui.ForgotPasswordScreen
@@ -94,11 +93,9 @@ import com.quickin.app.ui.ListingsScreen
 import com.quickin.app.ui.ReceiptsScreen
 import com.quickin.app.ui.nightsBetween
 import com.quickin.app.ui.NotificationsScreen
-import com.quickin.app.ui.MessagesScreen
+import com.quickin.app.ui.HostCommentsScreen
 import com.quickin.app.ui.OtpScreen
 import com.quickin.app.ui.PaymentSheet
-import com.quickin.app.ui.PreBookingChatScreen
-import com.quickin.app.ui.ConversationChatScreen
 import com.quickin.app.ui.ProfileScreen
 import com.quickin.app.ui.ProfileSettingsScreen
 import com.quickin.app.ui.ProfileSignInCta
@@ -157,9 +154,21 @@ class MainActivity : AppCompatActivity() {
      * (App Link / quickin:// scheme). A link we don't recognize is ignored.
      */
     private fun handleIntent(intent: Intent?) {
-        val data: Uri = intent?.data ?: return
-        if (intent.action != Intent.ACTION_VIEW) return
-        DeepLink.parse(data)?.let { _pendingDeepLink.value = it }
+        if (intent == null) return
+        val data: Uri? = intent.data
+        if (data != null) {
+            if (intent.action != Intent.ACTION_VIEW) return
+            DeepLink.parse(data)?.let { _pendingDeepLink.value = it }
+            return
+        }
+        // A push tapped while the app was in the background: the system draws it and launches
+        // us with the FCM data payload as extras (no data URI). Route `comment` / `comment_reply`
+        // links the same way; `message` pushes (messaging was removed) route nowhere.
+        val extras = intent.extras ?: return
+        val link = runCatching {
+            CommentRules.pushLink(extras.getString("type"), extras.getString("link"))
+        }.getOrNull() ?: return
+        DeepLink.parse(Uri.parse(link))?.let { _pendingDeepLink.value = it }
     }
 
     /** Consumed by the composable layer once the token has been used. */
@@ -367,8 +376,10 @@ private fun MainApp() {
     val hostServicesState by servicesViewModel.host.collectAsState()
     val createServiceState by servicesViewModel.create.collectAsState()
 
-    val chatViewModel: ChatViewModel = viewModel()
-    val chatState by chatViewModel.state.collectAsState()
+    // Public listing comments (replaced host ⇄ guest messaging) + the host's "Guest questions".
+    val commentsViewModel: CommentsViewModel = viewModel()
+    val listingCommentsState by commentsViewModel.listing.collectAsState()
+    val hostCommentsState by commentsViewModel.host.collectAsState()
 
 
     val notificationsViewModel: NotificationsViewModel = viewModel()
@@ -461,27 +472,22 @@ private fun MainApp() {
     var showProfileSettings by remember { mutableStateOf(false) }
     // True while the "Apply to host" application form (full-screen) is open, from the Profile card.
     var showHostApply by remember { mutableStateOf(false) }
-    // Booking whose chat thread (full-screen) is open: (bookingId, title), or null.
-    var chatBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // Booking whose dispute form / status (full-screen) is open: (bookingId, title), or null.
     var disputeBooking by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // Which bookings can be disputed, and any dispute already on them — one call,
     // so the eligibility rule stays server-side (disputes-core).
     var disputeEligible by remember { mutableStateOf<Set<String>>(emptySet()) }
     var disputeExisting by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    // Pre-booking chat (guest ↔ host) opened from a listing detail's "Message host": (listingId,
-    // hostName), or null. Sits above the listing detail so Back returns to it.
-    var preBookingChat by remember { mutableStateOf<Pair<String, String>?>(null) }
-    // Messages inbox (full-screen): all guest ↔ host conversations (web /messages parity).
-    var showMessages by remember { mutableStateOf(false) }
-    // Conversation thread opened from the inbox: (conversationId, otherPartyName), or null.
-    // Sits above the inbox so Back returns to it.
-    var openConversationThread by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Host whose public profile (full-screen) is open: (hostId, fallbackHostName), or null.
     // Opened by tapping the "Hosted by …" row on a listing detail.
     var hostProfile by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // True while the in-app notifications feed (full-screen) is open.
     var showNotifications by remember { mutableStateOf(false) }
+    // True while the host's "Guest questions" (comments across their listings) is open.
+    var showGuestQuestions by remember { mutableStateOf(false) }
+    // Listing id whose detail should scroll to "Questions & comments" once it opens (set by a
+    // comment / reply notification, push or Guest questions row), or null.
+    var focusCommentsFor by remember { mutableStateOf<String?>(null) }
     // When true, the Profile/Reservations tab shows the full AuthScreen instead of the CTA.
     var showAuth by remember { mutableStateOf(false) }
     // True while the standalone "Forgot password" route (email → code + new password) is open.
@@ -604,7 +610,10 @@ private fun MainApp() {
     val pendingDeepLink by deepLinkFlow.collectAsState()
     LaunchedEffect(pendingDeepLink) {
         when (val link = pendingDeepLink) {
-            is DeepLink.Listing -> listingsViewModel.openListingById(link.id)
+            is DeepLink.Listing -> {
+                if (link.focusComments) focusCommentsFor = link.id
+                listingsViewModel.openListingById(link.id)
+            }
             is DeepLink.Service -> servicesViewModel.openServiceById(link.id)
             is DeepLink.Reservation -> {
                 // Open the reservation's QR-card detail under the guest Trips tab. The detail
@@ -729,6 +738,9 @@ private fun MainApp() {
             notificationsViewModel.clear()
             wishlistViewModel.clear()
             reviewsViewModel.clear()
+            commentsViewModel.clear()
+            showGuestQuestions = false
+            focusCommentsFor = null
             // Drop the cached editable profile too, so the next account can't see the prior one's
             // name / age / ID / phone on the edit screen.
             profileSettingsViewModel.clear()
@@ -738,7 +750,7 @@ private fun MainApp() {
             payoutViewModel.clear()
             // Drop cached earnings/receipts so the next account never sees the prior one's money.
             moneyViewModel.clear()
-            // Leave any host / reservation-detail / chat / notifications / services screen on sign-out.
+            // Leave any host / reservation-detail / notifications / services screen on sign-out.
             showHost = false
             showHostServices = false
             showReceipts = false
@@ -753,11 +765,6 @@ private fun MainApp() {
             showNotifications = false
             showForgot = false
             selectedReservationId = null
-            chatBooking = null
-            preBookingChat = null
-            // Leave the messages inbox + any open conversation thread too.
-            showMessages = false
-            openConversationThread = null
             // Close the host profile too (a public screen, but drop its cached state on logout).
             hostProfile = null
             trustViewModel.clearHostProfile()
@@ -797,20 +804,27 @@ private fun MainApp() {
         }
     }
 
+    // The host's unanswered "Guest questions" count (badges the host shelf + Profile row). Loaded
+    // on sign-in, on opening the dashboard, and on visiting Profile; hosts only.
+    val onProfileTab = currentTabKey == "Profile"
+    LaunchedEffect(authState.isAuthenticated, isHost, showHost, onProfileTab) {
+        if (authState.isAuthenticated && isHost) commentsViewModel.loadHost()
+    }
+
     // System BACK button. State-based navigation means the OS back press isn't tied to a
     // back stack, so we pop whichever full-screen overlay is on top — mirroring the render
     // precedence below — and otherwise fall back to returning to Explore from a secondary tab.
     val otpOpen = authState.pendingEmail != null && !authState.isAuthenticated
     val forgotOpen = showForgot && !authState.isAuthenticated
     val authOpen = showAuth && !authState.isAuthenticated
-    val anyOverlay = pendingPayment != null || hostProfile != null || preBookingChat != null ||
+    val anyOverlay = pendingPayment != null || hostProfile != null ||
         calendarListing != null ||
         editingListing != null ||
         selectedListing != null ||
         selectedService != null ||
         showProfileSettings || showHostApply || showHostServices ||
-        chatBooking != null || disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
-        showMessages || openConversationThread != null ||
+        disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
+        showGuestQuestions ||
         showNotifications || showAnalytics || showEarnings || showReceipts ||
         otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
@@ -824,8 +838,6 @@ private fun MainApp() {
             }
             // The host profile sits above the listing detail — Back returns to that detail.
             hostProfile != null -> { trustViewModel.clearHostProfile(); hostProfile = null }
-            // Pre-booking chat sits above the listing detail — Back returns to that detail.
-            preBookingChat != null -> preBookingChat = null
             // The listing editor sits above the detail / host dashboard it was opened from. (It
             // installs its own BackHandler while there are unsaved edits, which asks first.)
             editingListing != null -> { hostViewModel.resetEdit(); editingListing = null }
@@ -848,7 +860,6 @@ private fun MainApp() {
                 showHostApply = false
             }
             disputeBooking != null -> disputeBooking = null
-            chatBooking != null -> chatBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
             // Earnings / Analytics / Services / Receipts are full-screen and render BEFORE the
@@ -860,12 +871,11 @@ private fun MainApp() {
             showAnalytics -> showAnalytics = false
             showHostServices -> showHostServices = false
             showReceipts -> showReceipts = false
+            // Guest questions sits above the host dashboard (it is one of its quick actions).
+            showGuestQuestions -> showGuestQuestions = false
             // Closing the dashboard retires a finished publish's success card (the wizard tab
             // shares this state), but keeps a failed attempt's error with the draft it describes.
             showHost -> { hostViewModel.clearCreated(); showHost = false }
-            // A conversation thread sits above the inbox — Back returns to the inbox first.
-            openConversationThread != null -> openConversationThread = null
-            showMessages -> showMessages = false
             showNotifications -> showNotifications = false
             otpOpen -> authViewModel.cancelVerification()
             forgotOpen -> { authViewModel.cancelForgotPassword(); showForgot = false }
@@ -968,20 +978,6 @@ private fun MainApp() {
         return
     }
 
-    // PRE-BOOKING CHAT (guest ↔ host). Full-screen; opened from a listing detail's "Message host".
-    // Sits above the listing detail (rendered before it) so Back returns to that detail. The screen
-    // handles a signed-out user itself (a "sign in to chat" state), so it isn't auth-gated here.
-    val preChat = preBookingChat
-    if (preChat != null) {
-        PreBookingChatScreen(
-            token = authViewModel.currentToken(),
-            listingId = preChat.first,
-            hostName = preChat.second,
-            onBack = { preBookingChat = null }
-        )
-        return
-    }
-
     // HOST LISTING EDITOR — every field plus photo management, in one save that sends the listing
     // back to the admin queue. Full-screen; opened from a host listing card or from the listing
     // detail's host controls. Rendered above the listing detail so Back returns to whichever
@@ -1078,6 +1074,10 @@ private fun MainApp() {
             trustViewModel.loadHostBadges(current.hostId)
             trustViewModel.resetReport()
         }
+        // Comments carry per-caller flags (mine / is_host / can_comment), so reload on sign-in too.
+        LaunchedEffect(current.id, authState.isAuthenticated) {
+            commentsViewModel.loadListing(current.id)
+        }
         // True when the signed-in user is this listing's host — unlocks the availability manager.
         // Deliberately false while previewing: the host is standing in for a guest, and the point
         // of the preview is the guest's side of the screen.
@@ -1094,6 +1094,8 @@ private fun MainApp() {
                 availabilityViewModel.clearHost()
                 trustViewModel.clearHostBadges()
                 trustViewModel.resetReport()
+                commentsViewModel.clearListing()
+                focusCommentsFor = null
                 selectedListing = null
                 previewingAsGuest = false
             },
@@ -1140,8 +1142,19 @@ private fun MainApp() {
                     hostProfile = hostId to current.hostName
                 }
             },
-            // "Message host" opens the pre-booking chat over this detail (Back returns here).
-            onMessageHost = { id, name -> preBookingChat = id to name },
+            // "Questions & comments" — public Q&A (host ⇄ guest messaging was removed).
+            commentsState = if (listingCommentsState.listingId == current.id) listingCommentsState
+                else com.quickin.app.ListingCommentsUiState(listingId = current.id, isLoading = true),
+            isSignedIn = authState.isAuthenticated,
+            onRetryComments = { commentsViewModel.loadListing(current.id) },
+            onPostComment = commentsViewModel::post,
+            onDeleteComment = commentsViewModel::deleteComment,
+            onSaveCommentReply = commentsViewModel::saveReply,
+            onDeleteCommentReply = commentsViewModel::deleteReply,
+            onAcknowledgeCommentWarning = commentsViewModel::acknowledgeListingWarning,
+            onDismissCommentError = commentsViewModel::dismissListingError,
+            focusComments = focusCommentsFor == current.id,
+            onCommentsFocused = { focusCommentsFor = null },
             // Live availability: greyed days in the guest picker come from the guest state (only
             // when it's this listing's spans); the host manager is gated on owning the listing.
             unavailableRanges = if (availabilityGuestState.listingId == current.id)
@@ -1298,8 +1311,8 @@ private fun MainApp() {
         return
     }
 
-    // Per-booking CHAT thread. Full-screen; opened from the reservation detail
-    // (guest) or a host request row. Sits above those screens so Back returns to them.
+    // Dispute form / status. Full-screen; opened from the reservation detail. Sits above it so
+    // Back returns there.
     val dispute = disputeBooking
     if (dispute != null) {
         DisputeScreen(
@@ -1307,21 +1320,6 @@ private fun MainApp() {
             bookingId = dispute.first,
             stayTitle = dispute.second,
             onBack = { disputeBooking = null },
-        )
-        return
-    }
-
-    val chat = chatBooking
-    if (chat != null && authState.isAuthenticated) {
-        ChatScreen(
-            bookingId = chat.first,
-            state = chatState,
-            title = chat.second,
-            onStart = chatViewModel::start,
-            onRefresh = chatViewModel::refresh,
-            onSend = chatViewModel::send,
-            onAcknowledgeWarning = chatViewModel::acknowledgeWarning,
-            onBack = { chatBooking = null }
         )
         return
     }
@@ -1337,9 +1335,6 @@ private fun MainApp() {
                 selectedReservationId = null
             },
             onRetry = { bookingsViewModel.loadReservation(reservationId) },
-            onOpenMessages = {
-                chatBooking = reservationId to detailState.reservation?.title
-            },
             onReportIssue = if (disputeEligible.contains(reservationId)) {
                 { disputeBooking = reservationId to detailState.reservation?.title }
             } else null,
@@ -1431,6 +1426,26 @@ private fun MainApp() {
         return
     }
 
+    // Host "GUEST QUESTIONS" — comments across the host's listings (where Messages used to be).
+    // Above the host dashboard (one of its quick actions) and below the listing detail, so a row's
+    // "View listing" opens the detail on top and Back returns here.
+    if (showGuestQuestions && authState.isAuthenticated) {
+        HostCommentsScreen(
+            state = hostCommentsState,
+            onBack = { showGuestQuestions = false },
+            onLoad = commentsViewModel::loadHost,
+            onOpenListing = { id ->
+                focusCommentsFor = id
+                listingsViewModel.openListingById(id)
+            },
+            onSaveReply = { comment, body -> commentsViewModel.saveHostReply(comment, body) },
+            onDeleteReply = { comment -> commentsViewModel.deleteHostReply(comment) },
+            onAcknowledgeWarning = commentsViewModel::acknowledgeHostWarning,
+            onDismissError = commentsViewModel::dismissHostError
+        )
+        return
+    }
+
     // Host dashboard (Add listing + Reservation requests). Full-screen; host accounts only.
     if (showHost && authState.isAuthenticated) {
         HostScreen(
@@ -1455,10 +1470,6 @@ private fun MainApp() {
             onLoadBookings = hostViewModel::loadHostBookings,
             onConfirm = { id -> hostViewModel.act(id, "confirm") },
             onReject = { id -> hostViewModel.act(id, "reject") },
-            onMessage = { id ->
-                val title = hostBookingsState.bookings.firstOrNull { it.id == id }?.title
-                chatBooking = id to title
-            },
             onLoadReviewableGuests = reviewsViewModel::loadReviewableGuests,
             onSubmitGuestReview = { bookingId, rating, comment ->
                 reviewsViewModel.submitGuestReview(bookingId, rating, comment)
@@ -1478,6 +1489,9 @@ private fun MainApp() {
                 servicesViewModel.loadHost()
                 showHostServices = true
             },
+            // "Guest questions" — where Messages used to be, badged with the unanswered count.
+            onOpenGuestQuestions = { showGuestQuestions = true },
+            guestQuestionsUnanswered = hostCommentsState.unanswered,
             onCreateListing = { title, description, location, country, price, maxGuests, bedrooms, beds, bathrooms, propertyType, photos, amenities, lat, lng, region, resort, cancellationPolicy, ownershipDoc, weeklyDiscount, monthlyDiscount, weekendPrice, weekendDays, monthlyPrices ->
                 hostViewModel.createListing(
                     title, description, location, country, price,
@@ -1501,38 +1515,23 @@ private fun MainApp() {
         return
     }
 
-    // Conversation THREAD opened from the Messages inbox. Sits above the inbox so Back returns
-    // to the conversation list.
-    val openThread = openConversationThread
-    if (openThread != null && authState.isAuthenticated) {
-        ConversationChatScreen(
-            token = authViewModel.currentToken(),
-            conversationId = openThread.first,
-            title = openThread.second,
-            onBack = { openConversationThread = null }
-        )
-        return
-    }
-
-    // Messages INBOX. Full-screen; opened from the Explore top-bar icon or the Profile row.
-    if (showMessages && authState.isAuthenticated) {
-        MessagesScreen(
-            token = authViewModel.currentToken(),
-            onOpenConversation = { id, title -> openConversationThread = id to title },
-            onBack = { showMessages = false }
-        )
-        return
-    }
-
     // In-app NOTIFICATIONS feed. Full-screen; opened from the Explore top-bar bell.
-    // Sits below the deep overlays above (chat / detail / host) so Back returns to Explore.
+    // Sits below the deep overlays above (detail / host) so Back returns to Explore.
     if (showNotifications && authState.isAuthenticated) {
         NotificationsScreen(
             state = notificationsState,
             onBack = { showNotifications = false },
             onLoad = notificationsViewModel::load,
             onMarkRead = notificationsViewModel::markRead,
-            onMarkAllRead = notificationsViewModel::markAllRead
+            onMarkAllRead = notificationsViewModel::markAllRead,
+            // `comment` / `comment_reply` open that listing's comments; nothing else routes
+            // (old `message` rows never open a chat — messaging was removed).
+            onOpen = { notif ->
+                CommentRules.notificationListingId(notif.type, notif.link)?.let { id ->
+                    focusCommentsFor = id
+                    listingsViewModel.openListingById(id)
+                }
+            }
         )
         return
     }
@@ -1660,7 +1659,6 @@ private fun MainApp() {
                         notificationsViewModel.load()
                         showNotifications = true
                     },
-                    onOpenMessages = { showMessages = true },
                     savedListingIds = wishlistState.listingIds,
                     onToggleSaved = { listing ->
                         if (authState.isAuthenticated) {
@@ -1771,7 +1769,8 @@ private fun MainApp() {
                             profileSettingsViewModel.load()
                             showProfileSettings = true
                         },
-                        onOpenMessages = { showMessages = true },
+                        onOpenGuestQuestions = { showGuestQuestions = true },
+                        guestQuestionsUnanswered = hostCommentsState.unanswered,
                         onOpenReceipts = {
                             moneyViewModel.loadReceipts()
                             showReceipts = true

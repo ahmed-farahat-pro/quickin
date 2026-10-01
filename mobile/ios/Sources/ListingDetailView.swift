@@ -9,11 +9,14 @@ struct ListingDetailView: View {
     /// It suppresses the two host-only affordances (`isOwnListing`,
     /// `isHostOfThisListing` both read `false`) so the guest reserve panel and
     /// booking bar render instead of the pricing-calendar shortcuts, and it makes
-    /// every write action inert: a preview that could file a booking request, open
-    /// a conversation with yourself or report your own place is not a preview.
+    /// every write action inert: a preview that could file a booking request, post
+    /// a comment on your own place or report it is not a preview.
     /// The `listing` passed in must be the GUEST projection — see
     /// `SupabaseService.fetchListing(id:)`.
     var previewAsGuest: Bool = false
+    /// Opens scrolled to "Questions & comments" — a `comment` / `comment_reply`
+    /// notification (link `/explore/<id>#comments`) or a host-feed row.
+    var focusComments: Bool = false
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var wishlist: WishlistStore
@@ -35,10 +38,6 @@ struct ListingDetailView: View {
     // Reporting — presents the report sheet (requires sign-in; otherwise routes
     // through the existing auth sheet first).
     @State private var showingReport = false
-
-    // "Message host" — pushes the pre-booking guest ⇄ host conversation
-    // (requires sign-in; otherwise routes through the existing auth sheet first).
-    @State private var showMessageHost = false
 
     // Reserve inputs
     @State private var checkIn = Calendar.current.startOfDay(for: Date())
@@ -64,7 +63,7 @@ struct ListingDetailView: View {
     @State private var showingCalendar = false
 
     /// Presents the "this is only a preview" note, shown when the host taps a
-    /// guest action (reserve, save, message, report) inside the guest preview.
+    /// guest action (reserve, save, comment, report) inside the guest preview.
     @State private var showingPreviewNotice = false
 
     // Reserve flow state
@@ -130,8 +129,6 @@ struct ListingDetailView: View {
                             hostRow
                             if isOwnListing {
                                 ownerBanner
-                            } else {
-                                messageHostRow
                             }
                         }
                         Divider()
@@ -157,6 +154,14 @@ struct ListingDetailView: View {
                         cancellationPolicySection
                         Divider()
                         reviewsSection
+                        Divider()
+                        ListingCommentsSection(
+                            listingID: listing.id,
+                            previewAsGuest: previewAsGuest,
+                            onRequireSignIn: { showingAuth = true },
+                            onPreviewBlocked: { showingPreviewNotice = true }
+                        )
+                        .id("comments")
                         if !hostListings.isEmpty {
                             Divider()
                             moreFromHostSection
@@ -174,6 +179,12 @@ struct ListingDetailView: View {
                         withAnimation { proxy.scrollTo("reserve", anchor: .top) }
                     }
                 }
+                // Opened from a comment notification / the host's question feed.
+                if focusComments {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        withAnimation { proxy.scrollTo("comments", anchor: .top) }
+                    }
+                }
             }
         }
         .background(LinearGradient.qkPageWash.ignoresSafeArea())
@@ -183,10 +194,6 @@ struct ListingDetailView: View {
         // it resolves no matter which stack presented this detail screen.
         .navigationDestination(for: HostProfileTarget.self) { target in
             HostProfileView(hostID: target.hostID, initialName: target.name)
-        }
-        // "Message host" pushes the pre-booking guest ⇄ host conversation (web parity).
-        .navigationDestination(isPresented: $showMessageHost) {
-            MessageHostView(listingID: listing.id, hostName: hostName.isEmpty ? nil : hostName)
         }
         .safeAreaInset(edge: .bottom) { bookingBar }
         .sheet(isPresented: $showingDatePicker) {
@@ -303,7 +310,7 @@ struct ListingDetailView: View {
     }
 
     /// Swallows a guest action while previewing and says why, instead of letting
-    /// the host book, save, message or report their own listing for real. Returns
+    /// the host book, save, comment on or report their own listing for real. Returns
     /// `true` when it intercepted the tap; always `false` for an actual guest.
     @discardableResult
     private func interceptedByPreview() -> Bool {
@@ -624,41 +631,14 @@ struct ListingDetailView: View {
         return HostProfileTarget(hostID: hostID, name: hostName.isEmpty ? nil : hostName)
     }
 
-    /// True when the signed-in user IS this listing's host — the "Message host"
-    /// row is hidden (the backend also rejects messaging your own listing).
+    /// True when the signed-in user IS this listing's host — the guest actions
+    /// give way to the owner banner.
     private var isOwnListing: Bool {
         // The whole point of the preview is to see the guest's side of a listing
         // the viewer does own, so ownership is deliberately ignored here.
         if previewAsGuest { return false }
         guard let uid = auth.user?.id, let hostID = listing.hostId else { return false }
         return uid == hostID
-    }
-
-    /// "Message host" — opens (or reuses) the pre-booking guest ⇄ host conversation,
-    /// mirroring the web listing's message-host drawer. Sign-in gated like the report flow.
-    private var messageHostRow: some View {
-        Button {
-            if interceptedByPreview() { return }
-            if auth.isAuthenticated {
-                showMessageHost = true
-            } else {
-                showingAuth = true
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .accessibilityLabel(loc.t("detail.messageHost"))
-                    .font(.system(size: 14, weight: .semibold))
-                Text(loc.t("detail.messageHost"))
-                    .font(.system(size: 14, weight: .semibold))
-                    .underline()
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(Color.qkBurgundy)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(loc.t("detail.messageHost"))
     }
 
     /// Trust chips for the host. Prefers the full badge set from the public

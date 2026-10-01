@@ -74,3 +74,9 @@ swiftc -o "$OUT/listing-photo-upload" \
   Tests/ListingPhotoUploadTests/main.swift \
   Sources/ListingPhotoUpload.swift
 "$OUT/listing-photo-upload"
+
+echo "\nListingCommentRules — comment limits, bylines and which notifications open a listing's comments\n"
+swiftc -o "$OUT/listing-comment-rules" \
+  Tests/ListingCommentRulesTests/main.swift \
+  Sources/ListingCommentRules.swift
+"$OUT/listing-comment-rules"

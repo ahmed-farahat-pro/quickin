@@ -44,7 +44,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -125,6 +125,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.offset
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.AiWriterUiState
 import com.quickin.app.ResortCatalogUiState
@@ -233,7 +234,6 @@ fun HostScreen(
     onLoadBookings: () -> Unit,
     onConfirm: (String) -> Unit,
     onReject: (String) -> Unit,
-    onMessage: (String) -> Unit,
     onLoadReviewableGuests: () -> Unit = {},
     onSubmitGuestReview: (bookingId: String, rating: Int, comment: String) -> Unit = { _, _, _ -> },
     /** Opens "Earnings & payouts" (`GET /api/local/host/earnings`). Also on Profile -> Hosting. */
@@ -242,6 +242,10 @@ fun HostScreen(
     onOpenAnalytics: () -> Unit = {},
     /** Opens the host's services + subscription-request inbox (`GET /api/local/host/services`). */
     onOpenServices: () -> Unit = {},
+    /** Opens "Guest questions" (`GET /api/local/host/comments`) — where Messages used to be. */
+    onOpenGuestQuestions: () -> Unit = {},
+    /** Unanswered guest questions, badged on the quick-action tile. */
+    guestQuestionsUnanswered: Int = 0,
     onCreateListing: (
         title: String, description: String, location: String, country: String,
         pricePerNight: String, maxGuests: String, bedrooms: String, beds: String,
@@ -300,7 +304,9 @@ fun HostScreen(
             HostQuickActions(
                 onOpenEarnings = onOpenEarnings,
                 onOpenAnalytics = onOpenAnalytics,
-                onOpenServices = onOpenServices
+                onOpenServices = onOpenServices,
+                onOpenGuestQuestions = onOpenGuestQuestions,
+                guestQuestionsUnanswered = guestQuestionsUnanswered
             )
 
             ScrollableTabRow(
@@ -352,8 +358,7 @@ fun HostScreen(
                     state = bookingsState,
                     onLoad = onLoadBookings,
                     onConfirm = onConfirm,
-                    onReject = onReject,
-                    onMessage = onMessage
+                    onReject = onReject
                 )
                 1 -> ReviewGuestsTab(
                     state = reviewGuestsState,
@@ -406,7 +411,9 @@ fun HostScreen(
 private fun HostQuickActions(
     onOpenEarnings: () -> Unit,
     onOpenAnalytics: () -> Unit,
-    onOpenServices: () -> Unit
+    onOpenServices: () -> Unit,
+    onOpenGuestQuestions: () -> Unit,
+    guestQuestionsUnanswered: Int
 ) {
     Row(
         modifier = Modifier
@@ -435,6 +442,14 @@ private fun HostQuickActions(
             onClick = onOpenServices,
             modifier = Modifier.weight(1f)
         )
+        HostQuickAction(
+            icon = Icons.Filled.QuestionAnswer,
+            label = stringResource(com.quickin.app.R.string.host_questions_short),
+            accent = Burgundy,
+            onClick = onOpenGuestQuestions,
+            badge = guestQuestionsUnanswered,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -445,7 +460,8 @@ private fun HostQuickAction(
     label: String,
     accent: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    badge: Int = 0
 ) {
     val interaction = remember { MutableInteractionSource() }
     Surface(
@@ -467,6 +483,22 @@ private fun HostQuickAction(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
+                if (badge > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 6.dp, y = (-4).dp)
+                            .background(Burgundy, CircleShape)
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            if (badge > 99) "99+" else "$badge",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(7.dp))
             Text(
@@ -1530,7 +1562,6 @@ fun HostReservationsScreen(
     onLoad: () -> Unit,
     onConfirm: (String) -> Unit,
     onReject: (String) -> Unit,
-    onMessage: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues()
 ) {
     Scaffold(
@@ -1553,8 +1584,7 @@ fun HostReservationsScreen(
                 state = state,
                 onLoad = onLoad,
                 onConfirm = onConfirm,
-                onReject = onReject,
-                onMessage = onMessage
+                onReject = onReject
             )
         }
     }
@@ -1641,8 +1671,7 @@ private fun RequestsTab(
     state: HostBookingsUiState,
     onLoad: () -> Unit,
     onConfirm: (String) -> Unit,
-    onReject: (String) -> Unit,
-    onMessage: (String) -> Unit
+    onReject: (String) -> Unit
 ) {
     // Always reload when the tab appears so incoming requests are always fresh.
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -1726,8 +1755,7 @@ private fun RequestsTab(
                                 booking = booking,
                                 isActing = state.actingOn == booking.id,
                                 onConfirm = { onConfirm(booking.id) },
-                                onReject = { onReject(booking.id) },
-                                onMessage = { onMessage(booking.id) }
+                                onReject = { onReject(booking.id) }
                             )
                         }
                     }
@@ -1777,8 +1805,7 @@ private fun HostBookingCard(
     booking: HostBooking,
     isActing: Boolean,
     onConfirm: () -> Unit,
-    onReject: () -> Unit,
-    onMessage: () -> Unit
+    onReject: () -> Unit
 ) {
     // Both outcomes are final for the guest — a confirmed stay holds the dates, a
     // rejection is announced and cannot be taken back — so neither is sent on a
@@ -1877,19 +1904,6 @@ private fun HostBookingCard(
                 }
             }
 
-            // Message the guest — available on every request, pending or not.
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onMessage,
-                shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
-                modifier = Modifier.fillMaxWidth().height(46.dp)
-            ) {
-                Icon(Icons.Filled.ChatBubbleOutline, null, tint = Burgundy, modifier = Modifier.height(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Message", fontWeight = FontWeight.SemiBold)
-            }
         }
     }
 

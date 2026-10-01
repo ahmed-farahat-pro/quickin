@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.StickyNote2
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.HourglassEmpty
@@ -93,7 +92,6 @@ fun ReservationDetailScreen(
     state: ReservationDetailUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onOpenMessages: (() -> Unit)? = null,
     /** Non-null when this stay can be disputed; opens the report form. */
     onReportIssue: (() -> Unit)? = null,
     /** "Report an issue", or the status when one has already been raised. */
@@ -193,7 +191,6 @@ fun ReservationDetailScreen(
                 }
                 state.reservation != null -> ReservationCardContent(
                     reservation = state.reservation,
-                    onOpenMessages = onOpenMessages,
                     onReportIssue = onReportIssue,
                     reportIssueLabel = reportIssueLabel,
                     onPayNow = onPayNow,
@@ -231,7 +228,6 @@ fun ReservationDetailScreen(
 @Composable
 private fun ReservationCardContent(
     reservation: Reservation,
-    onOpenMessages: (() -> Unit)?,
     onReportIssue: (() -> Unit)?,
     reportIssueLabel: String,
     onPayNow: (() -> Unit)? = null,
@@ -409,19 +405,6 @@ private fun ReservationCardContent(
             }
 
             PaymentFlowRules.Stage.Paid -> Unit
-        }
-
-        if (onOpenMessages != null) {
-            GradientButton(
-                onClick = onOpenMessages,
-                radius = 18.dp,
-                height = 52.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Filled.ChatBubbleOutline, null, tint = Color.White, modifier = Modifier.height(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.reservation_messages), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            }
         }
 
         // Raise an issue about this stay. Only offered on a confirmed or completed

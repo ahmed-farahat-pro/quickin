@@ -222,7 +222,7 @@
     <string name="detail_nights">%1$s × %2$d noche(s)</string>
     <string name="detail_reserve">Reservar</string>
     <string name="detail_own_listing">Este es tu anuncio</string>
-    <string name="detail_own_listing_hint">No puedes reservar ni contactar tu propio alojamiento.</string>
+    <string name="detail_own_listing_hint">No puedes reservar tu propio alojamiento.</string>
     <string name="detail_sign_in_to_reserve">Inicie sesión para reservar</string>
     <string name="detail_request_sent">Solicitud enviada</string>
     <string name="detail_waiting_host_stay">Esperando a que el anfitrión confirme su estancia en %1$s.</string>
@@ -326,7 +326,6 @@
     <string name="reservation_code_label">Código de reserva</string>
     <string name="reservation_dates">Fechas</string>
     <string name="reservation_guests_label">Huéspedes</string>
-    <string name="reservation_messages">Mensajes</string>
     <string name="reservation_show_qr">Muestre este código QR al registrarse.</string>
     <string name="reservation_no_code">Sin código</string>
     <string name="reservation_scan_or_tap">Escanee o toque para abrir su pase de estancia</string>
@@ -380,7 +379,7 @@
     <string name="wishlist_empty_subtitle">Toque el corazón de un alojamiento o una experiencia para guardarlo aquí.</string>
     <string name="wishlist_sign_in">Inicie sesión para guardar sus favoritos.</string>
     <string name="notif_channel_name">Notificaciones</string>
-    <string name="notif_channel_desc">Actualizaciones de reservas, mensajes y recordatorios</string>
+    <string name="notif_channel_desc">Actualizaciones de reservas, preguntas y recordatorios</string>
     <string name="ai_title">Conserjería de viajes</string>
     <string name="ai_subtitle">Su guía con IA de alojamientos boutique en Egipto</string>
     <string name="ai_greeting">¡Hola! Soy su conserjería de viajes. Pregúnteme adónde ir, la mejor época para visitar o qué hacer, y le ayudaré a planificar el viaje perfecto.</string>
@@ -649,20 +648,41 @@
     <string name="shortcut_profile_short">Perfil</string>
     <string name="shortcut_profile_long">Mi perfil</string>
 
-    <!-- Messages inbox (guest <-> host conversations) -->
-    <string name="messages_title">Mensajes</string>
-    <string name="messages_error_title">No se pudieron cargar los mensajes</string>
-    <string name="messages_empty_title">Aún no hay mensajes</string>
-    <string name="messages_empty_body">Cuando escribas a un anfitrión o a un huésped, la conversación aparecerá aquí.</string>
-    <string name="messages_no_messages">Sin mensajes</string>
-    <string name="messages_host_badge">Anfitrión</string>
-    <string name="messages_reservation_badge">Reserva</string>
-    <string name="messages_sign_in_title">Inicia sesión para ver tus mensajes</string>
-    <string name="messages_sign_in_body">Tus conversaciones con anfitriones y huéspedes están aquí.</string>
-    <string name="profile_messages">Mensajes</string>
-    <string name="profile_messages_sub">Chatea con anfitriones y huéspedes</string>
-    <string name="cd_messages">Mensajes</string>
-
+    <!-- Listing comments (public Q&A) + host "Guest questions" -->
+    <string name="comments_title">Preguntas y comentarios</string>
+    <string name="comments_input_hint">Hazle una pregunta al anfitrión…</string>
+    <string name="comments_post">Publicar</string>
+    <string name="comments_public_hint">Los comentarios son públicos. No compartas números de teléfono ni datos de contacto.</string>
+    <string name="comments_sign_in">Inicia sesión para hacer una pregunta</string>
+    <string name="comments_empty">Aún no hay preguntas. Sé el primero en preguntar.</string>
+    <string name="comments_empty_host">Aún no hay preguntas en este alojamiento.</string>
+    <string name="comments_loading">Cargando comentarios…</string>
+    <string name="comments_load_error">No se pudieron cargar los comentarios.</string>
+    <string name="comments_delete">Eliminar</string>
+    <string name="comments_delete_title">¿Eliminar este comentario?</string>
+    <string name="comments_delete_body">Se quitará de este alojamiento para todos.</string>
+    <string name="comments_reply">Responder</string>
+    <string name="comments_edit_reply">Editar respuesta</string>
+    <string name="comments_delete_reply">Eliminar respuesta</string>
+    <string name="comments_host_label">Anfitrión</string>
+    <string name="comments_you_label">Tú</string>
+    <string name="comments_reply_hint">Escribe tu respuesta…</string>
+    <string name="comments_save_reply">Guardar respuesta</string>
+    <string name="comments_reply_title">Responder a %1$s</string>
+    <string name="comments_post_failed">No se pudo publicar tu comentario.</string>
+    <string name="comments_reply_failed">No se pudo guardar tu respuesta.</string>
+    <string name="comments_delete_failed">No se pudo eliminar.</string>
+    <string name="comments_warning_ack">Gracias. Ya puedes volver a publicar.</string>
+    <string name="host_questions_title">Preguntas de huéspedes</string>
+    <string name="host_questions_short">Preguntas</string>
+    <string name="host_questions_none">No hay preguntas sin responder</string>
+    <string name="host_questions_count">%1$d sin responder</string>
+    <string name="host_questions_empty_title">Aún no hay preguntas</string>
+    <string name="host_questions_empty_body">Cuando los huéspedes pregunten por tus alojamientos, sus preguntas aparecerán aquí.</string>
+    <string name="host_questions_unanswered">Sin responder</string>
+    <string name="host_questions_answered">Respondida</string>
+    <string name="host_questions_view_listing">Ver alojamiento</string>
+    <string name="host_questions_error">No se pudieron cargar las preguntas de huéspedes.</string>
     <!-- Support & legal (Profile tab) -->
     <string name="profile_support_legal">Soporte y legal</string>
     <string name="legal_terms">Términos de servicio</string>
@@ -841,7 +861,7 @@
     <string name="calendar_open">Calendario de precios</string>
     <string name="preview_guest_action">Verlo como huésped</string>
     <string name="preview_guest_title">Vista previa del huésped</string>
-    <string name="preview_guest_body">Tu alojamiento tal y como lo ve un huésped. Aquí nada reserva, guarda ni envía mensajes.</string>
+    <string name="preview_guest_body">Tu alojamiento tal y como lo ve un huésped. Aquí nada reserva, guarda ni publica.</string>
     <string name="preview_guest_under_review">Todavía está en revisión, así que los huéspedes aún no pueden encontrarlo.</string>
     <string name="preview_guest_hidden">Ahora mismo no es visible para los huéspedes.</string>
     <string name="preview_guest_blocked_title">Solo vista previa</string>

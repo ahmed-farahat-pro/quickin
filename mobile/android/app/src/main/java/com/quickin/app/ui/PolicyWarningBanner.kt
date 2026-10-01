@@ -17,19 +17,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.ui.theme.Burgundy
 
-// Matches the file-private constant used by the chat screens.
+// Matches the error red used across the app's screens.
 private val ErrorRed = Color(0xFFB3261E)
 
 /**
- * The acknowledge gate, shown in place of the chat composer.
+ * The acknowledge gate, shown in place of the listing-comment composer.
  *
  * A moderator issued a warning about sharing contact details and the API is
- * refusing this user's messages (HTTP 409) until they confirm they have read it.
+ * refusing this user's comments (HTTP 409) until they confirm they have read it.
  * Nothing else notifies them — no email, no push — so this banner IS the
  * delivery, which is why it replaces the input bar rather than sitting above it:
  * a notice you can ignore while still typing is not a gate.
  *
- * Used by both [ChatScreen] (booking threads) and the pre-booking thread screen.
+ * Used by the listing "Questions & comments" section and the host's reply sheet.
  */
 @Composable
 fun PolicyWarningBanner(

@@ -55,7 +55,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.AddHome
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
@@ -139,8 +138,6 @@ fun ListingsScreen(
     onOpenHost: () -> Unit = {},
     unreadCount: Int = 0,
     onOpenNotifications: () -> Unit = {},
-    /** Opens the Messages inbox (guest ↔ host conversations; web /messages parity). */
-    onOpenMessages: () -> Unit = {},
     savedListingIds: Set<String> = emptySet(),
     onToggleSaved: (Listing) -> Unit = {},
     // ---- Natural-language ("Ask AI") search (Section 10) ----
@@ -195,7 +192,6 @@ fun ListingsScreen(
                     unreadCount = unreadCount,
                     onSignIn = onSignIn,
                     onOpenProfile = onOpenProfile,
-                    onOpenMessages = onOpenMessages,
                     onOpenNotifications = onOpenNotifications,
                     onSearch = onSearch,
                     onClear = onClear,
@@ -306,7 +302,6 @@ private fun ExploreChrome(
     unreadCount: Int,
     onSignIn: () -> Unit,
     onOpenProfile: () -> Unit,
-    onOpenMessages: () -> Unit,
     onOpenNotifications: () -> Unit,
     onSearch: (ListingQuery) -> Unit,
     onClear: () -> Unit,
@@ -334,7 +329,7 @@ private fun ExploreChrome(
                     onClick = onOpenHost
                 )
             }
-            // Signed in: profile avatar, the messages inbox and the notifications bell.
+            // Signed in: profile avatar and the notifications bell.
             // Signed out: the account disc alone, which opens login/signup — the same
             // affordance iOS gives a guest.
             QkHeaderProfileAction(
@@ -347,11 +342,6 @@ private fun ExploreChrome(
                 )
             )
             if (isAuthenticated) {
-                QkHeaderIconButton(
-                    icon = Icons.Filled.ChatBubbleOutline,
-                    contentDescription = stringResource(R.string.cd_messages),
-                    onClick = onOpenMessages
-                )
                 QkHeaderIconButton(
                     icon = Icons.Filled.NotificationsNone,
                     contentDescription = stringResource(R.string.cd_notifications),

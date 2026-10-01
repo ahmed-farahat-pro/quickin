@@ -10,10 +10,10 @@ import java.net.URL
  * A moderator issued a policy warning about sharing contact details, and the API
  * is refusing this user's messages until they confirm they have read it.
  *
- * Thrown by the chat services when a send answers **HTTP 409** with a
- * `{ error, policyWarning: { id, message } }` body. The screen swaps its composer
- * for [PolicyWarningBanner] and keeps the typed draft — acknowledging reopens the
- * composer with the text still in it.
+ * Thrown by [CommentService] when a comment / reply answers **HTTP 409** with a
+ * `{ error, policyWarning: { id, message } }` body — the same body chat used to
+ * return. (A bare `warning` key is tolerated as a fallback, never relied on.) The screen shows [PolicyWarningBanner]
+ * and keeps the typed draft — acknowledging lets them retry with the text intact.
  *
  * Nothing else notifies the user (no email, no push, by design), so this is the
  * delivery mechanism as well as the gate.
@@ -26,11 +26,12 @@ object PolicyWarningApi {
     const val GATE_STATUS = 409
 
     /**
-     * Pulls `policyWarning` out of an error body, or null for any other shape so
-     * the caller can fall through to its normal error handling.
+     * Pulls `policyWarning` (or `warning`) out of an error body, or null for any
+     * other shape so the caller can fall through to its normal error handling.
      */
     fun parse(text: String): Pair<String, String>? = runCatching {
-        val w = JSONObject(text).optJSONObject("policyWarning") ?: return null
+        val root = JSONObject(text)
+        val w = root.optJSONObject("policyWarning") ?: root.optJSONObject("warning") ?: return null
         val id = w.optString("id")
         val message = w.optString("message")
         if (id.isEmpty() || message.isEmpty()) null else id to message

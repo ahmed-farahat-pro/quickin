@@ -258,7 +258,7 @@
     <string name="detail_nights">%1$s × %2$d ليلة</string>
     <string name="detail_reserve">احجز</string>
     <string name="detail_own_listing">هذا إعلانك</string>
-    <string name="detail_own_listing_hint">لا يمكنك حجز أو مراسلة مكانك.</string>
+    <string name="detail_own_listing_hint">لا يمكنك حجز مكانك.</string>
     <string name="detail_sign_in_to_reserve">سجّل الدخول للحجز</string>
     <string name="detail_request_sent">تم إرسال الطلب</string>
     <string name="detail_waiting_host_stay">في انتظار تأكيد المضيف لإقامتك في %1$s.</string>
@@ -375,7 +375,6 @@
     <string name="reservation_code_label">رمز الحجز</string>
     <string name="reservation_dates">التواريخ</string>
     <string name="reservation_guests_label">الضيوف</string>
-    <string name="reservation_messages">الرسائل</string>
     <string name="reservation_show_qr">اعرض رمز QR هذا عند تسجيل الوصول.</string>
     <string name="reservation_no_code">لا يوجد رمز</string>
     <string name="reservation_scan_or_tap">امسح الرمز أو اضغط لفتح بطاقة إقامتك</string>
@@ -448,7 +447,7 @@
 
     <!-- Push notifications (FCM) -->
     <string name="notif_channel_name">الإشعارات</string>
-    <string name="notif_channel_desc">تحديثات الحجوزات والرسائل والتذكيرات</string>
+    <string name="notif_channel_desc">تحديثات الحجوزات والأسئلة والتذكيرات</string>
 
     <!-- AI travel concierge -->
     <string name="ai_title">مرشد السفر</string>
@@ -746,20 +745,41 @@
     <string name="shortcut_profile_short">الملف الشخصي</string>
     <string name="shortcut_profile_long">ملفي الشخصي</string>
 
-    <!-- Messages inbox (guest <-> host conversations) -->
-    <string name="messages_title">الرسائل</string>
-    <string name="messages_error_title">تعذّر تحميل الرسائل</string>
-    <string name="messages_empty_title">لا توجد رسائل بعد</string>
-    <string name="messages_empty_body">عندما تراسل مضيفًا أو ضيفًا، ستظهر المحادثة هنا.</string>
-    <string name="messages_no_messages">لا توجد رسائل بعد</string>
-    <string name="messages_host_badge">المضيف</string>
-    <string name="messages_reservation_badge">حجز</string>
-    <string name="messages_sign_in_title">سجّل الدخول لرؤية رسائلك</string>
-    <string name="messages_sign_in_body">محادثاتك مع المضيفين والضيوف توجد هنا.</string>
-    <string name="profile_messages">الرسائل</string>
-    <string name="profile_messages_sub">تواصل مع المضيفين والضيوف</string>
-    <string name="cd_messages">الرسائل</string>
-
+    <!-- Listing comments (public Q&A) + host "Guest questions" -->
+    <string name="comments_title">الأسئلة والتعليقات</string>
+    <string name="comments_input_hint">اسأل المضيف سؤالًا…</string>
+    <string name="comments_post">نشر</string>
+    <string name="comments_public_hint">التعليقات عامة. لا تشارك أرقام الهواتف أو بيانات التواصل.</string>
+    <string name="comments_sign_in">سجّل الدخول لطرح سؤال</string>
+    <string name="comments_empty">لا توجد أسئلة بعد. كن أول من يسأل.</string>
+    <string name="comments_empty_host">لا توجد أسئلة على هذا الإعلان بعد.</string>
+    <string name="comments_loading">جارٍ تحميل التعليقات…</string>
+    <string name="comments_load_error">تعذّر تحميل التعليقات.</string>
+    <string name="comments_delete">حذف</string>
+    <string name="comments_delete_title">حذف هذا التعليق؟</string>
+    <string name="comments_delete_body">سيُزال من هذا الإعلان للجميع.</string>
+    <string name="comments_reply">رد</string>
+    <string name="comments_edit_reply">تعديل الرد</string>
+    <string name="comments_delete_reply">حذف الرد</string>
+    <string name="comments_host_label">المضيف</string>
+    <string name="comments_you_label">أنت</string>
+    <string name="comments_reply_hint">اكتب ردك…</string>
+    <string name="comments_save_reply">حفظ الرد</string>
+    <string name="comments_reply_title">الرد على %1$s</string>
+    <string name="comments_post_failed">تعذّر نشر تعليقك.</string>
+    <string name="comments_reply_failed">تعذّر حفظ ردك.</string>
+    <string name="comments_delete_failed">تعذّر الحذف.</string>
+    <string name="comments_warning_ack">شكرًا. يمكنك النشر مرة أخرى الآن.</string>
+    <string name="host_questions_title">أسئلة الضيوف</string>
+    <string name="host_questions_short">الأسئلة</string>
+    <string name="host_questions_none">لا توجد أسئلة بدون رد</string>
+    <string name="host_questions_count">%1$d بدون رد</string>
+    <string name="host_questions_empty_title">لا توجد أسئلة بعد</string>
+    <string name="host_questions_empty_body">عندما يسأل الضيوف عن إعلاناتك، ستظهر أسئلتهم هنا.</string>
+    <string name="host_questions_unanswered">بدون رد</string>
+    <string name="host_questions_answered">تم الرد</string>
+    <string name="host_questions_view_listing">عرض الإعلان</string>
+    <string name="host_questions_error">تعذّر تحميل أسئلة الضيوف.</string>
     <!-- Support & legal (Profile tab) -->
     <string name="profile_support_legal">الدعم والشؤون القانونية</string>
     <string name="legal_terms">شروط الخدمة</string>
@@ -938,7 +958,7 @@
     <string name="calendar_open">تقويم الأسعار</string>
     <string name="preview_guest_action">شاهده كضيف</string>
     <string name="preview_guest_title">معاينة الضيف</string>
-    <string name="preview_guest_body">إعلانك تمامًا كما يراه الضيف. لا شيء هنا يحجز أو يحفظ أو يرسل رسالة.</string>
+    <string name="preview_guest_body">إعلانك تمامًا كما يراه الضيف. لا شيء هنا يحجز أو يحفظ أو ينشر.</string>
     <string name="preview_guest_under_review">لا يزال قيد المراجعة، لذا لا يستطيع الضيوف العثور عليه بعد.</string>
     <string name="preview_guest_hidden">غير ظاهر للضيوف حاليًا.</string>
     <string name="preview_guest_blocked_title">معاينة فقط</string>

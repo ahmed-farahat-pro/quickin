@@ -67,7 +67,6 @@ struct ProfileView: View {
                             GuestReviewsAboutMeSection(guestID: auth.user?.id)
                             settingsEntry
                             receiptsEntry
-                            messagesEntry
                             languageEntry
                             currencyEntry
                             legalSection
@@ -287,21 +286,6 @@ struct ProfileView: View {
         .buttonStyle(.qkTap)
     }
 
-    /// Entry into the Messages inbox (guest ⇄ host conversations; web /messages
-    /// parity), wrapped in a NavigationLink that mirrors `settingsEntry`'s look.
-    private var messagesEntry: some View {
-        NavigationLink {
-            MessagesView()
-        } label: {
-            entryLabel(
-                icon: "bubble.left.and.bubble.right.fill",
-                title: loc.t("profile.messages"),
-                subtitle: loc.t("profile.messages.sub")
-            )
-        }
-        .buttonStyle(.qkTap)
-    }
-
     /// "Support & legal" — the public web pages (Terms / Privacy / About /
     /// Contact), same links as the site footer, opened in the browser.
     private var legalSection: some View {
@@ -328,7 +312,7 @@ struct ProfileView: View {
         .buttonStyle(.qkTap)
     }
 
-    /// The shared card row used by the messages + legal entries (icon, title,
+    /// The shared card row used by the legal entries (icon, title,
     /// optional subtitle, trailing chevron) — mirrors `settingsEntry`'s label.
     private func entryLabel(icon: String, title: String, subtitle: String?) -> some View {
         HStack(spacing: 12) {

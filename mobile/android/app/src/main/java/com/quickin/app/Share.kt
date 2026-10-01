@@ -83,7 +83,8 @@ fun openLink(context: Context, url: String?) {
 sealed interface DeepLink {
     val id: String
 
-    data class Listing(override val id: String) : DeepLink
+    /** [focusComments]: the link ended in `#comments` (a comment / reply notification). */
+    data class Listing(override val id: String, val focusComments: Boolean = false) : DeepLink
     data class Service(override val id: String) : DeepLink
     data class Reservation(override val id: String) : DeepLink
     /** A bare tab route with no entity id, used by app shortcuts / Assistant (e.g. quickin://profile). */
@@ -142,7 +143,13 @@ sealed interface DeepLink {
 
             if (id.isBlank()) return null
             return when (kind) {
-                "explore", "listing", "listings" -> Listing(id)
+                "explore", "listing", "listings" -> Listing(
+                    id,
+                    focusComments = CommentRules.wantsComments(
+                        uri.fragment,
+                        runCatching { uri.getQueryParameter("focus") }.getOrNull()
+                    )
+                )
                 "services", "service" -> Service(id)
                 "reservation", "reservations" -> Reservation(id)
                 else -> null

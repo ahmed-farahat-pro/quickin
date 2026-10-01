@@ -165,36 +165,6 @@ struct SkeletonDetail: View {
     }
 }
 
-/// A chat transcript: bubbles alternating sides so it reads as a conversation
-/// rather than a list. Matches the 18pt corner radius ChatView uses.
-struct SkeletonChat: View {
-    var count: Int = 5
-
-    // Fixed widths and sides — a placeholder that reshuffles on every redraw is
-    // more distracting than the spinner it replaced.
-    private static let bubbles: [(width: CGFloat, mine: Bool)] = [
-        (210, false), (150, true), (240, false), (120, true), (180, false), (140, true),
-    ]
-
-    var body: some View {
-        VStack(spacing: 12) {
-            ForEach(0..<count, id: \.self) { i in
-                let bubble = Self.bubbles[i % Self.bubbles.count]
-                HStack {
-                    if bubble.mine { Spacer(minLength: 40) }
-                    SkeletonBlock(height: 40, width: bubble.width, cornerRadius: 18)
-                    if !bubble.mine { Spacer(minLength: 40) }
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .shimmering()
-        .redacted(reason: .placeholder)
-        .allowsHitTesting(false)
-    }
-}
-
 /// A grid of headline-number tiles, for the host dashboard, analytics and money
 /// screens — the places that answer "how am I doing?" with a spinner today.
 struct SkeletonStatTiles: View {
@@ -259,13 +229,6 @@ struct SkeletonForm: View {
 
 #Preview("Detail") {
     SkeletonDetail()
-}
-
-#Preview("Chat") {
-    ZStack {
-        Color.qkCream.ignoresSafeArea()
-        SkeletonChat()
-    }
 }
 
 #Preview("Stats") {

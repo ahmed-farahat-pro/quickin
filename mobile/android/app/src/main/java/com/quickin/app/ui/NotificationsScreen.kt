@@ -63,7 +63,7 @@ import java.util.Locale
  * leading burgundy unread dot when the item is unread, a bold [AppNotification.title],
  * an optional muted body, and — right-aligned on the title row — the item's age
  * ("2h ago", "3 Jul") derived from the ISO-8601 `created_at` by [relativeTime].
- * Tapping a row marks it read (then reloads); the top bar carries a back arrow and a
+ * Tapping a row marks it read (then reloads) and, for a comment / reply, opens the listing; the top bar carries a back arrow and a
  * "Mark all read" action.
  *
  * The app draws edge-to-edge, so the top bar uses [Modifier.statusBarsPadding] to clear
@@ -76,7 +76,12 @@ fun NotificationsScreen(
     onBack: () -> Unit,
     onLoad: () -> Unit,
     onMarkRead: (String) -> Unit,
-    onMarkAllRead: () -> Unit
+    onMarkAllRead: () -> Unit,
+    /**
+     * Opens what a row points at. Only `comment` / `comment_reply` route anywhere (the listing's
+     * comments); everything else — including old `message` rows — just marks itself read.
+     */
+    onOpen: (AppNotification) -> Unit = {}
 ) {
     // Refresh on open.
     LaunchedEffect(Unit) { onLoad() }
@@ -147,7 +152,10 @@ fun NotificationsScreen(
                         items(state.notifications, key = { it.id }) { notif ->
                             NotificationRow(
                                 notif = notif,
-                                onClick = { onMarkRead(notif.id) }
+                                onClick = {
+                                    onMarkRead(notif.id)
+                                    onOpen(notif)
+                                }
                             )
                         }
                     }
@@ -239,7 +247,7 @@ private fun EmptyNotifications() {
             modifier = Modifier.padding(top = 12.dp)
         )
         Text(
-            "Booking updates and messages will show up here.",
+            "Booking updates and guest questions will show up here.",
             color = Muted,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
@@ -276,7 +284,7 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
  * Returns "" for a missing or unparseable timestamp so the row renders no time at all
  * rather than a raw string.
  */
-private fun relativeTime(iso: String?): String {
+internal fun relativeTime(iso: String?): String {
     val then = parseInstantOrNull(iso) ?: return ""
     // Clamped so small clock skew (server slightly ahead of the device) still reads "Just now".
     val seconds = Duration.between(then, OffsetDateTime.now()).seconds.coerceAtLeast(0)

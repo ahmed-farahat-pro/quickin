@@ -13,13 +13,15 @@ final class DeepLinkRouter: ObservableObject {
     /// (the detail view renders it directly); services likewise; reservations
     /// only need the id (the detail view fetches by id).
     enum Route: Identifiable {
-        case listing(Listing)
+        /// `focusComments`: opened from a comment notification (or a
+        /// `#comments` link) — the detail scrolls to "Questions & comments".
+        case listing(Listing, focusComments: Bool = false)
         case service(Service)
         case reservation(id: String)
 
         var id: String {
             switch self {
-            case .listing(let l): return "listing-\(l.id)"
+            case .listing(let l, _): return "listing-\(l.id)"
             case .service(let s): return "service-\(s.id)"
             case .reservation(let id): return "reservation-\(id)"
             }
@@ -36,19 +38,30 @@ final class DeepLinkRouter: ObservableObject {
     /// anything we don't recognise.
     func handle(_ url: URL) {
         guard let destination = AppLinks.destination(from: url) else { return }
-        Task { await resolve(destination) }
+        let focusComments = url.fragment?.lowercased() == "comments"
+        Task { await resolve(destination, focusComments: focusComments) }
+    }
+
+    /// A tapped notification — in-app feed row (`type` known) or push (`type`
+    /// nil, only the `link` travels in the payload). Only comment
+    /// notifications navigate: they open the listing scrolled to its
+    /// comments. Everything else, including the retired `message` type,
+    /// opens nothing special.
+    func openNotification(type: String?, link: String?) {
+        guard let id = ListingCommentRules.listingID(notificationType: type, link: link) else { return }
+        Task { await resolve(.listing(id: id), focusComments: true) }
     }
 
     /// Fetch the entity for a parsed destination and publish the route. Failures
     /// (bad id, offline, 404) leave the app on whatever screen it was showing.
-    private func resolve(_ destination: AppLinks.Destination) async {
+    private func resolve(_ destination: AppLinks.Destination, focusComments: Bool = false) async {
         isResolving = true
         defer { isResolving = false }
 
         switch destination {
         case .listing(let id):
             if let listing = try? await SupabaseService.shared.fetchListing(id: id) {
-                route = .listing(listing)
+                route = .listing(listing, focusComments: focusComments)
             }
         case .service(let id):
             if let service = try? await ServiceService.shared.fetchService(id: id) {
@@ -92,8 +105,8 @@ struct DeepLinkDetailHost: View {
     @ViewBuilder
     private var destination: some View {
         switch route {
-        case .listing(let listing):
-            ListingDetailView(listing: listing)
+        case let .listing(listing, focusComments):
+            ListingDetailView(listing: listing, focusComments: focusComments)
         case .service(let service):
             ServiceDetailView(service: service)
         case .reservation(let id):

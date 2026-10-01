@@ -120,6 +120,9 @@ struct HostDashboardView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     requestsSection
+                    // Where Messages used to be: guests now ask in public on the
+                    // listing, and the host answers from here.
+                    HostGuestQuestionsEntry()
                     reviewGuestsCard
                     analyticsCard
                     earningsCard
@@ -478,8 +481,6 @@ struct HostRequestCard: View {
             if onConfirm != nil || onReject != nil {
                 actionButtons
             }
-
-            messageButton
         }
         .padding(16)
         .qkCard(cornerRadius: 20)
@@ -523,31 +524,6 @@ struct HostRequestCard: View {
               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return L.t("host.booking.guestFallback") }
         return name
-    }
-
-    /// Opens the per-booking chat with the guest.
-    private var messageButton: some View {
-        NavigationLink {
-            ChatView(bookingID: booking.id)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                Text(L.t("host.message"))
-                    .fontWeight(.semibold)
-            }
-            .font(.subheadline)
-            .frame(maxWidth: .infinity)
-            .frame(height: 40)
-            .background(Color.qkSurface)
-            .foregroundStyle(Color.qkBurgundy)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.qkInk.opacity(0.12), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.qkTap)
-        .padding(.top, 2)
     }
 
     private var actionButtons: some View {

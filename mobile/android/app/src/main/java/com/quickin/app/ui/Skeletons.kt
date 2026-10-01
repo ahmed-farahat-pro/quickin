@@ -252,38 +252,6 @@ fun SkeletonDetail(
 }
 
 /**
- * A chat transcript: bubbles alternating sides so it reads as a conversation
- * rather than a list. Matches the 12.dp corner radius ChatScreen uses.
- */
-@Composable
-fun SkeletonChat(
-    modifier: Modifier = Modifier,
-    count: Int = 5
-) {
-    val progress = rememberShimmerProgress()
-    // Fixed widths and sides — a placeholder that reshuffles on every recomposition
-    // is more distracting than the spinner it replaced.
-    val bubbles = listOf(
-        210.dp to false, 150.dp to true, 240.dp to false,
-        120.dp to true, 180.dp to false, 140.dp to true
-    )
-    Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        repeat(count) { i ->
-            val (width, mine) = bubbles[i % bubbles.size]
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start
-            ) {
-                ShimmerBox(progress, Modifier.width(width).height(40.dp), cornerRadius = 12.dp)
-            }
-        }
-    }
-}
-
-/**
  * A grid of headline-number tiles, for the host dashboard, analytics and money
  * screens — the places that answer "how am I doing?" with a spinner today.
  */

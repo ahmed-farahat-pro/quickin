@@ -172,4 +172,19 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     ) {
         completionHandler([.banner, .list, .sound, .badge])
     }
+
+    /// A tapped notification. The backend's payload is `{ link }` only; a
+    /// comment / reply link (`/explore/<id>#comments`) opens that listing's
+    /// comments — anything else just opens the app.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let link = response.notification.request.content.userInfo["link"] as? String
+        if let link {
+            Task { @MainActor in AppNavigation.shared.pendingNotificationLink = link }
+        }
+        completionHandler()
+    }
 }

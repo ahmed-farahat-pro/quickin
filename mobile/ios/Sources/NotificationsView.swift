@@ -54,6 +54,8 @@ final class NotificationsViewModel: ObservableObject {
 struct NotificationsView: View {
     @StateObject private var viewModel = NotificationsViewModel()
     @EnvironmentObject private var deepLink: DeepLinkRouter
+    @EnvironmentObject private var auth: AuthStore
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -92,11 +94,19 @@ struct NotificationsView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.items) { item in
                         Button {
-                            // A comment / reply opens that listing's comments;
-                            // every other type (incl. the retired `message`)
-                            // just marks the row read.
-                            deepLink.openNotification(type: item.type, link: item.link)
+                            // The row's link decides (`NotificationLinkRules`);
+                            // `/messages`, `/ops` and unknown links just mark
+                            // the row read.
+                            let destination = deepLink.openNotification(
+                                type: item.type,
+                                link: item.link,
+                                isHost: auth.user?.isHost == true
+                            )
                             Task { await viewModel.markRead(id: item.id) }
+                            // This feed is pushed on the Profile tab's stack, so
+                            // "go to Profile" would otherwise change nothing
+                            // visible: pop back to the profile itself.
+                            if destination == .account { dismiss() }
                         } label: {
                             NotificationRow(notification: item)
                         }
@@ -277,5 +287,6 @@ enum QKRelativeTime {
     NavigationStack {
         NotificationsView()
             .environmentObject(DeepLinkRouter())
+            .environmentObject(AuthStore())
     }
 }

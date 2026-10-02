@@ -18,12 +18,18 @@ final class DeepLinkRouter: ObservableObject {
         case listing(Listing, focusComments: Bool = false)
         case service(Service)
         case reservation(id: String)
+        /// The host dashboard — from a `/host` notification (hosts only).
+        case hostDashboard
+        /// "My subscriptions" — from a `/subscriptions` notification.
+        case subscriptions
 
         var id: String {
             switch self {
             case .listing(let l, _): return "listing-\(l.id)"
             case .service(let s): return "service-\(s.id)"
             case .reservation(let id): return "reservation-\(id)"
+            case .hostDashboard: return "host-dashboard"
+            case .subscriptions: return "subscriptions"
             }
         }
     }
@@ -43,13 +49,36 @@ final class DeepLinkRouter: ObservableObject {
     }
 
     /// A tapped notification — in-app feed row (`type` known) or push (`type`
-    /// nil, only the `link` travels in the payload). Only comment
-    /// notifications navigate: they open the listing scrolled to its
-    /// comments. Everything else, including the retired `message` type,
-    /// opens nothing special.
-    func openNotification(type: String?, link: String?) {
-        guard let id = ListingCommentRules.listingID(notificationType: type, link: link) else { return }
-        Task { await resolve(.listing(id: id), focusComments: true) }
+    /// nil, only the `link` travels in the payload). `NotificationLinkRules`
+    /// maps the link to a destination: an entity (listing / service /
+    /// reservation) or the host dashboard / subscriptions open over the
+    /// current tab like any deep link; Trips and Profile switch tabs.
+    /// `/messages`, `/ops`, blank and unknown links open nothing.
+    ///
+    /// Returns the destination so the caller can get out of the way (the
+    /// feed pops itself when the destination is the Profile tab it sits on).
+    @discardableResult
+    func openNotification(type: String?, link: String?, isHost: Bool) -> NotificationLinkRules.Destination? {
+        guard let destination = NotificationLinkRules.destination(type: type, link: link, isHost: isHost) else {
+            return nil
+        }
+        switch destination {
+        case let .listing(id, focusComments):
+            Task { await resolve(.listing(id: id), focusComments: focusComments) }
+        case .service(let id):
+            Task { await resolve(.service(id: id)) }
+        case .reservation(let id):
+            Task { await resolve(.reservation(id: id)) }
+        case .hostDashboard:
+            route = .hostDashboard
+        case .subscriptions:
+            route = .subscriptions
+        case .reservations:
+            AppNavigation.shared.pendingSection = .reservations
+        case .account:
+            AppNavigation.shared.pendingSection = .profile
+        }
+        return destination
     }
 
     /// Fetch the entity for a parsed destination and publish the route. Failures
@@ -111,6 +140,10 @@ struct DeepLinkDetailHost: View {
             ServiceDetailView(service: service)
         case .reservation(let id):
             ReservationDetailView(bookingID: id)
+        case .hostDashboard:
+            HostDashboardView()
+        case .subscriptions:
+            MySubscriptionsView()
         }
     }
 }

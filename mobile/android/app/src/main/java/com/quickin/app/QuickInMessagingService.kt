@@ -67,9 +67,9 @@ class QuickInMessagingService : FirebaseMessagingService() {
                 ?: message.data["body"]
                 ?: message.data["message"]
                 ?: return
-            // `message` pushes (host ⇄ guest messaging was removed) never route anywhere; a
-            // relative `/explore/<id>#comments` link is rewritten to the app scheme.
-            val link = CommentRules.pushLink(message.data["type"], message.data["link"])
+            // The relative server link (`/explore/<id>#comments`, `/reservation/<id>`, `/host`, …)
+            // is rewritten to the app scheme; `/messages`, `/ops` and unknown links carry none.
+            val link = NotificationLinkRules.pushLink(message.data["type"], message.data["link"])
             showNotification(title, body, link)
         }
     }

@@ -62,23 +62,7 @@ enum AppLinks {
     /// The leading keyword may appear as either the first path component (web) or
     /// the URL host (custom scheme), so we normalise both into a token list.
     static func destination(from url: URL) -> Destination? {
-        // Only accept our own web host, or the custom scheme. Ignore everything
-        // else (e.g. the Google OAuth redirect scheme handled elsewhere).
-        let scheme = url.scheme?.lowercased()
-        let isWeb = (scheme == "https" || scheme == "http")
-            && (url.host?.lowercased() == host(of: webBase))
-        let isCustom = scheme == customScheme
-        guard isWeb || isCustom else { return nil }
-
-        // Build an ordered list of non-empty path tokens. For the custom scheme
-        // the keyword is the host ("explore"); for the web URL it's the first
-        // path component. Treat them uniformly.
-        var tokens: [String] = []
-        if isCustom, let host = url.host, !host.isEmpty {
-            tokens.append(host)
-        }
-        tokens.append(contentsOf: url.pathComponents.filter { $0 != "/" && !$0.isEmpty })
-
+        guard let tokens = pathTokens(from: url) else { return nil }
         guard tokens.count >= 2 else { return nil }
         let keyword = tokens[0].lowercased()
         let id = tokens[1].removingPercentEncoding ?? tokens[1]
@@ -94,6 +78,33 @@ enum AppLinks {
         default:
             return nil
         }
+    }
+
+    /// The ordered, non-empty path tokens of one of OUR links, or `nil` for a
+    /// URL that isn't ours (another host, another scheme — e.g. the Google OAuth
+    /// redirect handled elsewhere).
+    ///
+    /// The leading keyword may appear as either the first path component (web)
+    /// or the URL host (custom scheme), so both are normalised into one list:
+    ///   • `https://quickin-frontend.vercel.app/explore/<id>` → ["explore", "<id>"]
+    ///   • `quickin://explore/<id>`                            → ["explore", "<id>"]
+    ///   • `quickin://host`                                    → ["host"]
+    ///
+    /// Shared with `NotificationLinkRules`, which also routes keyword-only
+    /// links (`/host`, `/account`) that carry no id.
+    static func pathTokens(from url: URL) -> [String]? {
+        let scheme = url.scheme?.lowercased()
+        let isWeb = (scheme == "https" || scheme == "http")
+            && (url.host?.lowercased() == host(of: webBase))
+        let isCustom = scheme == customScheme
+        guard isWeb || isCustom else { return nil }
+
+        var tokens: [String] = []
+        if isCustom, let host = url.host, !host.isEmpty {
+            tokens.append(host)
+        }
+        tokens.append(contentsOf: url.pathComponents.filter { $0 != "/" && !$0.isEmpty })
+        return tokens
     }
 
     /// Lowercased host of a base URL string (e.g. "quickin-frontend.vercel.app").

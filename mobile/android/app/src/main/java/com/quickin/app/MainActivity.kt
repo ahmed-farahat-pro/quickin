@@ -100,6 +100,7 @@ import com.quickin.app.ui.ProfileScreen
 import com.quickin.app.ui.ProfileSettingsScreen
 import com.quickin.app.ui.ProfileSignInCta
 import com.quickin.app.ui.ReservationDetailScreen
+import com.quickin.app.ui.MySubscriptionsScreen
 import com.quickin.app.ui.ReservationsScreen
 import com.quickin.app.ui.ServiceDetailScreen
 import com.quickin.app.ui.ServicesScreen
@@ -162,11 +163,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         // A push tapped while the app was in the background: the system draws it and launches
-        // us with the FCM data payload as extras (no data URI). Route `comment` / `comment_reply`
-        // links the same way; `message` pushes (messaging was removed) route nowhere.
+        // us with the FCM data payload as extras (no data URI). Its relative link is rewritten
+        // to the app scheme and parsed like any other deep link; `/messages`, `/ops` and
+        // unknown links route nowhere.
         val extras = intent.extras ?: return
         val link = runCatching {
-            CommentRules.pushLink(extras.getString("type"), extras.getString("link"))
+            NotificationLinkRules.pushLink(extras.getString("type"), extras.getString("link"))
         }.getOrNull() ?: return
         DeepLink.parse(Uri.parse(link))?.let { _pendingDeepLink.value = it }
     }
@@ -174,6 +176,11 @@ class MainActivity : AppCompatActivity() {
     /** Consumed by the composable layer once the token has been used. */
     fun clearGoogleIdToken() {
         _googleIdToken.value = null
+    }
+
+    /** Routes [link] exactly like an inbound deep link (used by in-app notification rows). */
+    fun openDeepLink(link: DeepLink) {
+        _pendingDeepLink.value = link
     }
 
     /** Consumed by the composable layer once the deep link has been routed. */
@@ -458,6 +465,9 @@ private fun MainApp() {
     var showHost by remember { mutableStateOf(false) }
     // True while the host SERVICES dashboard (full-screen) is open.
     var showHostServices by remember { mutableStateOf(false) }
+    // True while the guest's "My subscriptions" (service requests) list is open — reached from a
+    // `/subscriptions` notification.
+    var showMySubscriptions by remember { mutableStateOf(false) }
 
     /** The listing whose pricing calendar is open, or null. Host-only; opened from the
      *  listing detail and sitting above it, so Back returns there. */
@@ -624,14 +634,27 @@ private fun MainApp() {
                 selectedReservationId = link.id
             }
             is DeepLink.Tab -> {
-                // App shortcut / Assistant: jump to a guest tab (everyone shares the guest set).
+                // App shortcut / Assistant / notification: jump to a guest tab (everyone shares
+                // the guest set), or open the host dashboard / My subscriptions above it.
                 selectedService = null
                 selectedListing = null
                 selectedReservationId = null
+                // Leave the notifications feed, else it would keep covering the tab.
+                showNotifications = false
                 val targetKey = when (link.key) {
                     "reservations", "trips" -> "Trips"
-                    "profile" -> "Profile"
                     "services" -> "Services"
+                    // Host dashboard: the same door as Profile → Hosting. A non-host (or a
+                    // signed-out user) has no dashboard and lands on Profile instead.
+                    NotificationLinkRules.TAB_HOST -> {
+                        if (authState.isAuthenticated && isHost) showHost = true
+                        "Profile"
+                    }
+                    NotificationLinkRules.TAB_SUBSCRIPTIONS -> {
+                        if (authState.isAuthenticated) showMySubscriptions = true
+                        "Profile"
+                    }
+                    "profile" -> "Profile"
                     else -> GUEST_TABS.first().key // explore → Explore
                 }
                 selectedTab = GUEST_TABS.indexOfFirst { it.key == targetKey }.coerceAtLeast(0)
@@ -753,6 +776,8 @@ private fun MainApp() {
             // Leave any host / reservation-detail / notifications / services screen on sign-out.
             showHost = false
             showHostServices = false
+            showMySubscriptions = false
+            servicesViewModel.clearMySubscriptions()
             showReceipts = false
             showEarnings = false
             showAnalytics = false
@@ -825,7 +850,7 @@ private fun MainApp() {
         showProfileSettings || showHostApply || showHostServices ||
         disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showGuestQuestions ||
-        showNotifications || showAnalytics || showEarnings || showReceipts ||
+        showNotifications || showAnalytics || showEarnings || showReceipts || showMySubscriptions ||
         otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
         when {
@@ -871,6 +896,7 @@ private fun MainApp() {
             showAnalytics -> showAnalytics = false
             showHostServices -> showHostServices = false
             showReceipts -> showReceipts = false
+            showMySubscriptions -> showMySubscriptions = false
             // Guest questions sits above the host dashboard (it is one of its quick actions).
             showGuestQuestions -> showGuestQuestions = false
             // Closing the dashboard retires a finished publish's success card (the wizard tab
@@ -1202,6 +1228,18 @@ private fun MainApp() {
         return
     }
 
+    // "My subscriptions" (the guest's service requests). Full-screen; opened by a
+    // `/subscriptions` notification, Back returns to Profile.
+    if (showMySubscriptions && authState.isAuthenticated) {
+        val mySubscriptionsState by servicesViewModel.mySubscriptions.collectAsState()
+        MySubscriptionsScreen(
+            state = mySubscriptionsState,
+            onBack = { showMySubscriptions = false },
+            onLoad = servicesViewModel::loadMySubscriptions
+        )
+        return
+    }
+
     // "Receipts" (the guest's itemized paid receipts). Full-screen; opened from Profile.
     // Section 9 — money views (MOCK).
     if (showReceipts && authState.isAuthenticated) {
@@ -1524,13 +1562,12 @@ private fun MainApp() {
             onLoad = notificationsViewModel::load,
             onMarkRead = notificationsViewModel::markRead,
             onMarkAllRead = notificationsViewModel::markAllRead,
-            // `comment` / `comment_reply` open that listing's comments; nothing else routes
-            // (old `message` rows never open a chat — messaging was removed).
+            // The row's link decides where it opens (listing / its comments, reservation,
+            // Trips, host dashboard, Profile, My subscriptions) — routed through the same
+            // deep-link handler as a push tap. `/messages`, `/ops` and unknown links only
+            // mark the row read.
             onOpen = { notif ->
-                CommentRules.notificationListingId(notif.type, notif.link)?.let { id ->
-                    focusCommentsFor = id
-                    listingsViewModel.openListingById(id)
-                }
+                NotificationLinkRules.destination(notif.link)?.let { dest -> activity?.openDeepLink(dest) }
             }
         )
         return

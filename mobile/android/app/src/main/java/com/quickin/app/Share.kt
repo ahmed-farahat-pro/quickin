@@ -162,7 +162,14 @@ sealed interface DeepLink {
             "reservation", "reservations"
         )
 
-        /** Bare tab destinations (no id) addressable by app shortcuts / Assistant. */
-        private val TAB_KEYS = setOf("explore", "services", "reservations", "trips", "profile")
+        /**
+         * Bare tab destinations (no id) addressable by app shortcuts / Assistant, plus the
+         * notification-only ones ([NotificationLinkRules]): `host` (dashboard) and
+         * `subscriptions` (My subscriptions).
+         */
+        internal val TAB_KEYS = setOf(
+            "explore", "services", "reservations", "trips", "profile",
+            NotificationLinkRules.TAB_HOST, NotificationLinkRules.TAB_SUBSCRIPTIONS
+        )
     }
 }

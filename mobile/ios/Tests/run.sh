@@ -80,3 +80,11 @@ swiftc -o "$OUT/listing-comment-rules" \
   Tests/ListingCommentRulesTests/main.swift \
   Sources/ListingCommentRules.swift
 "$OUT/listing-comment-rules"
+
+# Builds ShareLinks too: the rules reuse `AppLinks` as the one link parser.
+echo "\nNotificationLinkRules — where a tapped notification (feed row or push) opens\n"
+swiftc -o "$OUT/notification-link-rules" \
+  Tests/NotificationLinkRulesTests/main.swift \
+  Sources/NotificationLinkRules.swift \
+  Sources/ShareLinks.swift
+"$OUT/notification-link-rules"

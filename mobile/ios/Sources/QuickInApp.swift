@@ -50,11 +50,13 @@ struct QuickInApp: App {
                         deepLink.handle(url)
                     }
                 }
-                // A tapped push (comment / reply → that listing's comments).
+                // A tapped push → wherever its link points
+                // (`NotificationLinkRules`: listing, reservation, Trips, host
+                // dashboard, Profile, subscriptions — or nothing).
                 .onReceive(AppNavigation.shared.$pendingNotificationLink) { link in
                     guard let link else { return }
                     AppNavigation.shared.pendingNotificationLink = nil
-                    deepLink.openNotification(type: nil, link: link)
+                    deepLink.openNotification(type: nil, link: link, isHost: auth.user?.isHost == true)
                 }
                 // Present the deep-linked entity over whatever tab is showing,
                 // in its own navigation stack (guest detail experience).

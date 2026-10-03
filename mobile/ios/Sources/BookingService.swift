@@ -165,6 +165,11 @@ struct BookingService {
         method: PaymentMethod = .instapay
     ) async throws -> Booking? {
         guard let token else { throw BookingError.notSignedIn }
+        // Flash is paid on its hosted page and confirmed by the server — a
+        // screenshot "for Flash" would only confuse the reviewer.
+        guard method.isManual else {
+            throw BookingError.message("Card and wallet payments don't need a screenshot.")
+        }
 
         let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
         let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(encoded)/payment-proof")!
@@ -192,6 +197,52 @@ struct BookingService {
         if http.statusCode == 401 { throw BookingError.notSignedIn }
         // 400 (missing screenshot) / 403 / 404 / other: surface the server's { error }.
         throw BookingError.message(Self.decodeError(data) ?? "Couldn't submit your screenshot (\(http.statusCode)).")
+    }
+
+    // MARK: - Flash (card / wallet) checkout
+
+    /// Start (or resume) a Flash card / wallet checkout for `bookingId` via
+    /// `POST /api/local/bookings/:id/flash-checkout` (Bearer, empty body). Returns
+    /// the hosted `payment_link` to open; re-POSTing returns the same link while
+    /// it is valid, and mints a new one after a failed / canceled / expired try.
+    ///
+    /// Throws `BookingError.notSignedIn` (no token / 401) or `BookingError.message`
+    /// with the server's `{ error }` — 409 `flash_unavailable` / `not_payable`,
+    /// 400 `below_minimum`, 502 `flash_error`.
+    func flashCheckout(bookingId: String) async throws -> FlashCheckout {
+        try await flashCheckoutRequest(bookingId: bookingId, method: "POST")
+    }
+
+    /// The booking's current Flash checkout via
+    /// `GET /api/local/bookings/:id/flash-checkout` — refreshed from Flash
+    /// server-side, so this is what the sheet polls after the guest pays.
+    func flashCheckoutStatus(bookingId: String) async throws -> FlashCheckout {
+        try await flashCheckoutRequest(bookingId: bookingId, method: "GET")
+    }
+
+    private func flashCheckoutRequest(bookingId: String, method: String) async throws -> FlashCheckout {
+        guard let token else { throw BookingError.notSignedIn }
+
+        let encoded = bookingId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookingId
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/bookings/\(encoded)/flash-checkout")!
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if method == "POST" {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Data("{}".utf8)
+        }
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookingError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw BookingError.notSignedIn }
+        guard (200...299).contains(http.statusCode) else {
+            throw BookingError.message(Self.decodeError(data) ?? "Couldn't reach the card payment service (\(http.statusCode)).")
+        }
+        return try JSONDecoder().decode(FlashCheckout.self, from: data)
     }
 
     // MARK: - Promo codes
@@ -705,19 +756,95 @@ enum BookingError: LocalizedError {
     }
 }
 
-/// The ways a guest can pay. Mirrors the server's `PAYMENT_METHODS`, and the
-/// raw value is what goes back as `method` on the payment proof.
+/// The ways a guest can pay. Mirrors the server's `PAYMENT_METHODS`. For the two
+/// manual methods the raw value is what goes back as `method` on the payment
+/// proof; `flash` is automatic (hosted card / wallet checkout) and never sends a
+/// proof.
 enum PaymentMethod: String, Decodable, Hashable, CaseIterable {
     case instapay
     case bankTransfer = "bank_transfer"
+    case flash
 
     /// Localization key for the picker label.
     var titleKey: String {
         switch self {
         case .instapay: return "payMethods.instapay"
         case .bankTransfer: return "payMethods.bankTransfer"
+        case .flash: return "payMethods.flash"
         }
     }
+
+    /// True for the transfer-then-upload-a-screenshot methods. Only these may be
+    /// sent as a payment proof's `method`.
+    var isManual: Bool { self != .flash }
+}
+
+/// The automatic Flash method's switches from `payment-config`. `configured`
+/// means the server holds Flash credentials; `enabled` is the admin toggle. The
+/// server already folds both into `available_methods`, so these are informational.
+struct FlashPaymentConfig: Decodable, Hashable {
+    let enabled: Bool
+    let configured: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = (try c.decodeIfPresent(Bool.self, forKey: .enabled)) ?? false
+        configured = (try c.decodeIfPresent(Bool.self, forKey: .configured)) ?? false
+    }
+
+    enum CodingKeys: String, CodingKey { case enabled, configured }
+
+    /// What a pre-Flash API response decodes to.
+    static let off = FlashPaymentConfig()
+    private init() { enabled = false; configured = false }
+}
+
+/// A booking's Flash checkout, from `POST` / `GET
+/// /api/local/bookings/:id/flash-checkout`. `paid` is the server's verdict on the
+/// booking; `status` is Flash's view of the latest attempt (see
+/// `FlashCheckoutRules`). `paymentLink` is the hosted page to open; re-POSTing
+/// returns the same link while it is still valid.
+struct FlashCheckout: Codable, Hashable {
+    /// pending | processing | succeeded | failed | canceled | refunded | expired | none
+    let status: String
+    let paid: Bool
+    let paymentLink: String?
+    /// ISO-8601 time the link stops working.
+    let expiresAt: String?
+    /// The amount Flash charges, in piastres.
+    let amountCents: Int?
+    let orderId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case status, paid
+        case paymentLink = "payment_link"
+        case expiresAt = "expires_at"
+        case amountCents = "amount_cents"
+        case orderId = "order_id"
+    }
+
+    /// Lenient: every key is optional, and `order_id` may arrive as a number.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        status = (try? c.decodeIfPresent(String.self, forKey: .status)) ?? "none"
+        paid = (try? c.decodeIfPresent(Bool.self, forKey: .paid)) ?? false
+        paymentLink = try? c.decodeIfPresent(String.self, forKey: .paymentLink)
+        expiresAt = try? c.decodeIfPresent(String.self, forKey: .expiresAt)
+        if let cents = try? c.decodeIfPresent(Int.self, forKey: .amountCents) {
+            amountCents = cents
+        } else {
+            amountCents = (try? c.decodeIfPresent(Double.self, forKey: .amountCents)).map { Int($0.rounded()) }
+        }
+        if let id = try? c.decodeIfPresent(String.self, forKey: .orderId) {
+            orderId = id
+        } else {
+            orderId = (try? c.decodeIfPresent(Int.self, forKey: .orderId)).map(String.init)
+        }
+    }
+
+    /// The hosted page as an https URL, or `nil`.
+    var checkoutURL: URL? { FlashCheckoutRules.checkoutURL(paymentLink) }
+    var stage: FlashCheckoutRules.Stage { FlashCheckoutRules.stage(status: status, paid: paid) }
 }
 
 /// The bank account half of the destination — an ordinary transfer, offered
@@ -781,6 +908,8 @@ struct PaymentConfig: Decodable, Hashable {
     /// What to encode when we draw the QR ourselves: the link if set, else the handle.
     let qrPayload: String
     let bank: BankTransferConfig
+    /// The automatic card / wallet method's switches (`.off` from an older server).
+    let flash: FlashPaymentConfig
     /// Which methods to offer, in order. **The server's decision** — it already
     /// accounts for both the toggles and whether each destination is complete, so
     /// this list is rendered as-is rather than being re-derived here. That is what
@@ -795,6 +924,7 @@ struct PaymentConfig: Decodable, Hashable {
         case qrPayload = "qr_payload"
         case instapayEnabled = "instapay_enabled"
         case bank
+        case flash
         case availableMethods = "available_methods"
     }
 
@@ -812,6 +942,7 @@ struct PaymentConfig: Decodable, Hashable {
         let payload = (try c.decodeIfPresent(String.self, forKey: .qrPayload)) ?? ""
         qrPayload = payload.isEmpty ? (link.isEmpty ? handle : link) : payload
         bank = (try c.decodeIfPresent(BankTransferConfig.self, forKey: .bank)) ?? .empty
+        flash = (try? c.decodeIfPresent(FlashPaymentConfig.self, forKey: .flash)) ?? .off
 
         // An unknown method from a newer server is dropped rather than failing the
         // decode: this app can't render a destination it has no UI for, but it can

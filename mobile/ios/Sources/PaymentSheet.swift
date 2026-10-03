@@ -2,13 +2,14 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
-/// The payment sheet for QuickIn — a **manual transfer** flow that mirrors the
-/// website and the Android app. There is no card gateway (Paymob was removed): the
-/// guest sends the booking amount to one of QuickIn's accounts, uploads a
-/// screenshot of the transfer, and it is confirmed after being checked.
+/// The payment sheet for QuickIn, mirroring the website and the Android app. Two
+/// methods are **manual transfers**: the guest sends the booking amount to one of
+/// QuickIn's accounts, uploads a screenshot of the transfer, and it is confirmed
+/// after being checked. The third, **Flash**, is automatic: a hosted card / wallet
+/// checkout that confirms the booking itself.
 ///
-/// There are two destinations — **Instapay** and a **bank account** — each with its
-/// own admin toggle. Which of them appear comes from `availableMethods` on the
+/// The manual destinations are **Instapay** and a **bank account**; each method has
+/// its own admin toggle. Which of them appear comes from `availableMethods` on the
 /// config, never from a list hardcoded here; the picker is hidden entirely when
 /// only one is offered, because a single-option choice is not a choice.
 ///
@@ -22,6 +23,13 @@ import UIKit
 ///     to check.
 ///   • **submitted** — an "Awaiting host approval" confirmation; Done calls `onDone`
 ///     and dismisses (the caller reloads the reservation).
+///
+/// Flash (`method == .flash`) replaces the screenshot with a "Pay EGP X" button:
+/// `POST …/flash-checkout` returns a hosted link, opened in an in-app Safari sheet.
+/// Flash has no return URL, so the sheet polls `GET …/flash-checkout` every few
+/// seconds while that page is open and once more when it closes (see
+/// `FlashCheckoutRules`), then lands on **paid** — which calls `onDone` straight
+/// away so the reservation behind the sheet refreshes.
 ///
 /// All copy is localized (en + ar + fr + es) and leading/trailing based, so it
 /// mirrors correctly under RTL.
@@ -40,7 +48,7 @@ struct PaymentSheet: View {
     @EnvironmentObject private var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
 
-    private enum Phase: Equatable { case form, submitting, submitted }
+    private enum Phase: Equatable { case form, submitting, submitted, paid }
     @State private var phase: Phase = .form
 
     // MARK: - Transfer destination (Instapay handle + instructions)
@@ -62,6 +70,21 @@ struct PaymentSheet: View {
     @State private var screenshot: UIImage?
     /// True while the picked photo is being decoded off the main thread.
     @State private var isEncoding = false
+
+    // MARK: - Flash (card / wallet) checkout
+
+    /// The latest answer from `flash-checkout` — `nil` until the guest taps Pay.
+    @State private var flashCheckout: FlashCheckout?
+    @State private var isStartingFlash = false
+    @State private var isCheckingFlash = false
+    /// The hosted checkout page, shown in an in-app Safari sheet.
+    @State private var flashPageURL: URL?
+    @State private var showingFlashPage = false
+    @State private var flashPollTask: Task<Void, Never>?
+    /// A neutral note under the Flash buttons ("not received yet", "stopped checking").
+    @State private var flashHint: String?
+    /// `onDone` has already run — a paid Flash checkout calls it as soon as it lands.
+    @State private var didNotifyDone = false
 
     @State private var errorMessage: String?
     /// Which value was last copied, so only that row's button says "Copied".
@@ -90,6 +113,8 @@ struct PaymentSheet: View {
         if let pickedMethod, methods.contains(pickedMethod) { return pickedMethod }
         return methods.first
     }
+    /// Where the Flash checkout is at (`.start` before the first tap).
+    private var flashStage: FlashCheckoutRules.Stage { flashCheckout?.stage ?? .start }
     /// The bank destination (empty when the server never sent one).
     private var bank: BankTransferConfig { config?.bank ?? .empty }
     /// Pluralized "night" / "nights".
@@ -107,6 +132,8 @@ struct PaymentSheet: View {
                         formContent
                     case .submitted:
                         submittedContent
+                    case .paid:
+                        flashPaidContent
                     }
                 }
                 .padding(.horizontal, 20)
@@ -117,8 +144,22 @@ struct PaymentSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .interactiveDismissDisabled(phase == .submitting)
+        .interactiveDismissDisabled(phase == .submitting || isStartingFlash)
         .task { await loadConfig() }
+        .sheet(isPresented: $showingFlashPage, onDismiss: flashPageClosed) {
+            if let flashPageURL {
+                SafariView(url: flashPageURL) { showingFlashPage = false }
+                    .ignoresSafeArea()
+            }
+        }
+        .onDisappear {
+            // The Safari sheet sits on top of this one; only a real close stops it.
+            guard !showingFlashPage else { return }
+            stopFlashPolling()
+            // A started Flash checkout may have moved the booking even if the guest
+            // swiped away before it settled — let the caller reload either way.
+            if flashCheckout != nil { notifyDone() }
+        }
         .onChange(of: pickerItem) { _, item in
             Task { await loadPicked(item) }
         }
@@ -133,13 +174,18 @@ struct PaymentSheet: View {
             if isSignedIn {
                 amountCard
                 destinationCard
-                screenshotCard
 
-                if let errorMessage {
-                    errorLine(errorMessage)
+                if method == .flash {
+                    flashActions
+                } else {
+                    screenshotCard
+
+                    if let errorMessage {
+                        errorLine(errorMessage)
+                    }
+
+                    submitButton
                 }
-
-                submitButton
                 secureNote
             } else {
                 errorLine(loc.t("instapay.signIn"))
@@ -153,7 +199,7 @@ struct PaymentSheet: View {
             Text(loc.t("pay.title"))
                 .font(.system(.title2, design: .serif).weight(.bold))
                 .foregroundStyle(Color.qkInk)
-            Text(loc.t("payMethods.subtitle"))
+            Text(loc.t(method == .flash ? "flash.headerSubtitle" : "payMethods.subtitle"))
                 .font(.subheadline)
                 .foregroundStyle(Color.qkMuted)
                 .multilineTextAlignment(.center)
@@ -164,7 +210,7 @@ struct PaymentSheet: View {
     /// The amount the guest should transfer, prominently.
     private var amountCard: some View {
         VStack(spacing: 4) {
-            Text(loc.t("instapay.amountToSend"))
+            Text(loc.t(method == .flash ? "flash.amountToPay" : "instapay.amountToSend"))
                 .font(.subheadline)
                 .foregroundStyle(Color.qkMuted)
             Text("EGP \(total)")
@@ -189,10 +235,13 @@ struct PaymentSheet: View {
                 Divider()
             }
 
-            Text(loc.t("instapay.sendTo"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.qkInk)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Flash has no destination to send money to — it describes itself instead.
+            if method != .flash {
+                Text(loc.t("instapay.sendTo"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             if isLoadingConfig || (config == nil && !configFailed) {
                 HStack(spacing: 10) {
@@ -209,6 +258,8 @@ struct PaymentSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(Color.qkInk)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            } else if method == .flash {
+                flashDestination
             } else if method == .bankTransfer {
                 bankDestination
             } else {
@@ -231,6 +282,10 @@ struct PaymentSheet: View {
                 } label: {
                     Text(loc.t(m.titleKey))
                         .font(.system(size: 14, weight: .bold))
+                        // Three pills share one row; a long label shrinks rather than wraps.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .padding(.horizontal, 4)
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .background(on ? Color.qkBurgundy : Color.qkSurface)
@@ -243,6 +298,7 @@ struct PaymentSheet: View {
                 }
                 .buttonStyle(QKPressStyle())
                 .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                .disabled(isStartingFlash)
             }
         }
         .frame(maxWidth: .infinity)
@@ -275,6 +331,129 @@ struct PaymentSheet: View {
                 .foregroundStyle(Color.qkMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// What Flash is: card, wallet or Valu, paid on a secure page, confirmed instantly.
+    private var flashDestination: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "creditcard.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.qkBurgundy)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(loc.t("payMethods.flash"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                Text(loc.t("flash.methodSubtitle"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.qkMuted)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Everything under the Flash destination: the waiting card while a checkout is
+    /// out, why the last one ended, and the Pay / Check-status buttons.
+    @ViewBuilder
+    private var flashActions: some View {
+        if flashStage == .waiting {
+            flashWaitingCard
+        }
+        if let key = FlashCheckoutRules.messageKey(
+            status: flashCheckout?.status, paid: flashCheckout?.paid ?? false
+        ) {
+            errorLine(loc.t(key))
+        }
+        if let errorMessage {
+            errorLine(errorMessage)
+        }
+        if let flashHint {
+            hintLine(flashHint)
+        }
+        if FlashCheckoutRules.canStartCheckout(flashStage) {
+            flashPayButton
+        }
+        if flashCheckout != nil {
+            secondaryButton(
+                title: loc.t(isCheckingFlash ? "flash.checking" : "flash.checkStatus"),
+                systemImage: "arrow.clockwise",
+                isLoading: isCheckingFlash
+            ) {
+                Task { await refreshFlash(manual: true) }
+            }
+            .disabled(isCheckingFlash || isStartingFlash)
+        }
+    }
+
+    /// "Waiting for your payment" — the page may still be open, or the guest closed
+    /// it mid-way; either way they can get back to it.
+    private var flashWaitingCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView().tint(.qkBurgundy)
+                Text(loc.t("flash.waitingTitle"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                Spacer(minLength: 0)
+            }
+            Text(loc.t("flash.waitingBody"))
+                .font(.footnote)
+                .foregroundStyle(Color.qkMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let url = flashCheckout?.checkoutURL {
+                secondaryButton(title: loc.t("flash.reopen"), systemImage: "arrow.up.forward.square") {
+                    openFlashPage(url)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .qkCard()
+    }
+
+    /// "Pay EGP X" — starts (or restarts) the hosted checkout.
+    private var flashPayButton: some View {
+        Button {
+            Task { await startFlash() }
+        } label: {
+            QKPrimaryButtonLabel(
+                title: isStartingFlash
+                    ? loc.t("flash.opening")
+                    : String(format: loc.t("flash.pay"), "EGP \(total)"),
+                systemImage: isStartingFlash ? nil : "lock.fill",
+                isLoading: isStartingFlash
+            )
+        }
+        .buttonStyle(QKPressStyle())
+        .disabled(isStartingFlash || method != .flash)
+    }
+
+    /// A tan, burgundy-text button — the quieter sibling of the primary CTA.
+    private func secondaryButton(
+        title: String,
+        systemImage: String,
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isLoading {
+                    ProgressView().tint(.qkBurgundy)
+                } else {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+            }
+            .foregroundStyle(Color.qkBurgundy)
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background(Color.qkTan)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(QKPressStyle())
     }
 
     /// The bank destination: the four fields a guest types into their banking app.
@@ -474,13 +653,14 @@ struct PaymentSheet: View {
         .opacity((screenshot == nil || isEncoding || method == nil) ? 0.6 : 1)
     }
 
-    /// A reassuring "confirmed after the host verifies your transfer" banner.
+    /// A reassuring "confirmed after the host verifies your transfer" banner — or,
+    /// for Flash, "paid securely, confirmed the moment it goes through".
     private var secureNote: some View {
         HStack(spacing: 10) {
-            Image(systemName: "checkmark.shield.fill")
+            Image(systemName: method == .flash ? "lock.shield.fill" : "checkmark.shield.fill")
                 .font(.system(size: 16))
                 .foregroundStyle(Color.qkGoldDeep)
-            Text(loc.t("instapay.note"))
+            Text(loc.t(method == .flash ? "flash.note" : "instapay.note"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.qkInk)
             Spacer(minLength: 0)
@@ -498,6 +678,20 @@ struct PaymentSheet: View {
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.qkBurgundy)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(Color.qkInk)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A leading-aligned neutral note (no alarm icon) — "not received yet" and the like.
+    private func hintLine(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.qkMuted)
             Text(text)
                 .font(.footnote)
                 .foregroundStyle(Color.qkInk)
@@ -533,6 +727,42 @@ struct PaymentSheet: View {
 
             Button {
                 onDone()
+                dismiss()
+            } label: {
+                QKPrimaryButtonLabel(title: loc.t("common.done"), height: 50)
+            }
+            .buttonStyle(QKPressStyle())
+        }
+    }
+
+    // MARK: - Paid (Flash)
+
+    /// The Flash checkout went through — the booking is paid and confirmed.
+    private var flashPaidContent: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.14))
+                    .frame(width: 84, height: 84)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(Color.green)
+            }
+            .padding(.top, 8)
+
+            VStack(spacing: 6) {
+                Text(loc.t("flash.paidTitle"))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color.qkInk)
+                    .multilineTextAlignment(.center)
+                Text(loc.t("flash.paidBody"))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.qkMuted)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                notifyDone()
                 dismiss()
             } label: {
                 QKPrimaryButtonLabel(title: loc.t("common.done"), height: 50)
@@ -603,7 +833,8 @@ struct PaymentSheet: View {
         }
         // The button is disabled without one, so this is belt-and-braces — but it
         // keeps the method out of the request rather than guessing "instapay".
-        guard let method else {
+        // Flash never gets here (it has no screenshot), and is refused if it does.
+        guard let method, method.isManual else {
             errorMessage = loc.t("instapay.noHandle")
             return
         }
@@ -627,5 +858,126 @@ struct PaymentSheet: View {
             phase = .form
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Flash actions
+
+    /// POST for a checkout link and open it. Re-POSTing returns the same link while
+    /// it is valid, so a guest who taps Pay twice lands on the same page.
+    @MainActor
+    private func startFlash() async {
+        guard method == .flash, !isStartingFlash else { return }
+        errorMessage = nil
+        flashHint = nil
+        isStartingFlash = true
+        defer { isStartingFlash = false }
+        do {
+            let checkout = try await BookingService.shared.flashCheckout(bookingId: bookingID)
+            flashCheckout = checkout
+            if checkout.paid {
+                flashPaid()
+            } else if let url = checkout.checkoutURL {
+                openFlashPage(url)
+            } else {
+                errorMessage = loc.t("flash.openError")
+            }
+        } catch BookingError.notSignedIn {
+            errorMessage = loc.t("flash.signIn")
+        } catch {
+            // 409 flash_unavailable / not_payable, 400 below_minimum, 502 flash_error —
+            // the server's own sentence is the useful one.
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func openFlashPage(_ url: URL) {
+        flashHint = nil
+        flashPageURL = url
+        showingFlashPage = true
+        startFlashPolling()
+    }
+
+    /// The guest closed the Safari sheet: ask once straight away, and keep polling
+    /// only if the checkout is still in flight.
+    private func flashPageClosed() {
+        Task { @MainActor in
+            await refreshFlash(manual: false)
+            if phase != .paid, flashStage == .waiting { startFlashPolling() }
+        }
+    }
+
+    /// Poll `GET …/flash-checkout` every `pollInterval` until paid, until
+    /// `FlashCheckoutRules.shouldKeepPolling` says stop, or until cancelled.
+    private func startFlashPolling() {
+        flashPollTask?.cancel()
+        let started = Date()
+        flashPollTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(FlashCheckoutRules.pollInterval * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                let elapsed = Date().timeIntervalSince(started)
+                guard FlashCheckoutRules.shouldKeepPolling(
+                    stage: flashStage, elapsed: elapsed, checkoutOpen: showingFlashPage
+                ) else {
+                    if elapsed >= FlashCheckoutRules.pollTimeout, flashStage == .waiting {
+                        flashHint = loc.t("flash.timedOut")
+                    }
+                    return
+                }
+                await refreshFlash(manual: false)
+            }
+        }
+    }
+
+    private func stopFlashPolling() {
+        flashPollTask?.cancel()
+        flashPollTask = nil
+    }
+
+    /// One status check. A background poll that fails stays quiet — the next one
+    /// retries — but a tap on "Check payment status" reports what it found.
+    @MainActor
+    private func refreshFlash(manual: Bool) async {
+        if manual {
+            isCheckingFlash = true
+            errorMessage = nil
+            flashHint = nil
+        }
+        defer { if manual { isCheckingFlash = false } }
+        do {
+            let checkout = try await BookingService.shared.flashCheckoutStatus(bookingId: bookingID)
+            guard phase != .paid else { return }
+            flashCheckout = checkout
+            if checkout.paid {
+                flashPaid()
+            } else if manual, checkout.stage == .waiting {
+                flashHint = loc.t("flash.notPaidYet")
+                // A tap after polling gave up starts it again.
+                startFlashPolling()
+            }
+        } catch BookingError.notSignedIn {
+            if manual { errorMessage = loc.t("flash.signIn") }
+        } catch {
+            if manual { errorMessage = error.localizedDescription }
+        }
+    }
+
+    /// Paid: stop asking, close the checkout page, refresh the reservation behind
+    /// the sheet, and show the success state.
+    @MainActor
+    private func flashPaid() {
+        stopFlashPolling()
+        showingFlashPage = false
+        errorMessage = nil
+        flashHint = nil
+        notifyDone()
+        withAnimation(QKAnim.swap) { phase = .paid }
+    }
+
+    /// Run `onDone` at most once.
+    private func notifyDone() {
+        guard !didNotifyDone else { return }
+        didNotifyDone = true
+        onDone()
     }
 }

@@ -1603,7 +1603,7 @@ data class GuestReceipt(
     val nights: Int,
     val subtotal: Double,
     val serviceFee: Double,
-    /** The payment method ("card" | "bank_transfer" | "mock"); defaults to "mock". */
+    /** The payment method ("flash" | "instapay" | "bank_transfer", or legacy "card" | "mock"); defaults to "mock". */
     val method: String = "mock",
     /** Signed payment-method adjustment in EGP (+ card surcharge / − bank discount); 0 for mock. */
     val methodFee: Double = 0.0,

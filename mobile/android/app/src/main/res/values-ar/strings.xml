@@ -343,6 +343,26 @@
     <string name="instapay_note">يتم تأكيد حجزك بعد أن يتحقق المضيف من تحويلك.</string>
     <string name="instapay_for_one_night">لليلة واحدة</string>
     <string name="instapay_under_review">الدفع قيد المراجعة — يقوم المضيف بمراجعة تحويلك.</string>
+    <!-- Flash card/wallet checkout (automatic) -->
+    <string name="pay_methods_flash">بطاقة أو محفظة</string>
+    <string name="pay_methods_flash_subtitle">بطاقة خصم/ائتمان أو محفظة إلكترونية أو ڤاليو — تأكيد فوري</string>
+    <string name="pay_flash_header_subtitle">ادفع بأمان بالبطاقة أو المحفظة — دون الحاجة إلى لقطة شاشة.</string>
+    <string name="pay_flash_amount">المبلغ المطلوب دفعه</string>
+    <string name="pay_flash_pay">ادفع %1$d ج.م</string>
+    <string name="pay_flash_opening">جارٍ فتح صفحة الدفع…</string>
+    <string name="pay_flash_waiting_title">في انتظار دفعتك</string>
+    <string name="pay_flash_waiting_body">أكمل الدفع في صفحة Flash. ستتحدّث هذه الشاشة تلقائيًا فور تأكيد الدفع.</string>
+    <string name="pay_flash_reopen">افتح صفحة الدفع مرة أخرى</string>
+    <string name="pay_flash_check">تحقّق من حالة الدفع</string>
+    <string name="pay_flash_checking">جارٍ التحقق…</string>
+    <string name="pay_flash_not_yet">لم يتم التأكيد بعد. إذا كنت قد دفعت للتو، انتظر لحظة.</string>
+    <string name="pay_flash_timeout">لم يتم التأكيد بعد. اضغط «تحقّق من حالة الدفع» بعد إتمام الدفع.</string>
+    <string name="pay_flash_failed">لم تتم عملية الدفع. يمكنك المحاولة مرة أخرى.</string>
+    <string name="pay_flash_expired">انتهت صلاحية صفحة الدفع. ابدأ عملية جديدة للدفع.</string>
+    <string name="pay_flash_error">تعذّر بدء الدفع بالبطاقة. يُرجى المحاولة مرة أخرى.</string>
+    <string name="pay_flash_paid_title">تم تأكيد الدفع</string>
+    <string name="pay_flash_paid_body">تم دفع حجزك. ستجده ضمن رحلاتك.</string>
+    <string name="pay_flash_note">تدفع عبر صفحة Flash الآمنة — لا يطّلع QuickIn على بيانات بطاقتك.</string>
 
     <!-- Services -->
     <string name="services_title">الخدمات</string>

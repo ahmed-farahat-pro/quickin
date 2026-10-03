@@ -146,14 +146,40 @@ object BookingService {
      * on the payment proof, which is how the reviewer knows which account to check.
      */
     enum class PaymentMethod(val wire: String) {
+        /** Flash (useflash.app) — a hosted card/wallet checkout, confirmed automatically. */
+        FLASH("flash"),
         INSTAPAY("instapay"),
         BANK_TRANSFER("bank_transfer");
+
+        /** Transfer-then-screenshot. Flash is the one method that never goes through payment-proof. */
+        val isManual: Boolean
+            get() = this != FLASH
 
         companion object {
             /** null for a method this build has no UI for — see [PaymentConfig.availableMethods]. */
             fun fromWire(v: String): PaymentMethod? = entries.firstOrNull { it.wire == v }
+
+            /**
+             * The `method` to send with a transfer screenshot: the guest's pick when it is a manual
+             * method the server still offers, else the first manual one it offers, else Instapay.
+             * Never [FLASH] — the server would refuse a proof for an automatic method.
+             */
+            fun forProof(picked: PaymentMethod?, offered: List<PaymentMethod>): PaymentMethod =
+                picked?.takeIf { it.isManual && it in offered }
+                    ?: offered.firstOrNull { it.isManual }
+                    ?: INSTAPAY
         }
     }
+
+    /**
+     * The Flash block of the payment config. [enabled] is the admin toggle, [configured] whether the
+     * server holds Flash credentials. Informational only — whether to offer Flash is decided by
+     * [PaymentConfig.availableMethods].
+     */
+    data class FlashConfig(
+        val enabled: Boolean = false,
+        val configured: Boolean = false
+    )
 
     /**
      * The bank-account half of the destination — an ordinary transfer offered alongside Instapay.
@@ -173,10 +199,10 @@ object BookingService {
     )
 
     /**
-     * Every transfer destination shown to the guest at checkout (`GET /api/local/payment-config`,
+     * Every way to pay shown to the guest at checkout (`GET /api/local/payment-config`,
      * Bearer): the [instapayHandle] the guest sends money to with free-text [instructions], the
      * admin-configured [instapayLink] (a deep link that opens Instapay) and [instapayQrImage] (an
-     * uploaded QR as a base64 data URL), and the [bank] account.
+     * uploaded QR as a base64 data URL), the [bank] account, and the [flash] card/wallet status.
      *
      * [qrPayload] is what a client encodes when drawing the QR itself — the link when there is
      * one, else the handle.
@@ -192,6 +218,7 @@ object BookingService {
         val instapayQrImage: String = "",
         val qrPayload: String = "",
         val bank: BankTransferConfig = BankTransferConfig(),
+        val flash: FlashConfig = FlashConfig(),
         val availableMethods: List<PaymentMethod> = emptyList()
     ) {
         /** True once there is somewhere to send money by any method. */
@@ -238,7 +265,7 @@ object BookingService {
             (0 until rawMethods.length()).mapNotNull { PaymentMethod.fromWire(rawMethods.optString(it)) }
         } else {
             // Pre-`available_methods` server: Instapay was the only method, offered whenever it
-            // had a destination.
+            // had a destination. Such a server predates Flash too, so Flash is never inferred.
             val hasInstapay = handle.isNotBlank() || link.isNotBlank()
             if (hasInstapay && o.optBoolean("instapay_enabled", true)) listOf(PaymentMethod.INSTAPAY)
             else emptyList()
@@ -251,9 +278,45 @@ object BookingService {
             instapayQrImage = o.optStringOr("instapay_qr_image", ""),
             qrPayload = payload.ifBlank { link.ifBlank { handle } },
             bank = bank,
+            flash = o.optJSONObject("flash")?.let { f ->
+                FlashConfig(enabled = f.optBoolean("enabled", false), configured = f.optBoolean("configured", false))
+            } ?: FlashConfig(),
             availableMethods = methods
         )
     }
+
+    // ---- Flash card/wallet checkout (automatic) --------------------------------
+
+    /**
+     * Starts — or resumes — a Flash checkout for [bookingId]
+     * (`POST /api/local/bookings/:id/flash-checkout`, Bearer, empty body). Open the returned
+     * [FlashCheckout.paymentLink] in a browser; re-POSTing while that link is still valid returns
+     * the SAME link, and after a failed/canceled/expired order it mints a new one. Throws
+     * [HttpError] carrying the server's `error`: 409 (`flash_unavailable` / `not_payable`),
+     * 400 (`below_minimum`), 502 (`flash_error`).
+     */
+    suspend fun flashCheckout(token: String, bookingId: String): FlashCheckout = withContext(Dispatchers.IO) {
+        parseFlashCheckout(JSONObject(send("POST", token, "/api/local/bookings/$bookingId/flash-checkout", JSONObject())))
+    }
+
+    /**
+     * The booking's Flash checkout, refreshed from Flash server-side
+     * (`GET /api/local/bookings/:id/flash-checkout`, Bearer). Poll it after opening the link; stop
+     * once [FlashCheckout.paid]. Status `none` means no checkout has been started.
+     */
+    suspend fun flashCheckoutStatus(token: String, bookingId: String): FlashCheckout = withContext(Dispatchers.IO) {
+        parseFlashCheckout(JSONObject(get(token, "/api/local/bookings/$bookingId/flash-checkout")))
+    }
+
+    /** Reads the JSON fields; the normalizing lives in [FlashCheckoutRules.of] so it is unit-tested. */
+    private fun parseFlashCheckout(o: JSONObject): FlashCheckout = FlashCheckoutRules.of(
+        status = o.optStringOrNull("status"),
+        paid = o.optBoolean("paid", false),
+        paymentLink = o.optStringOrNull("payment_link"),
+        expiresAt = o.optStringOrNull("expires_at"),
+        amountCents = if (o.has("amount_cents") && !o.isNull("amount_cents")) o.optLong("amount_cents") else null,
+        orderId = o.optStringOrNull("order_id")
+    )
 
     /**
      * Uploads the guest's transfer screenshot as proof of payment for [bookingId]

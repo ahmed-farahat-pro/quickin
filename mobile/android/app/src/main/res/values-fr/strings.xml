@@ -300,6 +300,26 @@
     <string name="instapay_note">Votre réservation est confirmée après que l\'hôte a vérifié votre virement.</string>
     <string name="instapay_for_one_night">pour 1 nuit</string>
     <string name="instapay_under_review">Paiement en cours de vérification — l\'hôte vérifie votre virement.</string>
+    <!-- Flash card/wallet checkout (automatic) -->
+    <string name="pay_methods_flash">Carte ou portefeuille</string>
+    <string name="pay_methods_flash_subtitle">Carte de débit/crédit, portefeuille mobile ou Valu — confirmé instantanément</string>
+    <string name="pay_flash_header_subtitle">Payez en toute sécurité par carte ou portefeuille — sans capture d\'écran.</string>
+    <string name="pay_flash_amount">Montant à payer</string>
+    <string name="pay_flash_pay">Payer %1$d EGP</string>
+    <string name="pay_flash_opening">Ouverture du paiement…</string>
+    <string name="pay_flash_waiting_title">En attente de votre paiement</string>
+    <string name="pay_flash_waiting_body">Terminez le paiement sur la page Flash. Cet écran se met à jour automatiquement dès que le paiement est confirmé.</string>
+    <string name="pay_flash_reopen">Rouvrir la page de paiement</string>
+    <string name="pay_flash_check">Vérifier le paiement</string>
+    <string name="pay_flash_checking">Vérification…</string>
+    <string name="pay_flash_not_yet">Pas encore confirmé. Si vous venez de payer, patientez un instant.</string>
+    <string name="pay_flash_timeout">Toujours pas confirmé. Touchez « Vérifier le paiement » une fois le paiement effectué.</string>
+    <string name="pay_flash_failed">Le paiement n\'a pas abouti. Vous pouvez réessayer.</string>
+    <string name="pay_flash_expired">Cette page de paiement a expiré. Lancez-en une nouvelle pour payer.</string>
+    <string name="pay_flash_error">Impossible de lancer le paiement par carte. Veuillez réessayer.</string>
+    <string name="pay_flash_paid_title">Paiement confirmé</string>
+    <string name="pay_flash_paid_body">Votre réservation est payée. Vous la retrouverez dans vos voyages.</string>
+    <string name="pay_flash_note">Vous payez sur la page sécurisée de Flash — QuickIn ne voit jamais vos données de carte.</string>
     <string name="services_title">Services</string>
     <string name="services_no_experiences">Pas encore d\'expériences</string>
     <string name="services_check_back">Revenez bientôt pour découvrir des activités.</string>

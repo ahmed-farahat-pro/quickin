@@ -300,6 +300,26 @@
     <string name="instapay_note">Tu reserva se confirma después de que el anfitrión verifique tu transferencia.</string>
     <string name="instapay_for_one_night">por 1 noche</string>
     <string name="instapay_under_review">Pago en revisión — el anfitrión está verificando tu transferencia.</string>
+    <!-- Flash card/wallet checkout (automatic) -->
+    <string name="pay_methods_flash">Tarjeta o billetera</string>
+    <string name="pay_methods_flash_subtitle">Tarjeta de débito/crédito, billetera móvil o Valu — confirmado al instante</string>
+    <string name="pay_flash_header_subtitle">Paga de forma segura con tarjeta o billetera — sin captura de pantalla.</string>
+    <string name="pay_flash_amount">Importe a pagar</string>
+    <string name="pay_flash_pay">Pagar %1$d EGP</string>
+    <string name="pay_flash_opening">Abriendo el pago…</string>
+    <string name="pay_flash_waiting_title">Esperando tu pago</string>
+    <string name="pay_flash_waiting_body">Completa el pago en la página de Flash. Esta pantalla se actualiza automáticamente cuando se confirme.</string>
+    <string name="pay_flash_reopen">Abrir el pago de nuevo</string>
+    <string name="pay_flash_check">Comprobar el pago</string>
+    <string name="pay_flash_checking">Comprobando…</string>
+    <string name="pay_flash_not_yet">Aún no está confirmado. Si acabas de pagar, espera un momento.</string>
+    <string name="pay_flash_timeout">Aún sin confirmar. Toca «Comprobar el pago» cuando hayas pagado.</string>
+    <string name="pay_flash_failed">El pago no se completó. Puedes intentarlo de nuevo.</string>
+    <string name="pay_flash_expired">Esa página de pago caducó. Inicia una nueva para pagar.</string>
+    <string name="pay_flash_error">No se pudo iniciar el pago con tarjeta. Inténtalo de nuevo.</string>
+    <string name="pay_flash_paid_title">Pago confirmado</string>
+    <string name="pay_flash_paid_body">Tu reserva está pagada. La encontrarás en tus viajes.</string>
+    <string name="pay_flash_note">Pagas en la página segura de Flash — QuickIn nunca ve los datos de tu tarjeta.</string>
     <string name="services_title">Servicios</string>
     <string name="services_no_experiences">Aún no hay experiencias</string>
     <string name="services_check_back">Vuelva pronto para descubrir actividades.</string>

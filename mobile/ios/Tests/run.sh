@@ -88,3 +88,9 @@ swiftc -o "$OUT/notification-link-rules" \
   Sources/NotificationLinkRules.swift \
   Sources/ShareLinks.swift
 "$OUT/notification-link-rules"
+
+echo "\nFlashCheckoutRules — what a Flash (card / wallet) checkout shows, and when to keep polling it\n"
+swiftc -o "$OUT/flash-checkout-rules" \
+  Tests/FlashCheckoutRulesTests/main.swift \
+  Sources/FlashCheckoutRules.swift
+"$OUT/flash-checkout-rules"

@@ -100,6 +100,8 @@
 		D1111C050BB186813BC3FA3E /* AddListingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA05FA0D1768DE4CB6E3F7D /* AddListingView.swift */; };
 		D1BA4ADBF9699728C3F86252 /* BiometricEnableSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */; };
 		D2DCEE7738CDE9DEAC9AF96C /* PaymentFlowRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3081D0412C348527B74076DC /* PaymentFlowRules.swift */; };
+		57D9BC869CA1274BE386394A /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91FA961262B2D6D50338841 /* SafariView.swift */; };
+		EC94F1292C5C9BB97752C342 /* FlashCheckoutRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED3D793103B4EF6B66C8A02C /* FlashCheckoutRules.swift */; };
 		D768334B1B368CD5A7759C2A /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E75D5A0FBEB80DBC5D75E0 /* NotificationService.swift */; };
 		D88BF05687971D7367071E90 /* Amenities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A0CCF74AC12A50E823919B /* Amenities.swift */; };
 		DC2D49FD32DBFD8A2D6D09AF /* PhoneRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */; };
@@ -134,6 +136,8 @@
 		2E23E5D1A16E3236FC8AAB6A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2F8049C2B3CD018472594BB3 /* LocationPickerMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerMap.swift; sourceTree = "<group>"; };
 		3081D0412C348527B74076DC /* PaymentFlowRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentFlowRules.swift; sourceTree = "<group>"; };
+		A91FA961262B2D6D50338841 /* SafariView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariView.swift; sourceTree = "<group>"; };
+		ED3D793103B4EF6B66C8A02C /* FlashCheckoutRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlashCheckoutRules.swift; sourceTree = "<group>"; };
 		38389AAB5C4E32B05C3A4C56 /* HostDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostDashboardView.swift; sourceTree = "<group>"; };
 		38A7C9ACBD163ACDA9738216 /* ListingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListingsViewModel.swift; sourceTree = "<group>"; };
 		3919DCF5B8DE3B1E29F7C94C /* HostTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostTabs.swift; sourceTree = "<group>"; };
@@ -310,6 +314,8 @@
 				628A74BFFE21FBB963780B7E /* OwnershipDocRules.swift */,
 				3E0108390AF733FB6E68867A /* PasswordStrengthView.swift */,
 				3081D0412C348527B74076DC /* PaymentFlowRules.swift */,
+				A91FA961262B2D6D50338841 /* SafariView.swift */,
+				ED3D793103B4EF6B66C8A02C /* FlashCheckoutRules.swift */,
 				42DF93A288577203F495EEF5 /* PaymentSheet.swift */,
 				2ACC8BD9BD5635CCB854D12E /* PayoutMethodView.swift */,
 				C522D723AA7EFDAAF8A5C4CA /* PhoneRules.swift */,
@@ -513,6 +519,8 @@
 				B74C714BB70ECC376B8B795F /* OwnershipDocRules.swift in Sources */,
 				12EA0DED2C6797AC48D1955E /* PasswordStrengthView.swift in Sources */,
 				D2DCEE7738CDE9DEAC9AF96C /* PaymentFlowRules.swift in Sources */,
+				57D9BC869CA1274BE386394A /* SafariView.swift in Sources */,
+				EC94F1292C5C9BB97752C342 /* FlashCheckoutRules.swift in Sources */,
 				972B9A14617E75E6981E1577 /* PaymentSheet.swift in Sources */,
 				BD012D249ED95C87C11CDF3D /* PayoutMethodView.swift in Sources */,
 				DC2D49FD32DBFD8A2D6D09AF /* PhoneRules.swift in Sources */,

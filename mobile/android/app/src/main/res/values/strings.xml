@@ -353,6 +353,26 @@
     <string name="instapay_note">Your booking is confirmed after the host verifies your transfer.</string>
     <string name="instapay_for_one_night">for 1 night</string>
     <string name="instapay_under_review">Payment under review — the host is checking your transfer.</string>
+    <!-- Flash card/wallet checkout (automatic) -->
+    <string name="pay_methods_flash">Card or wallet</string>
+    <string name="pay_methods_flash_subtitle">Debit/credit card, mobile wallet or Valu — confirmed instantly</string>
+    <string name="pay_flash_header_subtitle">Pay securely by card or wallet — no screenshot needed.</string>
+    <string name="pay_flash_amount">Amount to pay</string>
+    <string name="pay_flash_pay">Pay EGP %1$d</string>
+    <string name="pay_flash_opening">Opening checkout…</string>
+    <string name="pay_flash_waiting_title">Waiting for your payment</string>
+    <string name="pay_flash_waiting_body">Finish paying on the Flash page. This updates automatically once your payment is confirmed.</string>
+    <string name="pay_flash_reopen">Open checkout again</string>
+    <string name="pay_flash_check">Check payment status</string>
+    <string name="pay_flash_checking">Checking…</string>
+    <string name="pay_flash_not_yet">Not confirmed yet. If you\'ve just paid, give it a moment.</string>
+    <string name="pay_flash_timeout">Still not confirmed. Tap “Check payment status” once you\'ve paid.</string>
+    <string name="pay_flash_failed">That payment didn\'t go through. You can try again.</string>
+    <string name="pay_flash_expired">That checkout expired. Start a new one to pay.</string>
+    <string name="pay_flash_error">Couldn\'t start the card payment. Please try again.</string>
+    <string name="pay_flash_paid_title">Payment confirmed</string>
+    <string name="pay_flash_paid_body">Your booking is paid. You\'ll find it in your trips.</string>
+    <string name="pay_flash_note">You pay on Flash\'s secure page — QuickIn never sees your card details.</string>
 
     <!-- Services -->
     <string name="services_title">Services</string>

@@ -5,7 +5,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// QuickIn boutique palette — mirrors the web app's redesign tokens.
+// Quick In boutique palette — mirrors the web app's redesign tokens.
 // Burgundy family (primary).
 val Burgundy = Color(0xFF5B0F16)
 val BurgundyDark = Color(0xFF45070D)

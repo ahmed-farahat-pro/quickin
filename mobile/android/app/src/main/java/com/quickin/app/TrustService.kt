@@ -22,7 +22,7 @@ data class VerificationState(
 )
 
 /**
- * Minimal HTTP client for QuickIn's Trust & Safety endpoints. Mirrors [BookingService] /
+ * Minimal HTTP client for Quick In's Trust & Safety endpoints. Mirrors [BookingService] /
  * [ProfileService]: HttpURLConnection + org.json on Dispatchers.IO, bearer-token auth, and an
  * [HttpError] so callers can distinguish 401 (sign in) from 400 (validation).
  *

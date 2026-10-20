@@ -55,14 +55,13 @@ import com.quickin.app.PayoutDraft
 import com.quickin.app.PayoutMethodKind
 import com.quickin.app.PayoutUiState
 import com.quickin.app.R
-import com.quickin.app.WalletProviderKind
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
 
 /**
- * "Payment information" card for the Profile tab — where QuickIn sends a host's earnings.
+ * "Payment information" card for the Profile tab — where Quick In sends a host's earnings.
  *
  * Two states in one card: a PREVIEW of what is saved, so the host can confirm it went in
  * correctly, and an inline EDITOR for adding or replacing it. A host with nothing saved opens
@@ -242,6 +241,16 @@ private fun PayoutPreview(saved: HostPayoutMethod) {
                 PayoutPreviewRow(stringResource(R.string.payout_field_branch), saved.branch)
             }
         }
+        if (saved.kind?.isRetired == true) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                stringResource(R.string.payout_retired_notice),
+                color = Color(0xFFB3261E),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
+        }
     }
 }
 
@@ -275,7 +284,8 @@ private fun PayoutEditor(
     onCancel: (() -> Unit)?
 ) {
     var method by remember(existing) {
-        mutableStateOf(existing?.kind ?: PayoutMethodKind.BANK_ACCOUNT)
+        // A retired wallet can't be saved again; start its owner on a bank account.
+        mutableStateOf(existing?.kind?.takeUnless { it.isRetired } ?: PayoutMethodKind.BANK_ACCOUNT)
     }
     var accountName by remember(existing) { mutableStateOf(existing?.accountName.orEmpty()) }
     val isBank = existing?.kind == PayoutMethodKind.BANK_ACCOUNT
@@ -287,15 +297,6 @@ private fun PayoutEditor(
     var branch by remember(existing) { mutableStateOf(if (isBank) existing.branch else "") }
     var instapayAddress by remember(existing) {
         mutableStateOf(if (existing?.kind == PayoutMethodKind.INSTAPAY) existing.accountRef else "")
-    }
-    var walletProvider by remember(existing) {
-        mutableStateOf(
-            if (existing?.kind == PayoutMethodKind.WALLET) WalletProviderKind.fromKey(existing.provider)
-            else WalletProviderKind.VODAFONE_CASH
-        )
-    }
-    var walletNumber by remember(existing) {
-        mutableStateOf(if (existing?.kind == PayoutMethodKind.WALLET) existing.accountRef else "")
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -389,28 +390,8 @@ private fun PayoutEditor(
                 )
             }
 
-            PayoutMethodKind.WALLET -> {
-                Text(
-                    stringResource(R.string.payout_field_wallet_provider),
-                    color = Muted,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                WalletProviderPicker(
-                    selected = walletProvider,
-                    enabled = !isSubmitting,
-                    onSelected = { walletProvider = it }
-                )
-                PayoutField(
-                    value = walletNumber,
-                    onValueChange = { walletNumber = it },
-                    label = stringResource(R.string.payout_field_wallet_number),
-                    icon = Icons.Filled.Phone,
-                    enabled = !isSubmitting,
-                    placeholder = stringResource(R.string.payout_placeholder_wallet_number),
-                    keyboardType = KeyboardType.Phone
-                )
-            }
+            // Retired — never offered by the picker, and the editor moves a saved wallet onto a bank.
+            PayoutMethodKind.WALLET -> Unit
         }
 
         Spacer(Modifier.height(4.dp))
@@ -425,9 +406,7 @@ private fun PayoutEditor(
                         accountNumber = accountNumber,
                         swiftBic = swiftBic,
                         branch = branch,
-                        instapayAddress = instapayAddress,
-                        walletProvider = walletProvider,
-                        walletNumber = walletNumber
+                        instapayAddress = instapayAddress
                     )
                 )
             },
@@ -470,7 +449,7 @@ private fun PayoutMethodPicker(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        PayoutMethodKind.entries.forEach { kind ->
+        PayoutMethodKind.CHOOSABLE.forEach { kind ->
             val isSelected = kind == selected
             Surface(
                 onClick = { onSelected(kind) },
@@ -506,53 +485,6 @@ private fun PayoutMethodPicker(
                         color = if (isSelected) Color.White else Ink,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Wallet providers, as a compact selectable list. */
-@Composable
-private fun WalletProviderPicker(
-    selected: WalletProviderKind,
-    enabled: Boolean,
-    onSelected: (WalletProviderKind) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        WalletProviderKind.entries.forEach { provider ->
-            val isSelected = provider == selected
-            Surface(
-                onClick = { onSelected(provider) },
-                enabled = enabled,
-                shape = RoundedCornerShape(14.dp),
-                color = if (isSelected) Burgundy.copy(alpha = 0.10f) else Color.White,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (isSelected) Burgundy else Tan
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
-                ) {
-                    Icon(
-                        if (isSelected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
-                        contentDescription = null,
-                        tint = if (isSelected) Burgundy else Muted,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        walletProviderLabel(provider),
-                        color = Ink,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 14.sp
                     )
                 }
             }
@@ -628,16 +560,5 @@ private fun methodLabel(kind: PayoutMethodKind?): String = stringResource(
         PayoutMethodKind.INSTAPAY -> R.string.payout_method_instapay
         PayoutMethodKind.WALLET -> R.string.payout_method_wallet
         null -> R.string.payout_title
-    }
-)
-
-@Composable
-private fun walletProviderLabel(provider: WalletProviderKind): String = stringResource(
-    when (provider) {
-        WalletProviderKind.VODAFONE_CASH -> R.string.payout_wallet_vodafone_cash
-        WalletProviderKind.ETISALAT_CASH -> R.string.payout_wallet_etisalat_cash
-        WalletProviderKind.ORANGE_MONEY -> R.string.payout_wallet_orange_money
-        WalletProviderKind.WE_PAY -> R.string.payout_wallet_we_pay
-        WalletProviderKind.OTHER -> R.string.payout_wallet_other
     }
 )

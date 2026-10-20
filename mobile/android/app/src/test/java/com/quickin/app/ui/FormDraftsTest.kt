@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The add-listing / add-service drafts are what makes a half-filled host form survive leaving the
+ * The add-listing drafts are what makes a half-filled host form survive leaving the
  * screen — the tab bodies are a bare `when (tab)`, so the wizard is REMOVED from composition on a
  * tab switch and anything held in a `remember` goes with it.
  *
@@ -95,24 +95,6 @@ class FormDraftsTest {
         assertTrue(draft.photos.isEmpty())
         assertTrue(draft.selectedAmenities.isEmpty())
         assertTrue(draft.monthlyPrices.isEmpty())
-    }
-
-    @Test
-    fun `a service draft holds its fields and clears them all`() {
-        val draft = ServiceDraft()
-        assertTrue(draft.isPristine)
-
-        draft.title.value = "Sunset yacht cruise"
-        draft.category.value = "Water sports"
-        draft.description.value = "Two hours out of the marina."
-        draft.location.value = "Hurghada"
-        draft.price.value = "120"
-        draft.imageUrl.value = "https://example.com/boat.jpg"
-        assertFalse(draft.isPristine)
-
-        draft.clear()
-        assertTrue(draft.isPristine)
-        assertEquals("", draft.title.value)
     }
 
     @Test

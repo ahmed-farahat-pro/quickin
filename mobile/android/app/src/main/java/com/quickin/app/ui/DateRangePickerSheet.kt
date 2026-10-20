@@ -59,7 +59,7 @@ import java.util.Locale
  * A custom, brand-styled date-range calendar shown in a [ModalBottomSheet]. Used for both the
  * Explore search dates and the listing-detail reserve dates. Deliberately does NOT use the
  * Material3 `DatePicker` / `DatePickerDialog` or the native `android.app.DatePickerDialog` —
- * it's a hand-built month grid on a Cream surface in the QuickIn palette.
+ * it's a hand-built month grid on a Cream surface in the Quick In palette.
  *
  * @param initialCheckIn pre-selected check-in as "yyyy-MM-dd", or null.
  * @param initialCheckOut pre-selected check-out as "yyyy-MM-dd", or null.

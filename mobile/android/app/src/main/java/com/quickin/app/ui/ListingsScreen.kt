@@ -971,13 +971,18 @@ private fun SearchHeader(
 
     // Summary shown on the collapsed bar.
     val titleText = location.ifBlank { stringResource(R.string.search_where_to) }
+    // Unset dates/guests are left out rather than shown as placeholders.
     val datesText = if (checkIn.isNotBlank() && checkOut.isNotBlank())
-        stringResource(R.string.search_dates_selected) else stringResource(R.string.search_anytime)
+        stringResource(R.string.search_dates_selected) else null
     val guestCount = guests.toIntOrNull()?.takeIf { it > 0 }
     val guestsText = when {
-        guestCount == null -> stringResource(R.string.search_any_guests)
+        guestCount == null -> null
         guestCount == 1 -> stringResource(R.string.search_one_guest)
         else -> stringResource(R.string.search_many_guests, guestCount)
+    }
+    val summaryText = when {
+        datesText != null && guestsText != null -> stringResource(R.string.search_summary, datesText, guestsText)
+        else -> datesText ?: guestsText
     }
 
     Surface(
@@ -1007,9 +1012,9 @@ private fun SearchHeader(
                         fontSize = 15.sp,
                         maxLines = 1
                     )
-                    if (!expanded) {
+                    if (!expanded && summaryText != null) {
                         Text(
-                            stringResource(R.string.search_summary, datesText, guestsText),
+                            summaryText,
                             color = Muted,
                             fontSize = 12.sp,
                             maxLines = 1

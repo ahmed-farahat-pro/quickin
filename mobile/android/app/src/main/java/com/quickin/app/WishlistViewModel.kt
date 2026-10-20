@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
- * State for the wishlist. [listingIds]/[serviceIds] drive the saved-heart fill across the
+ * State for the wishlist. [listingIds] drives the saved-heart fill across the
  * browse + detail screens; [data] backs the dedicated "Saved" screen (full saved cards).
  * [needsSignIn] flips true when a signed-out user taps a heart, so the host can prompt sign-in.
  */
@@ -20,7 +20,6 @@ data class WishlistUiState(
     val isLoading: Boolean = false,
     val data: WishlistData = WishlistData(),
     val listingIds: Set<String> = emptySet(),
-    val serviceIds: Set<String> = emptySet(),
     val error: String? = null,
     val loaded: Boolean = false,
     val needsSignIn: Boolean = false
@@ -36,7 +35,6 @@ enum class WishlistToast { ADDED, REMOVED }
  *
  *   [load]            — refresh saved items + id sets (no-op, friendly state, when signed out)
  *   [toggleListing]   — optimistically flip a listing's saved state, then POST (reconcile on fail)
- *   [toggleService]   — same for a service
  *   [isListingSaved]  — quick membership check for the heart fill
  *   [clear]           — wipe state on logout
  */
@@ -64,7 +62,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
      * "Added… / Removed…" double Toast.
      */
     private val inFlightListingIds = mutableSetOf<String>()
-    private val inFlightServiceIds = mutableSetOf<String>()
 
     private fun token(): String? = prefs.getString(AuthViewModel.KEY_TOKEN, null)
 
@@ -83,7 +80,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
                     isLoading = false,
                     data = data,
                     listingIds = data.listingIds,
-                    serviceIds = data.serviceIds,
                     loaded = true,
                     error = null
                 )
@@ -99,9 +95,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
 
     /** True when [listingId] is currently in the wishlist. */
     fun isListingSaved(listingId: String): Boolean = _state.value.listingIds.contains(listingId)
-
-    /** True when [serviceId] is currently in the wishlist. */
-    fun isServiceSaved(serviceId: String): Boolean = _state.value.serviceIds.contains(serviceId)
 
     /**
      * Toggles a listing's saved state. Optimistically flips the id set (so the heart updates
@@ -157,53 +150,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** Toggles a service's saved state (optimistic, with revert-on-failure). Mirrors [toggleListing]. */
-    fun toggleService(service: Service) {
-        val token = token()
-        if (token == null) {
-            _state.value = _state.value.copy(needsSignIn = true)
-            return
-        }
-        // Per-item in-flight guard (see [toggleListing]): a re-tap mid-flight is ignored so a
-        // double-tap can't toggle twice and emit two Toasts.
-        if (!inFlightServiceIds.add(service.id)) return
-        val current = _state.value
-        val wasSaved = current.serviceIds.contains(service.id)
-        val nextIds = current.serviceIds.toMutableSet().apply {
-            if (wasSaved) remove(service.id) else add(service.id)
-        }
-        val nextServices = if (wasSaved) {
-            current.data.services.filterNot { it.id == service.id }
-        } else {
-            if (current.data.services.any { it.id == service.id }) current.data.services
-            else current.data.services + service
-        }
-        _state.value = current.copy(
-            serviceIds = nextIds,
-            data = current.data.copy(services = nextServices, serviceIds = nextIds)
-        )
-
-        viewModelScope.launch {
-            try {
-                val saved = WishlistService.toggle(
-                    token,
-                    WishlistService.ItemType.SERVICE,
-                    service.id,
-                    action = if (wasSaved) "unsave" else "save"
-                )
-                applyServiceSaved(service, saved)
-                _toast.trySend(if (saved) WishlistToast.ADDED else WishlistToast.REMOVED)
-            } catch (e: WishlistService.HttpError) {
-                if (e.code == 401) _state.value = _state.value.copy(needsSignIn = true)
-                revertService(service.id, wasSaved)
-            } catch (_: Exception) {
-                revertService(service.id, wasSaved)
-            } finally {
-                inFlightServiceIds.remove(service.id)
-            }
-        }
-    }
-
     /** Clears the transient "sign in to save" flag once the host has surfaced/acted on it. */
     fun clearNeedsSignIn() {
         if (_state.value.needsSignIn) _state.value = _state.value.copy(needsSignIn = false)
@@ -212,7 +158,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
     /** Wipes wishlist state on logout so a new user doesn't see stale saves. */
     fun clear() {
         inFlightListingIds.clear()
-        inFlightServiceIds.clear()
         _state.value = WishlistUiState()
     }
 
@@ -237,24 +182,6 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    /** Reconciles a service's saved state to the server's authoritative [saved] value (idempotent). */
-    private fun applyServiceSaved(service: Service, saved: Boolean) {
-        val s = _state.value
-        val ids = s.serviceIds.toMutableSet().apply {
-            if (saved) add(service.id) else remove(service.id)
-        }
-        val services = if (saved) {
-            if (s.data.services.any { it.id == service.id }) s.data.services
-            else s.data.services + service
-        } else {
-            s.data.services.filterNot { it.id == service.id }
-        }
-        _state.value = s.copy(
-            serviceIds = ids,
-            data = s.data.copy(services = services, serviceIds = ids)
-        )
-    }
-
     /** Restores a listing's id-set membership after a failed toggle. */
     private fun revertListing(listingId: String, wasSaved: Boolean) {
         val s = _state.value
@@ -262,14 +189,5 @@ class WishlistViewModel(application: Application) : AndroidViewModel(application
             if (wasSaved) add(listingId) else remove(listingId)
         }
         _state.value = s.copy(listingIds = reverted, data = s.data.copy(listingIds = reverted))
-    }
-
-    /** Restores a service's id-set membership after a failed toggle. */
-    private fun revertService(serviceId: String, wasSaved: Boolean) {
-        val s = _state.value
-        val reverted = s.serviceIds.toMutableSet().apply {
-            if (wasSaved) add(serviceId) else remove(serviceId)
-        }
-        _state.value = s.copy(serviceIds = reverted, data = s.data.copy(serviceIds = reverted))
     }
 }

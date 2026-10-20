@@ -8,7 +8,7 @@ import org.junit.Test
 /**
  * Guards [NotificationLinkRules] — what a notification row / push tap opens. The regression this
  * exists for: only `comment` / `comment_reply` used to route anywhere; every reservation, host,
- * account and subscription notification just marked itself read. The link alone decides now.
+ * account and service-request notification just marked itself read. The link alone decides now.
  *
  * Plain JVM, no emulator: `./gradlew testDebugUnitTest`.
  */
@@ -54,12 +54,26 @@ class NotificationLinkRulesTest {
     // ---- Tabs and screens ---------------------------------------------------------------
 
     @Test
-    fun `host, account, verify-id and subscriptions map to their screens`() {
+    fun `host, account and verify-id map to their screens`() {
         assertEquals(DeepLink.Tab("host"), dest("/host"))
         assertEquals(DeepLink.Tab("profile"), dest("/account"))
         // No standalone ID-verification screen on Android: its card lives on Profile.
         assertEquals(DeepLink.Tab("profile"), dest("/verify-id"))
-        assertEquals(DeepLink.Tab("subscriptions"), dest("/subscriptions"))
+    }
+
+    @Test
+    fun `retired services and subscriptions links route nowhere so the app opens on home`() {
+        assertNull(dest("/services/S1"))
+        assertNull(dest("/services"))
+        assertNull(dest("/service/S1"))
+        assertNull(dest("/subscriptions"))
+        assertNull(dest("https://quickin-frontend.vercel.app/services/S1"))
+        assertNull(dest("quickin://services/S1"))
+        assertNull(dest("quickin://subscriptions"))
+        assertNull(NotificationLinkRules.pushLink("service", "/subscriptions"))
+        assertNull(NotificationLinkRules.pushLink("service_request", "/services/S1"))
+        assertTrue("services" !in DeepLink.TAB_KEYS)
+        assertTrue("subscriptions" !in DeepLink.TAB_KEYS)
     }
 
     @Test
@@ -90,7 +104,6 @@ class NotificationLinkRulesTest {
         assertEquals("quickin://host", NotificationLinkRules.pushLink("booking_request", "/host"))
         assertEquals("quickin://profile", NotificationLinkRules.pushLink("host_status", "/account"))
         assertEquals("quickin://profile", NotificationLinkRules.pushLink("verification", "/verify-id"))
-        assertEquals("quickin://subscriptions", NotificationLinkRules.pushLink("service", "/subscriptions"))
     }
 
     @Test
@@ -103,7 +116,7 @@ class NotificationLinkRulesTest {
 
     @Test
     fun `every tab a push can carry is one DeepLink parse accepts as a bare route`() {
-        val links = listOf("/reservations", "/host", "/account", "/verify-id", "/subscriptions")
+        val links = listOf("/reservations", "/host", "/account", "/verify-id")
         for (link in links) {
             val tab = dest(link) as DeepLink.Tab
             assertTrue("${tab.key} must be a DeepLink tab key", tab.key in DeepLink.TAB_KEYS)
@@ -114,7 +127,7 @@ class NotificationLinkRulesTest {
     fun `a canonical push link reads back to the same destination`() {
         val links = listOf(
             "/explore/L9#comments", "/explore/L9", "/reservation/b-1", "/reservations",
-            "/host", "/account", "/verify-id", "/subscriptions",
+            "/host", "/account", "/verify-id",
         )
         for (link in links) {
             val d = dest(link)!!

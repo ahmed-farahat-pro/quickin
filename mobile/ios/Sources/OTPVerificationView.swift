@@ -7,7 +7,7 @@ import SwiftUI
 /// user enters the 6-digit code emailed to them; on success the returned
 /// `{ token, user }` is stored by `AuthStore` and the app shows them signed in.
 ///
-/// Themed in the QuickIn boutique palette (burgundy / cream / tan) to match
+/// Themed in the Quick In boutique palette (burgundy / cream / tan) to match
 /// `AuthView`.
 struct OTPVerificationView: View {
     @EnvironmentObject private var auth: AuthStore
@@ -57,6 +57,7 @@ struct OTPVerificationView: View {
                             .background(Color.qkBurgundy.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
+                    spamTip
                     codeCard
                     if let error = auth.errorMessage {
                         Text(error)
@@ -130,6 +131,36 @@ struct OTPVerificationView: View {
                 .foregroundStyle(Color.qkInk)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    // MARK: - Spam tip
+
+    /// Verification emails often land in Spam/Junk — say so up front, before
+    /// the user gives up waiting.
+    private var spamTip: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.bubble")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.qkBurgundy)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(loc.t("otp.spamTitle"))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.qkBurgundy)
+                Text(loc.t("otp.spamBody"))
+                    .font(.footnote)
+                    .foregroundStyle(Color.qkInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color.qkBurgundy.opacity(0.06))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.qkBurgundy.opacity(0.18), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Code entry

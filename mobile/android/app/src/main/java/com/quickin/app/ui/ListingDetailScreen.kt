@@ -271,8 +271,8 @@ fun ListingDetailScreen(
     Scaffold(
         containerColor = CreamPage,
         // The page-title bar. iOS names this page in its navigation bar
-        // (`ListingDetailView`: `.navigationTitle(listing.title)`, inline) and so does the
-        // sibling `ServiceDetailScreen` here — this screen used to open straight onto the
+        // (`ListingDetailView`: `.navigationTitle(listing.title)`, inline) — this screen used
+        // to open straight onto the
         // photo with only frosted overlay controls, so nothing said which stay you were on.
         // Back / share / save move up here with the title rather than floating on the hero.
         topBar = {
@@ -1289,7 +1289,7 @@ private fun QuoteLine(label: String, value: String, valueColor: Color = Ink) {
 /**
  * On-brand "Request sent" confirmation modal shown after a successful (pending) reservation.
  * Rendered in a [Dialog] so it floats over a dimming scrim; [usePlatformDefaultWidth] is
- * disabled so we control the width to match QuickIn's boutique card styling.
+ * disabled so we control the width to match Quick In's boutique card styling.
  */
 @Composable
 private fun ReservationConfirmationDialog(

@@ -64,7 +64,6 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Star
@@ -200,10 +199,10 @@ private const val EGYPT_ZOOM = 5.5f
  *               Length-of-stay discounts and seasonal pricing are NOT edited here: they belong to
  *               the listing editor, same as on web and iOS.
  *
- * Above the tabs sits a quick-action shelf into Earnings, Analytics and Services. Those three
- * screens have always existed on Android but were only reachable from Profile -> Hosting, which
- * is why they read as "missing" next to the iOS dashboard that lists them inline. The Profile
- * rows stay: this adds a second door to the same three screens, it does not move them.
+ * Above the tabs sits a quick-action shelf into Earnings, Analytics and Guest questions. Earnings
+ * and Analytics have always existed on Android but were only reachable from Profile -> Hosting,
+ * which is why they read as "missing" next to the iOS dashboard that lists them inline. The
+ * Profile rows stay: this adds a second door to the same screens, it does not move them.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -228,7 +227,7 @@ fun HostScreen(
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
     visibilityState: com.quickin.app.ListingVisibilityUiState = com.quickin.app.ListingVisibilityUiState(),
-    /** Takes a listing off the market, or puts it back — QuickIn's "delete my listing". */
+    /** Takes a listing off the market, or puts it back — Quick In's "delete my listing". */
     onSetPublished: (listingId: String, isPublished: Boolean) -> Unit = { _, _ -> },
     onBack: (() -> Unit)?,
     onLoadBookings: () -> Unit,
@@ -240,8 +239,6 @@ fun HostScreen(
     onOpenEarnings: () -> Unit = {},
     /** Opens the host analytics dashboard (`GET /api/local/host/analytics`). */
     onOpenAnalytics: () -> Unit = {},
-    /** Opens the host's services + subscription-request inbox (`GET /api/local/host/services`). */
-    onOpenServices: () -> Unit = {},
     /** Opens "Guest questions" (`GET /api/local/host/comments`) — where Messages used to be. */
     onOpenGuestQuestions: () -> Unit = {},
     /** Unanswered guest questions, badged on the quick-action tile. */
@@ -298,13 +295,12 @@ fun HostScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
-            // Quick actions into the three host screens that are NOT tabs. Kept to one
+            // Quick actions into the host screens that are NOT tabs. Kept to one
             // compact shelf rather than three more tabs: the tab row already scrolls, and
             // a fourth/fifth/sixth tab would push "Listings" further off-screen.
             HostQuickActions(
                 onOpenEarnings = onOpenEarnings,
                 onOpenAnalytics = onOpenAnalytics,
-                onOpenServices = onOpenServices,
                 onOpenGuestQuestions = onOpenGuestQuestions,
                 guestQuestionsUnanswered = guestQuestionsUnanswered
             )
@@ -399,7 +395,7 @@ fun HostScreen(
 }
 
 /**
- * The three host screens that live outside the tab set — Earnings, Analytics, Services — as a
+ * The host screens that live outside the tab set — Earnings, Analytics, Guest questions — as a
  * compact shelf under the top bar, so they are visible from every tab.
  *
  * Deliberately icon-over-label tiles rather than [SettingsRow]s: three stacked rows would cost
@@ -411,7 +407,6 @@ fun HostScreen(
 private fun HostQuickActions(
     onOpenEarnings: () -> Unit,
     onOpenAnalytics: () -> Unit,
-    onOpenServices: () -> Unit,
     onOpenGuestQuestions: () -> Unit,
     guestQuestionsUnanswered: Int
 ) {
@@ -433,13 +428,6 @@ private fun HostQuickActions(
             label = stringResource(com.quickin.app.R.string.analytics_title),
             accent = Burgundy,
             onClick = onOpenAnalytics,
-            modifier = Modifier.weight(1f)
-        )
-        HostQuickAction(
-            icon = Icons.Filled.Sailing,
-            label = stringResource(com.quickin.app.R.string.profile_host_services),
-            accent = Burgundy,
-            onClick = onOpenServices,
             modifier = Modifier.weight(1f)
         )
         HostQuickAction(
@@ -538,7 +526,7 @@ fun HostListingsScreen(
     ownershipState: OwnershipDocUiState = OwnershipDocUiState(),
     onReuploadDoc: (listingId: String, ownershipDoc: String) -> Unit = { _, _ -> },
     visibilityState: com.quickin.app.ListingVisibilityUiState = com.quickin.app.ListingVisibilityUiState(),
-    /** Takes a listing off the market, or puts it back — QuickIn's "delete my listing". */
+    /** Takes a listing off the market, or puts it back — Quick In's "delete my listing". */
     onSetPublished: (listingId: String, isPublished: Boolean) -> Unit = { _, _ -> },
     contentPadding: PaddingValues = PaddingValues(),
     /** True when rendered inside another screen's Scaffold (e.g. the HostScreen tab) — hides the
@@ -1014,7 +1002,7 @@ private fun HostListingCard(
                 Text(stringResource(com.quickin.app.R.string.listing_edit_title), fontWeight = FontWeight.SemiBold)
             }
 
-            // Take the listing off the market, or put it back. QuickIn has no host-facing delete —
+            // Take the listing off the market, or put it back. Quick In has no host-facing delete —
             // this IS "remove my listing", and it keeps every booking, review and payment record
             // intact. Withheld only on Blocked, which the host cannot undo and the API refuses.
             if (listing.hostVisibility != HostVisibility.Blocked) {
@@ -3092,7 +3080,7 @@ internal fun GuestPriceHint(priceText: String, commission: Commission?) {
             }
             if (commission.rate > 0.0) {
                 withStyle(SpanStyle(color = Muted)) {
-                    append(" · includes QuickIn's ${commission.percentText}% commission — you receive the price you entered")
+                    append(" · includes Quick In's ${commission.percentText}% commission — you receive the price you entered")
                 }
             }
         },

@@ -39,7 +39,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Launch splash: the QuickIn logo flies in (0.2x -> 1x, fading) and then gently
+ * Launch splash: the Quick In logo flies in (0.2x -> 1x, fading) and then gently
  * bobs over a cream background, while layered waves roll continuously across the
  * bottom — giving the splash a lively, premium feel.
  */
@@ -88,7 +88,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
         // Logo — flown in, then gently bobbing, lifted a touch above center.
         Image(
             painter = painterResource(R.drawable.logo),
-            contentDescription = "QuickIn",
+            contentDescription = "Quick In",
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxWidth(0.62f)
@@ -100,7 +100,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
     }
 }
 
-/** Three layered sine waves rolling horizontally, tinted in the QuickIn palette. */
+/** Three layered sine waves rolling horizontally, tinted in the Quick In palette. */
 @Composable
 private fun SplashWaves(phase: Float, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">QuickIn</string>
+    <string name="app_name">Quick In</string>
     <string name="tab_explore">Explorer</string>
-    <string name="tab_services">Services</string>
     <string name="tab_wishlist">Favoris</string>
     <string name="tab_trips">Voyages</string>
     <string name="tab_profile">Profil</string>
@@ -22,7 +21,7 @@
     <string name="cd_save">Ajouter aux favoris</string>
     <string name="action_share">Partager</string>
     <string name="cd_share">Partager</string>
-    <string name="share_subject">%1$s — QuickIn</string>
+    <string name="share_subject">%1$s — Quick In</string>
     <string name="share_chooser_title">Partager via</string>
     <string name="brand_tagline">Des séjours de charme, réservés en un instant.</string>
     <string name="auth_sign_in">Se connecter</string>
@@ -55,7 +54,7 @@
     <string name="cd_back_to_browsing">Retour à la navigation</string>
     <string name="auth_google_not_configured">Ajoutez votre identifiant client Google dans Config.kt pour activer la connexion Google</string>
     <string name="auth_biometric_login">Se connecter avec l\'empreinte ou le visage</string>
-    <string name="biometric_prompt_title">Connexion à QuickIn</string>
+    <string name="biometric_prompt_title">Connexion à Quick In</string>
     <string name="biometric_prompt_subtitle">Confirmez votre empreinte ou votre visage pour continuer.</string>
     <string name="biometric_use_password">Utiliser le mot de passe</string>
     <string name="biometric_enable_title">Activer la connexion biométrique ?</string>
@@ -76,6 +75,8 @@
     <string name="otp_code_label">Code à 6 chiffres</string>
     <string name="otp_verify">Vérifier</string>
     <string name="otp_resend">Renvoyer le code</string>
+    <string name="otp_spam_title">Vérifiez vos spams</string>
+    <string name="otp_spam_body">Le code peut mettre une minute à arriver et se retrouve parfois dans les spams ou le courrier indésirable.</string>
     <string name="cd_back_to_sign_in">Retour à la connexion</string>
     <string name="profile_guest">Voyageur</string>
     <string name="profile_host">Hôte</string>
@@ -85,8 +86,6 @@
     <string name="become_host_sub">Partagez votre logement et commencez à gagner</string>
     <string name="profile_edit_profile">Modifier le profil</string>
     <string name="profile_edit_profile_sub">Nom, âge, pièce d\'identité &amp;amp; téléphone</string>
-    <string name="profile_my_subscriptions">Mes abonnements</string>
-    <string name="profile_my_subscriptions_sub">Vos demandes d\'expériences</string>
     <string name="profile_host_dashboard">Tableau de bord hôte</string>
     <string name="profile_host_dashboard_sub">Annonces &amp;amp; demandes de réservation</string>
 
@@ -97,8 +96,6 @@
     <string name="host_welcome_cta">Ouvrir le tableau de bord hôte</string>
     <string name="host_welcome_dismiss">Plus tard</string>
     <string name="cd_host_dashboard">Tableau de bord hôte</string>
-    <string name="profile_host_services">Services hôte</string>
-    <string name="profile_host_services_sub">Expériences &amp;amp; abonnements</string>
     <string name="profile_log_out">Se déconnecter</string>
     <string name="profile_language">Langue</string>
     <string name="profile_cta_title">Connectez-vous pour gérer vos voyages</string>
@@ -151,17 +148,9 @@
     <string name="explore_empty_filtered_title">Aucun séjour ne correspond à votre recherche</string>
     <string name="explore_empty_filtered_body">Essayez d\'autres dates, moins de voyageurs, ou une zone plus large.</string>
     <string name="action_clear_filters">Effacer les filtres</string>
-    <string name="subscriptions_empty_title">Aucun abonnement pour l\'instant</string>
-    <string name="subscriptions_empty_body">Abonnez-vous à une expérience et elle apparaîtra ici.</string>
-    <string name="host_requests_empty_title">Aucune demande d\'abonnement</string>
-    <string name="host_requests_empty_body">Les demandes des voyageurs apparaîtront ici.</string>
-    <string name="host_services_empty_title">Aucun service pour l\'instant</string>
-    <string name="host_services_empty_body">Ajoutez un service depuis l\'onglet \"Ajouter un service\".</string>
     <string name="search_where_to">Où allez-vous ?</string>
     <string name="search_search_stays">Rechercher des séjours</string>
-    <string name="search_anytime">À tout moment</string>
     <string name="search_dates_selected">Dates sélectionnées</string>
-    <string name="search_any_guests">Tous les voyageurs</string>
     <string name="search_guests">Voyageurs</string>
     <string name="search_one_guest">1 voyageur</string>
     <string name="search_many_guests">%1$d voyageurs</string>
@@ -319,19 +308,7 @@
     <string name="pay_flash_error">Impossible de lancer le paiement par carte. Veuillez réessayer.</string>
     <string name="pay_flash_paid_title">Paiement confirmé</string>
     <string name="pay_flash_paid_body">Votre réservation est payée. Vous la retrouverez dans vos voyages.</string>
-    <string name="pay_flash_note">Vous payez sur la page sécurisée de Flash — QuickIn ne voit jamais vos données de carte.</string>
-    <string name="services_title">Services</string>
-    <string name="services_no_experiences">Pas encore d\'expériences</string>
-    <string name="services_check_back">Revenez bientôt pour découvrir des activités.</string>
-    <string name="services_by">par %1$s</string>
-    <string name="services_hosted_by">Proposé par %1$s</string>
-    <string name="services_per_experience">/ expérience</string>
-    <string name="services_about">À propos de cette expérience</string>
-    <string name="services_note_optional">Note pour l\'hôte (facultatif)</string>
-    <string name="services_subscribe">S\'abonner</string>
-    <string name="services_sign_in_to_subscribe">Connectez-vous pour vous abonner</string>
-    <string name="services_waiting_host_booking">En attente de la confirmation de votre réservation par l\'hôte pour %1$s.</string>
-    <string name="services_price">Prix</string>
+    <string name="pay_flash_note">Vous payez sur la page sécurisée de Flash — Quick In ne voit jamais vos données de carte.</string>
     <string name="reservations_title">Mes voyages</string>
     <string name="reservations_sign_in_title">Connectez-vous pour voir vos réservations</string>
     <string name="reservations_sign_in_subtitle">Vos séjours réservés apparaîtront ici.</string>
@@ -389,14 +366,13 @@
     <string name="reviews_guest_rating">%1$s · %2$d avis</string>
     <string name="reviews_no_guest_reviews">Pas encore d\'avis d\'hôtes.</string>
     <string name="profile_saved">Mes favoris</string>
-    <string name="profile_saved_sub">Vos séjours et expériences favoris</string>
+    <string name="profile_saved_sub">Vos séjours favoris</string>
     <string name="wishlist_title">Mes favoris</string>
     <string name="wishlist_eyebrow">Votre liste de favoris</string>
     <string name="wishlist_stays">Séjours enregistrés</string>
-    <string name="wishlist_experiences">Expériences enregistrées</string>
     <string name="wishlist_loading">Chargement de vos éléments enregistrés…</string>
     <string name="wishlist_empty_title">Rien d\'enregistré pour le moment</string>
-    <string name="wishlist_empty_subtitle">Appuyez sur le cœur d\'un séjour ou d\'une expérience pour l\'enregistrer ici.</string>
+    <string name="wishlist_empty_subtitle">Appuyez sur le cœur d\'un séjour pour l\'enregistrer ici.</string>
     <string name="wishlist_sign_in">Connectez-vous pour enregistrer vos favoris.</string>
     <string name="notif_channel_name">Notifications</string>
     <string name="notif_channel_desc">Mises à jour de réservation, questions et rappels</string>
@@ -567,7 +543,7 @@
     <string name="referral_none">Aucun parrainage pour le moment. Partagez votre code pour commencer.</string>
     <string name="referral_loading">Chargement de vos parrainages…</string>
     <string name="referral_error">Impossible de charger vos parrainages.</string>
-    <string name="referral_share_message">Rejoignez-moi sur QuickIn ! Utilisez mon code de parrainage %1$s lors de votre inscription.</string>
+    <string name="referral_share_message">Rejoignez-moi sur Quick In ! Utilisez mon code de parrainage %1$s lors de votre inscription.</string>
     <string name="money_earnings">Revenus</string>
     <string name="money_earnings_sub">Vos revenus, versements &amp;amp; solde en attente</string>
     <string name="money_total_earned">Total gagné</string>
@@ -707,7 +683,7 @@
     <string name="profile_support_legal">Assistance et mentions légales</string>
     <string name="legal_terms">Conditions d\'utilisation</string>
     <string name="legal_privacy">Politique de confidentialité</string>
-    <string name="legal_about">À propos de QuickIn</string>
+    <string name="legal_about">À propos de Quick In</string>
     <string name="legal_contact">Contactez-nous</string>
 
     <!-- Identity verification: selfie (web parity) -->
@@ -779,24 +755,17 @@
     <string name="stay_guide_move_up">Monter</string>
     <string name="stay_guide_move_down">Descendre</string>
     <string name="cd_place_qr">QR code pour %1$s</string>
-    <!-- Host payout method — where QuickIn sends a host's earnings -->
+    <!-- Host payout method — where Quick In sends a host's earnings -->
     <string name="payout_title">Informations de paiement</string>
-    <string name="payout_subtitle_empty">Ajoutez un moyen de versement pour que QuickIn puisse vous envoyer vos revenus.</string>
-    <string name="payout_subtitle_set">C’est là que QuickIn envoie vos revenus.</string>
+    <string name="payout_subtitle_empty">Ajoutez un moyen de versement pour que Quick In puisse vous envoyer vos revenus.</string>
+    <string name="payout_subtitle_set">C’est là que Quick In envoie vos revenus.</string>
     <string name="payout_choose_method">Comment souhaitez-vous être payé</string>
     <string name="payout_badge_added">Ajouté</string>
     <string name="payout_method_instapay">InstaPay</string>
     <string name="payout_method_wallet">Portefeuille</string>
-    <string name="payout_wallet_vodafone_cash">Vodafone Cash</string>
-    <string name="payout_wallet_etisalat_cash">Etisalat Cash</string>
-    <string name="payout_wallet_orange_money">Orange Money</string>
-    <string name="payout_wallet_we_pay">WE Pay</string>
-    <string name="payout_wallet_other">Autre portefeuille</string>
     <string name="payout_field_account_name">Nom du titulaire</string>
     <string name="payout_field_bank">Banque</string>
     <string name="payout_field_instapay_address">Adresse InstaPay</string>
-    <string name="payout_field_wallet_provider">Portefeuille</string>
-    <string name="payout_field_wallet_number">Numéro du portefeuille</string>
     <string name="payout_instapay_hint">Votre adresse InstaPay, par exemple nom@instapay ou nom@banquemisr.</string>
     <string name="payout_save">Enregistrer le moyen de versement</string>
     <string name="payout_saving">Enregistrement…</string>
@@ -804,6 +773,7 @@
     <string name="payout_remove">Supprimer le moyen de versement</string>
     <string name="payout_removing">Suppression…</string>
     <string name="payout_method_bank_account">Compte bancaire</string>
+    <string name="payout_retired_notice">Les versements sur portefeuille ne sont plus proposés. Passez à un compte bancaire ou à InstaPay pour continuer à être payé.</string>
     <string name="payout_field_iban">IBAN</string>
     <string name="payout_field_account_number">Numéro de compte</string>
     <string name="payout_field_swift">SWIFT / BIC</string>
@@ -818,7 +788,6 @@
     <string name="payout_placeholder_account_name">Tel qu’il apparaît sur le compte</string>
     <string name="payout_placeholder_bank">ex. Banque Misr</string>
     <string name="payout_placeholder_instapay_address">nom@instapay</string>
-    <string name="payout_placeholder_wallet_number">01XXXXXXXXX</string>
     <string name="settings_id_none">Non renseigné</string>
     <string name="id_change_request">Demander une modification</string>
     <string name="id_change_explainer">Votre numéro de pièce d’identité ne peut être modifié que sur demande, avec une photo du document.</string>
@@ -855,10 +824,8 @@
     <!-- Brand travel header (QkBrandHeader) — eyebrows + subtitles per root tab. -->
     <string name="home_eyebrow">Découvrir · Séjourner · Explorer</string>
     <string name="home_subtitle">Des séjours de charme partout en Égypte.</string>
-    <string name="services_eyebrow">Côte Nord · Égypte</string>
-    <string name="services_subtitle">Ajoutez des expériences à votre séjour — sur l\'eau, dans le sable, à votre table.</string>
     <string name="saved_eyebrow">Votre collection</string>
-    <string name="saved_subtitle">Vos séjours et expériences favoris.</string>
+    <string name="saved_subtitle">Vos séjours favoris.</string>
     <string name="reservations_eyebrow">Vos voyages</string>
     <string name="reservations_subtitle">Tous les voyages que vous avez réservés, au même endroit.</string>
     <string name="profile_eyebrow">Votre compte</string>

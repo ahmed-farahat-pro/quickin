@@ -25,11 +25,6 @@ enum AppLinks {
         url(path: "explore", id: id)
     }
 
-    /// Web URL for a service/experience: `https://…/services/{id}`.
-    static func service(_ id: String) -> URL {
-        url(path: "services", id: id)
-    }
-
     /// Web URL for a reservation: `https://…/reservation/{id}`.
     static func reservation(_ id: String) -> URL {
         url(path: "reservation", id: id)
@@ -48,8 +43,20 @@ enum AppLinks {
     /// A destination parsed from an incoming Universal Link or custom-scheme URL.
     enum Destination: Equatable {
         case listing(id: String)
-        case service(id: String)
         case reservation(id: String)
+    }
+
+    /// Leading keywords of links to the retired Services (experiences)
+    /// feature: `/services/<id>`, `/service/<id>` and `/subscriptions`. Old
+    /// shares, Universal Links and notifications may still carry them; they no
+    /// longer resolve to anything and open Explore instead.
+    static let retiredKeywords: Set<String> = ["services", "service", "subscriptions"]
+
+    /// True for one of OUR links that points at a retired feature (see
+    /// `retiredKeywords`) — the caller sends the user to Explore.
+    static func isRetired(_ url: URL) -> Bool {
+        guard let first = pathTokens(from: url)?.first else { return false }
+        return retiredKeywords.contains(first.lowercased())
     }
 
     /// Parse an incoming URL into a `Destination`, or `nil` for anything we don't
@@ -71,8 +78,6 @@ enum AppLinks {
         switch keyword {
         case "explore", "listings", "listing":
             return .listing(id: id)
-        case "services", "service":
-            return .service(id: id)
         case "reservation", "reservations":
             return .reservation(id: id)
         default:

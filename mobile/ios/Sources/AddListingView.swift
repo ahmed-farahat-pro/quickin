@@ -2037,7 +2037,7 @@ struct GuestPriceHint: View {
                 .foregroundStyle(Color.qkBurgundy)
                 .fontWeight(.semibold)
              + Text(commission.rate > 0
-                    ? " · includes QuickIn's \(commission.percentText)% commission — you receive the price you entered"
+                    ? " · includes Quick In's \(commission.percentText)% commission — you receive the price you entered"
                     : "")
                 .foregroundStyle(Color.qkMuted))
                 .font(.footnote)

@@ -30,7 +30,7 @@ data class PayoutUiState(
 )
 
 /**
- * Owns the host's payout method — where QuickIn sends their earnings.
+ * Owns the host's payout method — where Quick In sends their earnings.
  *
  * Reads the bearer token directly from SharedPreferences ("qk_auth" / "token"), the same store
  * [AuthViewModel] / [TrustViewModel] use, so the Profile tab can load it without extra wiring.

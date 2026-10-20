@@ -2,14 +2,23 @@ import SwiftUI
 
 // MARK: - Model types
 
-/// One of the three destinations QuickIn can send a host's earnings to.
+/// A destination Quick In can send a host's earnings to.
 /// Raw values match `host_payout_methods.method` on the server.
+///
+/// `wallet` was RETIRED on 2026-10-20: the server refuses to save one, but a row
+/// saved before then still decodes and shows, with a prompt to switch. Pickers
+/// list `choosable`, never `allCases`.
 enum PayoutMethodKind: String, CaseIterable, Identifiable {
     case bankAccount = "bank_account"
     case instapay
     case wallet
 
     var id: String { rawValue }
+
+    /// What a host may pick today — mirrors `PAYOUT_METHODS` in payout-method-core.
+    static let choosable: [PayoutMethodKind] = [.bankAccount, .instapay]
+
+    var isRetired: Bool { !Self.choosable.contains(self) }
 
     /// Localized name for the picker and the preview header.
     @MainActor var label: String { L.t("payout.method.\(rawValue)") }
@@ -21,19 +30,6 @@ enum PayoutMethodKind: String, CaseIterable, Identifiable {
         case .wallet:      return "wallet.bifold.fill"
         }
     }
-}
-
-/// The mobile wallets a host can be paid into. Mirrors `WALLET_PROVIDERS` in
-/// the server's payout-method-core.
-enum WalletProviderKind: String, CaseIterable, Identifiable {
-    case vodafoneCash = "vodafone_cash"
-    case etisalatCash = "etisalat_cash"
-    case orangeMoney = "orange_money"
-    case wePay = "we_pay"
-    case other
-
-    var id: String { rawValue }
-    @MainActor var label: String { L.t("payout.wallet.\(rawValue)") }
 }
 
 /// The saved payout method as `GET /api/local/host/payout-method` returns it.
@@ -132,8 +128,8 @@ struct PayoutService {
         return (value?.isEmpty == false) ? value : nil
     }
 
-    /// What the editor sends. Fields for the other two methods are ignored by
-    /// the server, so one draft type covers all three.
+    /// What the editor sends. Fields for the other method are ignored by the
+    /// server, so one draft type covers both.
     struct Draft {
         var method: PayoutMethodKind = .bankAccount
         var accountName = ""
@@ -143,8 +139,6 @@ struct PayoutService {
         var swiftBic = ""
         var branch = ""
         var instapayAddress = ""
-        var walletProvider: WalletProviderKind = .vodafoneCash
-        var walletNumber = ""
     }
 
     func fetch() async throws -> HostPayoutState {
@@ -162,8 +156,6 @@ struct PayoutService {
             "swift_bic": draft.swiftBic,
             "branch": draft.branch,
             "instapay_address": draft.instapayAddress,
-            "wallet_provider": draft.walletProvider.rawValue,
-            "wallet_number": draft.walletNumber,
         ]
         return try await send(method: "PUT", body: body, failure: "Couldn't save your payout method")
     }
@@ -264,7 +256,7 @@ final class PayoutMethodModel: ObservableObject {
 
 // MARK: - Profile card
 
-/// "Payment information" on the host's profile: a preview of where QuickIn
+/// "Payment information" on the host's profile: a preview of where Quick In
 /// sends their earnings, and the way in to add or change it.
 ///
 /// Host-only — a guest has no earnings to receive, and the server refuses them
@@ -376,6 +368,13 @@ struct HostPayoutCard: View {
                         previewRow(loc.t("payout.field.branch"), saved.branch)
                     }
                 }
+            }
+
+            if saved.kind?.isRetired == true {
+                Text(loc.t("payout.retiredNotice"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -491,7 +490,7 @@ private struct PayoutMethodSheet: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.qkMuted)
             HStack(spacing: 8) {
-                ForEach(PayoutMethodKind.allCases) { kind in
+                ForEach(PayoutMethodKind.choosable) { kind in
                     QKChip(title: kind.label, isSelected: draft.method == kind) {
                         draft.method = kind
                         errorMessage = nil
@@ -577,46 +576,13 @@ private struct PayoutMethodSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
             case .wallet:
-                Divider()
-                walletProviderPicker
-                Divider()
-                field(
-                    loc.t("payout.field.walletNumber"),
-                    systemImage: "phone.fill",
-                    placeholder: loc.t("payout.placeholder.walletNumber"),
-                    text: $draft.walletNumber,
-                    contentType: .telephoneNumber,
-                    keyboard: .phonePad,
-                    capitalization: .never
-                )
+                // Retired — never offered by `methodPicker`, and `prefill`
+                // moves a saved wallet onto a bank account.
+                EmptyView()
             }
         }
         .padding(18)
         .qkCard(lifts: false)
-    }
-
-    private var walletProviderPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(loc.t("payout.field.walletProvider"), systemImage: "wallet.bifold.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
-            Picker(loc.t("payout.field.walletProvider"), selection: $draft.walletProvider) {
-                ForEach(WalletProviderKind.allCases) { provider in
-                    Text(provider.label).tag(provider)
-                }
-            }
-            .pickerStyle(.menu)
-            .tint(.qkBurgundy)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
-            .frame(height: 48)
-            .background(Color.qkCream)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
-            )
-        }
     }
 
     private func field(
@@ -718,8 +684,9 @@ private struct PayoutMethodSheet: View {
         guard !didPrefill else { return }
         didPrefill = true
         guard let existing, let kind = existing.kind else { return }
-        draft.method = kind
         draft.accountName = existing.accountName
+        // A retired wallet can't be saved again; start its owner on a bank account.
+        draft.method = kind.isRetired ? .bankAccount : kind
         switch kind {
         case .bankAccount:
             draft.bankName = existing.bankName
@@ -730,8 +697,7 @@ private struct PayoutMethodSheet: View {
         case .instapay:
             draft.instapayAddress = existing.accountRef
         case .wallet:
-            draft.walletProvider = WalletProviderKind(rawValue: existing.provider) ?? .other
-            draft.walletNumber = existing.accountRef
+            break
         }
     }
 

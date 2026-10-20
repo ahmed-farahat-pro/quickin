@@ -5,21 +5,21 @@ import android.content.Intent
 import android.net.Uri
 
 /**
- * Builds the public, shareable web URLs for QuickIn entities. Every URL is rooted at
+ * Builds the public, shareable web URLs for Quick In entities. Every URL is rooted at
  * [Config.SHARE_WEB_BASE_URL] (the website origin), so a recipient without the app installed
  * lands on the site; with the app installed, the App Links intent-filters in AndroidManifest.xml
  * open the app directly (see [DeepLink] for the inbound parse).
  *
  * The path scheme mirrors the website's routes and the manifest's `pathPrefix`es:
  *   /explore/{id}      → a listing
- *   /services/{id}     → a service / experience
  *   /reservation/{id}  → a reservation
+ *
+ * The retired Services feature's `/services/{id}` links are no longer built or honored.
  */
 object ShareLinks {
     private val base: String get() = Config.SHARE_WEB_BASE_URL.trimEnd('/')
 
     fun listing(id: String): String = "$base/explore/${Uri.encode(id)}"
-    fun service(id: String): String = "$base/services/${Uri.encode(id)}"
     fun reservation(id: String): String = "$base/reservation/${Uri.encode(id)}"
 
     /**
@@ -62,7 +62,7 @@ fun shareText(
 }
 
 /**
- * Opens [url] in whatever handles it (browser, or QuickIn itself for our own App Links).
+ * Opens [url] in whatever handles it (browser, or Quick In itself for our own App Links).
  * Best-effort and null-tolerant: a blank/absent URL or a device with no handler is a silent no-op,
  * so a tap can never crash the app. Used for the stay pass and for host-supplied place links.
  */
@@ -85,7 +85,6 @@ sealed interface DeepLink {
 
     /** [focusComments]: the link ended in `#comments` (a comment / reply notification). */
     data class Listing(override val id: String, val focusComments: Boolean = false) : DeepLink
-    data class Service(override val id: String) : DeepLink
     data class Reservation(override val id: String) : DeepLink
     /** A bare tab route with no entity id, used by app shortcuts / Assistant (e.g. quickin://profile). */
     data class Tab(val key: String) : DeepLink { override val id: String get() = key }
@@ -150,26 +149,25 @@ sealed interface DeepLink {
                         runCatching { uri.getQueryParameter("focus") }.getOrNull()
                     )
                 )
-                "services", "service" -> Service(id)
                 "reservation", "reservations" -> Reservation(id)
+                // Includes the retired `/services/{id}` links: null opens the app on home.
                 else -> null
             }
         }
 
         private val ROUTE_KEYS = setOf(
             "explore", "listing", "listings",
-            "services", "service",
             "reservation", "reservations"
         )
 
         /**
          * Bare tab destinations (no id) addressable by app shortcuts / Assistant, plus the
-         * notification-only ones ([NotificationLinkRules]): `host` (dashboard) and
-         * `subscriptions` (My subscriptions).
+         * notification-only one ([NotificationLinkRules]): `host` (dashboard). The retired
+         * `services` / `subscriptions` tabs are gone, so those bare links fall through to null.
          */
         internal val TAB_KEYS = setOf(
-            "explore", "services", "reservations", "trips", "profile",
-            NotificationLinkRules.TAB_HOST, NotificationLinkRules.TAB_SUBSCRIPTIONS
+            "explore", "reservations", "trips", "profile",
+            NotificationLinkRules.TAB_HOST
         )
     }
 }

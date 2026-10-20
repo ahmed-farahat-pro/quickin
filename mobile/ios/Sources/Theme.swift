@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// QuickIn boutique palette — mirrors the web app's redesign tokens.
+/// Quick In boutique palette — mirrors the web app's redesign tokens.
 ///
 /// The redesign adds a **gold accent** (ratings, eyebrows, avatar rings,
 /// premium badges) and a set of layered creams so surfaces read as stacked

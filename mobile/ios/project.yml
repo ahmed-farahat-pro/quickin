@@ -52,7 +52,7 @@ targets:
     info:
       path: Generated/Info.plist
       properties:
-        CFBundleDisplayName: QuickIn
+        CFBundleDisplayName: Quick In
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Custom URL scheme `quickin://` — a no-server-config deep-link fallback
@@ -81,16 +81,16 @@ targets:
         # Required purpose string: the GoogleMaps SDK references location APIs, so
         # Apple (ITMS-90683) requires this even though we only show pins, not the
         # user's location. Shown if/when location is ever requested.
-        NSLocationWhenInUseUsageDescription: "QuickIn uses your location to show nearby stays and center the map."
+        NSLocationWhenInUseUsageDescription: "Quick In uses your location to show nearby stays and center the map."
         # Face ID: shown the first time the app evaluates biometrics to unlock a
         # saved session on the sign-in screen (LocalAuthentication). Touch ID
         # devices don't require a usage string.
-        NSFaceIDUsageDescription: "Use Face ID to sign in to QuickIn faster."
+        NSFaceIDUsageDescription: "Use Face ID to sign in to Quick In faster."
         # ID verification: camera to photograph the ID card (front + back) and
         # photo library to pick existing images. The photos are uploaded to the
         # backend over HTTPS only (no local/plain-HTTP networking).
-        NSCameraUsageDescription: "QuickIn needs camera access to photograph your ID card for verification."
-        NSPhotoLibraryUsageDescription: "QuickIn needs photo library access to let you choose your ID card image."
+        NSCameraUsageDescription: "Quick In needs camera access to photograph your ID card for verification."
+        NSPhotoLibraryUsageDescription: "Quick In needs photo library access to let you choose your ID card image."
         # Declare no non-exempt encryption so TestFlight skips the export-compliance
         # prompt on every build (standard HTTPS/TLS is exempt).
         ITSAppUsesNonExemptEncryption: false

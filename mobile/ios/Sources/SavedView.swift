@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// Loads the signed-in user's saved listings + services from
+/// Loads the signed-in user's saved listings from
 /// `GET /api/local/wishlist`.
 @MainActor
 final class SavedViewModel: ObservableObject {
     @Published var listings: [Listing] = []
-    @Published var services: [Service] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var hasLoaded = false
 
-    var isEmpty: Bool { listings.isEmpty && services.isEmpty }
+    var isEmpty: Bool { listings.isEmpty }
     /// `true` only when the user is genuinely signed out (no session). Drives the
     /// sign-in prompt; an empty list while signed in is NOT signed-out.
     @Published var isSignedOut = false
@@ -26,14 +25,12 @@ final class SavedViewModel: ObservableObject {
         do {
             let wishlist = try await WishlistService.shared.fetch()
             listings = wishlist.listings
-            services = wishlist.services
             isSignedOut = false
         } catch WishlistError.notSignedIn {
             if isAuthenticated {
                 // Signed in per AuthStore but the API reported no session —
                 // surface it as an empty wishlist, not a sign-in wall.
                 listings = []
-                services = []
                 isSignedOut = false
             } else {
                 isSignedOut = true
@@ -46,8 +43,8 @@ final class SavedViewModel: ObservableObject {
     }
 }
 
-/// The "Saved" screen, reached from Profile. Shows the user's saved listings and
-/// services as the redesigned cards, with a friendly empty state. Tapping a card
+/// The "Saved" screen, reached from Profile. Shows the user's saved listings
+/// as the redesigned cards, with a friendly empty state. Tapping a card
 /// pushes its detail; the heart on each card un-saves it (shared WishlistStore).
 struct SavedView: View {
     @EnvironmentObject private var loc: LocalizationManager
@@ -70,7 +67,6 @@ struct SavedView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(for: Listing.self) { ListingDetailView(listing: $0) }
-        .navigationDestination(for: Service.self) { ServiceDetailView(service: $0) }
         // Always refetch when the tab appears — never serve a stale/static list,
         // so an item saved on another screen shows up the moment you open Saved.
         // (load() keeps the current cards on screen while it refreshes, so there's
@@ -85,9 +81,6 @@ struct SavedView: View {
         // (Newly-saved items are picked up by the onAppear refetch above.)
         .onChange(of: wishlist.savedListingIDs) { _, ids in
             viewModel.listings.removeAll { !ids.contains($0.id) }
-        }
-        .onChange(of: wishlist.savedServiceIDs) { _, ids in
-            viewModel.services.removeAll { !ids.contains($0.id) }
         }
     }
 
@@ -111,15 +104,6 @@ struct SavedView: View {
                         ForEach(viewModel.listings) { listing in
                             NavigationLink(value: listing) {
                                 ListingCard(listing: listing)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    if !viewModel.services.isEmpty {
-                        sectionHeader(loc.t("saved.services"))
-                        ForEach(viewModel.services) { service in
-                            NavigationLink(value: service) {
-                                SavedServiceCard(service: service)
                             }
                             .buttonStyle(.plain)
                         }
@@ -204,75 +188,5 @@ struct SavedView: View {
             .buttonStyle(QKPressStyle())
         }
         .frame(maxWidth: .infinity, minHeight: 440)
-    }
-}
-
-/// A saved-service card mirroring `ServiceCard` but with a heart that un-saves
-/// it from the wishlist (the browse `ServiceCard` has no heart). Tapping the
-/// card itself pushes the service detail via the enclosing `NavigationLink`.
-struct SavedServiceCard: View {
-    @EnvironmentObject private var loc: LocalizationManager
-    @EnvironmentObject private var wishlist: WishlistStore
-    let service: Service
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .topTrailing) {
-                ListingImageView(url: service.photoURL)
-                    .frame(height: 150)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
-                    .qkPhotoScrim(strength: 0.55, start: 0.34)
-
-                QKHeartButton(
-                    isOn: Binding(
-                        get: { wishlist.isServiceSaved(service.id) },
-                        set: { _ in }
-                    )
-                ) {
-                    wishlist.toggleService(service.id)
-                }
-                .padding(11)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Spacer()
-                    Text(service.title)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    if let location = service.location, !location.isEmpty {
-                        Text(location)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .lineLimit(1)
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-            }
-
-            HStack {
-                HStack(spacing: 4) {
-                    Text(service.priceText)
-                        .font(.system(size: 17, weight: .heavy))
-                        .foregroundStyle(Color.qkBurgundy)
-                    Text(loc.t("services.perExperience"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.qkMuted)
-                }
-                Spacer()
-                if let category = service.category, !category.isEmpty {
-                    Text(category.capitalized)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.qkBurgundy)
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Color.qkTan)
-                        .clipShape(Capsule())
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .qkCard(cornerRadius: 20)
     }
 }

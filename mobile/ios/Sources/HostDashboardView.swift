@@ -127,11 +127,6 @@ struct HostDashboardView: View {
                     analyticsCard
                     earningsCard
                     listingsSection
-
-                    Divider()
-                        .padding(.vertical, 4)
-
-                    HostServicesSection()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -961,7 +956,7 @@ struct HostListingRow: View {
                 ownershipDocButton
             }
 
-            // Take the listing off the market, or put it back. QuickIn has no
+            // Take the listing off the market, or put it back. Quick In has no
             // host-facing delete — this IS "remove my listing", and it keeps every
             // booking, review and payment record intact. Withheld only on
             // `.blocked`, which the host cannot undo and the API would refuse.

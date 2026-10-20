@@ -230,7 +230,7 @@ struct ReservationDetailView: View {
         Int((viewModel.detail?.totalPrice ?? 0).rounded())
     }
 
-    /// "{stay} — QuickIn" for the share subject; falls back to a generic title
+    /// "{stay} — Quick In" for the share subject; falls back to a generic title
     /// before the detail loads.
     private var shareTitle: String {
         let stay = viewModel.detail?.title?.trimmingCharacters(in: .whitespacesAndNewlines)

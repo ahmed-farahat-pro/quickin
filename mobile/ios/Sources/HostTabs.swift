@@ -3,11 +3,10 @@ import SwiftUI
 // Host-side tab screens used by the role-aware root TabView (see QuickInApp).
 //
 // A host sees a different tab set than a guest: Listings · Reservations ·
-// Services · Profile (no Explore). Each screen here reuses the existing host
-// view models (HostDashboardViewModel, HostServicesViewModel) and the existing
-// row/card components (HostListingRow, HostRequestCard, HostServiceRequestCard,
-// HostServiceRow) so behaviour matches the old single HostDashboardView — just
-// split across dedicated tabs.
+// Profile (no Explore). Each screen here reuses the existing host view model
+// (HostDashboardViewModel) and the existing row/card components
+// (HostListingRow, HostRequestCard) so behaviour matches the old single
+// HostDashboardView — just split across dedicated tabs.
 
 // MARK: - Listings tab
 
@@ -273,32 +272,6 @@ struct HostReservationsTab: View {
             }
             .refreshable { await viewModel.load() }
         }
-    }
-}
-
-// MARK: - Services tab (host management)
-
-/// Host "Services" tab: the host's services management — Add service, incoming
-/// subscription requests, and the host's published services. Reuses the
-/// existing `HostServicesSection` (which owns its own view model + sheet).
-struct HostServicesTab: View {
-    @EnvironmentObject private var loc: LocalizationManager
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                LinearGradient.qkPageWash.ignoresSafeArea()
-                ScrollView {
-                    HostServicesSection()
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 32)
-                }
-            }
-            .navigationTitle(loc.t("services.title"))
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarBackground(Color.qkCream, for: .navigationBar)
-        }
-        .tint(.qkBurgundy)
     }
 }
 

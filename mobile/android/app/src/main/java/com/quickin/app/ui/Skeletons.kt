@@ -79,9 +79,9 @@ private fun ShimmerBox(
 }
 
 /**
- * A placeholder shaped like a [ListingCard] / [ServiceCard]: a large image block on top and
+ * A placeholder shaped like a [ListingCard]: a large image block on top and
  * a couple of text-line blocks below, all shimmering. [imageHeight] lets callers match the
- * exact card variant (listings use 220.dp, services 200.dp, reservations 180.dp).
+ * exact card variant (listings use 220.dp, reservations 180.dp).
  */
 @Composable
 fun SkeletonListingCard(
@@ -174,8 +174,8 @@ fun SkeletonListColumn(
 // ---------------------------------------------------------------------------
 // Shapes beyond the feed
 //
-// SkeletonListColumn covered the browse feeds — listings, services, reservations,
-// subscriptions. Everything a guest reaches AFTER one of those still centres a
+// SkeletonListColumn covered the browse feeds — listings and reservations.
+// Everything a guest reaches AFTER one of those still centres a
 // CircularProgressIndicator: tapping a card, opening a thread, checking earnings.
 // A spinner there says "something is happening somewhere"; these say what is
 // coming, in the shape it will arrive in.

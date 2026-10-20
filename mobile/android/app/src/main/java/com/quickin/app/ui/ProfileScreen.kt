@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -115,7 +114,7 @@ fun ProfileScreen(
     onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit = { _, _, _, _ -> },
     /** Payout-method state for the host's "Payment information" card. */
     payoutState: com.quickin.app.PayoutUiState = com.quickin.app.PayoutUiState(),
-    /** Saves (or replaces) where QuickIn sends this host's earnings. */
+    /** Saves (or replaces) where Quick In sends this host's earnings. */
     onSavePayout: (com.quickin.app.PayoutDraft) -> Unit = {},
     /** Removes the host's payout method. */
     onRemovePayout: () -> Unit = {},
@@ -126,7 +125,6 @@ fun ProfileScreen(
     hostWelcome: Boolean = false,
     /** Retires that welcome for this account (tapping its CTA or "Not now"). */
     onDismissHostWelcome: () -> Unit = {},
-    onOpenHostServices: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     /** Opens the host's "Guest questions" (comments across their listings). Hosts only. */
     onOpenGuestQuestions: () -> Unit = {},
@@ -162,7 +160,7 @@ fun ProfileScreen(
             .fillMaxSize()
             .background(CreamPage)
     ) {
-        // The QuickIn brand banner, pinned above the scrolling content — this screen has no
+        // The Quick In brand banner, pinned above the scrolling content — this screen has no
         // Scaffold, so it sits directly over the Column (iOS `ProfileView`).
         QkBrandHeader(
             eyebrow = stringResource(R.string.profile_eyebrow),
@@ -309,7 +307,7 @@ fun ProfileScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            // "Payment information" — where QuickIn sends this host's earnings. Hosts
+            // "Payment information" — where Quick In sends this host's earnings. Hosts
             // only; a guest has none, and the card hides itself if the server says so.
             if (isHost) {
                 PayoutMethodCard(
@@ -360,7 +358,7 @@ fun ProfileScreen(
 
             // Hosting section — the REST of the host management entries. The dashboard row that used
             // to lead this section now sits at the top of the profile (above) as a card, so it is
-            // deliberately not repeated here; the money / analytics / services screens stay.
+            // deliberately not repeated here; the money / analytics screens stay.
             if (isHost) {
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(stringResource(R.string.profile_hosting), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
@@ -380,13 +378,6 @@ fun ProfileScreen(
                     subtitle = stringResource(R.string.analytics_sub),
                     onClick = onOpenAnalytics,
                     accent = Burgundy
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                SettingsRow(
-                    icon = Icons.Filled.Sailing,
-                    title = stringResource(R.string.profile_host_services),
-                    subtitle = stringResource(R.string.profile_host_services_sub),
-                    onClick = onOpenHostServices
                 )
             }
 
@@ -640,7 +631,7 @@ fun ProfileSignInCta(
             ) {
                 Image(
                     painter = painterResource(R.drawable.logo),
-                    contentDescription = "QuickIn",
+                    contentDescription = "Quick In",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.height(52.dp)
                 )

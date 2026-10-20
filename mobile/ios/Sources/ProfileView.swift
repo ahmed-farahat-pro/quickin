@@ -45,7 +45,6 @@ struct ProfileView: View {
                         VStack(spacing: 24) {
                             avatar
                             identity
-                            badges
                             // Hosting sits right under the identity for EVERY account, so the
                             // surface a host needs most is the first thing they see. It used to
                             // be the reverse: a guest's "Become a host" card was up here while
@@ -59,7 +58,7 @@ struct ProfileView: View {
                                 hostApplicationSection
                             }
                             IdentityVerificationCard()
-                            // Payment information — where QuickIn sends this
+                            // Payment information — where Quick In sends this
                             // host's earnings. Hosts only; a guest has none.
                             if isHost {
                                 HostPayoutCard()
@@ -188,38 +187,6 @@ struct ProfileView: View {
                     .padding(.horizontal, 12)
             }
         }
-    }
-
-    /// Provider pill (email / google, plus legacy `apple` rows from before Sign
-    /// in with Apple was removed) plus an account-role pill (Guest / Host) when
-    /// the backend supplied a role.
-    private var badges: some View {
-        HStack(spacing: 10) {
-            providerPill
-            if let role = roleLabel {
-                pill(role, systemImage: isHost ? "house.fill" : "suitcase.rolling.fill")
-            }
-        }
-    }
-
-    private var providerPill: some View {
-        let provider = (auth.user?.provider ?? "email").lowercased()
-        return pill(provider.capitalized, systemImage: providerIcon(provider))
-    }
-
-    /// Shared burgundy-on-tan capsule used by both badges.
-    private func pill(_ text: String, systemImage: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 11, weight: .bold))
-            Text(text)
-                .font(.system(size: 11, weight: .bold))
-        }
-        .foregroundStyle(Color.qkBurgundy)
-        .padding(.horizontal, 13)
-        .padding(.vertical, 7)
-        .background(Color.qkTan)
-        .clipShape(Capsule())
     }
 
     /// Entry into the profile-settings screen (edit name, age, ID, phone),
@@ -749,21 +716,6 @@ struct ProfileView: View {
     /// derived `host_status`. Drives which of the four states is rendered.
     private var hostStatus: HostStatus {
         auth.user?.hostStatus ?? .none
-    }
-
-    /// Friendly label for the account-type pill, derived from `is_host`.
-    private var roleLabel: String? {
-        guard auth.user != nil else { return nil }
-        return isHost ? loc.t("common.host") : loc.t("common.guest")
-    }
-
-    private func providerIcon(_ provider: String) -> String {
-        switch provider {
-        case "google": return "globe"
-        // Legacy: accounts created while Sign in with Apple was still offered.
-        case "apple": return "apple.logo"
-        default: return "envelope.fill"
-        }
     }
 }
 

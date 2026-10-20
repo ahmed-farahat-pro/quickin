@@ -374,18 +374,18 @@ struct SearchHeader: View {
         .accessibilityValue(summaryText)
     }
 
-    /// "Cairo · Aug 1–4 · 2 guests" when filters are set; a muted placeholder
-    /// otherwise. Each segment falls back to its own placeholder.
+    /// "Cairo · Aug 1–4 · 2 guests" when filters are set. Unset dates and
+    /// guests are left out entirely, so an idle bar reads just "Where to?".
     private var summaryText: String {
         let place = viewModel.locationQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let where_ = place.isEmpty ? loc.t("explore.whereTo") : place
-        let when = viewModel.dateRangeLabel ?? loc.t("explore.anytime")
+        var parts = [place.isEmpty ? loc.t("explore.whereTo") : place]
+        if let when = viewModel.dateRangeLabel { parts.append(when) }
         // Show the count once a search has run or the user bumped it past the
-        // default of 1; otherwise keep the muted "Add guests" placeholder.
-        let who = (viewModel.isFiltered || viewModel.guests > 1)
-            ? guestsText(viewModel.guests)
-            : loc.t("explore.addGuests")
-        return "\(where_) · \(when) · \(who)"
+        // default of 1.
+        if viewModel.isFiltered || viewModel.guests > 1 {
+            parts.append(guestsText(viewModel.guests))
+        }
+        return parts.joined(separator: " · ")
     }
 
     /// Localized "N guest(s)", choosing the singular/plural key per language.
@@ -772,6 +772,11 @@ struct ListingCard: View {
                     .frame(height: 210)
                     .frame(maxWidth: .infinity)
                     .clipped()
+                    // `.clipped()` hides an aspect-filled photo's overflow but it
+                    // still takes touches. A portrait photo overflowed ~140pt above
+                    // the first card — over the search pill, Filters, Sort and the
+                    // List/Map toggle — and swallowed every tap there.
+                    .contentShape(Rectangle())
 
                 // Heart top-trailing (mirrors in RTL). Reflects the shared
                 // wishlist state and toggles it optimistically; prompts sign-in

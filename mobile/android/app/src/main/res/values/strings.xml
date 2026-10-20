@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">QuickIn</string>
+    <string name="app_name">Quick In</string>
 
     <!-- Bottom navigation tabs (guest) -->
     <string name="tab_explore">Explore</string>
-    <string name="tab_services">Services</string>
     <string name="tab_wishlist">Favorites</string>
     <string name="tab_trips">Trips</string>
     <string name="tab_profile">Profile</string>
@@ -34,8 +33,8 @@
     <string name="cd_save">Save to wishlist</string>
     <string name="action_share">Share</string>
     <string name="cd_share">Share</string>
-    <!-- Share-sheet subject/title: "{title} — QuickIn" -->
-    <string name="share_subject">%1$s — QuickIn</string>
+    <!-- Share-sheet subject/title: "{title} — Quick In" -->
+    <string name="share_subject">%1$s — Quick In</string>
     <string name="share_chooser_title">Share via</string>
 
     <!-- Brand -->
@@ -75,7 +74,7 @@
 
     <!-- Biometric (fingerprint / face) sign-in -->
     <string name="auth_biometric_login">Sign in with fingerprint or face</string>
-    <string name="biometric_prompt_title">Sign in to QuickIn</string>
+    <string name="biometric_prompt_title">Sign in to Quick In</string>
     <string name="biometric_prompt_subtitle">Confirm your fingerprint or face to continue.</string>
     <string name="biometric_use_password">Use password</string>
     <string name="biometric_enable_title">Enable biometric sign-in?</string>
@@ -100,6 +99,8 @@
     <string name="otp_code_label">6-digit code</string>
     <string name="otp_verify">Verify</string>
     <string name="otp_resend">Resend code</string>
+    <string name="otp_spam_title">Check your Spam folder</string>
+    <string name="otp_spam_body">The code can take a minute to arrive and sometimes lands in Spam or Junk.</string>
     <string name="cd_back_to_sign_in">Back to sign in</string>
 
     <!-- Profile screen -->
@@ -111,8 +112,6 @@
     <string name="become_host_sub">Share your place and start earning</string>
     <string name="profile_edit_profile">Edit profile</string>
     <string name="profile_edit_profile_sub">Name, age, ID &amp; phone</string>
-    <string name="profile_my_subscriptions">My subscriptions</string>
-    <string name="profile_my_subscriptions_sub">Your experience requests</string>
     <string name="profile_host_dashboard">Host dashboard</string>
     <string name="profile_host_dashboard_sub">Listings &amp; reservation requests</string>
 
@@ -124,8 +123,6 @@
     <string name="host_welcome_cta">Open Host dashboard</string>
     <string name="host_welcome_dismiss">Not now</string>
     <string name="cd_host_dashboard">Host dashboard</string>
-    <string name="profile_host_services">Host services</string>
-    <string name="profile_host_services_sub">Experiences &amp; subscriptions</string>
     <string name="profile_log_out">Log out</string>
     <string name="profile_language">Language</string>
 
@@ -186,17 +183,9 @@
     <string name="explore_empty_filtered_title">No stays match your search</string>
     <string name="explore_empty_filtered_body">Try different dates, fewer guests, or a wider area.</string>
     <string name="action_clear_filters">Clear filters</string>
-    <string name="subscriptions_empty_title">No subscriptions yet</string>
-    <string name="subscriptions_empty_body">Subscribe to an experience and it\'ll appear here.</string>
-    <string name="host_requests_empty_title">No subscription requests</string>
-    <string name="host_requests_empty_body">Requests from guests will show up here.</string>
-    <string name="host_services_empty_title">No services yet</string>
-    <string name="host_services_empty_body">Add a service from the \"Add service\" tab.</string>
     <string name="search_where_to">Where to?</string>
     <string name="search_search_stays">Search stays</string>
-    <string name="search_anytime">Anytime</string>
     <string name="search_dates_selected">Dates selected</string>
-    <string name="search_any_guests">Any guests</string>
     <string name="search_guests">Guests</string>
     <string name="search_one_guest">1 guest</string>
     <string name="search_many_guests">%1$d guests</string>
@@ -372,21 +361,8 @@
     <string name="pay_flash_error">Couldn\'t start the card payment. Please try again.</string>
     <string name="pay_flash_paid_title">Payment confirmed</string>
     <string name="pay_flash_paid_body">Your booking is paid. You\'ll find it in your trips.</string>
-    <string name="pay_flash_note">You pay on Flash\'s secure page — QuickIn never sees your card details.</string>
+    <string name="pay_flash_note">You pay on Flash\'s secure page — Quick In never sees your card details.</string>
 
-    <!-- Services -->
-    <string name="services_title">Services</string>
-    <string name="services_no_experiences">No experiences yet</string>
-    <string name="services_check_back">Check back soon for things to do.</string>
-    <string name="services_by">by %1$s</string>
-    <string name="services_hosted_by">Hosted by %1$s</string>
-    <string name="services_per_experience"> / experience</string>
-    <string name="services_about">About this experience</string>
-    <string name="services_note_optional">Note to the host (optional)</string>
-    <string name="services_subscribe">Subscribe</string>
-    <string name="services_sign_in_to_subscribe">Sign in to subscribe</string>
-    <string name="services_waiting_host_booking">Waiting for the host to confirm your booking for %1$s.</string>
-    <string name="services_price">Price</string>
 
     <!-- Reservations (guest "Trips") -->
     <string name="reservations_title">My trips</string>
@@ -463,14 +439,13 @@
 
     <!-- Wishlist / Saved -->
     <string name="profile_saved">My Favorites</string>
-    <string name="profile_saved_sub">Your favorite stays &amp; experiences</string>
+    <string name="profile_saved_sub">Your favorite stays</string>
     <string name="wishlist_title">My Favorites</string>
     <string name="wishlist_eyebrow">Your wishlist</string>
     <string name="wishlist_stays">Saved stays</string>
-    <string name="wishlist_experiences">Saved experiences</string>
     <string name="wishlist_loading">Loading your saved items…</string>
     <string name="wishlist_empty_title">Nothing saved yet</string>
-    <string name="wishlist_empty_subtitle">Tap the heart on a stay or experience to save it here.</string>
+    <string name="wishlist_empty_subtitle">Tap the heart on a stay to save it here.</string>
     <string name="wishlist_sign_in">Sign in to save your favorites.</string>
 
     <!-- Push notifications (FCM) -->
@@ -676,7 +651,7 @@
     <string name="referral_none">No referrals yet. Share your code to get started.</string>
     <string name="referral_loading">Loading your referrals…</string>
     <string name="referral_error">Couldn\'t load your referrals.</string>
-    <string name="referral_share_message">Join me on QuickIn! Use my referral code %1$s when you sign up.</string>
+    <string name="referral_share_message">Join me on Quick In! Use my referral code %1$s when you sign up.</string>
 
     <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
     <string name="money_earnings">Earnings</string>
@@ -821,7 +796,7 @@
     <string name="profile_support_legal">Support &amp; legal</string>
     <string name="legal_terms">Terms of Service</string>
     <string name="legal_privacy">Privacy Policy</string>
-    <string name="legal_about">About QuickIn</string>
+    <string name="legal_about">About Quick In</string>
     <string name="legal_contact">Contact us</string>
 
     <!-- Identity verification: selfie (web parity) -->
@@ -894,24 +869,17 @@
     <string name="stay_guide_move_up">Move up</string>
     <string name="stay_guide_move_down">Move down</string>
     <string name="cd_place_qr">QR code for %1$s</string>
-    <!-- Host payout method — where QuickIn sends a host's earnings -->
+    <!-- Host payout method — where Quick In sends a host's earnings -->
     <string name="payout_title">Payment information</string>
-    <string name="payout_subtitle_empty">Add a payout method so QuickIn can send you your earnings.</string>
-    <string name="payout_subtitle_set">This is where QuickIn sends your earnings.</string>
+    <string name="payout_subtitle_empty">Add a payout method so Quick In can send you your earnings.</string>
+    <string name="payout_subtitle_set">This is where Quick In sends your earnings.</string>
     <string name="payout_choose_method">How you want to be paid</string>
     <string name="payout_badge_added">Added</string>
     <string name="payout_method_instapay">InstaPay</string>
     <string name="payout_method_wallet">Wallet</string>
-    <string name="payout_wallet_vodafone_cash">Vodafone Cash</string>
-    <string name="payout_wallet_etisalat_cash">Etisalat Cash</string>
-    <string name="payout_wallet_orange_money">Orange Money</string>
-    <string name="payout_wallet_we_pay">WE Pay</string>
-    <string name="payout_wallet_other">Other wallet</string>
     <string name="payout_field_account_name">Name on the account</string>
     <string name="payout_field_bank">Bank</string>
     <string name="payout_field_instapay_address">InstaPay address</string>
-    <string name="payout_field_wallet_provider">Wallet</string>
-    <string name="payout_field_wallet_number">Wallet number</string>
     <string name="payout_instapay_hint">Your InstaPay address, for example name@instapay or name@banquemisr.</string>
     <string name="payout_save">Save payout method</string>
     <string name="payout_saving">Saving…</string>
@@ -919,6 +887,7 @@
     <string name="payout_remove">Remove payout method</string>
     <string name="payout_removing">Removing…</string>
     <string name="payout_method_bank_account">Bank account</string>
+    <string name="payout_retired_notice">Wallet payouts are no longer offered. Switch to a bank account or InstaPay so we can keep paying you.</string>
     <string name="payout_field_iban">IBAN</string>
     <string name="payout_field_account_number">Account number</string>
     <string name="payout_field_swift">SWIFT / BIC</string>
@@ -933,7 +902,6 @@
     <string name="payout_placeholder_account_name">As it appears on the account</string>
     <string name="payout_placeholder_bank">e.g. Banque Misr</string>
     <string name="payout_placeholder_instapay_address">name@instapay</string>
-    <string name="payout_placeholder_wallet_number">01XXXXXXXXX</string>
     <string name="settings_id_none">Not on file</string>
     <string name="id_change_request">Request a change</string>
     <string name="id_change_explainer">Your ID number can only be changed by request, with a photo of the document.</string>
@@ -971,10 +939,8 @@
          Mirrors the iOS "Brand travel header" block in Localization.swift. -->
     <string name="home_eyebrow">Discover · Stay · Explore</string>
     <string name="home_subtitle">Boutique stays across Egypt.</string>
-    <string name="services_eyebrow">North Coast · Egypt</string>
-    <string name="services_subtitle">Add experiences to your stay — on the water, in the sand, at your table.</string>
     <string name="saved_eyebrow">Your collection</string>
-    <string name="saved_subtitle">Your favorite stays &amp; experiences.</string>
+    <string name="saved_subtitle">Your favorite stays.</string>
     <string name="reservations_eyebrow">Your journeys</string>
     <string name="reservations_subtitle">Every trip you\'ve booked, in one place.</string>
     <string name="profile_eyebrow">Your account</string>

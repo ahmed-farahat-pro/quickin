@@ -85,7 +85,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * QuickIn branded travel header — the Android port of iOS `QKBrandHeader`
+ * Quick In branded travel header — the Android port of iOS `QKBrandHeader`
  * (`mobile/ios/Sources/BrandHeader.swift`). It replaces the stock Material
  * `TopAppBar` on the root tabs with a boutique burgundy "boarding pass" banner:
  * on appear a little plane climbs in along a dashed gold contrail and, in its
@@ -101,7 +101,7 @@ fun QkBrandHeader(
     eyebrow: String? = null,
     title: String = "",
     subtitle: String? = null,
-    /** Renders the two-tone "QuickIn" brand mark instead of [title] (Explore). */
+    /** Renders the two-tone "Quick In" brand mark instead of [title] (Explore). */
     wordmark: Boolean = false,
     /** When set, a frosted back disc is placed before the text column (Wishlist). */
     onBack: (() -> Unit)? = null,
@@ -229,7 +229,7 @@ fun QkBrandHeader(
 }
 
 /**
- * The banner headline: either the two-tone "QuickIn" wordmark (cream "Quick" +
+ * The banner headline: either the two-tone "Quick In" wordmark (cream "Quick" +
  * gold "In") or the screen [title] in the serif display face. Both rise 10dp and
  * fade in as [reveal] runs 0→1.
  */

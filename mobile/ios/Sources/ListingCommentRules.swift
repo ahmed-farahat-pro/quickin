@@ -43,13 +43,13 @@ enum ListingCommentRules {
     }
 
     /// The public byline for a comment: first name + last initial ("Sara A."),
-    /// or "QuickIn guest" when there is no name. The server already sends
+    /// or "Quick In guest" when there is no name. The server already sends
     /// `author_name` in this shape; this is the fallback for a blank one.
     static func authorName(_ fullName: String?) -> String {
         let parts = (fullName ?? "")
             .split(whereSeparator: { $0.isWhitespace })
             .map(String.init)
-        guard let first = parts.first else { return "QuickIn guest" }
+        guard let first = parts.first else { return "Quick In guest" }
         guard parts.count > 1, let initial = parts.last?.first else { return first }
         return "\(first) \(String(initial).uppercased())."
     }

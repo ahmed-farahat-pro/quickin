@@ -12,8 +12,6 @@ import SwiftUI
 final class WishlistStore: ObservableObject {
     /// Saved listing ids (drives the filled hearts on stay cards + detail).
     @Published private(set) var savedListingIDs: Set<String> = []
-    /// Saved service ids (for parity with services, used by the Saved screen).
-    @Published private(set) var savedServiceIDs: Set<String> = []
 
     /// The most recent "Added / Removed from wishlist" event, published so a
     /// single app-level overlay can show a transient toast. Exactly ONE toast is
@@ -26,7 +24,6 @@ final class WishlistStore: ObservableObject {
     /// same item is ignored until the first completes, so a double-tap can never
     /// fire two opposing toggles (or two toasts).
     private var inFlightListingIDs: Set<String> = []
-    private var inFlightServiceIDs: Set<String> = []
 
     init() {
         // Belt-and-suspenders: also clear on the logout broadcast so a sign-out
@@ -43,20 +40,15 @@ final class WishlistStore: ObservableObject {
 
     /// Whether a given listing is currently saved.
     func isListingSaved(_ id: String) -> Bool { savedListingIDs.contains(id) }
-    /// Whether a given service is currently saved.
-    func isServiceSaved(_ id: String) -> Bool { savedServiceIDs.contains(id) }
 
-    /// Pull the saved-id sets from the backend (no-op / empties when signed out).
+    /// Pull the saved-id set from the backend (no-op / empties when signed out).
     func refresh() async {
-        let (listings, services) = await WishlistService.shared.fetchSavedIds()
-        savedListingIDs = listings
-        savedServiceIDs = services
+        savedListingIDs = await WishlistService.shared.fetchSavedIds()
     }
 
     /// Clear all saved state (call on sign-out).
     func reset() {
         savedListingIDs = []
-        savedServiceIDs = []
     }
 
     /// Optimistically toggle a listing's saved state, then sync with the server.
@@ -74,19 +66,6 @@ final class WishlistStore: ObservableObject {
         let nowSaved = !wasSaved
         inFlightListingIDs.insert(id)
         Task { await self.sync(itemType: .listing, id: id, optimisticSaved: nowSaved) }
-        return nowSaved
-    }
-
-    /// Optimistically toggle a service's saved state, then sync with the server.
-    /// Same single-toast-from-server + in-flight guard behavior as listings.
-    @discardableResult
-    func toggleService(_ id: String) -> Bool {
-        guard !inFlightServiceIDs.contains(id) else { return savedServiceIDs.contains(id) }
-        let wasSaved = savedServiceIDs.contains(id)
-        if wasSaved { savedServiceIDs.remove(id) } else { savedServiceIDs.insert(id) }
-        let nowSaved = !wasSaved
-        inFlightServiceIDs.insert(id)
-        Task { await self.sync(itemType: .service, id: id, optimisticSaved: nowSaved) }
         return nowSaved
     }
 
@@ -119,7 +98,6 @@ final class WishlistStore: ObservableObject {
     private func clearInFlight(itemType: WishlistService.ItemType, id: String) {
         switch itemType {
         case .listing: inFlightListingIDs.remove(id)
-        case .service: inFlightServiceIDs.remove(id)
         }
     }
 
@@ -127,8 +105,6 @@ final class WishlistStore: ObservableObject {
         switch itemType {
         case .listing:
             if saved { savedListingIDs.insert(id) } else { savedListingIDs.remove(id) }
-        case .service:
-            if saved { savedServiceIDs.insert(id) } else { savedServiceIDs.remove(id) }
         }
     }
 }

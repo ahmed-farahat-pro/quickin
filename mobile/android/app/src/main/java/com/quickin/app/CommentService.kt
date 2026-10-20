@@ -172,7 +172,7 @@ object CommentService {
             id = o.optString("id"),
             listingId = o.optStringOrNull("listing_id") ?: listingId.orEmpty(),
             userId = o.optStringOrNull("user_id"),
-            authorName = o.optStringOrNull("author_name") ?: "QuickIn guest",
+            authorName = o.optStringOrNull("author_name") ?: "Quick In guest",
             authorAvatar = o.optStringOrNull("author_avatar"),
             body = o.optString("body"),
             createdAt = o.optStringOrNull("created_at"),

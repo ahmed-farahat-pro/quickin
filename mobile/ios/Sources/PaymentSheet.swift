@@ -2,9 +2,9 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
-/// The payment sheet for QuickIn, mirroring the website and the Android app. Two
+/// The payment sheet for Quick In, mirroring the website and the Android app. Two
 /// methods are **manual transfers**: the guest sends the booking amount to one of
-/// QuickIn's accounts, uploads a screenshot of the transfer, and it is confirmed
+/// Quick In's accounts, uploads a screenshot of the transfer, and it is confirmed
 /// after being checked. The third, **Flash**, is automatic: a hosted card / wallet
 /// checkout that confirms the booking itself.
 ///

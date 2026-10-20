@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Sailing
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,25 +31,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.quickin.app.Listing
 import com.quickin.app.R
-import com.quickin.app.Service
 import com.quickin.app.WishlistUiState
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
-import com.quickin.app.ui.theme.Tan
 
 /**
- * "Saved" screen — the user's wishlist. Lists saved stays and experiences as the redesigned
+ * "Saved" screen — the user's wishlist. Lists saved stays as the redesigned
  * boutique cards (tappable into their detail screens), each with a filled heart that unsaves it.
  * Shows a loading state, an error retry, and a friendly empty state. A bottom-nav tab.
  */
@@ -66,15 +61,13 @@ fun WishlistScreen(
     onLoad: () -> Unit,
     onSignIn: () -> Unit = {},
     onOpenListing: (Listing) -> Unit = {},
-    onOpenService: (Service) -> Unit = {},
     onToggleListing: (Listing) -> Unit = {},
-    onToggleService: (Service) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues()
 ) {
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
-        // The QuickIn brand banner in place of a stock title bar (iOS `SavedView`).
+        // The Quick In brand banner in place of a stock title bar (iOS `SavedView`).
         // Saved is a top-level bottom-nav destination, not a pushed screen, so the banner
         // carries no back affordance — there is nothing to pop back to.
         topBar = {
@@ -125,20 +118,6 @@ fun WishlistScreen(
                                         listing = listing,
                                         onClick = { onOpenListing(listing) },
                                         onToggleSaved = { onToggleListing(listing) }
-                                    )
-                                }
-                            }
-                        }
-                        if (state.data.services.isNotEmpty()) {
-                            item {
-                                SectionHeader(stringResource(R.string.wishlist_experiences))
-                            }
-                            items(state.data.services) { service ->
-                                SlideUpOnAppear {
-                                    SavedServiceCard(
-                                        service = service,
-                                        onClick = { onOpenService(service) },
-                                        onToggleSaved = { onToggleService(service) }
                                     )
                                 }
                             }
@@ -215,72 +194,6 @@ private fun SavedListingCard(
                 Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.Bottom) {
                     Text(listing.priceText, fontWeight = FontWeight.Bold, color = Burgundy, fontSize = 16.sp)
                     Text(stringResource(R.string.listing_per_night), color = Muted, fontSize = 14.sp)
-                }
-            }
-        }
-    }
-}
-
-/** Saved experience card: cover (or sailing placeholder) with a filled heart, title, location, price. */
-@Composable
-private fun SavedServiceCard(
-    service: Service,
-    onClick: () -> Unit,
-    onToggleSaved: () -> Unit
-) {
-    BoutiqueCard(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        shadow = 8.dp,
-        radius = CardRadius
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(190.dp)
-                    .clip(RoundedCornerShape(topStart = CardRadius, topEnd = CardRadius))
-            ) {
-                val imageUrl = service.image
-                if (imageUrl != null) {
-                    AsyncImage(
-                        model = imageUrl,
-                        contentDescription = service.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().background(Tan)
-                    )
-                } else {
-                    PhotoPlaceholder(modifier = Modifier.fillMaxSize(), icon = Icons.Filled.Sailing)
-                }
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.55f to Color.Transparent,
-                                1f to Ink.copy(alpha = 0.45f)
-                            )
-                        )
-                )
-                HeartButton(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(11.dp),
-                    filled = true,
-                    onToggle = onToggleSaved
-                )
-            }
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp)) {
-                Text(service.title, fontWeight = FontWeight.Bold, color = Ink, fontSize = 17.sp, maxLines = 1)
-                if (!service.location.isNullOrBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Muted, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(service.location, color = Muted, fontSize = 14.sp, maxLines = 1)
-                    }
-                }
-                Row(modifier = Modifier.padding(top = 8.dp), verticalAlignment = Alignment.Bottom) {
-                    Text(service.priceText, fontWeight = FontWeight.Bold, color = Burgundy, fontSize = 16.sp)
-                    Text(stringResource(R.string.services_per_experience), color = Muted, fontSize = 14.sp)
                 }
             }
         }

@@ -7,31 +7,25 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * The three destinations QuickIn can send a host's earnings to. [key] matches
+ * A destination Quick In can send a host's earnings to. [key] matches
  * `host_payout_methods.method` on the server.
+ *
+ * [WALLET] was RETIRED on 2026-10-20: the server refuses to save one, but a row saved before then
+ * still decodes and shows, with a prompt to switch. Pickers list [CHOOSABLE], never [entries].
  */
 enum class PayoutMethodKind(val key: String) {
     BANK_ACCOUNT("bank_account"),
     INSTAPAY("instapay"),
     WALLET("wallet");
 
+    val isRetired: Boolean get() = this !in CHOOSABLE
+
     companion object {
+        /** What a host may pick today — mirrors `PAYOUT_METHODS` in payout-method-core. */
+        val CHOOSABLE: List<PayoutMethodKind> = listOf(BANK_ACCOUNT, INSTAPAY)
+
         fun fromKey(key: String?): PayoutMethodKind? =
             entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) }
-    }
-}
-
-/** Mobile wallets a host can be paid into. Mirrors `WALLET_PROVIDERS` in payout-method-core. */
-enum class WalletProviderKind(val key: String) {
-    VODAFONE_CASH("vodafone_cash"),
-    ETISALAT_CASH("etisalat_cash"),
-    ORANGE_MONEY("orange_money"),
-    WE_PAY("we_pay"),
-    OTHER("other");
-
-    companion object {
-        fun fromKey(key: String?): WalletProviderKind =
-            entries.firstOrNull { it.key.equals(key?.trim(), ignoreCase = true) } ?: OTHER
     }
 }
 
@@ -40,7 +34,7 @@ enum class WalletProviderKind(val key: String) {
  *
  * Every field comes back whole — an IBAN is meant to be handed out, and a masked one is one a host
  * cannot check. [accountRef] is the canonical destination the server derived: the IBAN (or the
- * account number when there is no IBAN), the InstaPay address, or the wallet number.
+ * account number when there is no IBAN), the InstaPay address, or (retired) the wallet number.
  * [ibanFormatted] is the IBAN in the 4-character groups banks print it in.
  */
 data class HostPayoutMethod(
@@ -60,7 +54,7 @@ data class HostPayoutMethod(
     val kind: PayoutMethodKind? get() = PayoutMethodKind.fromKey(method)
 }
 
-/** What the editor submits. Fields for the other two methods are ignored by the server. */
+/** What the editor submits. Fields for the other method are ignored by the server. */
 data class PayoutDraft(
     val method: PayoutMethodKind = PayoutMethodKind.BANK_ACCOUNT,
     val accountName: String = "",
@@ -69,9 +63,7 @@ data class PayoutDraft(
     val accountNumber: String = "",
     val swiftBic: String = "",
     val branch: String = "",
-    val instapayAddress: String = "",
-    val walletProvider: WalletProviderKind = WalletProviderKind.VODAFONE_CASH,
-    val walletNumber: String = ""
+    val instapayAddress: String = ""
 )
 
 /**
@@ -109,8 +101,6 @@ object PayoutService {
             put("swift_bic", draft.swiftBic)
             put("branch", draft.branch)
             put("instapay_address", draft.instapayAddress)
-            put("wallet_provider", draft.walletProvider.key)
-            put("wallet_number", draft.walletNumber)
         }
         parse(JSONObject(request("PUT", token, body)))
     }

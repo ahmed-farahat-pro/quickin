@@ -185,10 +185,10 @@ fun AuthScreen(
                 .padding(horizontal = 28.dp, vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Brand logo (replaces the old "QuickIn" text wordmark).
+            // Brand logo (replaces the old "Quick In" text wordmark).
             Image(
                 painter = painterResource(R.drawable.logo),
-                contentDescription = "QuickIn",
+                contentDescription = "Quick In",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.height(56.dp)
             )

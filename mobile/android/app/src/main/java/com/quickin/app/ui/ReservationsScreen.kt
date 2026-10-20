@@ -103,10 +103,9 @@ fun ReservationsScreen(
     Scaffold(
         containerColor = CreamPage,
         modifier = Modifier.padding(contentPadding),
-        // The QuickIn brand banner in place of a stock title bar (iOS `ReservationsView`).
+        // The Quick In brand banner in place of a stock title bar (iOS `ReservationsView`).
         topBar = {
-            // iOS also puts a "My subscriptions" button here, but that screen has no entry point
-            // on Android any more — so the hosting shortcut is the only accessory. It renders for
+            // The hosting shortcut is the only accessory. It renders for
             // a host alone: a host's OWN reservations inbox lives in the dashboard, not in Trips.
             QkBrandHeader(
                 eyebrow = stringResource(R.string.reservations_eyebrow),
@@ -336,7 +335,7 @@ private fun SignInCta(onSignIn: () -> Unit) {
     ) {
         Image(
             painter = painterResource(R.drawable.logo),
-            contentDescription = "QuickIn",
+            contentDescription = "Quick In",
             contentScale = ContentScale.Fit,
             modifier = Modifier.height(52.dp)
         )

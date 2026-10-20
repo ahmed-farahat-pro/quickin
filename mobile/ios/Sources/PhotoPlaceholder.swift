@@ -94,5 +94,8 @@ struct ListingImageView: View {
         // frame its caller imposes. Callers that need a specific height still set
         // `.frame(height:)`; this guarantees the contents stay contained.
         .clipped()
+        // NOTE: `.clipped()` only hides overflow — it still takes touches, and this
+        // view's own frame can be the oversized one. Callers that set a height must
+        // follow `.clipped()` with `.contentShape(Rectangle())` (see ListingCard).
     }
 }

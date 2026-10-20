@@ -1119,7 +1119,7 @@ object BookingService {
     /**
      * The host takes their own listing off the market, or puts it back.
      *
-     * This is QuickIn's "delete my listing", and it deletes nothing. Bookings, reviews, messages
+     * This is Quick In's "delete my listing", and it deletes nothing. Bookings, reviews, messages
      * and payment records all point at the listing id, so the row must survive; instead
      * `is_published` goes false — search drops the listing, its public page 404s and no new
      * booking can be made — while every existing reservation stays exactly as it was.

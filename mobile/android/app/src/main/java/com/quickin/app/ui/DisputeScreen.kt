@@ -310,11 +310,11 @@ fun DisputeScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (sending) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.padding(2.dp))
-                    else Text("Send to QuickIn", fontWeight = FontWeight.Bold)
+                    else Text("Send to Quick In", fontWeight = FontWeight.Bold)
                 }
 
                 Text(
-                    "This goes to the QuickIn team, not to your host.",
+                    "This goes to the Quick In team, not to your host.",
                     color = Muted, fontSize = 12.sp,
                     modifier = Modifier.fillMaxWidth(),
                 )

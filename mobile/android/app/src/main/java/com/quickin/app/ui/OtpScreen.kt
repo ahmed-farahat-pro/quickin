@@ -1,6 +1,7 @@
 package com.quickin.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -130,6 +131,30 @@ fun OtpScreen(
                         .padding(bottom = 16.dp)
                 )
             }
+
+            // Verification emails often land in Spam/Junk — say so before the user gives up waiting.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Burgundy.copy(alpha = 0.06f), RoundedCornerShape(12.dp))
+                    .border(1.dp, Burgundy.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.otp_spam_title),
+                    color = Burgundy,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
+                Text(
+                    stringResource(R.string.otp_spam_body),
+                    color = Ink,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = code,

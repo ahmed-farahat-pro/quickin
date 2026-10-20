@@ -63,7 +63,9 @@
                  /.well-known/assetlinks.json (must list this app's package + the release
                  signing cert SHA-256). Until verified, https links open in the browser (and
                  land on the website) — never broken. Paths mirror ShareLinks / DeepLink:
-                 /explore/{id} · /services/{id} · /reservation/{id}. -->
+                 /explore/{id} · /reservation/{id}. /services is kept ONLY so old links to the
+                 removed Services feature still open the app: DeepLink.parse returns null for
+                 them and the app opens on home. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

@@ -28,15 +28,12 @@ import com.quickin.app.WeekendSchedule
  * they are Compose state objects, so a write still recomposes exactly what it used to.
  *
  * A draft is deliberately NOT dropped when the host backs out of the wizard: backing out is how
- * you go and look something up. It is cleared once the listing/service is actually created, so
+ * you go and look something up. It is cleared once the listing is actually created, so
  * "Add another" opens an empty form rather than the one just published.
  */
 class FormDraftsViewModel : ViewModel() {
     /** The "Add a listing" wizard's draft (both entry points share this one instance). */
     val listing = ListingDraft()
-
-    /** The "Add service" form's draft. */
-    val service = ServiceDraft()
 
     /** The Profile tab's ID-verification card (three photo picks + the ID number). */
     val verification = VerificationDraft()
@@ -48,7 +45,6 @@ class FormDraftsViewModel : ViewModel() {
      */
     fun clearAll() {
         listing.clear()
-        service.clear()
         verification.clear()
     }
 }
@@ -169,35 +165,6 @@ class ListingDraft {
         const val DEFAULT_COUNTRY = "Egypt"
         const val DEFAULT_MAX_GUESTS = "2"
         const val DEFAULT_COUNT = "1"
-    }
-}
-
-/** Every field of the host's one-page "Add service" form. */
-class ServiceDraft {
-    val title: MutableState<String> = mutableStateOf("")
-    val category: MutableState<String> = mutableStateOf("")
-    val description: MutableState<String> = mutableStateOf("")
-    val location: MutableState<String> = mutableStateOf("")
-    val price: MutableState<String> = mutableStateOf("")
-    val imageUrl: MutableState<String> = mutableStateOf("")
-
-    /** True while the host has typed nothing worth keeping. */
-    val isPristine: Boolean
-        get() = title.value.isEmpty() &&
-            category.value.isEmpty() &&
-            description.value.isEmpty() &&
-            location.value.isEmpty() &&
-            price.value.isEmpty() &&
-            imageUrl.value.isEmpty()
-
-    /** Back to a blank form. Called once a service has actually been created. */
-    fun clear() {
-        title.value = ""
-        category.value = ""
-        description.value = ""
-        location.value = ""
-        price.value = ""
-        imageUrl.value = ""
     }
 }
 

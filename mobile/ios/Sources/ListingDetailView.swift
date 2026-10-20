@@ -1088,7 +1088,7 @@ struct ListingDetailView: View {
 
             if !isOwnListing {
             VStack(spacing: 10) {
-                // Branded date-range row → opens the QuickIn calendar sheet
+                // Branded date-range row → opens the Quick In calendar sheet
                 // (premium replacement for two plain DatePickers).
                 Button {
                     showingDatePicker = true

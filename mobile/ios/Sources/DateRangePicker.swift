@@ -3,7 +3,7 @@ import SwiftUI
 /// A custom, branded date-range picker presented as a `.sheet`.
 ///
 /// Deliberately does **not** use SwiftUI's built-in `DatePicker` (graphical /
-/// wheel). It renders a month-grid calendar in the QuickIn palette and lets the
+/// wheel). It renders a month-grid calendar in the Quick In palette and lets the
 /// user pick a check-in / check-out range, returning the chosen dates on Apply.
 ///
 /// Reusable from both the Explore search header and the listing-detail reserve

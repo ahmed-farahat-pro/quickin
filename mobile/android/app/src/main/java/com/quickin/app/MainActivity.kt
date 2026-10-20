@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -88,7 +87,6 @@ import com.quickin.app.ui.avatarInitials
 import com.quickin.app.ui.HostScreen
 import com.quickin.app.ui.ListingDetailScreen
 import com.quickin.app.ui.HostCalendarScreen
-import com.quickin.app.ui.HostServicesScreen
 import com.quickin.app.ui.ListingsScreen
 import com.quickin.app.ui.ReceiptsScreen
 import com.quickin.app.ui.nightsBetween
@@ -100,10 +98,7 @@ import com.quickin.app.ui.ProfileScreen
 import com.quickin.app.ui.ProfileSettingsScreen
 import com.quickin.app.ui.ProfileSignInCta
 import com.quickin.app.ui.ReservationDetailScreen
-import com.quickin.app.ui.MySubscriptionsScreen
 import com.quickin.app.ui.ReservationsScreen
-import com.quickin.app.ui.ServiceDetailScreen
-import com.quickin.app.ui.ServicesScreen
 import com.quickin.app.ui.SplashScreen
 import com.quickin.app.ui.WishlistScreen
 import com.quickin.app.ui.theme.Burgundy
@@ -151,7 +146,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Inspects an incoming VIEW intent and parses it as a QuickIn deep link
+     * Inspects an incoming VIEW intent and parses it as a Quick In deep link
      * (App Link / quickin:// scheme). A link we don't recognize is ignored.
      */
     private fun handleIntent(intent: Intent?) {
@@ -195,12 +190,11 @@ class MainActivity : AppCompatActivity() {
  */
 private data class TabItem(val key: String, @StringRes val labelRes: Int, val icon: ImageVector)
 
-// The single, unified tab set for EVERY account — Explore · Services · Wishlist · Trips · Profile.
+// The single, unified tab set for EVERY account — Explore · Wishlist · Trips · Profile.
 // One account per person: a host keeps all of these guest abilities and reaches host features
 // (manage listings + incoming reservations) from the Profile tab, not a separate tab set.
 private val GUEST_TABS = listOf(
     TabItem("Explore", R.string.tab_explore, Icons.Filled.Explore),
-    TabItem("Services", R.string.tab_services, Icons.Filled.Star),
     TabItem("wishlist", R.string.tab_wishlist, Icons.Filled.Favorite),
     TabItem("Trips", R.string.tab_trips, Icons.Filled.CalendarToday),
     TabItem("Profile", R.string.tab_profile, Icons.Filled.Person)
@@ -368,7 +362,7 @@ private fun MainApp() {
     // The host's full listing edit (every field + photos) — saving re-queues it for admin review.
     val editListingState by hostViewModel.edit.collectAsState()
     val ownershipDocState by hostViewModel.ownershipDoc.collectAsState()
-    // The host's own takedown of a listing — QuickIn has no host-facing delete.
+    // The host's own takedown of a listing — Quick In has no host-facing delete.
     val listingVisibilityState by hostViewModel.visibility.collectAsState()
     val guestPreviewState by hostViewModel.guestPreview.collectAsState()
 
@@ -376,12 +370,6 @@ private fun MainApp() {
     val moneyViewModel: MoneyViewModel = viewModel()
     val hostEarningsState by moneyViewModel.earnings.collectAsState()
     val receiptsState by moneyViewModel.receipts.collectAsState()
-
-    val servicesViewModel: ServicesViewModel = viewModel()
-    val servicesState by servicesViewModel.services.collectAsState()
-    val subscribeState by servicesViewModel.subscribe.collectAsState()
-    val hostServicesState by servicesViewModel.host.collectAsState()
-    val createServiceState by servicesViewModel.create.collectAsState()
 
     // Public listing comments (replaced host ⇄ guest messaging) + the host's "Guest questions".
     val commentsViewModel: CommentsViewModel = viewModel()
@@ -402,17 +390,17 @@ private fun MainApp() {
     val hostProfileState by trustViewModel.hostProfile.collectAsState()
     val reportState by trustViewModel.report.collectAsState()
 
-    // The host's payout method — where QuickIn sends their earnings (Profile tab).
+    // The host's payout method — where Quick In sends their earnings (Profile tab).
     val payoutViewModel: PayoutViewModel = viewModel()
 
-    // Half-finished host forms (add listing / add service) and the staged ID-verification photos.
+    // Half-finished host forms (add listing) and the staged ID-verification photos.
     // Held here, outside every composable, because the bottom bar and the host tab bar both REMOVE
     // a tab's body from composition when you leave it — which is what threw a host's typing away.
     // MainActivity only ever clears these on sign-out; the screens themselves do the editing.
     val formDrafts: FormDraftsViewModel = viewModel()
     val payoutState by payoutViewModel.payout.collectAsState()
 
-    // Wishlist (saved stays/experiences) + reviews (listing reviews + leave-a-review).
+    // Wishlist (saved stays) + reviews (listing reviews + leave-a-review).
     val wishlistViewModel: WishlistViewModel = viewModel()
     val wishlistState by wishlistViewModel.state.collectAsState()
 
@@ -431,8 +419,7 @@ private fun MainApp() {
     val availabilityGuestState by availabilityViewModel.guest.collectAsState()
     val availabilityHostState by availabilityViewModel.host.collectAsState()
 
-    // Unified account: EVERYONE gets the guest tab set (Explore · Services · Wishlist · Trips ·
-    // Profile). A host keeps every guest ability and reaches host features (manage listings +
+    // Unified account: EVERYONE gets the guest tab set (Explore · Wishlist · Trips · Profile). A host keeps every guest ability and reaches host features (manage listings +
     // incoming reservations) from the Profile tab — the whole tab set no longer switches on role.
     val isHost = authState.isHost
     // Whether this device still owes the account the one-time host welcome (see HostWelcomeRules).
@@ -454,8 +441,6 @@ private fun MainApp() {
     // The host's own listing being edited in the full editor (every field + photos), or null.
     // Opened from a host listing card or from the listing detail's host controls.
     var editingListing by remember { mutableStateOf<Listing?>(null) }
-    // Service whose detail (subscribe) screen is open, or null.
-    var selectedService by remember { mutableStateOf<Service?>(null) }
     // Id of a reservation whose detail (QR card) screen is open, or null.
     var selectedReservationId by remember { mutableStateOf<String?>(null) }
     // The MOCK payment sheet's target when open: (bookingId, nightly EGP, nights), or null.
@@ -463,11 +448,6 @@ private fun MainApp() {
     var pendingPayment by remember { mutableStateOf<Triple<String, Int, Int>?>(null) }
     // True while the host dashboard (full-screen) is open.
     var showHost by remember { mutableStateOf(false) }
-    // True while the host SERVICES dashboard (full-screen) is open.
-    var showHostServices by remember { mutableStateOf(false) }
-    // True while the guest's "My subscriptions" (service requests) list is open — reached from a
-    // `/subscriptions` notification.
-    var showMySubscriptions by remember { mutableStateOf(false) }
 
     /** The listing whose pricing calendar is open, or null. Host-only; opened from the
      *  listing detail and sitting above it, so Back returns there. */
@@ -612,8 +592,10 @@ private fun MainApp() {
 
     // ---- Deep links (shared web App Links + quickin:// scheme) ----------------------------
     // An incoming VIEW intent parsed by MainActivity arrives here. We resolve the entity by id
-    // and open its detail in the GUEST experience: listings → Explore, services → Services.
-    // Reservations open the QR-card detail (auth-gated by the detail screen itself).
+    // and open its detail in the GUEST experience: listings → Explore. Reservations open the
+    // QR-card detail (auth-gated by the detail screen itself). Links to the removed Services
+    // feature (/services/<id>, /subscriptions) never get here: DeepLink.parse and
+    // NotificationLinkRules both return null for them, so the app simply opens on home.
     val deepLinkFlow = remember(activity) {
         activity?.pendingDeepLink ?: MutableStateFlow<DeepLink?>(null)
     }
@@ -624,34 +606,26 @@ private fun MainApp() {
                 if (link.focusComments) focusCommentsFor = link.id
                 listingsViewModel.openListingById(link.id)
             }
-            is DeepLink.Service -> servicesViewModel.openServiceById(link.id)
             is DeepLink.Reservation -> {
                 // Open the reservation's QR-card detail under the guest Trips tab. The detail
                 // screen fetches it and shows a sign-in prompt when signed out.
                 selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
-                selectedService = null
                 selectedListing = null
                 selectedReservationId = link.id
             }
             is DeepLink.Tab -> {
                 // App shortcut / Assistant / notification: jump to a guest tab (everyone shares
-                // the guest set), or open the host dashboard / My subscriptions above it.
-                selectedService = null
+                // the guest set), or open the host dashboard above it.
                 selectedListing = null
                 selectedReservationId = null
                 // Leave the notifications feed, else it would keep covering the tab.
                 showNotifications = false
                 val targetKey = when (link.key) {
                     "reservations", "trips" -> "Trips"
-                    "services" -> "Services"
                     // Host dashboard: the same door as Profile → Hosting. A non-host (or a
                     // signed-out user) has no dashboard and lands on Profile instead.
                     NotificationLinkRules.TAB_HOST -> {
                         if (authState.isAuthenticated && isHost) showHost = true
-                        "Profile"
-                    }
-                    NotificationLinkRules.TAB_SUBSCRIPTIONS -> {
-                        if (authState.isAuthenticated) showMySubscriptions = true
                         "Profile"
                     }
                     "profile" -> "Profile"
@@ -671,23 +645,9 @@ private fun MainApp() {
             selectedTab = 0 // Explore
             bookingsViewModel.resetReserve()
             reviewsViewModel.clearListingReviews()
-            selectedService = null
             selectedReservationId = null
             selectedListing = listing
             listingsViewModel.clearDeepLinkListing()
-        }
-    }
-
-    // A deep-linked service finished loading — open its detail (guests land on Services underneath).
-    val deepLinkService by servicesViewModel.deepLinkService.collectAsState()
-    LaunchedEffect(deepLinkService) {
-        deepLinkService?.let { svc ->
-            selectedTab = GUEST_TABS.indexOfFirst { it.key == "Services" }.coerceAtLeast(0)
-            servicesViewModel.resetSubscribe()
-            selectedListing = null
-            selectedReservationId = null
-            selectedService = svc
-            servicesViewModel.clearDeepLinkService()
         }
     }
 
@@ -773,11 +733,8 @@ private fun MainApp() {
             payoutViewModel.clear()
             // Drop cached earnings/receipts so the next account never sees the prior one's money.
             moneyViewModel.clear()
-            // Leave any host / reservation-detail / notifications / services screen on sign-out.
+            // Leave any host / reservation-detail / notifications screen on sign-out.
             showHost = false
-            showHostServices = false
-            showMySubscriptions = false
-            servicesViewModel.clearMySubscriptions()
             showReceipts = false
             showEarnings = false
             showAnalytics = false
@@ -796,7 +753,7 @@ private fun MainApp() {
             // Drop any in-flight mock payment too.
             pendingPayment = null
             bookingsViewModel.resetPayment()
-            // Half-written add-listing / add-service forms and staged ID photos are one account's
+            // Half-written add-listing forms and staged ID photos are one account's
             // work. They survive a tab switch on purpose — they must not survive a sign-out.
             formDrafts.clearAll()
         }
@@ -811,12 +768,10 @@ private fun MainApp() {
                 listingsViewModel.load()
                 if (authState.isAuthenticated) notificationsViewModel.load()
             }
-            // Guest "Wishlist" = the user's saved stays + experiences.
+            // Guest "Wishlist" = the user's saved stays.
             "wishlist" -> if (authState.isAuthenticated) wishlistViewModel.load()
             // Guest "Trips" = the user's own bookings.
             "Trips" -> if (authState.isAuthenticated) bookingsViewModel.loadReservations()
-            // Services: the public bookable-experiences feed (hosts manage their own from Profile).
-            "Services" -> servicesViewModel.loadServices()
             // Profile tab renders the avatar + bio from the editable profile — always reload
             // to pick up any saves made in the settings screen, and reload verification status.
             "Profile" -> if (authState.isAuthenticated) {
@@ -846,11 +801,10 @@ private fun MainApp() {
         calendarListing != null ||
         editingListing != null ||
         selectedListing != null ||
-        selectedService != null ||
-        showProfileSettings || showHostApply || showHostServices ||
+        showProfileSettings || showHostApply ||
         disputeBooking != null || selectedReservationId != null || showHost || showAddListing ||
         showGuestQuestions ||
-        showNotifications || showAnalytics || showEarnings || showReceipts || showMySubscriptions ||
+        showNotifications || showAnalytics || showEarnings || showReceipts ||
         otpOpen || forgotOpen || authOpen
     BackHandler(enabled = anyOverlay || selectedTab != 0) {
         when {
@@ -878,7 +832,6 @@ private fun MainApp() {
                 selectedListing = null
                 previewingAsGuest = false
             }
-            selectedService != null -> { servicesViewModel.resetSubscribe(); selectedService = null }
             showProfileSettings -> showProfileSettings = false
             showHostApply -> {
                 authViewModel.resetHostApply()
@@ -887,16 +840,14 @@ private fun MainApp() {
             disputeBooking != null -> disputeBooking = null
             selectedReservationId != null -> { bookingsViewModel.clearReservationDetail(); selectedReservationId = null }
             showAddListing -> { hostViewModel.resetCreate(); showAddListing = false }
-            // Earnings / Analytics / Services / Receipts are full-screen and render BEFORE the
+            // Earnings / Analytics / Receipts are full-screen and render BEFORE the
             // host dashboard, so they must close before it — otherwise Back dismisses the
-            // dashboard underneath and the screen on top appears to ignore the gesture. All four
+            // dashboard underneath and the screen on top appears to ignore the gesture. All three
             // are reachable from the dashboard's quick-action shelf as well as from Profile, and
             // closing one returns to whichever of those opened it.
             showEarnings -> showEarnings = false
             showAnalytics -> showAnalytics = false
-            showHostServices -> showHostServices = false
             showReceipts -> showReceipts = false
-            showMySubscriptions -> showMySubscriptions = false
             // Guest questions sits above the host dashboard (it is one of its quick actions).
             showGuestQuestions -> showGuestQuestions = false
             // Closing the dashboard retires a finished publish's success card (the wizard tab
@@ -933,7 +884,6 @@ private fun MainApp() {
                 bookingsViewModel.resetReserve()
                 bookingsViewModel.loadReservations()
                 selectedListing = null
-                selectedService = null
                 // Land on the guest Trips tab (when applicable) under the reservation detail.
                 selectedTab = GUEST_TABS.indexOfFirst { it.key == "Trips" }.coerceAtLeast(0)
                 selectedReservationId = bookingId
@@ -1203,43 +1153,6 @@ private fun MainApp() {
         return
     }
 
-    // Service DETAIL (subscribe). Full-screen; opened from the Services tab. Mirrors the
-    // listing detail: subscribing requires sign-in and shows a branded "Request sent" dialog.
-    val service = selectedService
-    if (service != null) {
-        ServiceDetailScreen(
-            service = service,
-            onBack = {
-                servicesViewModel.resetSubscribe()
-                selectedService = null
-            },
-            subscribeState = subscribeState,
-            onSubscribe = { note ->
-                servicesViewModel.subscribe(service.id, note.ifBlank { null })
-            },
-            onSignIn = {
-                authViewModel.clearError()
-                servicesViewModel.resetSubscribe()
-                selectedService = null
-                showAuth = true
-            },
-            onResetSubscribe = servicesViewModel::resetSubscribe
-        )
-        return
-    }
-
-    // "My subscriptions" (the guest's service requests). Full-screen; opened by a
-    // `/subscriptions` notification, Back returns to Profile.
-    if (showMySubscriptions && authState.isAuthenticated) {
-        val mySubscriptionsState by servicesViewModel.mySubscriptions.collectAsState()
-        MySubscriptionsScreen(
-            state = mySubscriptionsState,
-            onBack = { showMySubscriptions = false },
-            onLoad = servicesViewModel::loadMySubscriptions
-        )
-        return
-    }
-
     // "Receipts" (the guest's itemized paid receipts). Full-screen; opened from Profile.
     // Section 9 — money views (MOCK).
     if (showReceipts && authState.isAuthenticated) {
@@ -1327,24 +1240,6 @@ private fun MainApp() {
             // API refuses one it has no document to review.
             verificationStatus = verificationState.status,
             verifiedIdNumber = verificationState.idNumber
-        )
-        return
-    }
-
-    // Host SERVICES dashboard (Requests / My services / Add service). Full-screen; host accounts only.
-    if (showHostServices && authState.isAuthenticated) {
-        HostServicesScreen(
-            state = hostServicesState,
-            createState = createServiceState,
-            onBack = { showHostServices = false },
-            onLoad = servicesViewModel::loadHost,
-            onConfirm = { id -> servicesViewModel.act(id, "confirm") },
-            onReject = { id -> servicesViewModel.act(id, "reject") },
-            onCreateService = { title, category, description, location, price, imageUrl ->
-                servicesViewModel.createService(title, category, description, location, price, imageUrl)
-            },
-            onResetCreate = servicesViewModel::resetCreate,
-            onSetServicePublished = { id, published -> servicesViewModel.setServicePublished(id, published) }
         )
         return
     }
@@ -1523,10 +1418,6 @@ private fun MainApp() {
                 hostViewModel.loadAnalytics()
                 showAnalytics = true
             },
-            onOpenServices = {
-                servicesViewModel.loadHost()
-                showHostServices = true
-            },
             // "Guest questions" — where Messages used to be, badged with the unanswered count.
             onOpenGuestQuestions = { showGuestQuestions = true },
             guestQuestionsUnanswered = hostCommentsState.unanswered,
@@ -1563,7 +1454,7 @@ private fun MainApp() {
             onMarkRead = notificationsViewModel::markRead,
             onMarkAllRead = notificationsViewModel::markAllRead,
             // The row's link decides where it opens (listing / its comments, reservation,
-            // Trips, host dashboard, Profile, My subscriptions) — routed through the same
+            // Trips, host dashboard, Profile) — routed through the same
             // deep-link handler as a push tap. `/messages`, `/ops` and unknown links only
             // mark the row read.
             onOpen = { notif ->
@@ -1664,7 +1555,7 @@ private fun MainApp() {
             },
             label = "tab"
         ) { tabIndex ->
-            // Everyone shares the guest tab set (Explore · Services · Wishlist · Trips · Profile);
+            // Everyone shares the guest tab set (Explore · Wishlist · Trips · Profile);
             // host features are reached from the Profile tab. getOrNull guards a transient index.
             when (tabs.getOrNull(tabIndex)?.key) {
                 "Explore" -> ListingsScreen(
@@ -1715,15 +1606,7 @@ private fun MainApp() {
                     onClearPlaceSuggestions = listingsViewModel::clearPlaceSuggestions,
                     contentPadding = padding
                 )
-                // Services: the public bookable-experiences feed. Hosts manage their own services
-                // from the Profile tab (Host services), not from a separate tab.
-                "Services" -> ServicesScreen(
-                    state = servicesState,
-                    onRetry = servicesViewModel::loadServices,
-                    onSelect = { selectedService = it },
-                    contentPadding = padding
-                )
-                // Guest "Wishlist" = the user's saved stays + experiences. A top-level tab,
+                // Guest "Wishlist" = the user's saved stays. A top-level tab,
                 // so it shows no back affordance. The screen itself distinguishes signed-out
                 // (sign-in prompt) from signed-in-but-empty (friendly empty state) using the
                 // authoritative auth flag — an empty/401 API result while signed in is treated
@@ -1737,9 +1620,7 @@ private fun MainApp() {
                         showAuth = true
                     },
                     onOpenListing = { listing -> selectedListing = listing },
-                    onOpenService = { service -> selectedService = service },
                     onToggleListing = wishlistViewModel::toggleListing,
-                    onToggleService = wishlistViewModel::toggleService,
                     contentPadding = padding
                 )
                 // Guest "Trips" = the user's own bookings. The screen distinguishes signed-out
@@ -1798,10 +1679,6 @@ private fun MainApp() {
                         // The one-time "you're an approved host" welcome above the dashboard card.
                         hostWelcome = hostWelcome,
                         onDismissHostWelcome = authViewModel::dismissHostWelcome,
-                        onOpenHostServices = {
-                            servicesViewModel.loadHost()
-                            showHostServices = true
-                        },
                         onOpenSettings = {
                             profileSettingsViewModel.load()
                             showProfileSettings = true

@@ -1,6 +1,6 @@
 import SwiftUI
 
-// QuickIn DesignKit — the reusable visual + animation vocabulary shared by every
+// Quick In DesignKit — the reusable visual + animation vocabulary shared by every
 // screen of the redesign. Mirrors the web mockup's `.qk-*` classes and the 7
 // animation keyframes (see /tmp/redesign-spec.md). Everything here is locale /
 // RTL agnostic: we use leading/trailing, symmetric padding and SF Symbols that
@@ -678,26 +678,6 @@ struct QKListingRating: View {
         let key = n == 1 ? "reviews.count" : "reviews.count.plural"
         return String(format: L.t(key), n)
     }
-}
-
-// MARK: - Display rating (services only)
-
-/// Services have no review system, so their cards still show a stable, pleasant
-/// derived ★ value (4.6–5.0) from the entity id — a purely cosmetic flourish.
-/// LISTINGS must NOT use this; they show the truth via `QKListingRating`.
-enum QKRating {
-    static func display(for id: String, favorite: Bool = false) -> Double {
-        let hash = abs(id.hashValue)
-        // 0...4 → map to 4.6, 4.7, 4.8, 4.9, 5.0
-        let base = 46 + (hash % 5)
-        let value = Double(base) / 10.0
-        if favorite { return min(5.0, max(value, 4.8)) }
-        return value
-    }
-}
-
-extension Service {
-    var displayRating: Double { QKRating.display(for: id) }
 }
 
 // MARK: - Photo legibility overlay

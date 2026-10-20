@@ -67,8 +67,8 @@ enum class IdDocumentType(val key: String, val labelRes: Int) {
 }
 
 /**
- * Minimal HTTP client for the signed-in user's profile. Mirrors [BookingService] /
- * [ServiceService]: HttpURLConnection + org.json on Dispatchers.IO, bearer-token auth.
+ * Minimal HTTP client for the signed-in user's profile. Mirrors [BookingService]:
+ * HttpURLConnection + org.json on Dispatchers.IO, bearer-token auth.
  *
  *   GET   {base}/api/local/profile  -> { full_name, email, age, id_document, phone, bio, avatar_url }
  *   PATCH {base}/api/local/profile  { full_name, age, phone, bio, avatar_url } -> updated profile

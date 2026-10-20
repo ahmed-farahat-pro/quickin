@@ -10,7 +10,7 @@ import SwiftUI
 ///      session is stored by `AuthStore` (the user is signed in) and the sheet
 ///      dismisses.
 ///
-/// Themed in the QuickIn boutique palette (burgundy / cream / tan) to match
+/// Themed in the Quick In boutique palette (burgundy / cream / tan) to match
 /// `AuthView` and `OTPVerificationView`.
 struct ForgotPasswordView: View {
     @EnvironmentObject private var auth: AuthStore

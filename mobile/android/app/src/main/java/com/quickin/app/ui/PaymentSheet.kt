@@ -89,7 +89,7 @@ private val ErrorRed = Color(0xFFB3261E)
 /**
  * Payment sheet shown after a guest creates a booking (and from an unpaid reservation's "Pay now").
  * Mirrors the website + iOS: a **manual transfer** flow (Paymob card checkout was removed). The
- * guest sends the booking amount to one of QuickIn's accounts (`GET /api/local/payment-config`),
+ * guest sends the booking amount to one of Quick In's accounts (`GET /api/local/payment-config`),
  * uploads a screenshot of the transfer (`POST /api/local/bookings/:id/payment-proof`), and it is
  * confirmed after being checked. A [ModalBottomSheet] hosts the whole flow; on submission it shows
  * an "Awaiting host approval" confirmation whose Done button calls [onPaid].

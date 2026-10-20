@@ -115,8 +115,8 @@ struct SkeletonList: View {
 
 // MARK: - Shapes beyond the feed
 //
-// SkeletonList covered the browse feeds — stays, services, reservations, saved,
-// subscriptions. Everything a guest reaches AFTER one of those still centred a
+// SkeletonList covered the browse feeds — stays, reservations, saved.
+// Everything a guest reaches AFTER one of those still centred a
 // ProgressView: tapping a card, opening a thread, checking earnings. A spinner
 // there says "something is happening somewhere"; these say what is coming.
 //

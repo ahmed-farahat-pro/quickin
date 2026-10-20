@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Launch splash: the QuickIn key mark flies in (tiny → full) and then gently
+/// Launch splash: the Quick In key mark flies in (tiny → full) and then gently
 /// floats over a cream wash, while layered waves roll continuously across the
 /// bottom for a lively, premium feel. After a brief hold it calls `onFinished`
 /// so `RootView` can cross-fade into the main app.
@@ -67,7 +67,7 @@ struct SplashView: View {
 
 /// Three layered sine waves that roll horizontally forever. Drawn each frame via
 /// a `TimelineView(.animation)` so the motion is smooth and continuous, tinted in
-/// the QuickIn palette (gold wash → burgundy crest).
+/// the Quick In palette (gold wash → burgundy crest).
 private struct SplashWaves: View {
     var body: some View {
         TimelineView(.animation) { timeline in

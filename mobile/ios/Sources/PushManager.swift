@@ -4,7 +4,7 @@ import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
 
-/// Coordinates push-notification registration for QuickIn.
+/// Coordinates push-notification registration for Quick In.
 ///
 /// Push is delivered through **Firebase Cloud Messaging (FCM)**: APNs hands the
 /// app a device token, we forward it to Firebase, and Firebase mints an FCM
@@ -44,7 +44,7 @@ final class PushManager: ObservableObject {
         }
     }
 
-    /// Open the iOS Settings page for QuickIn (used when notifications were denied).
+    /// Open the iOS Settings page for Quick In (used when notifications were denied).
     func openSystemSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)

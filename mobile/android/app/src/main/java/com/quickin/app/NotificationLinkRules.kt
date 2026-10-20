@@ -14,8 +14,9 @@ package com.quickin.app
  *   /account                  → [DeepLink.Tab] `profile`
  *   /verify-id                → [DeepLink.Tab] `profile`       (no standalone ID screen — the
  *                                                               verification card lives on Profile)
- *   /subscriptions            → [DeepLink.Tab] `subscriptions` (My subscriptions screen)
  *   /messages, /ops, blank, anything else → null (the row / push only marks itself read)
+ *   /services/<id>, /subscriptions → null too: the Services feature was removed, so old
+ *                               notifications for it just open the app on home
  *
  * A push tap carries the destination as a canonical app-scheme URI ([pushLink]) which
  * MainActivity hands to the one inbound parser, [DeepLink.parse].
@@ -26,7 +27,6 @@ object NotificationLinkRules {
     const val TAB_RESERVATIONS = "reservations"
     const val TAB_HOST = "host"
     const val TAB_PROFILE = "profile"
-    const val TAB_SUBSCRIPTIONS = "subscriptions"
 
     /**
      * The destination for [link], or null when it routes nowhere. Accepts the backend's relative
@@ -66,8 +66,7 @@ object NotificationLinkRules {
             "reservations" -> if (id != null) DeepLink.Reservation(id) else DeepLink.Tab(TAB_RESERVATIONS)
             "host" -> DeepLink.Tab(TAB_HOST)
             "account", "profile", "verify-id" -> DeepLink.Tab(TAB_PROFILE)
-            "subscriptions" -> DeepLink.Tab(TAB_SUBSCRIPTIONS)
-            else -> null // /messages, /ops, unknown
+            else -> null // /messages, /ops, retired /services + /subscriptions, unknown
         }
     }
 
@@ -85,7 +84,6 @@ object NotificationLinkRules {
         return when (dest) {
             is DeepLink.Listing -> "$scheme://explore/${dest.id}" + if (dest.focusComments) "#comments" else ""
             is DeepLink.Reservation -> "$scheme://reservation/${dest.id}"
-            is DeepLink.Service -> "$scheme://services/${dest.id}"
             is DeepLink.Tab -> "$scheme://${dest.key}"
         }
     }

@@ -76,18 +76,10 @@ struct ReservationsView: View {
                         title: loc.t("reservations.myTrips"),
                         subtitle: loc.t("reservations.subtitle")
                     ) {
-                        HStack(spacing: 10) {
-                            // Host-only; renders nothing for a guest. A host's
-                            // own reservations inbox lives in the dashboard, not
-                            // in Trips, so this is the shortcut across.
-                            QKHostHeaderButton()
-                            QKHeaderIconButton(
-                                systemName: "sparkles",
-                                accessibilityLabel: loc.t("reservations.mySubscriptions")
-                            ) {
-                                MySubscriptionsView()
-                            }
-                        }
+                        // Host-only; renders nothing for a guest. A host's
+                        // own reservations inbox lives in the dashboard, not
+                        // in Trips, so this is the shortcut across.
+                        QKHostHeaderButton()
                     }
                     content
                 }
@@ -112,7 +104,6 @@ struct ReservationsView: View {
             // was refreshable, so an empty list couldn't be pulled to reload.
             ScrollView {
                 LazyVStack(spacing: 18) {
-                    subscriptionsLink
                     if let error = viewModel.errorMessage, viewModel.bookings.isEmpty {
                         emptyState(title: loc.t("reservations.error.title"), message: error, retry: true)
                     } else if viewModel.bookings.isEmpty {
@@ -144,35 +135,6 @@ struct ReservationsView: View {
             }
             .refreshable { await viewModel.load() }
         }
-    }
-
-    /// Banner entry into the user's service subscriptions ("My subscriptions").
-    private var subscriptionsLink: some View {
-        NavigationLink {
-            MySubscriptionsView()
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.title3)
-                    .foregroundStyle(Color.qkBurgundy)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(loc.t("reservations.mySubscriptions"))
-                        .font(.headline)
-                        .foregroundStyle(Color.qkInk)
-                    Text(loc.t("reservations.mySubscriptions.subtitle"))
-                        .font(.caption)
-                        .foregroundStyle(Color.qkMuted)
-                }
-                Spacer()
-                Image(systemName: "chevron.forward")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.qkTan4)
-            }
-            .padding(16)
-            .qkCard()
-        }
-        .buttonStyle(.qkTap)
     }
 
     /// Shown when the guest has reservations but none behind the chosen chip. Sized
@@ -403,6 +365,8 @@ struct ReservationCard: View {
                     .frame(height: 160)
                     .frame(maxWidth: .infinity)
                     .clipped()
+                    // Overflow of a portrait photo still takes touches; see ListingCard.
+                    .contentShape(Rectangle())
                     .qkPhotoScrim(start: 0.42)
 
                 // Status pill (top-leading).

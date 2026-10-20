@@ -10,26 +10,21 @@ import SwiftUI
 @MainActor
 final class DeepLinkRouter: ObservableObject {
     /// A resolved destination, ready to present. Listings need the full `Listing`
-    /// (the detail view renders it directly); services likewise; reservations
-    /// only need the id (the detail view fetches by id).
+    /// (the detail view renders it directly); reservations only need the id
+    /// (the detail view fetches by id).
     enum Route: Identifiable {
         /// `focusComments`: opened from a comment notification (or a
         /// `#comments` link) — the detail scrolls to "Questions & comments".
         case listing(Listing, focusComments: Bool = false)
-        case service(Service)
         case reservation(id: String)
         /// The host dashboard — from a `/host` notification (hosts only).
         case hostDashboard
-        /// "My subscriptions" — from a `/subscriptions` notification.
-        case subscriptions
 
         var id: String {
             switch self {
             case .listing(let l, _): return "listing-\(l.id)"
-            case .service(let s): return "service-\(s.id)"
             case .reservation(let id): return "reservation-\(id)"
             case .hostDashboard: return "host-dashboard"
-            case .subscriptions: return "subscriptions"
             }
         }
     }
@@ -41,18 +36,25 @@ final class DeepLinkRouter: ObservableObject {
 
     /// Entry point for both Universal Links and the custom scheme. Parses the URL
     /// and, if it maps to a known destination, resolves + presents it. No-ops for
-    /// anything we don't recognise.
+    /// anything we don't recognise. A link to the retired Services feature
+    /// (`/services/<id>`, `/subscriptions`) opens the Explore tab instead.
     func handle(_ url: URL) {
-        guard let destination = AppLinks.destination(from: url) else { return }
+        guard let destination = AppLinks.destination(from: url) else {
+            if AppLinks.isRetired(url) {
+                AppNavigation.shared.pendingSection = .explore
+            }
+            return
+        }
         let focusComments = url.fragment?.lowercased() == "comments"
         Task { await resolve(destination, focusComments: focusComments) }
     }
 
     /// A tapped notification — in-app feed row (`type` known) or push (`type`
     /// nil, only the `link` travels in the payload). `NotificationLinkRules`
-    /// maps the link to a destination: an entity (listing / service /
-    /// reservation) or the host dashboard / subscriptions open over the
-    /// current tab like any deep link; Trips and Profile switch tabs.
+    /// maps the link to a destination: an entity (listing / reservation) or
+    /// the host dashboard open over the current tab like any deep link;
+    /// Explore, Trips and Profile switch tabs (a retired `/services/…` or
+    /// `/subscriptions` link lands on Explore).
     /// `/messages`, `/ops`, blank and unknown links open nothing.
     ///
     /// Returns the destination so the caller can get out of the way (the
@@ -65,14 +67,12 @@ final class DeepLinkRouter: ObservableObject {
         switch destination {
         case let .listing(id, focusComments):
             Task { await resolve(.listing(id: id), focusComments: focusComments) }
-        case .service(let id):
-            Task { await resolve(.service(id: id)) }
         case .reservation(let id):
             Task { await resolve(.reservation(id: id)) }
         case .hostDashboard:
             route = .hostDashboard
-        case .subscriptions:
-            route = .subscriptions
+        case .explore:
+            AppNavigation.shared.pendingSection = .explore
         case .reservations:
             AppNavigation.shared.pendingSection = .reservations
         case .account:
@@ -91,10 +91,6 @@ final class DeepLinkRouter: ObservableObject {
         case .listing(let id):
             if let listing = try? await SupabaseService.shared.fetchListing(id: id) {
                 route = .listing(listing, focusComments: focusComments)
-            }
-        case .service(let id):
-            if let service = try? await ServiceService.shared.fetchService(id: id) {
-                route = .service(service)
             }
         case .reservation(let id):
             // The reservation detail view fetches its own data by id (and gates
@@ -136,14 +132,10 @@ struct DeepLinkDetailHost: View {
         switch route {
         case let .listing(listing, focusComments):
             ListingDetailView(listing: listing, focusComments: focusComments)
-        case .service(let service):
-            ServiceDetailView(service: service)
         case .reservation(let id):
             ReservationDetailView(bookingID: id)
         case .hostDashboard:
             HostDashboardView()
-        case .subscriptions:
-            MySubscriptionsView()
         }
     }
 }

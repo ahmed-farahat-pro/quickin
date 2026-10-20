@@ -71,7 +71,7 @@ struct ListingImage: Codable, Hashable {
     }
 }
 
-/// A QuickIn listing (subset of columns needed for browse + detail).
+/// A Quick In listing (subset of columns needed for browse + detail).
 struct Listing: Codable, Identifiable, Hashable {
     let id: String
     let title: String
@@ -179,7 +179,7 @@ struct Listing: Codable, Identifiable, Hashable {
     let isPublished: Bool
     /// HOST READS ONLY. The host took this listing down themselves — the one
     /// takedown reason they can undo, and what the Deactivate / Reactivate button
-    /// acts on. QuickIn has no host-facing delete: bookings, reviews and payment
+    /// acts on. Quick In has no host-facing delete: bookings, reviews and payment
     /// records hang off the listing id, so "remove my listing" is this flag going
     /// true and `is_published` going false, with nothing erased.
     let unpublishedByHost: Bool
@@ -1280,151 +1280,12 @@ struct AvailabilityRange: Decodable, Identifiable, Hashable {
     }
 }
 
-// MARK: - Services
-
-/// A standalone experience a host offers (jet ski, diving, yacht…), returned by
-/// `GET /api/local/services` (browse) and `GET /api/local/services/:id` (detail).
-/// A user "subscribes"/requests it → pending → the host confirms/rejects,
-/// mirroring the stay-booking flow. JSON is snake_case.
-struct Service: Codable, Identifiable, Hashable {
-    let id: String
-    let hostID: String?
-    let hostName: String?
-    let title: String
-    let description: String?
-    let category: String?
-    let location: String?
-    let price: Double
-    let currency: String?
-    let imageURL: String?
-    let lat: Double?
-    let lng: Double?
-    let isPublished: Bool?
-    /// HOST READS ONLY. The host took this service down themselves — the services
-    /// twin of `Listing.unpublishedByHost`, and what the Deactivate / Reactivate
-    /// button acts on. Absent (nil → false) on a public read.
-    let unpublishedByHost: Bool?
-    /// HOST READS ONLY. Requests still waiting on this host — the number a
-    /// deactivate would decline, named in the confirmation before it happens.
-    let pendingRequestCount: Int?
-    let createdAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, title, description, category, location, price, currency, lat, lng
-        case hostID = "host_id"
-        case hostName = "host_name"
-        case imageURL = "image_url"
-        case isPublished = "is_published"
-        case unpublishedByHost = "unpublished_by_host"
-        case pendingRequestCount = "pending_request_count"
-        case createdAt = "created_at"
-    }
-
-    /// True when the host has taken this service off the market themselves — the
-    /// only reason a host may undo. A service hidden without the flag was hidden
-    /// by staff and is not theirs to republish.
-    var isDeactivatedByHost: Bool { unpublishedByHost == true }
-
-    /// Requests waiting on the host right now, defaulting to none.
-    var pendingRequests: Int { pendingRequestCount ?? 0 }
-
-    var currencySymbol: String { "EGP " }
-
-    /// "EGP 120" style price for cards + detail.
-    var priceText: String {
-        "\(currencySymbol)\(Int(price))"
-    }
-
-    /// First non-empty image URL, or `nil` when the service has no photo (the UI
-    /// then renders a `PhotoPlaceholder` instead of a stock image).
-    var photoURL: String? {
-        let trimmed = imageURL?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (trimmed?.isEmpty == false) ? trimmed : nil
-    }
-}
-
-/// A user's service subscription/request, returned by
-/// `GET /api/local/service-requests` (my subscriptions) and
-/// `GET /api/local/host/service-requests` (host inbox). Each row denormalizes the
-/// service title/category/image/price + the requester's name so a card renders
-/// without a second fetch. Reuses `BookingStatus` for the pending/confirmed/rejected pill.
-struct ServiceRequest: Codable, Identifiable, Hashable {
-    let id: String
-    let serviceID: String?
-    let userID: String?
-    let status: String?
-    let preferredDate: String?
-    let note: String?
-    let requestCode: String?
-    let createdAt: String?
-    let serviceTitle: String?
-    let serviceCategory: String?
-    let serviceImage: String?
-    let servicePrice: Double?
-    let serviceCurrency: String?
-    let serviceLocation: String?
-    let hostID: String?
-    let hostName: String?
-    let requesterName: String?
-    let requesterEmail: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, status, note
-        case serviceID = "service_id"
-        case userID = "user_id"
-        case preferredDate = "preferred_date"
-        case requestCode = "request_code"
-        case createdAt = "created_at"
-        case serviceTitle = "service_title"
-        case serviceCategory = "service_category"
-        case serviceImage = "service_image"
-        case servicePrice = "service_price"
-        case serviceCurrency = "service_currency"
-        case serviceLocation = "service_location"
-        case hostID = "host_id"
-        case hostName = "host_name"
-        case requesterName = "requester_name"
-        case requesterEmail = "requester_email"
-    }
-
-    /// pending / confirmed / rejected badge state (shared with bookings).
-    var requestStatus: BookingStatus { BookingStatus(raw: status) }
-
-    var currencySymbol: String { "EGP " }
-
-    /// "EGP 120" style price for the card, or "—" if absent.
-    var priceText: String {
-        guard let servicePrice else { return "—" }
-        return "\(currencySymbol)\(Int(servicePrice))"
-    }
-
-    /// First non-empty service image, or `nil` when absent (the UI renders a
-    /// `PhotoPlaceholder` instead of a stock image).
-    var photoURL: String? {
-        let trimmed = serviceImage?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (trimmed?.isEmpty == false) ? trimmed : nil
-    }
-
-    /// "Jul 10" style preferred date, parsed from `yyyy-MM-dd`. Empty if unset.
-    var preferredDateText: String {
-        guard let preferredDate, !preferredDate.isEmpty else { return "" }
-        let iso = DateFormatter()
-        iso.locale = Locale(identifier: "en_US_POSIX")
-        iso.dateFormat = "yyyy-MM-dd"
-        guard let date = iso.date(from: preferredDate) else { return preferredDate }
-        let pretty = DateFormatter()
-        pretty.locale = Locale(identifier: "en_US_POSIX")
-        pretty.dateFormat = "MMM d, yyyy"
-        return pretty.string(from: date)
-    }
-}
-
 // MARK: - Notifications
 
 /// An in-app notification returned by `GET /api/local/notifications`. Named
 /// `AppNotification` to avoid clashing with Apple's `UserNotifications` types.
-/// JSON is snake_case (matching the booking/service models). Notifications are
-/// created server-side on booking/service events.
+/// JSON is snake_case (matching the booking models). Notifications are
+/// created server-side on booking events.
 struct AppNotification: Codable, Identifiable, Hashable {
     let id: String
     let type: String
@@ -1445,9 +1306,6 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case let t where t.contains("booking"),
              let t where t.contains("reservation"):
             return "calendar"
-        case let t where t.contains("service"),
-             let t where t.contains("subscription"):
-            return "sparkles"
         case let t where t.contains("comment"):
             return "bubble.left.fill"
         case let t where t.contains("review"):
@@ -2175,7 +2033,7 @@ struct ListingGate: Decodable, Hashable {
 
 /// `GET /api/local/host/commission` (Bearer) → `{ rate, percent }`.
 ///
-/// QuickIn takes its cut as a MARKUP, not a deduction: a host names the price
+/// Quick In takes its cut as a MARKUP, not a deduction: a host names the price
 /// they want to receive and is paid it in full; a guest is quoted
 /// `raw × (1 + rate)`, rounded UP to the nearest 10 EGP. This type exists so the
 /// add/edit-listing screens can show the host that second number as they type.

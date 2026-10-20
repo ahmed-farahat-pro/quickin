@@ -83,7 +83,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Shared boutique design primitives so every QuickIn screen reads as one cohesive,
+ * Shared boutique design primitives so every Quick In screen reads as one cohesive,
  * premium app — now carrying the redesign's gold-accented visual language + the
  * 7-animation kit (qkSwap / qkZoom / qkPop / qkDraw / qkPress / qkPulse).
  *

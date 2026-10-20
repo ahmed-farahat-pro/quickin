@@ -47,7 +47,7 @@ object Config {
      *
      * This is deliberately the public site domain, NOT [API_BASE_URL] (the backend API origin).
      * The path scheme mirrors the website's routes (see [ShareLinks]):
-     *   /explore/{id}  ·  /services/{id}  ·  /reservation/{id}
+     *   /explore/{id}  ·  /reservation/{id}
      */
     const val SHARE_WEB_BASE_URL = "https://quickin-frontend.vercel.app"
 

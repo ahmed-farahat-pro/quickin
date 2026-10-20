@@ -6,8 +6,12 @@ import Foundation
 /// under `AuthStore.tokenKey` ("qk_token") so it stays decoupled from the store.
 ///
 ///   GET  {base}/api/local/wishlist
-///         → { listings: [Listing], services: [Service], listingIds: [String], serviceIds: [String] }
-///   POST {base}/api/local/wishlist { item_type: "listing"|"service", item_id, action? }
+///         → { listings: [Listing], listingIds: [String] }
+///   POST {base}/api/local/wishlist { item_type: "listing", item_id, action? }
+///
+/// Services (experiences) were retired: the backend may still send
+/// `services: []` / `serviceIds: []` for a while, and those keys are simply
+/// not decoded (an unknown key never fails `Decodable`).
 ///         → { saved: Bool }   (toggles; `saved` reflects the new state)
 struct WishlistService {
     static let shared = WishlistService()
@@ -25,39 +29,33 @@ struct WishlistService {
         return (value?.isEmpty == false) ? value : nil
     }
 
-    /// The kind of item a wishlist entry points at.
+    /// The kind of item a wishlist entry points at (the `item_type` wire value).
     enum ItemType: String {
         case listing
-        case service
     }
 
-    /// The full saved-items payload: the hydrated listings/services plus the raw
-    /// id sets (used to paint saved hearts across the browse screens).
+    /// The full saved-items payload: the hydrated listings plus the raw id set
+    /// (used to paint saved hearts across the browse screens). Any other key in
+    /// the response (e.g. the retired `services` / `serviceIds`) is ignored.
     struct Wishlist: Decodable {
         let listings: [Listing]
-        let services: [Service]
         let listingIds: [String]
-        let serviceIds: [String]
 
         enum CodingKeys: String, CodingKey {
-            case listings, services, listingIds, serviceIds
+            case listings, listingIds
         }
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             listings = try c.decodeIfPresent([Listing].self, forKey: .listings) ?? []
-            services = try c.decodeIfPresent([Service].self, forKey: .services) ?? []
             listingIds = try c.decodeIfPresent([String].self, forKey: .listingIds) ?? []
-            serviceIds = try c.decodeIfPresent([String].self, forKey: .serviceIds) ?? []
         }
 
-        static let empty = Wishlist(listings: [], services: [], listingIds: [], serviceIds: [])
+        static let empty = Wishlist(listings: [], listingIds: [])
 
-        private init(listings: [Listing], services: [Service], listingIds: [String], serviceIds: [String]) {
+        private init(listings: [Listing], listingIds: [String]) {
             self.listings = listings
-            self.services = services
             self.listingIds = listingIds
-            self.serviceIds = serviceIds
         }
     }
 
@@ -85,17 +83,17 @@ struct WishlistService {
         return try JSONDecoder().decode(Wishlist.self, from: data)
     }
 
-    /// Just the saved-id sets — lighter than `fetch()` when only painting hearts
-    /// on the browse screens. Returns empty sets when signed out (no throw) so
-    /// callers can fire-and-forget on listings load.
-    func fetchSavedIds() async -> (listings: Set<String>, services: Set<String>) {
-        guard let wishlist = try? await fetch() else { return ([], []) }
-        return (Set(wishlist.listingIds), Set(wishlist.serviceIds))
+    /// Just the saved listing ids — lighter than `fetch()` when only painting
+    /// hearts on the browse screens. Returns an empty set when signed out (no
+    /// throw) so callers can fire-and-forget on listings load.
+    func fetchSavedIds() async -> Set<String> {
+        guard let wishlist = try? await fetch() else { return [] }
+        return Set(wishlist.listingIds)
     }
 
     // MARK: - Toggle
 
-    /// Toggle a listing/service in the wishlist. Returns the new saved state
+    /// Toggle a listing in the wishlist. Returns the new saved state
     /// (`true` == now saved). Pass `action` to force "save"/"remove" instead of
     /// toggling. Throws `WishlistError.notSignedIn` when there is no token.
     @discardableResult

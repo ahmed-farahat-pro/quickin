@@ -4,7 +4,6 @@
 
     <!-- Bottom navigation tabs (guest) -->
     <string name="tab_explore">استكشف</string>
-    <string name="tab_services">الخدمات</string>
     <string name="tab_wishlist">المفضلة</string>
     <string name="tab_trips">رحلاتي</string>
     <string name="tab_profile">حسابي</string>
@@ -27,7 +26,7 @@
     <string name="cd_save">الحفظ في المفضلة</string>
     <string name="action_share">مشاركة</string>
     <string name="cd_share">مشاركة</string>
-    <!-- Share-sheet subject/title: "{title} — QuickIn" -->
+    <!-- Share-sheet subject/title: "{title} — Quick In" -->
     <string name="share_subject">%1$s — كويك إن</string>
     <string name="share_chooser_title">مشاركة عبر</string>
 
@@ -93,6 +92,8 @@
     <string name="otp_code_label">الرمز المكوّن من 6 أرقام</string>
     <string name="otp_verify">تأكيد</string>
     <string name="otp_resend">إعادة إرسال الرمز</string>
+    <string name="otp_spam_title">تحقق من مجلد البريد العشوائي</string>
+    <string name="otp_spam_body">قد يستغرق وصول الرمز دقيقة، وأحيانًا يصل إلى مجلد البريد العشوائي (Spam) أو غير المرغوب فيه.</string>
     <string name="cd_back_to_sign_in">العودة لتسجيل الدخول</string>
 
     <!-- Profile screen -->
@@ -104,8 +105,6 @@
     <string name="become_host_sub">شارك مكانك وابدأ في الكسب</string>
     <string name="profile_edit_profile">تعديل الملف الشخصي</string>
     <string name="profile_edit_profile_sub">الاسم والعمر والهوية والهاتف</string>
-    <string name="profile_my_subscriptions">اشتراكاتي</string>
-    <string name="profile_my_subscriptions_sub">طلبات التجارب الخاصة بك</string>
     <string name="profile_host_dashboard">لوحة المضيف</string>
     <string name="profile_host_dashboard_sub">العقارات وطلبات الحجز</string>
 
@@ -115,8 +114,6 @@
     <string name="host_welcome_cta">افتح لوحة المضيف</string>
     <string name="host_welcome_dismiss">ليس الآن</string>
     <string name="cd_host_dashboard">لوحة المضيف</string>
-    <string name="profile_host_services">خدمات المضيف</string>
-    <string name="profile_host_services_sub">التجارب والاشتراكات</string>
     <string name="profile_log_out">تسجيل الخروج</string>
     <string name="profile_language">اللغة</string>
 
@@ -177,17 +174,9 @@
     <string name="explore_empty_filtered_title">لا توجد إقامات تطابق بحثك</string>
     <string name="explore_empty_filtered_body">جرّب تواريخ أخرى، أو عددًا أقل من الضيوف، أو نطاقًا أوسع.</string>
     <string name="action_clear_filters">مسح عوامل التصفية</string>
-    <string name="subscriptions_empty_title">لا توجد اشتراكات بعد</string>
-    <string name="subscriptions_empty_body">اشترك في تجربة وستظهر هنا.</string>
-    <string name="host_requests_empty_title">لا توجد طلبات اشتراك</string>
-    <string name="host_requests_empty_body">ستظهر طلبات الضيوف هنا.</string>
-    <string name="host_services_empty_title">لا توجد خدمات بعد</string>
-    <string name="host_services_empty_body">أضف خدمة من تبويب \"إضافة خدمة\".</string>
     <string name="search_where_to">إلى أين؟</string>
     <string name="search_search_stays">ابحث عن إقامات</string>
-    <string name="search_anytime">أي وقت</string>
     <string name="search_dates_selected">تم تحديد التواريخ</string>
-    <string name="search_any_guests">أي عدد ضيوف</string>
     <string name="search_guests">الضيوف</string>
     <string name="search_one_guest">ضيف واحد</string>
     <string name="search_many_guests">%1$d ضيوف</string>
@@ -362,21 +351,8 @@
     <string name="pay_flash_error">تعذّر بدء الدفع بالبطاقة. يُرجى المحاولة مرة أخرى.</string>
     <string name="pay_flash_paid_title">تم تأكيد الدفع</string>
     <string name="pay_flash_paid_body">تم دفع حجزك. ستجده ضمن رحلاتك.</string>
-    <string name="pay_flash_note">تدفع عبر صفحة Flash الآمنة — لا يطّلع QuickIn على بيانات بطاقتك.</string>
+    <string name="pay_flash_note">تدفع عبر صفحة Flash الآمنة — لا يطّلع Quick In على بيانات بطاقتك.</string>
 
-    <!-- Services -->
-    <string name="services_title">الخدمات</string>
-    <string name="services_no_experiences">لا توجد تجارب بعد</string>
-    <string name="services_check_back">تابعنا قريبًا لمزيد من الأنشطة.</string>
-    <string name="services_by">بواسطة %1$s</string>
-    <string name="services_hosted_by">يستضيفها %1$s</string>
-    <string name="services_per_experience"> / التجربة</string>
-    <string name="services_about">عن هذه التجربة</string>
-    <string name="services_note_optional">ملاحظة للمضيف (اختياري)</string>
-    <string name="services_subscribe">اشترك</string>
-    <string name="services_sign_in_to_subscribe">سجّل الدخول للاشتراك</string>
-    <string name="services_waiting_host_booking">في انتظار تأكيد المضيف لحجزك في %1$s.</string>
-    <string name="services_price">السعر</string>
 
     <!-- Reservations (guest "Trips") -->
     <string name="reservations_title">رحلاتي</string>
@@ -455,14 +431,13 @@
 
     <!-- Wishlist / Saved -->
     <string name="profile_saved">مفضّلاتي</string>
-    <string name="profile_saved_sub">إقاماتك وتجاربك المفضّلة</string>
+    <string name="profile_saved_sub">إقاماتك المفضّلة</string>
     <string name="wishlist_title">مفضّلاتي</string>
     <string name="wishlist_eyebrow">قائمة رغباتك</string>
     <string name="wishlist_stays">الإقامات المحفوظة</string>
-    <string name="wishlist_experiences">التجارب المحفوظة</string>
     <string name="wishlist_loading">جارٍ تحميل العناصر المحفوظة…</string>
     <string name="wishlist_empty_title">لا يوجد محفوظات بعد</string>
-    <string name="wishlist_empty_subtitle">اضغط على القلب في أي إقامة أو تجربة لحفظها هنا.</string>
+    <string name="wishlist_empty_subtitle">اضغط على القلب في أي إقامة لحفظها هنا.</string>
     <string name="wishlist_sign_in">سجّل الدخول لحفظ المفضلة لديك.</string>
 
     <!-- Push notifications (FCM) -->
@@ -655,7 +630,7 @@
     <string name="referral_none">لا توجد إحالات بعد. شارك رمزك للبدء.</string>
     <string name="referral_loading">جارٍ تحميل إحالاتك…</string>
     <string name="referral_error">تعذّر تحميل إحالاتك.</string>
-    <string name="referral_share_message">انضم إليّ على QuickIn! استخدم رمز الإحالة %1$s عند التسجيل.</string>
+    <string name="referral_share_message">انضم إليّ على Quick In! استخدم رمز الإحالة %1$s عند التسجيل.</string>
 
     <!-- Money views (Section 9): host earnings/payouts, guest receipts, multi-currency display -->
     <string name="money_earnings">الأرباح</string>
@@ -876,24 +851,17 @@
     <string name="stay_guide_move_up">تحريك لأعلى</string>
     <string name="stay_guide_move_down">تحريك لأسفل</string>
     <string name="cd_place_qr">رمز QR لـ %1$s</string>
-    <!-- Host payout method — where QuickIn sends a host's earnings -->
+    <!-- Host payout method — where Quick In sends a host's earnings -->
     <string name="payout_title">معلومات الدفع</string>
-    <string name="payout_subtitle_empty">أضِف وسيلة استلام الأرباح ليتمكّن QuickIn من إرسال أرباحك إليك.</string>
-    <string name="payout_subtitle_set">هنا يُرسل QuickIn أرباحك.</string>
+    <string name="payout_subtitle_empty">أضِف وسيلة استلام الأرباح ليتمكّن Quick In من إرسال أرباحك إليك.</string>
+    <string name="payout_subtitle_set">هنا يُرسل Quick In أرباحك.</string>
     <string name="payout_choose_method">كيف تريد أن تستلم أموالك</string>
     <string name="payout_badge_added">تمت الإضافة</string>
     <string name="payout_method_instapay">إنستاباي</string>
     <string name="payout_method_wallet">محفظة</string>
-    <string name="payout_wallet_vodafone_cash">فودافون كاش</string>
-    <string name="payout_wallet_etisalat_cash">اتصالات كاش</string>
-    <string name="payout_wallet_orange_money">أورنج موني</string>
-    <string name="payout_wallet_we_pay">WE Pay</string>
-    <string name="payout_wallet_other">محفظة أخرى</string>
     <string name="payout_field_account_name">الاسم على الحساب</string>
     <string name="payout_field_bank">البنك</string>
     <string name="payout_field_instapay_address">عنوان إنستاباي</string>
-    <string name="payout_field_wallet_provider">المحفظة</string>
-    <string name="payout_field_wallet_number">رقم المحفظة</string>
     <string name="payout_instapay_hint">عنوانك على إنستاباي، مثل name@instapay أو name@banquemisr.</string>
     <string name="payout_save">حفظ وسيلة الاستلام</string>
     <string name="payout_saving">جارٍ الحفظ…</string>
@@ -901,6 +869,7 @@
     <string name="payout_remove">حذف وسيلة الاستلام</string>
     <string name="payout_removing">جارٍ الحذف…</string>
     <string name="payout_method_bank_account">حساب بنكي</string>
+    <string name="payout_retired_notice">لم يعد الدفع عبر المحفظة متاحًا. يرجى التحويل إلى حساب بنكي أو إنستاباي لنتمكن من مواصلة الدفع لك.</string>
     <string name="payout_field_iban">رقم الآيبان (IBAN)</string>
     <string name="payout_field_account_number">رقم الحساب</string>
     <string name="payout_field_swift">كود السويفت (SWIFT/BIC)</string>
@@ -915,7 +884,6 @@
     <string name="payout_placeholder_account_name">كما يظهر على الحساب</string>
     <string name="payout_placeholder_bank">مثال: بنك مصر</string>
     <string name="payout_placeholder_instapay_address">name@instapay</string>
-    <string name="payout_placeholder_wallet_number">01XXXXXXXXX</string>
     <string name="settings_id_none">غير مسجّل</string>
     <string name="id_change_request">طلب تغيير</string>
     <string name="id_change_explainer">لا يمكن تغيير رقم الهوية إلا بطلب، مع صورة من المستند.</string>
@@ -952,10 +920,8 @@
     <!-- Brand travel header (QkBrandHeader) — eyebrows + subtitles per root tab. -->
     <string name="home_eyebrow">اكتشف · أقم · استكشف</string>
     <string name="home_subtitle">إقامات مميّزة في أنحاء مصر.</string>
-    <string name="services_eyebrow">الساحل الشمالي · مصر</string>
-    <string name="services_subtitle">أضف تجارب إلى إقامتك — على الماء، وفي الرمال، وعلى مائدتك.</string>
     <string name="saved_eyebrow">مجموعتك</string>
-    <string name="saved_subtitle">إقاماتك وتجاربك المفضّلة.</string>
+    <string name="saved_subtitle">إقاماتك المفضّلة.</string>
     <string name="reservations_eyebrow">رحلاتك</string>
     <string name="reservations_subtitle">كل رحلة حجزتها في مكان واحد.</string>
     <string name="profile_eyebrow">حسابك</string>

@@ -72,7 +72,7 @@ private const val MAX_REVIEW_PHOTOS = 6
 /**
  * "Leave a review" modal for a completed stay. A 1–5 gold star picker, an optional comment, and an
  * optional photo picker (up to [MAX_REVIEW_PHOTOS]); Submit POSTs the review with the encoded
- * photos. Mirrors QuickIn's boutique dialog styling. [submitting]/[error] reflect the in-flight
+ * photos. Mirrors Quick In's boutique dialog styling. [submitting]/[error] reflect the in-flight
  * POST.
  *
  * Rendered in a [Dialog] over a scrim; [usePlatformDefaultWidth] is disabled so the width

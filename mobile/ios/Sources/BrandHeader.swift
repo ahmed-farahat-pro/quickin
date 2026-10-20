@@ -1,6 +1,6 @@
 import SwiftUI
 
-// QuickIn branded travel header — replaces the stock iOS large titles on the
+// Quick In branded travel header — replaces the stock iOS large titles on the
 // root tabs with a boutique burgundy "boarding pass" banner. On appear a little
 // plane climbs in along a dashed gold contrail (like a takeoff) and, in its
 // wake, the eyebrow + title/wordmark + subtitle are "delivered" with a gentle
@@ -78,7 +78,7 @@ private struct QKQuadPath: Shape {
 
 /// The boutique travel header. Drop it at the top of a root tab (inside the
 /// NavigationStack, with `.toolbar(.hidden, for: .navigationBar)`) in place of
-/// `.navigationTitle`. `wordmark: true` renders the two-tone "QuickIn" brand
+/// `.navigationTitle`. `wordmark: true` renders the two-tone "Quick In" brand
 /// mark; otherwise `title` is shown in the serif display face. `trailing` is an
 /// optional accessory (avatar / bell) laid over the burgundy.
 struct QKBrandHeader<Trailing: View>: View {
@@ -188,7 +188,7 @@ struct QKBrandHeader<Trailing: View>: View {
 }
 
 extension QKBrandHeader where Trailing == EmptyView {
-    /// Convenience for headers with no trailing accessory (Services / Saved).
+    /// Convenience for headers with no trailing accessory (e.g. Saved).
     init(eyebrow: String? = nil, title: String = "", subtitle: String? = nil, wordmark: Bool = false) {
         self.init(eyebrow: eyebrow, title: title, subtitle: subtitle, wordmark: wordmark) { EmptyView() }
     }

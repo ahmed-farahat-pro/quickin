@@ -296,7 +296,7 @@ struct DisputeView: View {
                 } label: {
                     ZStack {
                         if viewModel.isSending { ProgressView().tint(.white) }
-                        else { Text("Send to QuickIn").font(.headline) }
+                        else { Text("Send to Quick In").font(.headline) }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -306,7 +306,7 @@ struct DisputeView: View {
                 }
                 .disabled(!viewModel.canSend)
 
-                Text("This goes to the QuickIn team, not to your host.")
+                Text("This goes to the Quick In team, not to your host.")
                     .font(.caption)
                     .foregroundStyle(Color.qkMuted)
                     .frame(maxWidth: .infinity, alignment: .center)

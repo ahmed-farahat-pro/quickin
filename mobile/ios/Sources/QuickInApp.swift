@@ -52,7 +52,7 @@ struct QuickInApp: App {
                 }
                 // A tapped push → wherever its link points
                 // (`NotificationLinkRules`: listing, reservation, Trips, host
-                // dashboard, Profile, subscriptions — or nothing).
+                // dashboard, Profile, Explore — or nothing).
                 .onReceive(AppNavigation.shared.$pendingNotificationLink) { link in
                     guard let link else { return }
                     AppNavigation.shared.pendingNotificationLink = nil
@@ -166,18 +166,16 @@ struct RootView: View {
 
     // MARK: - Tabs (unified account — every user)
 
-    /// Explore · Services · Wishlist · Trips · Profile — the open browse
-    /// experience. Wishlist surfaces the saved stays & experiences as a
-    /// top-level tab (also reachable historically from Profile).
+    /// Explore · Wishlist · Trips · Profile — the open browse experience.
+    /// Wishlist surfaces the saved stays as a top-level tab (also reachable
+    /// historically from Profile). Tag 1 belonged to the retired Services tab;
+    /// the remaining tags are kept stable so `applyPending` / `DebugRoute`
+    /// indices don't shift.
     private var guestTabs: some View {
         TabView(selection: $selectedTab) {
             ListingsView(onOpenProfile: { selectedTab = 4 })
                 .tabItem { Label(loc.t("tab.explore"), systemImage: "house") }
                 .tag(0)
-
-            ServicesView()
-                .tabItem { Label(loc.t("tab.services"), systemImage: "sparkles") }
-                .tag(1)
 
             WishlistTab()
                 .tabItem { Label(loc.t("tab.wishlist"), systemImage: "heart.fill") }
@@ -274,10 +272,10 @@ struct ProfileTab: View {
     }
 }
 
-/// Wishlist tab router: the signed-in `SavedView` (saved stays & experiences),
+/// Wishlist tab router: the signed-in `SavedView` (saved stays),
 /// or a guest sign-in CTA. `SavedView` relies on an enclosing `NavigationStack`
 /// for its large title + push destinations, so it's wrapped here (matching the
-/// Services / Trips tabs). The `QKScreenSwap` preserves the redesign's content
+/// Trips tab). The `QKScreenSwap` preserves the redesign's content
 /// transition when the auth state flips.
 struct WishlistTab: View {
     @EnvironmentObject private var auth: AuthStore

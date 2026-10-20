@@ -12,9 +12,12 @@ import java.net.URL
  * no third-party HTTP/JSON libraries (HttpURLConnection + org.json on Dispatchers.IO),
  * and the caller supplies the bearer token (read from SharedPreferences "qk_auth" / "token").
  *
- *   GET  {base}/api/local/wishlist  (auth) -> { listings, services, listingIds, serviceIds }
- *   POST {base}/api/local/wishlist  (auth) { item_type:'listing'|'service', item_id, action? }
+ *   GET  {base}/api/local/wishlist  (auth) -> { listings, listingIds, ... }
+ *   POST {base}/api/local/wishlist  (auth) { item_type:'listing', item_id, action? }
  *                                          -> { saved: Boolean }
+ *
+ * The Services feature was removed: the GET may still answer `services: []` / `serviceIds: []`
+ * (or omit them); both are ignored, as is any other unknown key.
  */
 object WishlistService {
 
@@ -22,9 +25,9 @@ object WishlistService {
     class HttpError(val code: Int, message: String) : RuntimeException(message)
 
     /** Item kinds the wishlist accepts. [apiValue] is sent as `item_type`. */
-    enum class ItemType(val apiValue: String) { LISTING("listing"), SERVICE("service") }
+    enum class ItemType(val apiValue: String) { LISTING("listing") }
 
-    /** Loads the signed-in user's saved listings + services. Throws [HttpError] (401 when signed out). */
+    /** Loads the signed-in user's saved listings. Throws [HttpError] (401 when signed out). */
     suspend fun fetchWishlist(token: String): WishlistData = withContext(Dispatchers.IO) {
         val text = get(token, "/api/local/wishlist")
         parseWishlist(text)
@@ -104,31 +107,24 @@ object WishlistService {
 
     // ---- Parsing --------------------------------------------------------------
 
+    /**
+     * Reads only `listings` / `listingIds`. The retired `services` / `serviceIds` keys (and any
+     * other unknown key) are deliberately never read, so they can be present, empty or absent.
+     */
     private fun parseWishlist(text: String): WishlistData {
         val root = JSONObject(text)
 
         val listings = root.optJSONArray("listings")?.let { SupabaseService.parseListings(it.toString()) }
             ?: emptyList()
-        val services = root.optJSONArray("services")?.let { parseServicesArray(it) } ?: emptyList()
 
-        // Prefer the explicit id arrays; fall back to the ids on the embedded objects.
+        // Prefer the explicit id array; fall back to the ids on the embedded objects.
         val listingIds = root.optJSONArray("listingIds")?.toStringSet()
             ?: listings.mapNotNull { it.id.ifBlank { null } }.toSet()
-        val serviceIds = root.optJSONArray("serviceIds")?.toStringSet()
-            ?: services.mapNotNull { it.id.ifBlank { null } }.toSet()
 
         return WishlistData(
             listings = listings,
-            services = services,
-            listingIds = listingIds,
-            serviceIds = serviceIds
+            listingIds = listingIds
         )
-    }
-
-    private fun parseServicesArray(arr: JSONArray): List<Service> {
-        val out = ArrayList<Service>(arr.length())
-        for (i in 0 until arr.length()) out.add(ServiceService.parseService(arr.getJSONObject(i)))
-        return out
     }
 
     private fun JSONArray.toStringSet(): Set<String> {

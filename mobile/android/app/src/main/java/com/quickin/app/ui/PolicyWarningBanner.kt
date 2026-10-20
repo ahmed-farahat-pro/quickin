@@ -46,7 +46,7 @@ fun PolicyWarningBanner(
     ) {
         Column(Modifier.padding(14.dp)) {
             Text(
-                "A note from QuickIn",
+                "A note from Quick In",
                 color = ErrorRed,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,

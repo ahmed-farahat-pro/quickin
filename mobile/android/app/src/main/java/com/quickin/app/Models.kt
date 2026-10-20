@@ -63,7 +63,7 @@ data class ListingImage(
     val order: Int = 0
 )
 
-/** A QuickIn listing (subset of columns needed for browse + detail). */
+/** A Quick In listing (subset of columns needed for browse + detail). */
 data class Listing(
     val id: String,
     val title: String,
@@ -190,7 +190,7 @@ data class Listing(
      * because a public read only ever returns published listings and defaulting to false there
      * would badge every one of them "hidden").
      *
-     * QuickIn has no host-facing delete and will not have one: bookings, reviews, messages and
+     * Quick In has no host-facing delete and will not have one: bookings, reviews, messages and
      * payment records all point at the listing id, so "remove my listing" is this flag going
      * false — search drops the listing, its public page 404s, no new booking can be made — while
      * every existing reservation stays exactly as it was.
@@ -1237,94 +1237,6 @@ data class HostBooking(
 }
 
 /**
- * A standalone bookable experience (jet ski, diving, yacht…) from
- * `GET /api/local/services`. Users "subscribe" to a service, which creates a
- * pending [ServiceRequest] the host then confirms / rejects — mirroring bookings.
- */
-data class Service(
-    val id: String,
-    val hostId: String?,
-    val hostName: String?,
-    val title: String,
-    val description: String?,
-    val category: String?,
-    val location: String?,
-    val price: Double,
-    val currency: String?,
-    val imageUrl: String?,
-    val lat: Double? = null,
-    val lng: Double? = null,
-    val isPublished: Boolean = true,
-    /**
-     * The HOST took this service down themselves (parsed from "unpublished_by_host"). HOST READS
-     * ONLY — absent on a public feed, where false is the honest answer.
-     *
-     * The services twin of [Listing.unpublishedByHost], and for the same reason: `service_requests`
-     * point at this row, so there is no host-facing delete. "Remove my service" is [isPublished]
-     * going false, which the browse list and the request endpoint both honour. Kept as its own
-     * flag rather than inferred, so a service STAFF hid is not one the host can republish.
-     */
-    val unpublishedByHost: Boolean = false,
-    /**
-     * HOST READS ONLY. Requests still waiting on this host (parsed from "pending_request_count";
-     * 0 when absent). Deactivating declines all of them, so the confirmation names this number
-     * BEFORE the host commits.
-     */
-    val pendingRequestCount: Int = 0
-) {
-    /** The experience photo URL, or null when there is none (render a placeholder instead). */
-    val image: String?
-        get() = imageUrl?.takeUnless { it.isBlank() }
-
-    /** Prices are shown in Egyptian Pounds across the app. */
-    val currencySymbol: String
-        get() = "EGP "
-
-    val priceText: String
-        get() = "$currencySymbol${price.toInt()}"
-}
-
-/**
- * A user's subscription to a [Service] (from `GET /api/local/service-requests` for
- * the user, or `GET /api/local/host/service-requests` for the host inbox). Carries a
- * joined service summary plus the requester's identity so the host can act on it.
- */
-data class ServiceRequest(
-    val id: String,
-    val serviceId: String,
-    val userId: String?,
-    val status: String,
-    val preferredDate: String?,
-    val note: String?,
-    val requestCode: String?,
-    val serviceTitle: String,
-    val serviceCategory: String?,
-    val serviceImage: String?,
-    val servicePrice: Double,
-    val serviceCurrency: String?,
-    val serviceLocation: String?,
-    val hostId: String?,
-    val hostName: String?,
-    val requesterName: String?,
-    val requesterEmail: String?
-) {
-    /** The experience photo URL, or null when there is none (render a placeholder instead). */
-    val imageUrl: String?
-        get() = serviceImage?.takeUnless { it.isBlank() }
-
-    /** Prices are shown in Egyptian Pounds across the app. */
-    val currencySymbol: String
-        get() = "EGP "
-
-    val priceText: String
-        get() = "$currencySymbol${servicePrice.toInt()}"
-
-    /** Only pending requests get Accept / Reject actions in the host inbox. */
-    val isPending: Boolean
-        get() = status.equals("pending", ignoreCase = true)
-}
-
-/**
  * An in-app notification (from `GET /api/local/notifications`). The feed shows an
  * unread dot when [read] is false, the [title]/[body], and a relative time derived
  * from [createdAt] — an ISO-8601 timestamp such as `2026-07-27T10:28:00Z`, null when
@@ -1344,17 +1256,16 @@ data class AppNotification(
 
 /**
  * The signed-in user's saved items (from `GET /api/local/wishlist`):
- * the full saved [listings] and [services] (rendered as the redesigned cards) plus the flat
- * id sets used to light up the heart toggles on the browse/detail screens.
+ * the full saved [listings] (rendered as the redesigned cards) plus the flat id set used to
+ * light up the heart toggles on the browse/detail screens. The response may still carry the
+ * retired Services feature's `services` / `serviceIds` (now always empty); they are ignored.
  */
 data class WishlistData(
     val listings: List<Listing> = emptyList(),
-    val services: List<Service> = emptyList(),
-    val listingIds: Set<String> = emptySet(),
-    val serviceIds: Set<String> = emptySet()
+    val listingIds: Set<String> = emptySet()
 ) {
     val isEmpty: Boolean
-        get() = listings.isEmpty() && services.isEmpty()
+        get() = listings.isEmpty()
 }
 
 /**
@@ -1483,7 +1394,7 @@ data class ListingGate(
 /**
  * The platform commission (`GET /api/local/host/commission`).
  *
- * QuickIn takes its cut as a MARKUP, not a deduction: a host names the price they want to
+ * Quick In takes its cut as a MARKUP, not a deduction: a host names the price they want to
  * receive and is paid it in full; a guest is quoted `raw × (1 + rate)`, rounded UP to the
  * nearest 10 EGP. This exists so the add/edit-listing screens can show the host that second
  * number as they type.

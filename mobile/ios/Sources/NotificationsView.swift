@@ -88,7 +88,7 @@ struct NotificationsView: View {
         } else if let error = viewModel.errorMessage, viewModel.items.isEmpty {
             emptyState(title: "Couldn't load notifications", message: error, retry: true)
         } else if viewModel.items.isEmpty {
-            emptyState(title: "No notifications yet", message: "Updates about your bookings and services will show up here.", retry: false)
+            emptyState(title: "No notifications yet", message: "Updates about your bookings will show up here.", retry: false)
         } else {
             ScrollView {
                 LazyVStack(spacing: 12) {

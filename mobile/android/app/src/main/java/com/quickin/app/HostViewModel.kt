@@ -644,7 +644,7 @@ class HostViewModel(application: Application) : AndroidViewModel(application) {
      * Takes [listingId] off the market, or puts it back
      * (`PATCH /api/local/host/listings/:id/visibility`).
      *
-     * This is QuickIn's "delete my listing" and it deletes nothing: bookings, reviews, messages
+     * This is Quick In's "delete my listing" and it deletes nothing: bookings, reviews, messages
      * and payment records all point at the listing id, so the row survives and `is_published`
      * carries the meaning instead. Reservations the host already confirmed are untouched.
      *

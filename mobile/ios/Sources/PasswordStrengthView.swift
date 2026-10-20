@@ -2,7 +2,7 @@ import SwiftUI
 
 // Animated password-strength meter + requirements checklist, shown under every
 // "new password" field (sign-up, password reset, change password). Mirrors the
-// QuickIn boutique redesign: burgundy/gold/ink/muted tokens, springy reveals,
+// Quick In boutique redesign: burgundy/gold/ink/muted tokens, springy reveals,
 // the QKDrawCheck draw-on tick, and full RTL via leading/trailing. All copy is
 // localized through `L.t`.
 

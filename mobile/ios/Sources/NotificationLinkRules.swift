@@ -12,7 +12,8 @@ import Foundation
 ///   `/host`                           → the host dashboard
 ///   `/account`                        → the Profile tab
 ///   `/verify-id`                      → ID verification (lives on Profile)
-///   `/subscriptions`                  → "My subscriptions"
+///   `/services/<id>`, `/subscriptions` → Explore (Services was retired;
+///                                       old notifications still carry these)
 ///   `/messages`, `/ops`, blank, other → nothing (the row is just marked read)
 ///
 /// Absolute web URLs (`https://quickin-frontend.vercel.app/explore/<id>`) and
@@ -28,7 +29,6 @@ import Foundation
 enum NotificationLinkRules {
     enum Destination: Equatable {
         case listing(id: String, focusComments: Bool)
-        case service(id: String)
         case reservation(id: String)
         /// The guest Trips / Reservations tab.
         case reservations
@@ -36,8 +36,8 @@ enum NotificationLinkRules {
         case hostDashboard
         /// The Profile tab.
         case account
-        /// The user's service subscriptions ("My subscriptions").
-        case subscriptions
+        /// The Explore tab — where a link to a retired feature lands.
+        case explore
     }
 
     /// Notification types whose listing link should open on the comments.
@@ -53,11 +53,10 @@ enum NotificationLinkRules {
         let focusComments = url.fragment?.lowercased() == "comments"
             || commentTypes.contains(type?.lowercased() ?? "")
 
-        // Id-bearing links: listing / service / reservation.
+        // Id-bearing links: listing / reservation.
         if let parsed = AppLinks.destination(from: url) {
             switch parsed {
             case .listing(let id): return .listing(id: id, focusComments: focusComments)
-            case .service(let id): return .service(id: id)
             case .reservation(let id): return .reservation(id: id)
             }
         }
@@ -75,8 +74,10 @@ enum NotificationLinkRules {
         // the Profile tab (`IdentityVerificationCard`), so Profile is the screen.
         case "verify-id":
             return .account
-        case "subscriptions":
-            return .subscriptions
+        // Retired Services feature (`/services/<id>`, `/subscriptions`): the
+        // screens are gone, so open Explore rather than nothing.
+        case _ where AppLinks.retiredKeywords.contains(first.lowercased()):
+            return .explore
         default:
             // `/messages` (chat is retired), `/ops` (admin, web only), unknown.
             return nil

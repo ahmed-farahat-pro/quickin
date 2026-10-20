@@ -58,7 +58,7 @@ CLOSED_APP_STORE_STATES = %w[
   PROCESSING_FOR_APP_STORE PROCESSING_FOR_DISTRIBUTION
   PENDING_APPLE_RELEASE PENDING_DEVELOPER_RELEASE
   READY_FOR_SALE READY_FOR_DISTRIBUTION PREORDER_READY_FOR_SALE
-  REPLACED_WITH_NEW_VERSION
+  REPLACED_WITH_NEW_VERSION REPLACED_WITH_NEW_BUILD
   REMOVED_FROM_SALE DEVELOPER_REMOVED_FROM_SALE
 ].freeze
 
@@ -116,6 +116,11 @@ def highest_closed_marketing_version(api_key)
   return nil if app.nil?
 
   versions = app.get_app_store_versions(includes: nil)
+  # Print what App Store Connect returned, so a train Apple calls closed but this
+  # check missed (1.8.0 on 2026-10-20) can be traced to the state it was in.
+  UI.message("App Store versions: " + versions.map { |v|
+    "#{v.version_string} (#{v.app_version_state || v.app_store_state})"
+  }.join(", "))
   closed = versions.select do |version|
     # app_store_state is deprecated in App Store Connect API 3.3 in favour of
     # app_version_state, and which one is populated depends on the API version

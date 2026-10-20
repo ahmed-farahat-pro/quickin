@@ -608,14 +608,14 @@
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
 				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 39;
 				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = 1.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;
@@ -687,14 +687,14 @@
 				CODE_SIGN_ENTITLEMENTS = QuickIn.entitlements;
 				CODE_SIGN_IDENTITY = 58BA35FFC7D27FF9045DB54B59DB937B41B2B634;
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 39;
 				DEVELOPMENT_TEAM = 97DNR5Y3Y5;
 				INFOPLIST_FILE = Generated/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = 1.9.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.quickin.ahmed;
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.quickin.ahmed";
 				SDKROOT = iphoneos;

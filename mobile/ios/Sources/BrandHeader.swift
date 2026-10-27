@@ -140,7 +140,7 @@ struct QKBrandHeader<Trailing: View>: View {
         Group {
             if wordmark {
                 // Two-tone brand mark: cream "Quick" + gold "In".
-                (Text("Quick").foregroundColor(.qkCream)
+                (Text("Quick ").foregroundColor(.qkCream)
                  + Text("In").foregroundColor(.qkGoldLight))
                     .font(.system(size: 38, weight: .heavy, design: .serif))
             } else {

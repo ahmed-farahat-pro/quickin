@@ -912,4 +912,6 @@
     <string name="reservation_filter_empty_cancelled">Aucune réservation annulée.</string>
     <string name="reservation_filter_empty_refunded">Aucune réservation remboursée.</string>
     <string name="reservation_filter_empty_partially_refunded">Aucune réservation partiellement remboursée.</string>
+    <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
+    <string name="explore_km_marker">km %1$s</string>
 </resources>

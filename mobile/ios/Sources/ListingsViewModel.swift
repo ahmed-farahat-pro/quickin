@@ -18,8 +18,24 @@ final class ListingsViewModel: ObservableObject {
     // Region + sort (bound to the chips row + sort menu under the search field)
     /// Curated browse regions with counts, from `GET /api/local/regions`.
     @Published var regions: [RegionFacet] = []
-    /// Active region filter; `nil` means "All" (no region constraint).
-    @Published var selectedRegion: String?
+    /// The two-level destinations rail (regions → sub-areas), from
+    /// `GET /api/local/destinations`; rebuilt from `regions` if that fails.
+    @Published var destinations: [Destination] = []
+    /// Region + sub-area selection. Kept as one value so a region change can
+    /// never leave a stale sub-area behind (see `DestinationSelection`).
+    @Published private(set) var selection = DestinationSelection()
+    /// Active region filter (English name); `nil` means "All".
+    var selectedRegion: String? { selection.region }
+    /// Active sub-area slug under `selectedRegion`; `nil` means the whole region.
+    var selectedArea: String? { selection.area }
+    /// Sub-areas offered under the selected region (empty hides the sub row).
+    var selectedSubAreas: [DestinationSubArea] {
+        DestinationRules.subAreas(for: selection.region, in: destinations)
+    }
+    /// The selected region's destination row, for the sub row's "All · N".
+    var selectedDestination: Destination? {
+        destinations.first { $0.name == selection.region }
+    }
     /// Active sort order; defaults to the backend's "recommended".
     @Published var sort: ListingSort = .recommended
 
@@ -116,7 +132,7 @@ final class ListingsViewModel: ObservableObject {
         guests = 1
         checkIn = Calendar.current.startOfDay(for: Date())
         checkOut = Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()
-        selectedRegion = nil
+        selection = DestinationSelection()
         sort = .recommended
         selectedAmenities = []
         selectedPropertyType = nil
@@ -159,9 +175,16 @@ final class ListingsViewModel: ObservableObject {
 
     /// Select a region chip (or `nil` for "All") and refetch. Region filtering is
     /// independent of the search header, so it keeps any active location/dates.
+    /// Always clears the sub-area.
     func selectRegion(_ region: String?) async {
-        guard selectedRegion != region else { return }
-        selectedRegion = region
+        guard selection.selectRegion(region) else { return }
+        await load()
+    }
+
+    /// Select a sub-area slug under the current region (or `nil` for the
+    /// region's "All") and refetch with `region` + `area`.
+    func selectArea(_ area: String?) async {
+        guard selection.selectArea(area) else { return }
         await load()
     }
 
@@ -180,6 +203,20 @@ final class ListingsViewModel: ObservableObject {
         }
     }
 
+    /// Load the destinations rail. Falls back to the flat `/regions` facets
+    /// (no sub-areas) when `/destinations` fails, so Explore never loses its
+    /// region filter; a double failure just leaves the rail at "All".
+    func loadDestinations() async {
+        if let tree = try? await SupabaseService.shared.fetchDestinations(), !tree.isEmpty {
+            destinations = tree
+            return
+        }
+        await loadRegions()
+        destinations = DestinationRules.fallback(
+            fromFacets: regions.map { (region: $0.region, count: $0.count) }
+        )
+    }
+
     /// Whether any filter beyond the default is active (region, sort, the search
     /// header, or a discovery filter). Drives the empty-state copy + the "Clear
     /// search" button.
@@ -196,6 +233,7 @@ final class ListingsViewModel: ObservableObject {
             listings = try await SupabaseService.shared.fetchListings(
                 location: filtered ? locationQuery : nil,
                 region: selectedRegion,
+                area: selectedArea,
                 guests: filtered && guests > 0 ? guests : nil,
                 checkIn: dates ? Self.dayFormatter.string(from: checkIn) : nil,
                 checkOut: dates ? Self.dayFormatter.string(from: checkOut) : nil,

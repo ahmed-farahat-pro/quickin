@@ -1036,4 +1036,6 @@
     <string name="reservation_filter_empty_cancelled">No cancelled reservations.</string>
     <string name="reservation_filter_empty_refunded">No refunded reservations.</string>
     <string name="reservation_filter_empty_partially_refunded">No partially refunded reservations.</string>
+    <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
+    <string name="explore_km_marker">km %1$s</string>
 </resources>

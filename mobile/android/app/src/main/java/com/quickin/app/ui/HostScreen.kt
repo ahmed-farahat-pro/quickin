@@ -2095,7 +2095,10 @@ private fun ReviewGuestCard(
 internal val PROPERTY_TYPES = listOf("Apartment", "Villa", "House", "Chalet", "Cabin", "Guest House")
 
 /** Curated browse areas (Step 2). The host picks one before pinning the precise location. */
-internal val REGIONS = listOf("North Coast", "Ain Sokhna", "El Gouna", "Cairo")
+internal val REGIONS = listOf(
+    "North Coast", "Ain Sokhna", "Ras Sudr", "Cairo", "New Cairo", "Giza",
+    "Alexandria", "Marsa Matrouh", "Hurghada", "El Gouna", "Sharm El Sheikh", "Dahab"
+)
 
 /** The amenity labels a host can toggle in Step 3 (sent to the backend as `amenities`). */
 internal val AMENITY_OPTIONS = listOf(
@@ -2806,7 +2809,11 @@ internal fun StepLocation(
     ) {
         REGIONS.forEach { option ->
             RegionChip(
-                label = option,
+                // Shown in Arabic when the app is; the value saved stays the English name.
+                label = com.quickin.app.DestinationRules.regionDisplayName(
+                    option,
+                    arabic = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]?.language == "ar"
+                ),
                 selected = region == option,
                 onClick = { onRegion(option) }
             )

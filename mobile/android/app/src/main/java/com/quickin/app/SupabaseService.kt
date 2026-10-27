@@ -27,6 +27,8 @@ data class ListingQuery(
     val checkOut: String? = null, // yyyy-MM-dd
     /** Exact curated region (e.g. "Ain Sokhna"); null = all regions. */
     val region: String? = null,
+    /** Sub-area slug inside [region] (`area=`, e.g. "marassi"); null = the whole region. */
+    val area: String? = null,
     /** Free-text query (`q=`); null/blank when unused. */
     val q: String? = null,
     val minPrice: Int? = null,
@@ -52,7 +54,7 @@ data class ListingQuery(
     val isActive: Boolean
         get() = !location.isNullOrBlank() || (guests != null && guests > 0) ||
             !checkIn.isNullOrBlank() || !checkOut.isNullOrBlank() ||
-            !region.isNullOrBlank() || !q.isNullOrBlank() ||
+            !region.isNullOrBlank() || !area.isNullOrBlank() || !q.isNullOrBlank() ||
             minPrice != null || maxPrice != null ||
             !propertyType.isNullOrBlank() || amenities.isNotEmpty() ||
             !bbox.isNullOrBlank() || sort != ListingSort.Recommended
@@ -120,6 +122,30 @@ object SupabaseService {
                 conn.disconnect()
             }
         }.getOrElse { emptyList() }
+    }
+
+    /**
+     * The two-level destinations tree for the Explore rail (`GET /api/local/destinations`):
+     * regions in rail order, each with an icon key, a live count and its sub-areas.
+     * Returns null on ANY failure (network, non-2xx, malformed JSON) so the screen can fall back
+     * to the flat `/regions` chips — a missing rail must never break Explore.
+     */
+    suspend fun fetchDestinations(): List<Destination>? = withContext(Dispatchers.IO) {
+        runCatching {
+            val conn = (URL("${Config.API_BASE_URL}/api/local/destinations").openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                setRequestProperty("Accept", "application/json")
+            }
+            try {
+                if (conn.responseCode !in 200..299) return@runCatching null
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                parseDestinations(body)
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrNull()
     }
 
     /**
@@ -590,6 +616,46 @@ object SupabaseService {
 }
 
 /** Builds "?location=...&guests=...&region=...&q=...&sort=..." from the active filters. */
+/** Parses the `/api/local/destinations` array; rows without a name are skipped. */
+internal fun parseDestinations(body: String): List<Destination> {
+    val arr = JSONArray(body)
+    val out = ArrayList<Destination>(arr.length())
+    for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        val name = o.optStringOrNull("name") ?: continue
+        val subs = o.optJSONArray("sub_areas")
+        val subAreas = ArrayList<SubArea>(subs?.length() ?: 0)
+        if (subs != null) {
+            for (j in 0 until subs.length()) {
+                val s = subs.optJSONObject(j) ?: continue
+                val slug = s.optStringOrNull("slug") ?: continue
+                subAreas.add(
+                    SubArea(
+                        id = s.optStringOr("id", slug),
+                        slug = slug,
+                        name = s.optStringOr("name", slug),
+                        nameAr = s.optStringOrNull("name_ar"),
+                        kmMarker = s.optDoubleOrNull("km_marker"),
+                        locationNote = s.optStringOrNull("location_note"),
+                        count = s.optInt("count", 0)
+                    )
+                )
+            }
+        }
+        out.add(
+            Destination(
+                name = name,
+                slug = o.optStringOr("slug", name),
+                nameAr = o.optStringOrNull("name_ar"),
+                icon = o.optStringOrNull("icon"),
+                count = o.optInt("count", 0),
+                subAreas = subAreas
+            )
+        )
+    }
+    return out
+}
+
 private fun buildQueryString(query: ListingQuery): String {
     val params = ArrayList<String>(11)
     fun add(key: String, value: String?) {
@@ -602,6 +668,7 @@ private fun buildQueryString(query: ListingQuery): String {
     add("checkIn", query.checkIn)
     add("checkOut", query.checkOut)
     add("region", query.region?.trim())
+    add("area", query.area?.trim())
     add("q", query.q?.trim())
     if (query.minPrice != null) add("minPrice", query.minPrice.toString())
     if (query.maxPrice != null) add("maxPrice", query.maxPrice.toString())

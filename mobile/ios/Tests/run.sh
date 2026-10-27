@@ -94,3 +94,9 @@ swiftc -o "$OUT/flash-checkout-rules" \
   Tests/FlashCheckoutRulesTests/main.swift \
   Sources/FlashCheckoutRules.swift
 "$OUT/flash-checkout-rules"
+
+echo "\nDestinationRules — the Explore destinations rail: icons, names, km markers, region/area selection\n"
+swiftc -o "$OUT/destination-rules" \
+  Tests/DestinationRulesTests/main.swift \
+  Sources/DestinationRules.swift
+"$OUT/destination-rules"

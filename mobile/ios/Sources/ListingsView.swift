@@ -59,7 +59,7 @@ struct ListingsView: View {
 
                         // Cards or skeleton while loading
                         if viewModel.isLoading && viewModel.listings.isEmpty {
-                            SkeletonList(count: 5, imageHeight: 220)
+                            CompactSkeletonGrid(count: 6)
                         } else {
                             results
                         }
@@ -91,7 +91,7 @@ struct ListingsView: View {
         }
         .task {
             if UserDefaults.standard.bool(forKey: "uitestAuth") { showingAuth = true }
-            if viewModel.regions.isEmpty { await viewModel.loadRegions() }
+            if viewModel.destinations.isEmpty { await viewModel.loadDestinations() }
             if auth.isAuthenticated { await wishlist.refresh() }
             if UserDefaults.standard.bool(forKey: "uitestMap") { viewMode = .map }
             if let q = UserDefaults.standard.string(forKey: "uitestSearch"), !q.isEmpty {
@@ -150,10 +150,12 @@ struct ListingsView: View {
                     ?? loc.t(viewModel.anyFilterActive ? "explore.empty.noMatchMsg" : "explore.empty.nothingMsg")
             )
         } else {
-            LazyVStack(spacing: 20) {
+            // Two-column grid of compact cards — more stays per screen while a
+            // guest browses a region / sub-area.
+            LazyVGrid(columns: Self.gridColumns, alignment: .leading, spacing: 20) {
                 ForEach(viewModel.listings) { listing in
                     NavigationLink(value: listing) {
-                        ListingCard(listing: listing, onRequireSignIn: { showingAuth = true })
+                        CompactListingCard(listing: listing, onRequireSignIn: { showingAuth = true })
                     }
                     .buttonStyle(.plain)
                 }
@@ -161,6 +163,11 @@ struct ListingsView: View {
             .padding(.horizontal, 16)
         }
     }
+
+    static let gridColumns = [
+        GridItem(.flexible(), spacing: 14, alignment: .top),
+        GridItem(.flexible(), spacing: 14, alignment: .top),
+    ]
 
     private func emptyState(_ message: String) -> some View {
         VStack(spacing: 14) {
@@ -626,47 +633,135 @@ struct SearchHeader: View {
     }
 }
 
-/// Region chips + sort control shown under the search field on Explore.
+/// The two-level destinations rail + filters/sort shown under the search field.
 ///
-/// • A horizontal scroll of region chips: "All" plus one per region from
-///   `GET /api/local/regions` with its listing count. Tapping refetches with
-///   `region=<name>` ("All" clears it). The selected chip fills burgundy.
-/// • A trailing sort menu (Recommended · Price ↑ · Price ↓ · Newest) that adds
-///   `sort=` to the fetch.
+/// • Row 1 — the region rail: "All" plus one icon-over-label button per region
+///   from `GET /api/local/destinations`. The selected one turns burgundy with an
+///   underline. Tapping refetches with `region=<name>` and clears any sub-area.
+/// • Row 2 — the sub-area chips for the selected region ("All · N", then each
+///   compound with its km marker), hidden when the region has none.
+/// • Row 3 — Filters and the sort menu, trailing, as before.
 struct RegionSortBar: View {
     @ObservedObject var viewModel: ListingsViewModel
     @EnvironmentObject private var loc: LocalizationManager
     /// Opens the discovery Filters sheet (amenities + property type).
     var onOpenFilters: () -> Void = {}
 
+    private var isArabic: Bool { loc.lang == .ar }
+
     var body: some View {
-        HStack(spacing: 10) {
+        VStack(spacing: 10) {
+            regionRail
+
+            // Full width of its own so long compound names never squeeze
+            // Filters / Sort into truncation.
+            if !viewModel.selectedSubAreas.isEmpty {
+                subAreaRow
+            }
+
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                filtersButton
+                sortMenu
+            }
+            .padding(.horizontal, 16)
+        }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.selectedRegion)
+    }
+
+    // MARK: - Region rail
+
+    private var regionRail: some View {
+        VStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    // "All" clears the region filter.
-                    chip(title: loc.t("explore.region.all"), count: nil, isSelected: viewModel.selectedRegion == nil) {
+                HStack(alignment: .top, spacing: 18) {
+                    railItem(
+                        symbol: DestinationRules.allSymbol,
+                        title: loc.t("explore.region.all"),
+                        count: nil,
+                        isSelected: viewModel.selectedRegion == nil
+                    ) {
                         Task { await viewModel.selectRegion(nil) }
                     }
-                    ForEach(viewModel.regions) { facet in
-                        chip(
-                            title: facet.region,
-                            count: facet.count,
-                            isSelected: viewModel.selectedRegion == facet.region
+                    ForEach(viewModel.destinations) { destination in
+                        railItem(
+                            symbol: DestinationRules.symbol(forIcon: destination.icon),
+                            title: DestinationRules.displayName(
+                                english: destination.name, arabic: destination.nameAr, isArabic: isArabic
+                            ),
+                            count: destination.count,
+                            isSelected: viewModel.selectedRegion == destination.name
                         ) {
-                            Task { await viewModel.selectRegion(facet.region) }
+                            Task { await viewModel.selectRegion(destination.name) }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 2)
+                .padding(.top, 2)
             }
-
-            HStack(spacing: 8) {
-                filtersButton
-                sortMenu
-            }
-            .padding(.trailing, 16)
+            Rectangle()
+                .fill(Color.qkInk.opacity(0.08))
+                .frame(height: 1)
         }
+    }
+
+    /// Icon on top, name below, a burgundy underline when selected.
+    private func railItem(symbol: String, title: String, count: Int?, isSelected: Bool,
+                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: symbol)
+                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                    .frame(height: 24)
+                Text(title)
+                    .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
+                Capsule()
+                    .fill(isSelected ? Color.qkBurgundy : Color.clear)
+                    .frame(height: 2.5)
+            }
+            .foregroundStyle(isSelected ? Color.qkBurgundy : Color.qkMuted)
+            .frame(minWidth: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.qkTap)
+        .accessibilityLabel(count.map { "\(title), \($0) stays" } ?? title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    // MARK: - Sub-area row
+
+    private var subAreaRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All · N" — N is how many sub-areas, as on web and Android
+                // (not a stay count, so it skips chip()'s "N stays" label).
+                QKChip(
+                    title: loc.t("explore.region.all"),
+                    count: viewModel.selectedSubAreas.count,
+                    isSelected: viewModel.selectedArea == nil
+                ) {
+                    Task { await viewModel.selectArea(nil) }
+                }
+                ForEach(viewModel.selectedSubAreas) { area in
+                    let title = DestinationRules.displayName(
+                        english: area.name, arabic: area.nameAr, isArabic: isArabic
+                    )
+                    QKChip(
+                        title: title,
+                        suffix: DestinationRules.kmLabel(area.kmMarker),
+                        isSelected: viewModel.selectedArea == area.slug
+                    ) {
+                        Task { await viewModel.selectArea(area.slug) }
+                    }
+                    .accessibilityLabel(title)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 2)
+        }
+        .transition(.opacity)
     }
 
     /// Pill that opens the Filters sheet. Shows a gold count badge when any
@@ -864,6 +959,117 @@ struct ListingCard: View {
             .overlay(Capsule().strokeBorder(Color.qkInk.opacity(0.08), lineWidth: 1))
             .clipShape(Capsule())
             .lineLimit(1)
+    }
+}
+
+/// The compact stay card for Explore's two-column grid: a square, rounded
+/// cover photo with the wishlist heart, then title (+ ★ when reviewed), a
+/// location line and the nightly price. Same pieces and tokens as
+/// `ListingCard`, just denser.
+struct CompactListingCard: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var wishlist: WishlistStore
+    @EnvironmentObject private var currency: CurrencyManager
+    let listing: Listing
+    var onRequireSignIn: () -> Void = {}
+
+    private var locationLine: String? {
+        let region = listing.region.flatMap { r -> String? in
+            let trimmed = r.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            return DestinationRules.displayName(
+                english: trimmed,
+                arabic: DestinationRules.arabicName(forRegion: trimmed),
+                isArabic: loc.lang == .ar
+            )
+        }
+        let place = listing.location?.trimmingCharacters(in: .whitespaces)
+        if let place, !place.isEmpty { return place }
+        return region
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Color.qkTan
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    ListingImageView(url: listing.sortedImageURLs.first, placeholderIconSize: 22)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // An aspect-filled photo's overflow still takes touches unless the
+                // hit area is pinned to the visible square (see ListingCard).
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(alignment: .topTrailing) {
+                    QKHeartButton(
+                        isOn: Binding(
+                            get: { wishlist.isListingSaved(listing.id) },
+                            set: { _ in }
+                        ),
+                        size: 30
+                    ) {
+                        guard auth.isAuthenticated else { onRequireSignIn(); return }
+                        wishlist.toggleListing(listing.id)
+                    }
+                    .padding(8)
+                }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(listing.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.qkInk)
+                        .lineLimit(1)
+                    Spacer(minLength: 2)
+                    if listing.hasRating {
+                        QKStarRating(value: listing.rating, size: 11)
+                    }
+                }
+                if let locationLine {
+                    Text(locationLine)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.qkMuted)
+                        .lineLimit(1)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(currency.format(listing.pricePerNight))
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundStyle(Color.qkBurgundy)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Text("/ \(loc.t("common.night"))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.qkMuted)
+                        .lineLimit(1)
+                }
+                .padding(.top, 1)
+            }
+            .padding(.horizontal, 2)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// Loading placeholder shaped like the compact two-column grid.
+struct CompactSkeletonGrid: View {
+    var count: Int = 6
+
+    var body: some View {
+        LazyVGrid(columns: ListingsView.gridColumns, alignment: .leading, spacing: 20) {
+            ForEach(0..<count, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 8) {
+                    Color.qkTan
+                        .aspectRatio(1, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    SkeletonBlock(height: 13, width: 110)
+                    SkeletonBlock(height: 11, width: 80)
+                    SkeletonBlock(height: 13, width: 70)
+                }
+                .shimmering()
+            }
+        }
+        .padding(.horizontal, 16)
+        .allowsHitTesting(false)
     }
 }
 

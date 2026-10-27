@@ -17,8 +17,11 @@ enum ListingFormOptions {
     static let defaultPropertyType = "Apartment"
 
     /// Curated areas a host picks from before dropping the precise pin. Matched
-    /// 1:1 with the Explore region chips and the backend's accepted regions.
-    static let regions = ["North Coast", "Ain Sokhna", "El Gouna", "Cairo"]
+    /// 1:1 with the Explore destinations rail and the backend's accepted regions:
+    /// North Coast, Ain Sokhna, Ras Sudr, Cairo, New Cairo, Giza, Alexandria,
+    /// Marsa Matrouh, Hurghada, El Gouna, Sharm El Sheikh, Dahab. The stored
+    /// value stays English; only the chip label is localized.
+    static let regions = DestinationRules.regionNames
 
     /// The picker list for an existing listing: the standard types plus whatever
     /// the listing already carries (a type set elsewhere, e.g. "Chalet"), so
@@ -1103,6 +1106,8 @@ private struct BasicsStep: View {
 // MARK: - Step 2: Location
 
 private struct LocationStep: View {
+    /// Observed only to label the area chips in Arabic; the value stays English.
+    @ObservedObject private var loc = LocalizationManager.shared
     @Binding var region: String?
     let regions: [String]
     /// The host's resort / compound answer, and the free text that goes with
@@ -1275,7 +1280,11 @@ private struct LocationStep: View {
                 Button {
                     region = name
                 } label: {
-                    Text(name)
+                    Text(DestinationRules.displayName(
+                        english: name,
+                        arabic: DestinationRules.arabicName(forRegion: name),
+                        isArabic: loc.lang == .ar
+                    ))
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)

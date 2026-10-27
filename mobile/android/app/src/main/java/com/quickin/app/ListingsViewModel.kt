@@ -15,8 +15,18 @@ data class ListingsUiState(
     /** The filters used for the current results (so the header can reflect / clear them). */
     val query: ListingQuery = ListingQuery(),
     /** Curated browse regions with counts (`GET /api/local/regions`) for the chip row. */
-    val regions: List<Region> = emptyList()
-)
+    val regions: List<Region> = emptyList(),
+    /**
+     * The two-level destinations rail (`GET /api/local/destinations`). Empty until loaded, and
+     * stays empty when that call fails — the screen then falls back to the flat [regions] chips.
+     * The selected region / sub-area live in [query] (`region` name, `area` slug).
+     */
+    val destinations: List<Destination> = emptyList()
+) {
+    /** Sub-areas of the selected region (empty hides the sub-area row). */
+    val subAreas: List<SubArea>
+        get() = DestinationRules.subAreasFor(destinations, query.region)
+}
 
 /**
  * The "More from this host" rail on the listing detail (`GET /api/local/listings?host=<id>`).
@@ -72,6 +82,7 @@ class ListingsViewModel : ViewModel() {
     init {
         load()
         loadRegions()
+        loadDestinations()
     }
 
     /**
@@ -192,6 +203,7 @@ class ListingsViewModel : ViewModel() {
         fetch(
             query.copy(
                 region = current.region,
+                area = current.area,
                 sort = current.sort,
                 propertyType = current.propertyType,
                 amenities = current.amenities,
@@ -238,7 +250,18 @@ class ListingsViewModel : ViewModel() {
      * to an old viewport.
      */
     fun selectRegion(region: String?) {
-        fetch(_state.value.query.copy(region = region?.takeIf { it.isNotBlank() }, bbox = null))
+        // Always resets the sub-area: a slug from one region means nothing under another.
+        fetch(DestinationRules.selectRegion(_state.value.query, region))
+    }
+
+    /**
+     * Picks a sub-area of the selected region (null = the region's "All") and refetches with
+     * `region=` + `area=`, keeping the rest of the search.
+     */
+    fun selectArea(areaSlug: String?) {
+        val current = _state.value.query
+        if (current.area == areaSlug) return
+        fetch(DestinationRules.selectArea(current, areaSlug))
     }
 
     /** Switches the sort order and refetches, keeping all other filters. */
@@ -255,6 +278,14 @@ class ListingsViewModel : ViewModel() {
         viewModelScope.launch {
             val regions = SupabaseService.fetchRegions()
             _state.value = _state.value.copy(regions = regions)
+        }
+    }
+
+    /** Loads the destinations rail (best-effort; a failure leaves it empty → flat region chips). */
+    private fun loadDestinations() {
+        viewModelScope.launch {
+            val destinations = SupabaseService.fetchDestinations() ?: return@launch
+            _state.value = _state.value.copy(destinations = destinations)
         }
     }
 

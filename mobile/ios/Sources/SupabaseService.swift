@@ -21,6 +21,7 @@ struct SupabaseService {
     func fetchListings(
         location: String? = nil,
         region: String? = nil,
+        area: String? = nil,
         guests: Int? = nil,
         checkIn: String? = nil,
         checkOut: String? = nil,
@@ -38,6 +39,11 @@ struct SupabaseService {
         let trimmedRegion = region?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trimmedRegion, !trimmedRegion.isEmpty {
             items.append(URLQueryItem(name: "region", value: trimmedRegion))
+        }
+        // Sub-area slug under the region (e.g. `marassi`), from the destinations rail.
+        let trimmedArea = area?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let trimmedArea, !trimmedArea.isEmpty {
+            items.append(URLQueryItem(name: "area", value: trimmedArea))
         }
         if let guests, guests > 0 {
             items.append(URLQueryItem(name: "guests", value: String(guests)))
@@ -174,6 +180,26 @@ struct SupabaseService {
     /// Fetch the curated browse regions with their listing counts
     /// (`GET /api/local/regions`). Drives the Explore region chips. Returns an
     /// empty list on a non-2xx so the UI simply falls back to "All".
+    /// The Explore destinations tree (`GET /api/local/destinations`): regions in
+    /// rail order, each with its icon key, count and sub-areas. Throws on any
+    /// failure so the caller can fall back to the flat `/regions` facets.
+    func fetchDestinations() async throws -> [Destination] {
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/destinations")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw SupabaseError.server(status: http.statusCode, body: body)
+        }
+        return try JSONDecoder().decode([Destination].self, from: data)
+    }
+
     func fetchRegions() async throws -> [RegionFacet] {
         let url = URL(string: "\(Config.apiBaseURL)/api/local/regions")!
         var request = URLRequest(url: url)

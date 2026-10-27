@@ -511,6 +511,8 @@ struct QKPulseRing: View {
 struct QKChip: View {
     let title: String
     var count: Int? = nil
+    /// Optional small muted trailing note, e.g. a road marker ("km 124").
+    var suffix: String? = nil
     var isSelected: Bool
     var action: () -> Void
 
@@ -519,6 +521,11 @@ struct QKChip: View {
             HStack(spacing: 6) {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
+                if let suffix {
+                    Text(suffix)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(isSelected ? Color.qkCream.opacity(0.75) : Color.qkMuted)
+                }
                 if let count {
                     Text("\(count)")
                         .font(.system(size: 11, weight: .bold))

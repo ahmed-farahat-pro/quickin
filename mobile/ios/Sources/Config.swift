@@ -16,7 +16,15 @@ enum Config {
     // works on the Simulator/device with no local server. For local dev against
     // `npm run dev`, switch the DEBUG value back to "http://127.0.0.1:3000".
     #if DEBUG
-    static let apiBaseURL = "https://quickin-backend.vercel.app"
+    /// DEBUG only: launch with `-uitestApiBaseURL http://127.0.0.1:4000` to point
+    /// the Simulator at a local backend without editing this file. Absent → prod.
+    static let apiBaseURL: String = {
+        if let override = UserDefaults.standard.string(forKey: "uitestApiBaseURL"),
+           override.hasPrefix("http") {
+            return override
+        }
+        return "https://quickin-backend.vercel.app"
+    }()
     #else
     static let apiBaseURL = "https://quickin-backend.vercel.app"
     #endif

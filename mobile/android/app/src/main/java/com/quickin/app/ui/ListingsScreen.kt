@@ -59,6 +59,22 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Anchor
+import androidx.compose.material.icons.filled.Apartment
+import androidx.compose.material.icons.filled.BeachAccess
+import androidx.compose.material.icons.filled.ChangeHistory
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Sailing
+import androidx.compose.material.icons.filled.SetMeal
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Terrain
+import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.People
@@ -124,6 +140,7 @@ fun ListingsScreen(
     onSearch: (ListingQuery) -> Unit = {},
     onClear: () -> Unit = {},
     onSelectRegion: (String?) -> Unit = {},
+    onSelectArea: (String?) -> Unit = {},
     onSelectSort: (ListingSort) -> Unit = {},
     onApplyFilters: (propertyType: String?, amenities: Set<String>) -> Unit = { _, _ -> },
     onClearFilters: () -> Unit = {},
@@ -179,7 +196,12 @@ fun ListingsScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
-            val listState = rememberLazyListState()
+            val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+            // Hoisted so the rails keep their scroll position (and the selected item stays in
+            // view) when the screen swaps between loading / error / grid, each of which renders
+            // its own copy of the chrome. The sub-area rail restarts when the region changes.
+            val railState = rememberLazyListState()
+            val subAreaState = androidx.compose.runtime.key(state.query.region) { rememberLazyListState() }
             // The banner + search + region/sort + toggle, rendered above every
             // non-list state and as the first item of the list itself.
             val chrome: @Composable () -> Unit = {
@@ -199,8 +221,11 @@ fun ListingsScreen(
                     onPlaceQueryChange = onPlaceQueryChange,
                     onClearPlaceSuggestions = onClearPlaceSuggestions,
                     onSelectRegion = onSelectRegion,
+                    onSelectArea = onSelectArea,
                     onSelectSort = onSelectSort,
                     onOpenFilters = { showFilters = true },
+                    railState = railState,
+                    subAreaState = subAreaState,
                     viewMode = viewMode,
                     onSelectViewMode = { viewMode = it }
                 )
@@ -251,26 +276,48 @@ fun ListingsScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                    // A 2-column grid of compact cards. The banner/chrome and the hero span
+                    // both columns so the whole page still scrolls as one.
+                    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                        state = gridState,
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         // The banner and the discovery chrome scroll with the results.
-                        item { chrome() }
+                        item(
+                            key = "chrome",
+                            span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
+                        ) { chrome() }
                         // Boutique hero atop the list: a Ken Burns cover with a gold
                         // eyebrow + a Playfair-style italic headline, drawn from the
                         // first stay's photo (falls back to a tan placeholder).
-                        item {
+                        item(
+                            key = "hero",
+                            span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
+                        ) {
                             Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 ListingsHero(
                                     imageUrl = state.listings.firstOrNull()?.sortedImageUrls?.firstOrNull()
                                 )
                             }
                         }
-                        items(state.listings) { listing ->
+                        itemsIndexed(
+                            items = state.listings,
+                            key = { _, listing -> listing.id }
+                        ) { index, listing ->
+                            // Outer gutters only: the grid's spacedBy is the inner gutter.
+                            val startCol = index % 2 == 0
                             SlideUpOnAppear {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)) {
-                                    ListingCard(
+                                Box(
+                                    modifier = Modifier.padding(
+                                        start = if (startCol) 16.dp else 0.dp,
+                                        end = if (startCol) 0.dp else 16.dp,
+                                        top = 8.dp,
+                                        bottom = 8.dp
+                                    )
+                                ) {
+                                    CompactListingCard(
                                         listing = listing,
                                         onClick = { onSelect(listing) },
                                         isSaved = savedListingIds.contains(listing.id),
@@ -309,8 +356,11 @@ private fun ExploreChrome(
     onPlaceQueryChange: (String) -> Unit,
     onClearPlaceSuggestions: () -> Unit,
     onSelectRegion: (String?) -> Unit,
+    onSelectArea: (String?) -> Unit,
     onSelectSort: (ListingSort) -> Unit,
     onOpenFilters: () -> Unit,
+    railState: androidx.compose.foundation.lazy.LazyListState,
+    subAreaState: androidx.compose.foundation.lazy.LazyListState,
     viewMode: ViewMode,
     onSelectViewMode: (ViewMode) -> Unit
 ) {
@@ -358,11 +408,31 @@ private fun ExploreChrome(
             onPlaceQueryChange = onPlaceQueryChange,
             onClearPlaceSuggestions = onClearPlaceSuggestions
         )
-        RegionChipsRow(
-            regions = state.regions,
-            selectedRegion = state.query.region,
-            onSelectRegion = onSelectRegion
-        )
+        if (state.destinations.isNotEmpty()) {
+            // Two-level destinations: the icon rail, then (for regions that have them) sub-areas.
+            DestinationRail(
+                destinations = state.destinations,
+                selectedRegion = state.query.region,
+                onSelectRegion = onSelectRegion,
+                listState = railState
+            )
+            val selected = com.quickin.app.DestinationRules.find(state.destinations, state.query.region)
+            if (selected != null && selected.subAreas.isNotEmpty()) {
+                SubAreaRow(
+                    destination = selected,
+                    selectedArea = state.query.area,
+                    onSelectArea = onSelectArea,
+                    listState = subAreaState
+                )
+            }
+        } else {
+            // `/destinations` failed or hasn't loaded: the flat region chips still work.
+            RegionChipsRow(
+                regions = state.regions,
+                selectedRegion = state.query.region,
+                onSelectRegion = onSelectRegion
+            )
+        }
         SortRow(
             selected = state.query.sort,
             onSelect = onSelectSort,
@@ -622,6 +692,140 @@ private fun ViewModeSegment(
     }
 }
 
+/** True when the app UI is in Arabic (per-app locale), so region names use `name_ar`. */
+@Composable
+private fun isArabicUi(): Boolean =
+    androidx.compose.ui.platform.LocalConfiguration.current.locales[0]?.language == "ar"
+
+/** The Material icon for a destination's icon key (see [com.quickin.app.DestinationRules.iconFor]). */
+private fun destinationIcon(key: String?): androidx.compose.ui.graphics.vector.ImageVector =
+    when (com.quickin.app.DestinationRules.iconFor(key)) {
+        com.quickin.app.DestinationIcon.WAVES -> Icons.Filled.Waves
+        com.quickin.app.DestinationIcon.SUNRISE -> Icons.Filled.WbTwilight
+        com.quickin.app.DestinationIcon.WIND -> Icons.Filled.Air
+        com.quickin.app.DestinationIcon.LANDMARK -> Icons.Filled.AccountBalance
+        com.quickin.app.DestinationIcon.BUILDING -> Icons.Filled.Apartment
+        com.quickin.app.DestinationIcon.PYRAMID -> Icons.Filled.ChangeHistory
+        com.quickin.app.DestinationIcon.ANCHOR -> Icons.Filled.Anchor
+        com.quickin.app.DestinationIcon.UMBRELLA -> Icons.Filled.BeachAccess
+        com.quickin.app.DestinationIcon.FISH -> Icons.Filled.SetMeal
+        com.quickin.app.DestinationIcon.SAILBOAT -> Icons.Filled.Sailing
+        com.quickin.app.DestinationIcon.SHELL -> Icons.Filled.Spa
+        com.quickin.app.DestinationIcon.MOUNTAIN -> Icons.Filled.Terrain
+        com.quickin.app.DestinationIcon.PLACE -> Icons.Filled.Place
+    }
+
+/**
+ * The destinations rail: icon-over-label items ("All" first, then each region in the server's
+ * order). The selected item turns Burgundy with an underline; the rest are Muted. A LazyRow,
+ * so it mirrors automatically in RTL.
+ */
+@Composable
+private fun DestinationRail(
+    destinations: List<com.quickin.app.Destination>,
+    selectedRegion: String?,
+    onSelectRegion: (String?) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState
+) {
+    val arabic = isArabicUi()
+    LazyRow(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        item(key = "all") {
+            DestinationRailItem(
+                icon = Icons.Filled.Explore,
+                label = stringResource(R.string.filter_all),
+                selected = selectedRegion.isNullOrBlank(),
+                onClick = { onSelectRegion(null) }
+            )
+        }
+        items(destinations, key = { it.slug }) { d ->
+            DestinationRailItem(
+                icon = destinationIcon(d.icon),
+                label = com.quickin.app.DestinationRules.displayName(d, arabic),
+                selected = selectedRegion.equals(d.name, ignoreCase = true),
+                onClick = { onSelectRegion(d.name) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DestinationRailItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val tint = if (selected) Burgundy else Muted
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .defaultMinSize(minWidth = 68.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .semantics { this.contentDescription = label }
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            color = if (selected) Burgundy else Muted,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .width(28.dp)
+                .height(2.dp)
+                .background(if (selected) Burgundy else Color.Transparent, RoundedCornerShape(1.dp))
+        )
+    }
+}
+
+/**
+ * Sub-areas of the selected region, in the existing chip style: "All · N" (N = how many sub-areas, as on web),
+ * then each sub-area with its km marker as a small muted suffix when it has one.
+ */
+@Composable
+private fun SubAreaRow(
+    destination: com.quickin.app.Destination,
+    selectedArea: String?,
+    onSelectArea: (String?) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState
+) {
+    val arabic = isArabicUi()
+    LazyRow(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        item(key = "all") {
+            FilterChipPill(
+                label = "${stringResource(R.string.filter_all)} · ${destination.subAreas.size}",
+                selected = selectedArea.isNullOrBlank(),
+                onClick = { onSelectArea(null) }
+            )
+        }
+        items(destination.subAreas, key = { it.slug }) { area ->
+            val km = com.quickin.app.DestinationRules.kmNumber(area.kmMarker)
+            FilterChipPill(
+                label = com.quickin.app.DestinationRules.displayName(area, arabic),
+                selected = selectedArea == area.slug,
+                onClick = { onSelectArea(area.slug) },
+                suffix = km?.let { stringResource(R.string.explore_km_marker, it) }
+            )
+        }
+    }
+}
+
 /**
  * Horizontal chip row of curated regions under the search field. Leads with an "All" chip
  * (clears the region filter), then one chip per region showing its count (e.g. "Ain Sokhna · 2").
@@ -742,7 +946,13 @@ private fun FiltersButton(count: Int, onClick: () -> Unit) {
 
 /** A pill-shaped filter chip: filled Burgundy/white when selected, outlined Tan over white otherwise. */
 @Composable
-private fun FilterChipPill(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun FilterChipPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    /** Optional small muted trailing text (e.g. a sub-area's "km 124"). */
+    suffix: String? = null
+) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(50),
@@ -751,13 +961,26 @@ private fun FilterChipPill(label: String, selected: Boolean, onClick: () -> Unit
         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Burgundy else Tan),
         shadowElevation = if (selected) 2.dp else 0.dp
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-        )
+        ) {
+            Text(
+                label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            if (suffix != null) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    suffix,
+                    fontSize = 11.sp,
+                    color = if (selected) Color.White.copy(alpha = 0.75f) else Muted,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 
@@ -1458,6 +1681,115 @@ private fun ListingCard(
                     Text(stringResource(R.string.listing_per_night), color = Muted, fontSize = 14.sp)
                 }
             }
+        }
+    }
+}
+
+/**
+ * The compact 2-column feed card: a square rounded photo (same Ken Burns cover, gradient and
+ * springy heart as [ListingCard]), then title + rating, the location line and the nightly price
+ * in ListingCard's typography, scaled down for half the width.
+ */
+@Composable
+private fun CompactListingCard(
+    listing: Listing,
+    onClick: () -> Unit,
+    isSaved: Boolean = false,
+    onToggleSaved: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(20.dp))
+        ) {
+            KenBurnsImage(
+                url = listing.sortedImageUrls.firstOrNull(),
+                contentDescription = listing.title,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.55f to Color.Transparent,
+                            1f to Ink.copy(alpha = 0.35f)
+                        )
+                    )
+            )
+            if (listing.isGuestFavorite) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.94f),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = stringResource(R.string.listing_guest_favorite),
+                        tint = Gold,
+                        modifier = Modifier.padding(6.dp).size(14.dp)
+                    )
+                }
+            }
+            HeartButton(
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                filled = isSaved,
+                onToggle = onToggleSaved,
+                size = 30.dp
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Text(
+                listing.title,
+                fontWeight = FontWeight.Bold,
+                color = Ink,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(Modifier.width(4.dp))
+            RatingOrNew(
+                rating = listing.rating,
+                reviewCount = listing.reviewCount,
+                starSize = 12.dp,
+                fontSize = 12.sp
+            )
+        }
+        val place = listing.location?.takeIf { it.isNotBlank() } ?: listing.region?.takeIf { it.isNotBlank() }
+        if (place != null) {
+            Text(
+                place,
+                color = Muted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                CurrencyManager.format(listing.pricePerNight),
+                fontWeight = FontWeight.Bold,
+                color = Burgundy,
+                fontSize = 14.sp
+            )
+            Text(stringResource(R.string.listing_per_night), color = Muted, fontSize = 12.sp, maxLines = 1)
         }
     }
 }

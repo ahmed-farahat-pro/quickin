@@ -112,7 +112,7 @@ targets:
         # version record is in is one CLOSED_APP_STORE_STATES does not list, so
         # the guard is a denylist that fails OPEN. 1.6.0 is what that closing
         # opened.
-        MARKETING_VERSION: "1.9.0"
+        MARKETING_VERSION: "1.10.0"
         # Build number must be unique across every train, forever — a number is
         # burned even by an upload that later goes INVALID. fastlane's beta lane
         # overrides this at build time with (highest number it can find) + 1, and

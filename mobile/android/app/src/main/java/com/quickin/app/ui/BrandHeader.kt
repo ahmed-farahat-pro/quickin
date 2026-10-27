@@ -257,7 +257,7 @@ private fun QkBrandTitle(title: String, wordmark: Boolean, reveal: Float) {
             var size by remember(maxWidth) { mutableStateOf(38.sp) }
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(color = Cream)) { append("Quick") }
+                    withStyle(SpanStyle(color = Cream)) { append("Quick ") }
                     withStyle(SpanStyle(color = GoldLight)) { append("In") }
                 },
                 fontSize = size,

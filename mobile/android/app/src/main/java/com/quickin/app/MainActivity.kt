@@ -1565,6 +1565,7 @@ private fun MainApp() {
                     onSearch = listingsViewModel::search,
                     onClear = listingsViewModel::clear,
                     onSelectRegion = listingsViewModel::selectRegion,
+                    onSelectArea = listingsViewModel::selectArea,
                     onSelectSort = listingsViewModel::setSort,
                     onApplyFilters = listingsViewModel::applyFilters,
                     onClearFilters = listingsViewModel::clearFilters,

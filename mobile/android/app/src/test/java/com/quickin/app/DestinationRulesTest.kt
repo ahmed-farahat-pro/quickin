@@ -93,4 +93,16 @@ class DestinationRulesTest {
         assertTrue(DestinationRules.subAreasFor(all, null).isEmpty())
         assertTrue(DestinationRules.subAreasFor(emptyList(), "North Coast").isEmpty())
     }
+
+    @Test
+    fun `the server's Other chip is just another sub-area and selects area=other`() {
+        // As GET /api/local/destinations sends it for listings whose host typed their own resort.
+        val other = SubArea(id = "other-north-coast", slug = "other", name = "Other", nameAr = "أخرى", count = 3)
+        val tree = listOf(northCoast.copy(count = 5, subAreas = northCoast.subAreas + other))
+        val chips = DestinationRules.subAreasFor(tree, "North Coast")
+        assertEquals(listOf("marassi", "other"), chips.map { it.slug })
+        assertEquals("أخرى", DestinationRules.displayName(chips.last(), true))
+        assertNull(DestinationRules.kmNumber(chips.last().kmMarker))
+        assertEquals("other", DestinationRules.selectArea(ListingQuery(region = "North Coast"), "other").area)
+    }
 }

@@ -69,6 +69,19 @@ check(DestinationRules.subAreas(for: "North Coast", in: tree).map(\.slug) == ["m
 check(DestinationRules.subAreas(for: "Dahab", in: tree).isEmpty, "no sub row for Dahab")
 check(DestinationRules.subAreas(for: nil, in: tree).isEmpty, "no sub row for All")
 
+print("\nThe server's catch-all Other chip (typed resorts) is just another sub-area")
+let otherJson = """
+[{"name":"North Coast","slug":"north-coast","count":5,
+  "sub_areas":[{"id":"a","slug":"marassi","name":"Marassi","count":2},
+               {"id":"other-north-coast","slug":"other","name":"Other","name_ar":"أخرى","km_marker":null,"location_note":null,"count":3}]}]
+"""
+let otherTree = try! JSONDecoder().decode([Destination].self, from: Data(otherJson.utf8))
+let otherChip = DestinationRules.subAreas(for: "North Coast", in: otherTree).last
+check(otherChip?.slug == "other" && otherChip?.count == 3, "Other decodes as the last chip")
+check(DestinationRules.displayName(english: otherChip?.name ?? "", arabic: otherChip?.nameAr, isArabic: true) == "أخرى", "Other shows its Arabic name")
+var otherSel = DestinationSelection(region: "North Coast")
+check(otherSel.selectArea("other") && otherSel.area == "other", "picking Other sends area=other")
+
 print("\nFallback from flat /regions facets")
 let fb = DestinationRules.fallback(fromFacets: [(region: "Ain Sokhna", count: 4), (region: "Atlantis", count: 1)])
 check(fb.map(\.slug) == ["ain-sokhna", "atlantis"], "slugs derived from names")

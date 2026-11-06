@@ -568,8 +568,10 @@ struct BookingService {
     /// therefore not optional — without it a host would see, and then edit, the
     /// marked-up price as if it were their own.
     ///
-    /// `start`/`end` are `yyyy-MM-dd`. Public (no auth required).
-    func fetchCalendar(listingID: String, start: String, end: String) async throws -> ListingCalendar {
+    /// `start`/`end` are `yyyy-MM-dd`. Public (no auth required). `asGuest` drops
+    /// the token, for the reserve calendar: a host previewing their own listing
+    /// must see the prices a guest pays, not their raw rates.
+    func fetchCalendar(listingID: String, start: String, end: String, asGuest: Bool = false) async throws -> ListingCalendar {
         let encoded = listingID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? listingID
         var components = URLComponents(string: "\(Config.apiBaseURL)/api/local/listings/\(encoded)/calendar")!
         components.queryItems = [
@@ -578,7 +580,7 @@ struct BookingService {
         ]
         var request = URLRequest(url: components.url!)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if !asGuest, let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {

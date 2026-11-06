@@ -390,6 +390,9 @@
     <string name="cd_ai_close">Cerrar la conserjería</string>
     <string name="availability_unavailable">No disponible</string>
     <string name="availability_range_unavailable">Algunas de esas noches ya están reservadas o bloqueadas. Elija un intervalo diferente.</string>
+    <string name="booking_calendar_prices">Precios por noche en %1$s</string>
+    <string name="booking_calendar_lower">Más barato</string>
+    <string name="booking_calendar_higher">Más caro</string>
     <string name="availability_manage">Gestionar la disponibilidad</string>
     <string name="availability_manage_subtitle">Bloquee las fechas en que su alojamiento no esté disponible. Los alojamientos reservados aparecen abajo y no se pueden eliminar.</string>
     <string name="availability_pick_range">Elija un intervalo de fechas para bloquear</string>

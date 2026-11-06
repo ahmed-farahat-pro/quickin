@@ -29,13 +29,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.quickin.app.AvailabilityRange
+import com.quickin.app.BookingCalendarRules
+import com.quickin.app.CalendarDay
+import com.quickin.app.DayStatus
 import com.quickin.app.R
+import com.quickin.app.SupabaseService
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +72,8 @@ import java.util.Locale
  * @param unavailableRanges booked + host-blocked spans for this listing. Each span is half-open
  *   `[start, end)` (the checkout day is free again); a day is greyed out + unselectable when it
  *   falls in any span, and a check-in → check-out range that straddles such a span is rejected.
+ * @param listingId when set, each day shows its guest nightly price from the listing's public
+ *   calendar (fetched a month at a time), coloured against the base rate. Null from Explore.
  * @param onApply called with the chosen range (yyyy-MM-dd strings, or nulls) and dismisses.
  * @param onDismiss called when the sheet is dismissed without applying.
  */
@@ -75,6 +83,7 @@ fun DateRangePickerSheet(
     initialCheckIn: String?,
     initialCheckOut: String?,
     unavailableRanges: List<AvailabilityRange> = emptyList(),
+    listingId: String? = null,
     onApply: (checkIn: String?, checkOut: String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -101,6 +110,29 @@ fun DateRangePickerSheet(
     var visibleMonth by remember {
         mutableStateOf(YearMonth.from(start ?: today))
     }
+
+    // Guest nightly prices by yyyy-MM-dd, one month per request, kept while the sheet is open so
+    // paging back is instant. A failed month stays plain and is retried when next shown.
+    val nightPrices = remember { mutableStateMapOf<String, CalendarDay>() }
+    var basePrice by remember { mutableStateOf(0.0) }
+    var currency by remember { mutableStateOf("EGP") }
+    val requestedMonths = remember { mutableSetOf<YearMonth>() }
+    LaunchedEffect(listingId, visibleMonth) {
+        if (listingId == null) return@LaunchedEffect
+        for (month in BookingCalendarRules.monthsToLoad(visibleMonth)) {
+            if (!requestedMonths.add(month)) continue
+            val (from, to) = BookingCalendarRules.monthWindow(month)
+            val cal = SupabaseService.fetchGuestCalendar(listingId, from, to)
+            if (cal == null) {
+                requestedMonths.remove(month)
+                continue
+            }
+            basePrice = cal.basePrice
+            currency = cal.currency
+            cal.days.forEach { nightPrices[it.date] = it }
+        }
+    }
+    val prices = if (listingId != null) NightPrices(nightPrices, basePrice) else null
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -149,6 +181,7 @@ fun DateRangePickerSheet(
                 start = start,
                 end = end,
                 isUnavailable = isUnavailable,
+                prices = prices,
                 onDayClick = { day ->
                     when {
                         // No start yet, or a full range already chosen -> begin a new range.
@@ -177,6 +210,10 @@ fun DateRangePickerSheet(
                     }
                 }
             )
+
+            if (prices != null && nightPrices.isNotEmpty()) {
+                PriceLegend(prices, currency)
+            }
 
             if (straddleWarning) {
                 Spacer(Modifier.height(8.dp))
@@ -273,6 +310,7 @@ private fun MonthGrid(
     start: LocalDate?,
     end: LocalDate?,
     isUnavailable: (LocalDate) -> Boolean,
+    prices: NightPrices?,
     onDayClick: (LocalDate) -> Unit
 ) {
     val daysInMonth = month.lengthOfMonth()
@@ -300,6 +338,7 @@ private fun MonthGrid(
                                 start = start,
                                 end = end,
                                 unavailable = isUnavailable(day),
+                                prices = prices,
                                 onClick = { onDayClick(day) }
                             )
                         }
@@ -317,6 +356,7 @@ private fun DayCell(
     start: LocalDate?,
     end: LocalDate?,
     unavailable: Boolean,
+    prices: NightPrices?,
     onClick: () -> Unit
 ) {
     val isPast = day.isBefore(today)
@@ -333,22 +373,25 @@ private fun DayCell(
     val bandStartHalf = inBetween || (isStart && end != null) || (isEnd)
     val bandEndHalf = inBetween || (isEnd && start != null) || (isStart && end != null)
 
+    // With prices the day mark is a 40×48 pill holding the date over its price.
+    val markHeight = if (prices != null) 48.dp else 40.dp
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .then(if (prices != null) Modifier.height(52.dp) else Modifier.aspectRatio(1f))
             .clickable(enabled = !isDisabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         // Range band behind the circle (only when there's a full range to span).
         if (start != null && end != null && (inBetween || isEndpoint) && day in start..end) {
-            Box(modifier = Modifier.fillMaxWidth().height(40.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(markHeight)) {
                 if (bandStartHalf) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .fillMaxWidth(0.5f)
-                            .height(40.dp)
+                            .height(markHeight)
                             .background(Tan)
                     )
                 }
@@ -357,7 +400,7 @@ private fun DayCell(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxWidth(0.5f)
-                            .height(40.dp)
+                            .height(markHeight)
                             .background(Tan)
                     )
                 }
@@ -368,35 +411,93 @@ private fun DayCell(
         // so they read as "taken" rather than merely dim.
         val circleModifier = when {
             isEndpoint -> Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(50))
+                .size(width = 40.dp, height = markHeight)
+                .clip(shape)
                 .background(Burgundy)
             unavailable && !isPast -> Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(50))
+                .size(width = 40.dp, height = markHeight)
+                .clip(shape)
                 .background(Tan.copy(alpha = 0.45f))
             isToday -> Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(50))
-                .border(1.5.dp, Burgundy, RoundedCornerShape(50))
-            else -> Modifier.size(40.dp)
+                .size(width = 40.dp, height = markHeight)
+                .clip(shape)
+                .border(1.5.dp, Burgundy, shape)
+            else -> Modifier.size(width = 40.dp, height = markHeight)
         }
 
         Box(modifier = circleModifier, contentAlignment = Alignment.Center) {
-            Text(
-                text = day.dayOfMonth.toString(),
-                color = when {
-                    isEndpoint -> Color.White
-                    isDisabled -> Muted.copy(alpha = 0.35f)
-                    else -> Ink
-                },
-                // Strike through booked/blocked days so they're unmistakably unavailable.
-                textDecoration = if (unavailable && !isEndpoint)
-                    androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
-                fontWeight = if (isEndpoint || isToday) FontWeight.Bold else FontWeight.Normal,
-                fontSize = 14.sp
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = day.dayOfMonth.toString(),
+                    color = when {
+                        isEndpoint -> Color.White
+                        isDisabled -> Muted.copy(alpha = 0.35f)
+                        else -> Ink
+                    },
+                    // Strike through booked/blocked days so they're unmistakably unavailable.
+                    textDecoration = if (unavailable && !isEndpoint)
+                        androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
+                    fontWeight = if (isEndpoint || isToday) FontWeight.Bold else FontWeight.Normal,
+                    fontSize = 14.sp
+                )
+                if (prices != null) {
+                    // Past and booked/blocked days show no price; a blank keeps rows level.
+                    val night = prices.byDate[day.toString()]
+                    val show = !isDisabled && night?.status == DayStatus.AVAILABLE
+                    val tone = if (show) BookingCalendarRules.tone(night!!.price, prices.base)
+                        else BookingCalendarRules.Tone.BASE
+                    Text(
+                        text = if (show) BookingCalendarRules.formatPrice(night!!.price) else " ",
+                        color = if (isEndpoint) Color.White else toneColor(tone),
+                        fontWeight = if (tone == BookingCalendarRules.Tone.BASE) FontWeight.Medium else FontWeight.Bold,
+                        fontSize = 9.sp,
+                        lineHeight = 10.sp,
+                        maxLines = 1
+                    )
+                }
+            }
         }
+    }
+}
+
+/** What each day cell needs to paint its price. */
+private class NightPrices(val byDate: Map<String, CalendarDay>, val base: Double)
+
+private val LowerGreen = Color(0xFF2E7D4F)
+
+private fun toneColor(tone: BookingCalendarRules.Tone): Color = when (tone) {
+    BookingCalendarRules.Tone.LOWER -> LowerGreen
+    BookingCalendarRules.Tone.HIGHER -> Burgundy
+    BookingCalendarRules.Tone.BASE -> Muted
+}
+
+@Composable
+private fun PriceLegend(prices: NightPrices, currency: String) {
+    val tones = prices.byDate.values
+        .filter { it.status == DayStatus.AVAILABLE }
+        .map { BookingCalendarRules.tone(it.price, prices.base) }
+        .toSet()
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(stringResource(R.string.booking_calendar_prices, currency), color = Muted, fontSize = 12.sp)
+        if (BookingCalendarRules.Tone.LOWER in tones) {
+            LegendDot(LowerGreen, stringResource(R.string.booking_calendar_lower))
+        }
+        if (BookingCalendarRules.Tone.HIGHER in tones) {
+            LegendDot(Burgundy, stringResource(R.string.booking_calendar_higher))
+        }
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color))
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = Muted, fontSize = 12.sp)
     }
 }
 

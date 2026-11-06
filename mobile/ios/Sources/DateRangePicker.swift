@@ -27,6 +27,10 @@ struct DateRangePicker: View {
     /// from the Explore search header (no specific listing).
     var unavailableRanges: [AvailabilityRange] = []
 
+    /// When set, each day shows the guest's nightly price from the listing's
+    /// public calendar, coloured against the base rate. Nil from Explore search.
+    var listingID: String? = nil
+
     @Environment(\.dismiss) private var dismiss
 
     // Local working selection — only pushed to the bindings on Apply so the
@@ -35,6 +39,12 @@ struct DateRangePicker: View {
     @State private var draftOut: Date?
     /// First day of the month currently shown in the grid.
     @State private var visibleMonth: Date
+    /// Guest nightly prices by `yyyy-MM-dd`, one month fetched at a time and
+    /// kept while the sheet is open, so paging back is instant.
+    @State private var nightPrices: [String: CalendarDay] = [:]
+    @State private var basePrice: Double = 0
+    @State private var currency = "EGP"
+    @State private var requestedMonths: Set<String> = []
 
     private let calendar = DateRangePicker.makeCalendar()
 
@@ -46,10 +56,12 @@ struct DateRangePicker: View {
     init(checkIn: Binding<Date?>,
          checkOut: Binding<Date?>,
          unavailableRanges: [AvailabilityRange] = [],
+         listingID: String? = nil,
          onApply: @escaping (Date?, Date?) -> Void) {
         self._checkIn = checkIn
         self._checkOut = checkOut
         self.unavailableRanges = unavailableRanges
+        self.listingID = listingID
         self.onApply = onApply
 
         let cal = DateRangePicker.makeCalendar()
@@ -89,11 +101,14 @@ struct DateRangePicker: View {
             header
             weekdayRow
             grid
+            priceLegend
             Spacer(minLength: 8)
             footer
         }
+        .task(id: visibleMonth) { await loadPrices() }
         .background(Color.qkCream.ignoresSafeArea())
-        .presentationDetents([.medium, .large])
+        // Price rows make the grid too tall for the medium detent's header.
+        .presentationDetents(listingID == nil ? [.medium, .large] : [.large])
         .presentationDragIndicator(.hidden)
     }
 
@@ -170,7 +185,7 @@ struct DateRangePicker: View {
                 if let day {
                     dayCell(day)
                 } else {
-                    Color.clear.frame(height: 44)
+                    Color.clear.frame(height: cellHeight)
                 }
             }
         }
@@ -198,29 +213,34 @@ struct DateRangePicker: View {
                 // edge of each endpoint) so the range reads as one strip.
                 rangeBand(isStart: isStart, isEnd: isEnd, isBetween: isBetween)
 
-                // Endpoint solid burgundy circle.
+                // Endpoint solid burgundy circle (a pill when it also holds a price).
                 if isEndpoint {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .fill(Color.qkBurgundy)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 40, height: markHeight)
                 }
 
                 // Today ring (only when not selected).
                 if isToday && !isEndpoint {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .strokeBorder(Color.qkBurgundy.opacity(0.5), lineWidth: 1.5)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 40, height: markHeight)
                 }
 
-                Text("\(calendar.component(.day, from: day))")
-                    .font(.system(size: 16, weight: isEndpoint ? .bold : .regular))
-                    .foregroundStyle(dayTextColor(isEndpoint: isEndpoint, isBetween: isBetween, isPast: isPast, isUnavailable: isUnavailable))
-                    // A thin strike-through marks booked/blocked days so they
-                    // read as taken even for color-blind users.
-                    .strikethrough(isUnavailable && !isEndpoint, color: Color.qkMuted.opacity(0.5))
+                VStack(spacing: 2) {
+                    Text("\(calendar.component(.day, from: day))")
+                        .font(.system(size: 16, weight: isEndpoint ? .bold : .regular))
+                        .foregroundStyle(dayTextColor(isEndpoint: isEndpoint, isBetween: isBetween, isPast: isPast, isUnavailable: isUnavailable))
+                        // A thin strike-through marks booked/blocked days so they
+                        // read as taken even for color-blind users.
+                        .strikethrough(isUnavailable && !isEndpoint, color: Color.qkMuted.opacity(0.5))
+                    if listingID != nil {
+                        priceLabel(for: day, hidden: isDisabled, onEndpoint: isEndpoint)
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: cellHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -236,25 +256,102 @@ struct DateRangePicker: View {
         if isBetween {
             Rectangle()
                 .fill(Color.qkTan)
-                .frame(height: 40)
+                .frame(height: markHeight)
         } else if isStart && draftOut != nil {
             // Band extends to the right (toward the range).
             HStack(spacing: 0) {
                 Color.clear
                 Rectangle().fill(Color.qkTan)
             }
-            .frame(height: 40)
+            .frame(height: markHeight)
         } else if isEnd && draftIn != nil && !(draftIn.map { calendar.isDate($0, inSameDayAs: endDay) } ?? false) {
             // Band extends to the left.
             HStack(spacing: 0) {
                 Rectangle().fill(Color.qkTan)
                 Color.clear
             }
-            .frame(height: 40)
+            .frame(height: markHeight)
         }
     }
 
     private var endDay: Date { draftOut ?? today }
+
+    /// Taller cells when a price sits under the date.
+    private var cellHeight: CGFloat { listingID == nil ? 44 : 52 }
+    private var markHeight: CGFloat { listingID == nil ? 40 : 48 }
+
+    // MARK: - Nightly prices
+
+    /// The guest price under a day, coloured against the base rate. Past and
+    /// unavailable days show none; a blank keeps every row the same height.
+    private func priceLabel(for day: Date, hidden: Bool, onEndpoint: Bool) -> some View {
+        let night = nightPrices[ymd(day)]
+        let show = !hidden && night?.status == .available
+        let tone = show ? BookingCalendarRules.tone(price: night!.price, base: basePrice) : .base
+        let color: Color = onEndpoint ? .white
+            : tone == .lower ? Self.lowerGreen
+            : tone == .higher ? Color.qkBurgundy
+            : Color.qkMuted
+        return Text(show ? BookingCalendarRules.formatPrice(night!.price) : " ")
+            .font(.system(size: 9.5, weight: tone == .base ? .medium : .bold))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+
+    private static let lowerGreen = Color(red: 0x2E / 255, green: 0x7D / 255, blue: 0x4F / 255)
+
+    @ViewBuilder
+    private var priceLegend: some View {
+        if listingID != nil, !nightPrices.isEmpty {
+            HStack(spacing: 12) {
+                Text(String(format: L.t("booking.calendar.prices"), currency))
+                if nightPrices.values.contains(where: { BookingCalendarRules.tone(price: $0.price, base: basePrice) == .lower }) {
+                    legendDot(Self.lowerGreen, L.t("booking.calendar.lower"))
+                }
+                if nightPrices.values.contains(where: { BookingCalendarRules.tone(price: $0.price, base: basePrice) == .higher }) {
+                    legendDot(Color.qkBurgundy, L.t("booking.calendar.higher"))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(Color.qkMuted)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(label)
+        }
+    }
+
+    /// Fetch the visible month and the next one, each once. A failure leaves the
+    /// month plain and is retried when it next comes on screen.
+    private func loadPrices() async {
+        guard let listingID else { return }
+        let comps = calendar.dateComponents([.year, .month], from: visibleMonth)
+        guard let year = comps.year, let month = comps.month else { return }
+        for key in BookingCalendarRules.monthsToLoad(year: year, month: month) where !requestedMonths.contains(key) {
+            requestedMonths.insert(key)
+            let window = BookingCalendarRules.monthWindow(key)
+            do {
+                let cal = try await BookingService.shared.fetchCalendar(
+                    listingID: listingID, start: window.start, end: window.end, asGuest: true)
+                basePrice = cal.basePrice
+                currency = cal.currency
+                for d in cal.days { nightPrices[d.date] = d }
+            } catch {
+                requestedMonths.remove(key)
+            }
+        }
+    }
+
+    private func ymd(_ day: Date) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: day)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
 
     private func dayTextColor(isEndpoint: Bool, isBetween: Bool, isPast: Bool, isUnavailable: Bool) -> Color {
         if isEndpoint { return .white }

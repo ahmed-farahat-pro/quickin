@@ -894,6 +894,9 @@ enum Strings {
 
         // Availability (live calendar + host block/unblock)
         "availability.unavailable": "Unavailable",
+        "booking.calendar.prices": "Nightly prices in %@",
+        "booking.calendar.lower": "Lower",
+        "booking.calendar.higher": "Higher",
         "availability.manage": "Manage availability",
         "availability.blockDates": "Block dates",
         "availability.blocked": "Blocked dates",
@@ -1964,6 +1967,9 @@ enum Strings {
 
         // Availability (live calendar + host block/unblock)
         "availability.unavailable": "غير متاح",
+        "booking.calendar.prices": "أسعار الليلة بـ %@",
+        "booking.calendar.lower": "أقل",
+        "booking.calendar.higher": "أعلى",
         "availability.manage": "إدارة التوفر",
         "availability.blockDates": "حظر تواريخ",
         "availability.blocked": "التواريخ المحظورة",
@@ -2971,6 +2977,9 @@ enum Strings {
         "listing.edit.field.coordinates": "Coordonnées",
         "listing.edit.field.amenities": "Équipements",
         "availability.unavailable": "Indisponible",
+        "booking.calendar.prices": "Prix par nuit en %@",
+        "booking.calendar.lower": "Moins cher",
+        "booking.calendar.higher": "Plus cher",
         "availability.manage": "Gérer la disponibilité",
         "availability.blockDates": "Bloquer des dates",
         "availability.blocked": "Dates bloquées",
@@ -3956,6 +3965,9 @@ enum Strings {
         "listing.edit.field.coordinates": "Coordenadas",
         "listing.edit.field.amenities": "Servicios",
         "availability.unavailable": "No disponible",
+        "booking.calendar.prices": "Precios por noche en %@",
+        "booking.calendar.lower": "Más barato",
+        "booking.calendar.higher": "Más caro",
         "availability.manage": "Gestionar disponibilidad",
         "availability.blockDates": "Bloquear fechas",
         "availability.blocked": "Fechas bloqueadas",

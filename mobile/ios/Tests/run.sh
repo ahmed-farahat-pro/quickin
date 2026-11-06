@@ -100,3 +100,9 @@ swiftc -o "$OUT/destination-rules" \
   Tests/DestinationRulesTests/main.swift \
   Sources/DestinationRules.swift
 "$OUT/destination-rules"
+
+echo "\nBookingCalendarRules — the nightly prices painted on the guest reserve calendar\n"
+swiftc -o "$OUT/booking-calendar-rules" \
+  Tests/BookingCalendarRulesTests/main.swift \
+  Sources/BookingCalendarRules.swift
+"$OUT/booking-calendar-rules"

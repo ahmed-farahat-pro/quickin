@@ -310,6 +310,34 @@ object SupabaseService {
             }.getOrNull()
         }
 
+    /**
+     * A listing's calendar as a GUEST sees it (`GET /api/local/listings/:id/calendar`, sent with
+     * no token): commission-inclusive nightly prices plus each day's status, for the reserve
+     * calendar. No token on purpose — a host previewing their own listing must see what a guest
+     * pays, not their raw rates. [start]/[end] are yyyy-MM-dd, inclusive. Null on any failure.
+     */
+    suspend fun fetchGuestCalendar(listingId: String, start: String, end: String): ListingCalendar? =
+        withContext(Dispatchers.IO) {
+            if (listingId.isBlank()) return@withContext null
+            runCatching {
+                val urlStr = "${Config.API_BASE_URL}/api/local/listings/${URLEncoder.encode(listingId, "UTF-8")}" +
+                    "/calendar?start=$start&end=$end"
+                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 15_000
+                    readTimeout = 15_000
+                    setRequestProperty("Accept", "application/json")
+                }
+                try {
+                    if (conn.responseCode !in 200..299) return@runCatching null
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    parseListingCalendar(org.json.JSONObject(body))
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrNull()
+        }
+
     /** Parses the `{ nights, subtotal, discountPercent, total, nightlyAvg, currency, hasSeasonalPricing }` quote. */
     private fun parseStayQuote(o: org.json.JSONObject): StayQuote = StayQuote(
         nights = o.optInt("nights", 0),

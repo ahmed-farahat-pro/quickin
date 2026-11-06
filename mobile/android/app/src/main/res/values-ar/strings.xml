@@ -461,6 +461,9 @@
     <!-- Availability (live booked/blocked days + host calendar manager) -->
     <string name="availability_unavailable">غير متاح</string>
     <string name="availability_range_unavailable">بعض هذه الليالي محجوزة أو محظورة بالفعل. اختر فترة أخرى.</string>
+    <string name="booking_calendar_prices">أسعار الليلة بـ %1$s</string>
+    <string name="booking_calendar_lower">أقل</string>
+    <string name="booking_calendar_higher">أعلى</string>
     <string name="availability_manage">إدارة الإتاحة</string>
     <string name="availability_manage_subtitle">احظر التواريخ التي يكون فيها مكانك غير متاح. تظهر الحجوزات أدناه ولا يمكن إزالتها.</string>
     <string name="availability_pick_range">اختر فترة تواريخ لحظرها</string>

@@ -469,6 +469,9 @@
     <!-- Availability (live booked/blocked days + host calendar manager) -->
     <string name="availability_unavailable">Unavailable</string>
     <string name="availability_range_unavailable">Some of those nights are already booked or blocked. Pick a different range.</string>
+    <string name="booking_calendar_prices">Nightly prices in %1$s</string>
+    <string name="booking_calendar_lower">Lower</string>
+    <string name="booking_calendar_higher">Higher</string>
     <string name="availability_manage">Manage availability</string>
     <string name="availability_manage_subtitle">Block dates when your place is unavailable. Booked stays show below and can\'t be removed.</string>
     <string name="availability_pick_range">Pick a date range to block</string>

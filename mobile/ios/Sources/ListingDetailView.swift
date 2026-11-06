@@ -200,7 +200,8 @@ struct ListingDetailView: View {
             DateRangePicker(
                 checkIn: Binding(get: { checkIn }, set: { if let v = $0 { checkIn = v } }),
                 checkOut: Binding(get: { checkOut }, set: { if let v = $0 { checkOut = v } }),
-                unavailableRanges: availability
+                unavailableRanges: availability,
+                listingID: listing.id
             ) { ci, co in
                 if let ci { checkIn = ci }
                 // Keep check-out strictly after check-in; default to +1 night when

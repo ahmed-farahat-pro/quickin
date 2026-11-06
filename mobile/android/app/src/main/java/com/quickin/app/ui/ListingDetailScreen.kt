@@ -918,6 +918,7 @@ private fun ReservePanel(
             initialCheckIn = checkIn.ifBlank { null },
             initialCheckOut = checkOut.ifBlank { null },
             unavailableRanges = unavailableRanges,
+            listingId = listing.id,
             onApply = { ci, co ->
                 checkIn = ci ?: ""
                 checkOut = co ?: ""

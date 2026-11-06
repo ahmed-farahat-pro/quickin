@@ -81,6 +81,7 @@
 		ABA952F1B033EA9E79761024 /* SupabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDBA774E41AB5B4BF494B022 /* SupabaseService.swift */; };
 		ABBEF04860655DEE7A15C25D /* ProfileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1D518D49407DEBC5D7E1D38 /* ProfileSettingsView.swift */; };
 		B47459BCF13C767DDBB923AD /* TrustBadgesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CC0D0162466B929761D78FF /* TrustBadgesView.swift */; };
+		B5F937DA911C66363B4EA2F4 /* BookingCalendarRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AED05E26E9439EDAEF617C /* BookingCalendarRules.swift */; };
 		B6DA0E801D4B54FB9C0DB254 /* TrustService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045C8B1A5424C99A5573D531 /* TrustService.swift */; };
 		B74C714BB70ECC376B8B795F /* OwnershipDocRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628A74BFFE21FBB963780B7E /* OwnershipDocRules.swift */; };
 		BD012D249ED95C87C11CDF3D /* PayoutMethodView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACC8BD9BD5635CCB854D12E /* PayoutMethodView.swift */; };
@@ -182,6 +183,7 @@
 		A4AB4677154608566164DBE5 /* WishlistToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistToast.swift; sourceTree = "<group>"; };
 		A72721440DE7CCA97D228B2C /* PolicyWarningBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyWarningBanner.swift; sourceTree = "<group>"; };
 		A795AF2160E108056CAEE0CA /* ReservationFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservationFilter.swift; sourceTree = "<group>"; };
+		A7AED05E26E9439EDAEF617C /* BookingCalendarRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingCalendarRules.swift; sourceTree = "<group>"; };
 		A879D0F0E245F0DB2DC92017 /* logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = logo.png; sourceTree = "<group>"; };
 		A907C68E4532DF9C4F9917FD /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		AB225E36B488F02AFD4BB298 /* SocialSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialSignIn.swift; sourceTree = "<group>"; };
@@ -246,6 +248,7 @@
 				92F84FD7E76AA5A28B6D546A /* AvailabilityManagerView.swift */,
 				CD46225D720A1A95E7745EC1 /* BiometricAuth.swift */,
 				F036E0388B90702F80C0D56A /* BiometricEnableSheet.swift */,
+				A7AED05E26E9439EDAEF617C /* BookingCalendarRules.swift */,
 				506EE15822C05E6365572A9A /* BookingService.swift */,
 				70A0C7B6FC44BF3B38DEDC5C /* BrandHeader.swift */,
 				984F21BD8780B8CBD4B111A6 /* CancellationOutcome.swift */,
@@ -447,6 +450,7 @@
 				288D799AD0FDF4C040A3FD24 /* AvailabilityManagerView.swift in Sources */,
 				2B8CD188E8CD8143D6926BA9 /* BiometricAuth.swift in Sources */,
 				D1BA4ADBF9699728C3F86252 /* BiometricEnableSheet.swift in Sources */,
+				B5F937DA911C66363B4EA2F4 /* BookingCalendarRules.swift in Sources */,
 				82FBEC07AF7E988AD70B0786 /* BookingService.swift in Sources */,
 				768BC7931BC66D4497C4E35E /* BrandHeader.swift in Sources */,
 				C8B96A8D9A8D78470E7DBD61 /* CancellationOutcome.swift in Sources */,

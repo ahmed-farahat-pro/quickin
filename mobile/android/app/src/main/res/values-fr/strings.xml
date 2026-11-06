@@ -390,6 +390,9 @@
     <string name="cd_ai_close">Fermer la conciergerie</string>
     <string name="availability_unavailable">Indisponible</string>
     <string name="availability_range_unavailable">Certaines de ces nuits sont déjà réservées ou bloquées. Choisissez une autre période.</string>
+    <string name="booking_calendar_prices">Prix par nuit en %1$s</string>
+    <string name="booking_calendar_lower">Moins cher</string>
+    <string name="booking_calendar_higher">Plus cher</string>
     <string name="availability_manage">Gérer la disponibilité</string>
     <string name="availability_manage_subtitle">Bloquez les dates où votre logement est indisponible. Les séjours réservés apparaissent ci-dessous et ne peuvent pas être supprimés.</string>
     <string name="availability_pick_range">Choisissez une période à bloquer</string>

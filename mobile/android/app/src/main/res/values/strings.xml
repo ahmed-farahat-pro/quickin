@@ -5,13 +5,13 @@
     <!-- Bottom navigation tabs (guest) -->
     <string name="tab_explore">Explore</string>
     <string name="tab_wishlist">Favorites</string>
-    <string name="tab_trips">Trips</string>
+    <string name="tab_trips">Bookings</string>
     <string name="tab_profile">Profile</string>
     <!-- App shortcuts (launcher long-press / Assistant) -->
     <string name="shortcut_explore_short">Explore</string>
     <string name="shortcut_explore_long">Explore stays</string>
-    <string name="shortcut_reservations_short">Trips</string>
-    <string name="shortcut_reservations_long">My reservations</string>
+    <string name="shortcut_reservations_short">Bookings</string>
+    <string name="shortcut_reservations_long">My Bookings</string>
     <string name="shortcut_profile_short">Profile</string>
     <string name="shortcut_profile_long">My profile</string>
     <!-- Bottom navigation tabs (host) -->
@@ -127,7 +127,7 @@
     <string name="profile_language">Language</string>
 
     <!-- Profile sign-in CTA -->
-    <string name="profile_cta_title">Sign in to manage your trips</string>
+    <string name="profile_cta_title">Sign in to manage your bookings</string>
     <string name="profile_cta_subtitle">Save favorites, book stays, and view your bookings.</string>
     <string name="profile_cta_button">Sign in or Create Account</string>
 
@@ -159,7 +159,7 @@
     <string name="settings_delete_account_confirm_intro">The following will be permanently removed:</string>
     <string name="settings_delete_account_item_account">Your account and profile</string>
     <string name="settings_delete_account_item_listings">All of your listings</string>
-    <string name="settings_delete_account_item_bookings">Your bookings and trips</string>
+    <string name="settings_delete_account_item_bookings">Your bookings</string>
     <string name="settings_delete_account_item_reviews">Your reviews and ratings</string>
     <string name="settings_delete_account_undone">This can\'t be undone.</string>
     <string name="settings_delete_account_deleting">Deleting…</string>
@@ -360,12 +360,12 @@
     <string name="pay_flash_expired">That checkout expired. Start a new one to pay.</string>
     <string name="pay_flash_error">Couldn\'t start the card payment. Please try again.</string>
     <string name="pay_flash_paid_title">Payment confirmed</string>
-    <string name="pay_flash_paid_body">Your booking is paid. You\'ll find it in your trips.</string>
+    <string name="pay_flash_paid_body">Your booking is paid. You\'ll find it in My Bookings.</string>
     <string name="pay_flash_note">You pay on Flash\'s secure page — Quick In never sees your card details.</string>
 
 
-    <!-- Reservations (guest "Trips") -->
-    <string name="reservations_title">My trips</string>
+    <!-- Reservations (guest "Bookings") -->
+    <string name="reservations_title">My Bookings</string>
     <string name="reservations_sign_in_title">Sign in to see your reservations</string>
     <string name="reservations_sign_in_subtitle">Your booked stays will show up here.</string>
     <string name="reservations_load_error">Couldn\'t load reservations</string>
@@ -942,7 +942,7 @@
     <string name="saved_eyebrow">Your collection</string>
     <string name="saved_subtitle">Your favorite stays.</string>
     <string name="reservations_eyebrow">Your journeys</string>
-    <string name="reservations_subtitle">Every trip you\'ve booked, in one place.</string>
+    <string name="reservations_subtitle">Every stay you\'ve booked, in one place.</string>
     <string name="profile_eyebrow">Your account</string>
     <string name="profile_subtitle">Profile, settings &amp; language.</string>
     <string name="cd_open_profile">Open profile</string>
@@ -1015,7 +1015,7 @@
          guest's account has been deleted, so the row never renders nameless. -->
     <string name="host_booking_guest_fallback">Guest</string>
 
-    <!-- Guest reservation status filter (Trips). "All" reuses filter_all. -->
+    <!-- Guest reservation status filter (Bookings). "All" reuses filter_all. -->
     <string name="reservation_filter_pending">Pending approval</string>
     <string name="reservation_filter_awaiting_payment">Awaiting payment</string>
     <string name="reservation_filter_under_review">Payment under review</string>

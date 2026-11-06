@@ -5,7 +5,7 @@
     <!-- Bottom navigation tabs (guest) -->
     <string name="tab_explore">استكشف</string>
     <string name="tab_wishlist">المفضلة</string>
-    <string name="tab_trips">رحلاتي</string>
+    <string name="tab_trips">حجوزاتي</string>
     <string name="tab_profile">حسابي</string>
     <!-- Bottom navigation tabs (host) -->
     <string name="tab_listings">عقاراتي</string>
@@ -118,7 +118,7 @@
     <string name="profile_language">اللغة</string>
 
     <!-- Profile sign-in CTA -->
-    <string name="profile_cta_title">سجّل الدخول لإدارة رحلاتك</string>
+    <string name="profile_cta_title">سجّل الدخول لإدارة حجوزاتك</string>
     <string name="profile_cta_subtitle">احفظ المفضلة، واحجز الإقامات، وتابع حجوزاتك.</string>
     <string name="profile_cta_button">تسجيل الدخول أو إنشاء حساب</string>
 
@@ -150,7 +150,7 @@
     <string name="settings_delete_account_confirm_intro">سيتم حذف ما يلي نهائيًا:</string>
     <string name="settings_delete_account_item_account">حسابك وملفك الشخصي</string>
     <string name="settings_delete_account_item_listings">جميع إعلاناتك</string>
-    <string name="settings_delete_account_item_bookings">حجوزاتك ورحلاتك</string>
+    <string name="settings_delete_account_item_bookings">حجوزاتك</string>
     <string name="settings_delete_account_item_reviews">تقييماتك ومراجعاتك</string>
     <string name="settings_delete_account_undone">لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="settings_delete_account_deleting">جارٍ الحذف…</string>
@@ -350,12 +350,12 @@
     <string name="pay_flash_expired">انتهت صلاحية صفحة الدفع. ابدأ عملية جديدة للدفع.</string>
     <string name="pay_flash_error">تعذّر بدء الدفع بالبطاقة. يُرجى المحاولة مرة أخرى.</string>
     <string name="pay_flash_paid_title">تم تأكيد الدفع</string>
-    <string name="pay_flash_paid_body">تم دفع حجزك. ستجده ضمن رحلاتك.</string>
+    <string name="pay_flash_paid_body">تم دفع حجزك. ستجده ضمن حجوزاتك.</string>
     <string name="pay_flash_note">تدفع عبر صفحة Flash الآمنة — لا يطّلع Quick In على بيانات بطاقتك.</string>
 
 
-    <!-- Reservations (guest "Trips") -->
-    <string name="reservations_title">رحلاتي</string>
+    <!-- Reservations (guest "Bookings") -->
+    <string name="reservations_title">حجوزاتي</string>
     <string name="reservations_sign_in_title">سجّل الدخول لعرض حجوزاتك</string>
     <string name="reservations_sign_in_subtitle">ستظهر إقاماتك المحجوزة هنا.</string>
     <string name="reservations_load_error">تعذّر تحميل الحجوزات</string>
@@ -735,7 +735,7 @@
     <string name="pricing_month_12">ديسمبر</string>
     <string name="shortcut_explore_short">استكشف</string>
     <string name="shortcut_explore_long">استكشف أماكن الإقامة</string>
-    <string name="shortcut_reservations_short">رحلاتي</string>
+    <string name="shortcut_reservations_short">حجوزاتي</string>
     <string name="shortcut_reservations_long">حجوزاتي</string>
     <string name="shortcut_profile_short">الملف الشخصي</string>
     <string name="shortcut_profile_long">ملفي الشخصي</string>
@@ -923,7 +923,7 @@
     <string name="saved_eyebrow">مجموعتك</string>
     <string name="saved_subtitle">إقاماتك المفضّلة.</string>
     <string name="reservations_eyebrow">رحلاتك</string>
-    <string name="reservations_subtitle">كل رحلة حجزتها في مكان واحد.</string>
+    <string name="reservations_subtitle">كل إقامة حجزتها في مكان واحد.</string>
     <string name="profile_eyebrow">حسابك</string>
     <string name="profile_subtitle">الملف الشخصي والإعدادات واللغة.</string>
     <string name="cd_open_profile">فتح الحساب</string>

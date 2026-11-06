@@ -20,8 +20,8 @@ struct ExploreStaysIntent: AppIntent {
 
 @available(iOS 16.0, *)
 struct ShowReservationsIntent: AppIntent {
-    static var title: LocalizedStringResource = "Show My Reservations"
-    static var description = IntentDescription("Open your Quick In trips and reservations.")
+    static var title: LocalizedStringResource = "Show My Bookings"
+    static var description = IntentDescription("Open your Quick In bookings.")
     static var openAppWhenRun = true
 
     @MainActor
@@ -61,9 +61,10 @@ struct QuickInShortcuts: AppShortcutsProvider {
             intent: ShowReservationsIntent(),
             phrases: [
                 "Show my reservations on \(.applicationName)",
+                "Open my bookings on \(.applicationName)",
                 "Open my trips on \(.applicationName)",
             ],
-            shortTitle: "My Reservations",
+            shortTitle: "My Bookings",
             systemImageName: "calendar"
         )
         AppShortcut(

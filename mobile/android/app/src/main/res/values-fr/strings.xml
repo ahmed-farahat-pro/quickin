@@ -3,7 +3,7 @@
     <string name="app_name">Quick In</string>
     <string name="tab_explore">Explorer</string>
     <string name="tab_wishlist">Favoris</string>
-    <string name="tab_trips">Voyages</string>
+    <string name="tab_trips">Réservations</string>
     <string name="tab_profile">Profil</string>
     <string name="tab_listings">Annonces</string>
     <string name="tab_reservations">Réservations</string>
@@ -98,7 +98,7 @@
     <string name="cd_host_dashboard">Tableau de bord hôte</string>
     <string name="profile_log_out">Se déconnecter</string>
     <string name="profile_language">Langue</string>
-    <string name="profile_cta_title">Connectez-vous pour gérer vos voyages</string>
+    <string name="profile_cta_title">Connectez-vous pour gérer vos réservations</string>
     <string name="profile_cta_subtitle">Enregistrez vos favoris, réservez des séjours et consultez vos réservations.</string>
     <string name="profile_cta_button">Se connecter ou créer un compte</string>
     <string name="settings_loading">Chargement de votre profil…</string>
@@ -128,7 +128,7 @@
     <string name="settings_delete_account_confirm_intro">Les éléments suivants seront définitivement supprimés :</string>
     <string name="settings_delete_account_item_account">Votre compte et votre profil</string>
     <string name="settings_delete_account_item_listings">Toutes vos annonces</string>
-    <string name="settings_delete_account_item_bookings">Vos réservations et voyages</string>
+    <string name="settings_delete_account_item_bookings">Vos réservations</string>
     <string name="settings_delete_account_item_reviews">Vos avis et évaluations</string>
     <string name="settings_delete_account_undone">Cette action est irréversible.</string>
     <string name="settings_delete_account_deleting">Suppression…</string>
@@ -307,9 +307,9 @@
     <string name="pay_flash_expired">Cette page de paiement a expiré. Lancez-en une nouvelle pour payer.</string>
     <string name="pay_flash_error">Impossible de lancer le paiement par carte. Veuillez réessayer.</string>
     <string name="pay_flash_paid_title">Paiement confirmé</string>
-    <string name="pay_flash_paid_body">Votre réservation est payée. Vous la retrouverez dans vos voyages.</string>
+    <string name="pay_flash_paid_body">Votre réservation est payée. Vous la retrouverez dans Mes réservations.</string>
     <string name="pay_flash_note">Vous payez sur la page sécurisée de Flash — Quick In ne voit jamais vos données de carte.</string>
-    <string name="reservations_title">Mes voyages</string>
+    <string name="reservations_title">Mes réservations</string>
     <string name="reservations_sign_in_title">Connectez-vous pour voir vos réservations</string>
     <string name="reservations_sign_in_subtitle">Vos séjours réservés apparaîtront ici.</string>
     <string name="reservations_load_error">Impossible de charger les réservations</string>
@@ -639,7 +639,7 @@
     <string name="pricing_month_12">Décembre</string>
     <string name="shortcut_explore_short">Explorer</string>
     <string name="shortcut_explore_long">Explorer les logements</string>
-    <string name="shortcut_reservations_short">Voyages</string>
+    <string name="shortcut_reservations_short">Réservations</string>
     <string name="shortcut_reservations_long">Mes réservations</string>
     <string name="shortcut_profile_short">Profil</string>
     <string name="shortcut_profile_long">Mon profil</string>
@@ -827,7 +827,7 @@
     <string name="saved_eyebrow">Votre collection</string>
     <string name="saved_subtitle">Vos séjours favoris.</string>
     <string name="reservations_eyebrow">Vos voyages</string>
-    <string name="reservations_subtitle">Tous les voyages que vous avez réservés, au même endroit.</string>
+    <string name="reservations_subtitle">Tous les séjours que vous avez réservés, au même endroit.</string>
     <string name="profile_eyebrow">Votre compte</string>
     <string name="profile_subtitle">Profil, paramètres et langue.</string>
     <string name="cd_open_profile">Ouvrir le profil</string>

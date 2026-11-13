@@ -57,6 +57,9 @@ struct ProfileView: View {
                                 // Renders whichever of the four application states applies.
                                 hostApplicationSection
                             }
+                            // Signup ID rejected: the reason + a re-upload, above the
+                            // verification card. Renders nothing otherwise.
+                            IdentityRejectedNotice()
                             IdentityVerificationCard()
                             // Payment information — where Quick In sends this
                             // host's earnings. Hosts only; a guest has none.
@@ -962,73 +965,21 @@ private struct HostApplicationSheet: View {
         }
     }
 
-    /// One ID-photo slot: the thumbnail (or a placeholder), a "choose from
-    /// library" button and, where there is a camera, a "take photo" one. Mirrors
-    /// the verification card's slot so an ID looks the same wherever we ask.
+    /// One ID-photo slot — the shared `IDPhotoSlot`, so an ID looks the same
+    /// wherever we ask for it (sign-up, account completion, re-upload, here).
     private func idPhotoSlot(
         title: String,
         image: UIImage?,
         pickerItem: Binding<PhotosPickerItem?>,
         side: IDSide
     ) -> some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.qkTan)
-                    .frame(height: 88)
-                if loadingIDSide == side {
-                    ProgressView().tint(Color.qkBurgundy)
-                } else if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(height: 88)
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                } else {
-                    Image(systemName: "creditcard")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundStyle(Color.qkBurgundy.opacity(0.5))
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(image != nil ? "\(title) — \(loc.t("hostApply.identity.chosen"))" : title)
-            HStack(spacing: 6) {
-                PhotosPicker(selection: pickerItem, matching: .images, photoLibrary: .shared()) {
-                    Label(loc.t("trust.choose"), systemImage: "photo")
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .foregroundStyle(Color.qkBurgundy)
-                        .background(Color.qkTan)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(QKPressStyle())
-                .accessibilityLabel("\(loc.t("trust.choose")) — \(title)")
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button {
-                        cameraIDSide = side
-                    } label: {
-                        Label(loc.t("trust.takePhoto"), systemImage: "camera.fill")
-                            .labelStyle(.iconOnly)
-                            .font(.system(size: 14, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 34)
-                            .foregroundStyle(Color.qkCream)
-                            .background(Color.qkBurgundy)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                    .buttonStyle(QKPressStyle())
-                    .accessibilityLabel("\(loc.t("trust.takePhoto")) — \(title)")
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
+        IDPhotoSlot(
+            title: title,
+            image: image,
+            pickerItem: pickerItem,
+            isLoading: loadingIDSide == side,
+            onCamera: { cameraIDSide = side }
+        )
         .disabled(isSubmitting)
     }
 

@@ -62,8 +62,8 @@ final class ReservationDetailViewModel: ObservableObject {
     }
 }
 
-/// Reservation detail: stay summary, a QR code encoding the reservation code,
-/// and an (intentionally disabled) "Add to Apple Wallet" button.
+/// Reservation detail: stay summary, the stay-pass card (reservation code, taps
+/// through to the public pass page), and the "Add to Apple Wallet" button.
 struct ReservationDetailView: View {
     @EnvironmentObject private var loc: LocalizationManager
     @EnvironmentObject private var auth: AuthStore
@@ -548,40 +548,35 @@ struct ReservationDetailView: View {
     ///
     /// This screen is shared by the guest and the listing's host, so the gate is
     /// deliberately one rule for both: the host tapping Approve used to reveal a
-    /// working QR here immediately, before the guest had transferred anything.
+    /// working pass here immediately, before the guest had transferred anything.
     ///
-    ///   • pass live    → the QR card (below).
-    ///   • pending      → "your QR code will appear once your reservation is
+    ///   • pass live    → the pass card (below).
+    ///   • pending      → "your stay pass will appear once your reservation is
     ///     confirmed".
-    ///   • confirmed & unpaid → "…once your payment is confirmed". No QR, no
+    ///   • confirmed & unpaid → "…once your payment is confirmed". No code, no
     ///     link, nothing tappable in either case.
     ///   • cancelled / rejected → nothing at all; that pass is never coming.
     @ViewBuilder
     private func passSection(_ detail: ReservationDetail) -> some View {
-        if let url = detail.stayPassURL, let code = detail.qrPayload {
-            qrCard(url: url, code: code)
+        if let url = detail.stayPassURL, let code = detail.passCode {
+            passCard(url: url, code: code)
         } else if detail.isAwaitingStayPass {
             awaitingPassCard(detail)
         }
     }
 
-    /// Shown instead of the QR while the reservation is waiting for the host's
+    /// Shown instead of the pass while the reservation is waiting for the host's
     /// approval, or for the guest's payment. Deliberately inert — there is no
-    /// code to encode and no URL to open, so rendering one would point the guest
+    /// code to show and no URL to open, so rendering one would point the guest
     /// at a dead `/stay/null` page.
     private func awaitingPassCard(_ detail: ReservationDetail) -> some View {
         // Which of the two holds it up decides the copy: an unpaid stay is
         // waiting on the guest and should say so, a pending one on the host.
         let waitingOnPayment = detail.isAwaitingPaymentForPass
         return VStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.qkTan)
-                    .frame(width: 160, height: 160)
-                Image(systemName: "qrcode")
-                    .font(.system(size: 52))
-                    .foregroundStyle(Color.qkTan4)
-            }
+            Image(systemName: "ticket")
+                .font(.system(size: 36))
+                .foregroundStyle(Color.qkTan4)
             Text(loc.t(waitingOnPayment ? "pass.awaitingPayment.title" : "pass.awaiting.title"))
                 .font(.headline)
                 .foregroundStyle(Color.qkInk)
@@ -596,34 +591,14 @@ struct ReservationDetailView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The QR / stay pass. The QR encodes the **public pass URL**
-    /// (`…/stay/<code>`), and the whole pass is tappable → opens that URL so the
-    /// guest (or whoever scans it) lands on the deployed pass page. Only ever
-    /// built from a real reservation code — see `passSection`.
-    private func qrCard(url: URL, code: String) -> some View {
+    /// The stay pass: the reservation code, and the whole card is tappable →
+    /// opens the **public pass URL** (`…/stay/<code>`). No QR — it was removed.
+    /// Only ever built from a real reservation code — see `passSection`.
+    private func passCard(url: URL, code: String) -> some View {
         Button {
             openURL(url)
         } label: {
             VStack(spacing: 14) {
-                if let qr = QRCodeGenerator.image(from: url.absoluteString) {
-                    Image(uiImage: qr)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 220, height: 220)
-                        .padding(12)
-                        .background(Color.qkCream)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(Color.qkGold.opacity(0.4), lineWidth: 1.5)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.qkTan)
-                        .frame(width: 220, height: 220)
-                        .overlay(Image(systemName: "qrcode").font(.system(size: 48)).foregroundStyle(Color.qkMuted))
-                }
                 VStack(spacing: 2) {
                     Text(loc.t("pass.reservationCode"))
                         .font(.caption)
@@ -633,7 +608,7 @@ struct ReservationDetailView: View {
                         .foregroundStyle(Color.qkInk)
                         .textSelection(.enabled)
                 }
-                Label(loc.t("pass.scanOrTap"), systemImage: "qrcode.viewfinder")
+                Label(loc.t("pass.tapToOpen"), systemImage: "arrow.up.right.square")
                     .font(.footnote.weight(.medium))
                     .foregroundStyle(Color.qkBurgundy)
                     .multilineTextAlignment(.center)
@@ -644,7 +619,7 @@ struct ReservationDetailView: View {
         }
         .buttonStyle(.qkTap)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(loc.t("pass.scanOrTap"))
+        .accessibilityLabel(loc.t("pass.tapToOpen"))
         .accessibilityAddTraits(.isLink)
     }
 
@@ -823,7 +798,7 @@ struct ReservationDetailView: View {
     /// entirely when the host hasn't added anything (the host still gets the
     /// editor below).
     ///
-    /// Gated on `hasStayPass`, the same rule as the QR — the guide IS what the
+    /// Gated on `hasStayPass`, the same rule as the pass card — the guide IS what the
     /// pass leads to (gate codes, Wi-Fi, directions), so it must not open before
     /// the payment does. The backend enforces this too (`listStayGuide` returns
     /// an empty guide to a guest without a live pass); this is the local half so

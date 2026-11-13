@@ -82,8 +82,10 @@ private val ReportRed = Color(0xFFB3261E)
 @Composable
 fun VerificationCard(
     state: VerificationUiState,
-    onSubmit: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit,
-    modifier: Modifier = Modifier
+    onSubmit: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri?, idNumber: String?) -> Unit,
+    modifier: Modifier = Modifier,
+    /** False for accounts under the signup identity rule — see [AccountIdentity.selfieRequired]. */
+    selfieRequired: Boolean = true
 ) {
     val status = state.status.lowercase()
     val canSubmit = status == "unverified" || status == "rejected"
@@ -187,6 +189,7 @@ fun VerificationCard(
                     )
                 }
 
+                if (selfieRequired) {
                 Spacer(Modifier.height(12.dp))
                 // Selfie row (web parity): the reviewer matches the face against the ID photos.
                 IdPhotoSlot(
@@ -207,6 +210,7 @@ fun VerificationCard(
                         fontSize = 12.sp,
                         modifier = Modifier.padding(top = 6.dp)
                     )
+                }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -241,12 +245,13 @@ fun VerificationCard(
             if (canSubmit) {
                 val front = frontUri
                 val back = backUri
-                val selfie = selfieUri
-                val ready = front != null && back != null && selfie != null && !state.isSubmitting
+                val selfie = if (selfieRequired) selfieUri else null
+                val photosReady = front != null && back != null && (!selfieRequired || selfie != null)
+                val ready = photosReady && !state.isSubmitting
                 Spacer(Modifier.height(16.dp))
                 GradientButton(
                     onClick = {
-                        if (front != null && back != null && selfie != null) {
+                        if (front != null && back != null && photosReady) {
                             onSubmit(front, back, selfie, idNumber.trim().ifBlank { null })
                         }
                     },

@@ -27,7 +27,13 @@ data class ReserveUiState(
      */
     val confirmed: Booking? = null,
     /** True when the user tried to reserve while signed out. */
-    val needsSignIn: Boolean = false
+    val needsSignIn: Boolean = false,
+    /**
+     * Set when the server refused the booking for the account's identity (403 with
+     * `code: identity_incomplete | identity_rejected`). [error] then holds the server's message,
+     * which for a rejection includes the reviewer's reason.
+     */
+    val identityBlock: IdentityBlock? = null
 )
 
 /** State for the reservation DETAIL screen (`GET /api/local/bookings/:id`, with QR code). */
@@ -182,8 +188,14 @@ class BookingsViewModel(application: Application) : AndroidViewModel(application
                 // Keep the Reservations tab fresh for the next visit.
                 loadReservations()
             } catch (e: BookingService.HttpError) {
+                val block = if (e.code == 403) IdentityBlock.from(e.errorCode) else null
                 if (e.code == 401) {
                     _reserve.value = ReserveUiState(needsSignIn = true)
+                } else if (block != null) {
+                    _reserve.value = ReserveUiState(
+                        error = humanError(e, "Could not reserve."),
+                        identityBlock = block
+                    )
                 } else {
                     _reserve.value = ReserveUiState(error = humanError(e, "Could not reserve."))
                 }

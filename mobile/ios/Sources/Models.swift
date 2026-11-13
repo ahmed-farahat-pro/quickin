@@ -930,10 +930,10 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
 
     /// Whether this reservation's stay pass is live, decided by
     /// `PaymentFlowRules` — the Swift twin of the backend's `isLiveStayPass`,
-    /// and the only thing the QR, the Wallet button and the guest's view of the
+    /// and the only thing the pass card, the Wallet button and the guest's view of the
     /// stay guide are allowed to branch on. `confirmed` **AND paid**, or
     /// `completed`. Testing `status == .confirmed` by hand is what put a working
-    /// QR on the host's and the guest's screen the instant Approve was tapped,
+    /// pass on the host's and the guest's screen the instant Approve was tapped,
     /// for a stay nobody had paid for.
     var isLiveStayPass: Bool {
         PaymentFlowRules.isLiveStayPass(PaymentFlowRules.Snapshot(
@@ -945,7 +945,7 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
     }
 
     /// `true` once this reservation actually has a stay pass — the gate behind
-    /// the QR card and the `/stay/<code>` link (the Wallet button uses the
+    /// the pass card and the `/stay/<code>` link (the Wallet button uses the
     /// stricter `canAddToWallet`).
     ///
     /// Two conditions, both required: the backend has issued a
@@ -969,7 +969,7 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
 
     /// `true` while the pass simply hasn't been issued **yet** — the reservation
     /// is awaiting the host's approval, or awaiting the guest's payment. Drives
-    /// the "your QR code will appear once…" placeholder; `awaitingPassMessage`
+    /// the "your stay pass will appear once…" placeholder; `awaitingPassMessage`
     /// says which of the two it is. Cancelled / rejected stays are never coming
     /// back, so they show nothing at all.
     var isAwaitingStayPass: Bool {
@@ -984,16 +984,16 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
         isAwaitingStayPass && bookingStatus == .confirmed
     }
 
-    /// The bare reservation code shown under the QR, or `nil` when there is no
-    /// pass to show.
-    var qrPayload: String? { hasStayPass ? stayCode : nil }
+    /// The bare reservation code shown on the pass card, or `nil` when there is
+    /// no pass to show.
+    var passCode: String? { hasStayPass ? stayCode : nil }
 
-    /// The public stay-pass URL the QR encodes — scanning/clicking it opens the
-    /// deployed pass page. `nil` unless this reservation has a pass, so the
-    /// caller physically cannot render a QR/wallet/stay link for a booking that
-    /// is still awaiting approval.
+    /// The public stay-pass URL — tapping the pass card opens the deployed pass
+    /// page. `nil` unless this reservation has a pass, so the caller physically
+    /// cannot render a wallet/stay link for a booking that is still awaiting
+    /// approval.
     var stayPassURL: URL? {
-        guard let code = qrPayload else { return nil }
+        guard let code = passCode else { return nil }
         let encoded = code.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? code
         return URL(string: "\(AppLinks.webBase)/stay/\(encoded)")
     }

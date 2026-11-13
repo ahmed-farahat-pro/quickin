@@ -51,7 +51,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -64,7 +63,6 @@ import com.quickin.app.CancellationPolicy
 import com.quickin.app.CancellationQuote
 import com.quickin.app.R
 import com.quickin.app.PaymentFlowRules
-import com.quickin.app.Qr
 import com.quickin.app.Reservation
 import com.quickin.app.ReservationDetailUiState
 import com.quickin.app.ShareLinks
@@ -79,13 +77,12 @@ import com.quickin.app.ui.theme.GoldDeep
 import com.quickin.app.ui.theme.Ink
 import com.quickin.app.ui.theme.Muted
 import com.quickin.app.ui.theme.Tan
-import androidx.compose.ui.graphics.asImageBitmap
 
 private val ErrorRed = Color(0xFFB3261E)
 
 /**
  * Reservation DETAIL screen (`GET /api/local/bookings/:id`). Shows the stay details and an
- * in-app reservation CARD bearing a QR code generated from the reservation_code (via ZXing).
+ * in-app reservation CARD showing the reservation_code (tap it to open the public stay pass).
  * This is a plain in-app pass — NOT Apple Wallet / Google Wallet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -259,11 +256,11 @@ private fun ReservationCardContent(
     onDeleteGuideItem: (itemId: String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    // ── THE QR GATE ─────────────────────────────────────────────────────────────────────────
+    // ── THE PASS GATE ───────────────────────────────────────────────────────────────────────
     // `stayPassUrl` is non-null ONLY when the host has approved this reservation AND a real
     // reservation code was issued for it (never blank, never the literal "null" — see
     // Reservation.stayPassUrl / ShareLinks.stay). While the request is pending — and once it is
-    // rejected or cancelled — this is null and nothing pass-shaped renders: no QR, no code, no
+    // rejected or cancelled — this is null and nothing pass-shaped renders: no code, no
     // tappable stay link, no stay guide. The card shows the "appears once confirmed" state instead.
     val stayUrl = reservation.stayPassUrl
     val openStayPass: (() -> Unit)? = stayUrl?.let { url -> { openLink(context, url) } }
@@ -303,7 +300,7 @@ private fun ReservationCardContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // The in-app reservation card: title, city, QR, code, and trip details. It is tappable —
+        // The in-app reservation card: title, city, code, and trip details. It is tappable —
         // opening the public stay-pass page — ONLY when a pass exists; with no pass there is
         // nothing to open, so the card is inert rather than a link to a broken URL.
         if (openStayPass != null) {
@@ -479,9 +476,10 @@ private fun ReservationCardContent(
 }
 
 /**
- * The contents of the reservation pass card: status, place, then EITHER the QR + code (when
+ * The contents of the reservation pass card: status, place, then EITHER the reservation code (when
  * [stayUrl] is non-null, i.e. the booking is approved and has a real reservation code) OR the
- * "your QR appears once confirmed" placeholder — never a QR pointing at a fabricated URL.
+ * "your stay pass appears once confirmed" placeholder. No QR — it was removed; the card itself
+ * opens the pass.
  */
 @Composable
 private fun ReservationPassBody(
@@ -523,19 +521,6 @@ private fun ReservationPassBody(
         Spacer(Modifier.height(20.dp))
 
         if (stayUrl != null) {
-            // QR encodes the public stay-pass URL (not the bare code), so a scan opens the page.
-            QrBlock(stayUrl)
-
-            Spacer(Modifier.height(10.dp))
-            // Caption: the QR (and the card) opens the stay pass.
-            Text(
-                stringResource(R.string.reservation_scan_or_tap),
-                color = Muted,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.reservation_code_label), color = Muted, fontSize = 12.sp)
             Text(
                 reservation.reservationCode.orEmpty(),
@@ -544,8 +529,17 @@ private fun ReservationPassBody(
                 fontSize = 18.sp,
                 letterSpacing = 2.sp
             )
+
+            Spacer(Modifier.height(8.dp))
+            // Caption: the card opens the stay pass.
+            Text(
+                stringResource(R.string.reservation_tap_to_open),
+                color = Muted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+            )
         } else {
-            // No pass yet (or ever): no QR, no code, no link — just why. Three different
+            // No pass yet (or ever): no code, no link — just why. Three different
             // reasons, and only one of them is the guest's to act on.
             NoPassBlock(
                 awaitingApproval = reservation.isAwaitingApproval,
@@ -591,18 +585,17 @@ private fun ReservationPassBody(
 }
 
 /**
- * Stands in for the QR while there is no stay pass. The two flags pick the copy: a pending request
+ * Stands in for the pass while there is no stay pass. The two flags pick the copy: a pending request
  * is told its code is coming once the host confirms ([awaitingApproval]); an approved-but-unpaid one
  * is told it arrives once the payment clears ([awaitingPayment]) — the wait the guest can actually
- * do something about; a rejected/cancelled one is simply told there is no pass. Deliberately the
- * same 220dp footprint as [QrBlock] so the pass going live doesn't make the card jump.
+ * do something about; a rejected/cancelled one is simply told there is no pass.
  */
 @Composable
 private fun NoPassBlock(awaitingApproval: Boolean, awaitingPayment: Boolean = false) {
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Cream,
-        modifier = Modifier.size(220.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -619,9 +612,9 @@ private fun NoPassBlock(awaitingApproval: Boolean, awaitingPayment: Boolean = fa
             Text(
                 stringResource(
                     when {
-                        awaitingApproval -> R.string.reservation_qr_pending
-                        awaitingPayment -> R.string.reservation_qr_unpaid
-                        else -> R.string.reservation_qr_none
+                        awaitingApproval -> R.string.reservation_pass_pending
+                        awaitingPayment -> R.string.reservation_pass_unpaid
+                        else -> R.string.reservation_pass_none
                     }
                 ),
                 color = Ink,
@@ -848,40 +841,6 @@ private fun CancelReservationDialog(
                 ) {
                     Text(stringResource(R.string.cancel_keep), color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
-            }
-        }
-    }
-}
-
-/**
- * Renders the QR for [content] (the public stay-pass URL). The image content-description names the
- * stay pass; if encoding fails it falls back to showing the raw [content] as text.
- */
-@Composable
-private fun QrBlock(content: String) {
-    // Remember the bitmap per content so we don't re-encode on every recomposition.
-    val image = remember(content) { Qr.bitmap(content, sizePx = 600)?.asImageBitmap() }
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 0.dp,
-        modifier = Modifier.size(220.dp)
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(8.dp)) {
-            if (image != null) {
-                Image(
-                    bitmap = image,
-                    contentDescription = stringResource(R.string.cd_stay_pass_qr),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Text(
-                    content.ifBlank { stringResource(R.string.reservation_no_code) },
-                    color = Ink,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

@@ -51,7 +51,28 @@ data class AuthUiState(
     /** Fallback OTP returned by the backend when SMTP delivery failed. */
     val pendingDevCode: String? = null,
     /** Seconds left before "Resend code" is allowed again (mirrors the server cooldown). */
-    val otpResendCooldown: Int = 0
+    val otpResendCooldown: Int = 0,
+    /**
+     * The signup-identity state (phone + ID owed at signup). [AccountIdentity.needsCompletion]
+     * drives the blocking "Complete your account" screen; [AccountIdentity.rejected] the
+     * "your ID was not approved" notice. Re-read from `/api/auth/me` on every launch.
+     */
+    val identity: AccountIdentity = AccountIdentity(),
+    /**
+     * The server's per-field refusals of the last sign-up (`400 {error, fields}`), keyed `phone` |
+     * `doc_type` | `id_number` | `id_front` | `id_back`. Shown under each field; empty otherwise.
+     */
+    val signupFieldErrors: Map<String, String> = emptyMap()
+)
+
+/**
+ * State for the blocking "Complete your account" screen (`POST /api/local/account/identity`).
+ * [fieldErrors] carries the server's per-field refusals keyed like the request body.
+ */
+data class CompleteIdentityUiState(
+    val isSubmitting: Boolean = false,
+    val error: String? = null,
+    val fieldErrors: Map<String, String> = emptyMap()
 )
 
 /**
@@ -111,7 +132,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             hostStatus = prefs.getString(KEY_HOST_STATUS, null)
                 ?: if (prefs.getBoolean(KEY_IS_HOST, false)) HOST_STATUS_APPROVED else HOST_STATUS_NONE,
             hostType = prefs.getString(KEY_HOST_TYPE, null),
-            hostReviewNote = prefs.getString(KEY_HOST_REVIEW_NOTE, null)
+            hostReviewNote = prefs.getString(KEY_HOST_REVIEW_NOTE, null),
+            // A cache only, like the host fields: refreshSession() re-reads it from /me.
+            identity = AccountIdentity.from(
+                required = prefs.getBoolean(KEY_IDENTITY_REQUIRED, false),
+                complete = prefs.getBoolean(KEY_IDENTITY_COMPLETE, true),
+                status = prefs.getString(KEY_VERIFICATION_STATUS, null),
+                note = prefs.getString(KEY_VERIFICATION_NOTE, null)
+            )
         )
     )
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -183,8 +211,129 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * Registers a normal account and moves to OTP verification — there is no host registration; a
      * user can become a host in-app later.
      */
-    fun signup(name: String, email: String, password: String) =
-        runOutcome { AuthService.signup(name.trim(), email.trim(), password) }
+    fun signup(
+        name: String,
+        email: String,
+        password: String,
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: Uri,
+        idBack: Uri
+    ) {
+        _state.value = _state.value.copy(signupFieldErrors = emptyMap())
+        runOutcome {
+            val identity = buildIdentityPayload(phone, docType, idNumber, idFront, idBack)
+            AuthService.signup(name.trim(), email.trim(), password, identity)
+        }
+    }
+
+    /**
+     * Downscales both ID photos off the main thread (≤1024px JPEG data URLs — two of them stay well
+     * under Vercel's ~4.5 MB body limit) and packs the identity fields. Phone and document number go
+     * out with Arabic-Indic digits folded to ASCII; the server canonicalizes the rest.
+     */
+    private suspend fun buildIdentityPayload(
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: Uri,
+        idBack: Uri
+    ): AuthService.IdentityPayload {
+        val context = getApplication<Application>().applicationContext
+        val front = withContext(Dispatchers.IO) {
+            AvatarImage.loadDownscaledJpegDataUrl(context, idFront, maxDim = 1024)
+        }
+        val back = withContext(Dispatchers.IO) {
+            AvatarImage.loadDownscaledJpegDataUrl(context, idBack, maxDim = 1024)
+        }
+        if (front == null || back == null) {
+            throw IllegalStateException(context.getString(R.string.identity_photos_unreadable))
+        }
+        return AuthService.IdentityPayload(
+            phone = PhoneRules.toAsciiDigits(phone.trim()),
+            docType = docType,
+            idNumber = DocumentNumberRules.canonical(idNumber),
+            idFront = front,
+            idBack = back
+        )
+    }
+
+    // ---- "Complete your account" (signup identity owed by e.g. a first Google sign-in) ----
+
+    private val _completeIdentity = MutableStateFlow(CompleteIdentityUiState())
+    val completeIdentity: StateFlow<CompleteIdentityUiState> = _completeIdentity.asStateFlow()
+
+    /**
+     * Posts the phone + ID the account still owes (`POST /api/local/account/identity`). On 200 the
+     * returned identity state replaces the cached one, which lifts the blocking screen. A 409 means
+     * nothing is owed any more (another device finished it) — re-read `/me` and let that decide.
+     */
+    fun submitCompleteIdentity(
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: Uri,
+        idBack: Uri
+    ) {
+        if (_completeIdentity.value.isSubmitting) return
+        val token = currentToken() ?: return
+        _completeIdentity.value = CompleteIdentityUiState(isSubmitting = true)
+        viewModelScope.launch {
+            try {
+                val payload = buildIdentityPayload(phone, docType, idNumber, idFront, idBack)
+                val identity = AuthService.completeIdentity(token, payload)
+                applyIdentity(identity)
+                _completeIdentity.value = CompleteIdentityUiState()
+            } catch (e: AuthService.FieldErrors) {
+                _completeIdentity.value = CompleteIdentityUiState(
+                    error = e.message,
+                    fieldErrors = e.fields
+                )
+            } catch (e: AuthService.HttpError) {
+                when (e.code) {
+                    401 -> logout()
+                    409 -> {
+                        _completeIdentity.value = CompleteIdentityUiState()
+                        refreshSession()
+                    }
+                    else -> _completeIdentity.value = CompleteIdentityUiState(
+                        error = humanError(e, "Couldn't save your details.")
+                    )
+                }
+            } catch (e: Exception) {
+                _completeIdentity.value = CompleteIdentityUiState(
+                    error = humanError(e, "Couldn't save your details.")
+                )
+            }
+        }
+    }
+
+    /**
+     * A booking was refused with `code: "identity_incomplete"` — the server says this account still
+     * owes its phone / ID even though our cache thought otherwise. Flip the cache so the blocking
+     * screen shows now, then re-read `/me` to confirm.
+     */
+    fun markIdentityIncomplete() {
+        if (!_state.value.isAuthenticated) return
+        applyIdentity(_state.value.identity.copy(required = true, complete = false))
+        refreshSession()
+    }
+
+    /** Adopts [identity] as the account's identity state, in memory and in the cache. */
+    private fun applyIdentity(identity: AccountIdentity) {
+        writeIdentity(prefs.edit(), identity).apply()
+        _state.value = _state.value.copy(identity = identity)
+    }
+
+    private fun writeIdentity(
+        editor: android.content.SharedPreferences.Editor,
+        identity: AccountIdentity
+    ): android.content.SharedPreferences.Editor = editor
+        .putBoolean(KEY_IDENTITY_REQUIRED, identity.required)
+        .putBoolean(KEY_IDENTITY_COMPLETE, identity.complete)
+        .putString(KEY_VERIFICATION_STATUS, identity.status)
+        .putString(KEY_VERIFICATION_NOTE, identity.note)
 
     // ---- Authoritative host state (the source of truth on every launch) --------
 
@@ -493,7 +642,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .remove(KEY_HOST_STATUS)
             .remove(KEY_HOST_TYPE)
             .remove(KEY_HOST_REVIEW_NOTE)
+            .remove(KEY_IDENTITY_REQUIRED)
+            .remove(KEY_IDENTITY_COMPLETE)
+            .remove(KEY_VERIFICATION_STATUS)
+            .remove(KEY_VERIFICATION_NOTE)
             .apply()
+        _completeIdentity.value = CompleteIdentityUiState()
         // Keep the biometric session so the fingerprint button appears on the next login.
         // Drop any pending "enable biometric" offer too.
         _biometricEnrollOffer.value = null
@@ -542,6 +696,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
+            } catch (e: AuthService.FieldErrors) {
+                // Shown under each field; the summary line still says something is wrong.
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = e.message,
+                    signupFieldErrors = e.fields
+                )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -549,6 +710,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
+
+    /** Drops the server's refusal for one sign-up field once the user edits it. */
+    fun clearSignupFieldError(field: String) {
+        val errors = _state.value.signupFieldErrors
+        if (field in errors) _state.value = _state.value.copy(signupFieldErrors = errors - field)
+    }
+
+    /** Drops the server's refusal for one "Complete your account" field once the user edits it. */
+    fun clearCompleteIdentityFieldError(field: String) {
+        val errors = _completeIdentity.value.fieldErrors
+        if (field in errors) _completeIdentity.value = _completeIdentity.value.copy(fieldErrors = errors - field)
     }
 
     /**
@@ -588,6 +761,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .putString(KEY_HOST_STATUS, hostStatusOf(result))
             .putString(KEY_HOST_TYPE, result.hostType)
             .putString(KEY_HOST_REVIEW_NOTE, result.hostReviewNote)
+            .let { writeIdentity(it, result.identity) }
             .apply()
         _state.value = AuthUiState(
             isAuthenticated = true,
@@ -601,6 +775,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             hostStatus = hostStatusOf(result),
             hostType = result.hostType,
             hostReviewNote = result.hostReviewNote,
+            identity = result.identity,
             pendingEmail = null
         )
         // Offer biometric enrollment only for password-derived logins, and only when the device can
@@ -629,6 +804,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             .putString(KEY_HOST_STATUS, hostStatusOf(result))
             .putString(KEY_HOST_TYPE, result.hostType)
             .putString(KEY_HOST_REVIEW_NOTE, result.hostReviewNote)
+            .let { writeIdentity(it, result.identity) }
             .apply()
         _state.value = _state.value.copy(
             userId = result.userId.takeUnless { it.isBlank() },
@@ -639,7 +815,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             isHost = result.isHost,
             hostStatus = hostStatusOf(result),
             hostType = result.hostType,
-            hostReviewNote = result.hostReviewNote
+            hostReviewNote = result.hostReviewNote,
+            identity = result.identity
         )
         // AFTER the state is adopted, never before: an approval only exists in the response we
         // just took, and asking first would greet the host a launch late.
@@ -705,5 +882,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         const val KEY_HOST_STATUS = "host_status"
         const val KEY_HOST_TYPE = "host_type"
         const val KEY_HOST_REVIEW_NOTE = "host_review_note"
+        const val KEY_IDENTITY_REQUIRED = "identity_required"
+        const val KEY_IDENTITY_COMPLETE = "identity_complete"
+        const val KEY_VERIFICATION_STATUS = "verification_status"
+        const val KEY_VERIFICATION_NOTE = "verification_note"
     }
 }

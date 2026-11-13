@@ -62,6 +62,11 @@ struct BookingService {
         if http.statusCode == 401 {
             throw BookingError.notSignedIn
         }
+        // 403 { error, code } — the account still owes its phone/ID, or its ID
+        // was rejected. Switched on `code`, never on the message.
+        if let block = BookingIdentityBlock.parse(status: http.statusCode, data: data) {
+            throw BookingError.identity(block.block, block.message)
+        }
         // 400 (and other 4xx/5xx): surface the server's { error } when present.
         throw BookingError.message(Self.decodeError(data) ?? "Reservation failed (\(http.statusCode)).")
     }
@@ -749,11 +754,14 @@ struct BookingService {
 enum BookingError: LocalizedError {
     case notSignedIn
     case message(String)
+    /// The reservation was refused on signup-identity grounds (403 + `code`).
+    case identity(BookingIdentityBlock, String)
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn: return "Sign in to reserve"
         case let .message(text): return text
+        case let .identity(_, text): return text
         }
     }
 }

@@ -144,6 +144,11 @@ fun ListingDetailScreen(
     listing: Listing,
     onBack: () -> Unit,
     reserveState: ReserveUiState = ReserveUiState(),
+    /**
+     * Shown right above the reserve panel when set — the "Your ID was not approved" notice, since a
+     * rejected ID stops new bookings until a new one is uploaded.
+     */
+    reserveNotice: (@Composable () -> Unit)? = null,
     onReserve: (checkIn: String, checkOut: String, adults: Int, children: Int, infants: Int, pets: Int) -> Unit = { _, _, _, _, _, _ -> },
     onSignIn: () -> Unit = {},
     onResetReserve: () -> Unit = {},
@@ -434,6 +439,8 @@ fun ListingDetailScreen(
 
                     // "Cancellation policy" row — name + one-line explanation (every viewer sees it).
                     CancellationPolicySection(policy = effectivePolicy)
+
+                    if (reserveNotice != null && !isOwnHost) reserveNotice()
 
                     ReservePanel(
                         listing = listing,

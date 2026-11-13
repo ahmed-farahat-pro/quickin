@@ -142,7 +142,20 @@ struct RootView: View {
                 // host features (manage listings + reservations) from Profile.
                 guestTabs
             }
+
+            // Signup identity: an account that still owes its phone + ID (a
+            // first Google sign-in) is held here until it hands them over —
+            // `identity_complete` comes from every auth response and the
+            // `/api/auth/me` re-read on launch. An overlay rather than a modal so
+            // it can't race the sign-in sheet's dismissal; sign out is the only
+            // other way off it.
+            if !showSplash, auth.isAuthenticated, auth.user?.identity.needsCompletion == true {
+                CompleteAccountView()
+                    .transition(.opacity)
+                    .zIndex(50)
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: auth.user?.identity.needsCompletion)
         // App-level "Added/Removed from wishlist" toast — floats above the tab
         // bar so every heart toggle (cards, detail hero, Saved) confirms visibly.
         .wishlistToast()

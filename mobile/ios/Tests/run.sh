@@ -106,3 +106,12 @@ swiftc -o "$OUT/booking-calendar-rules" \
   Tests/BookingCalendarRulesTests/main.swift \
   Sources/BookingCalendarRules.swift
 "$OUT/booking-calendar-rules"
+
+# Builds PhoneRules too: the account phone filter/validator lives there beside the
+# Egyptian host-application rule, and IDNumberRules folds digits through it.
+echo "\nSignupIdentityRules — phone + ID at signup: tolerant decoding, field errors, booking blocks\n"
+swiftc -o "$OUT/signup-identity-rules" \
+  Tests/SignupIdentityRulesTests/main.swift \
+  Sources/SignupIdentityRules.swift \
+  Sources/PhoneRules.swift
+"$OUT/signup-identity-rules"

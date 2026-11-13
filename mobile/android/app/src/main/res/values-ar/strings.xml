@@ -133,9 +133,9 @@
     <string name="settings_save_changes">حفظ التغييرات</string>
     <string name="settings_profile_saved">تم حفظ الملف الشخصي</string>
     <string name="settings_phone_private">رقم هاتفك خاص ولا يظهر للضيوف أبدًا.</string>
-    <string name="settings_phone_host_shared">لا يرى الضيوف رقم هاتفك إلا بعد تأكيد حجزهم ودفعه.</string>
-    <string name="settings_phone_required_error">يجب على المضيفين إضافة رقم هاتف ليتمكن الضيوف المؤكَّدون من التواصل معهم.</string>
     <string name="settings_phone_required_label">الهاتف (مطلوب)</string>
+    <string name="settings_phone_required_error">يجب على المضيفين إضافة رقم هاتف ليتمكن الضيوف المؤكَّدون من التواصل معهم.</string>
+    <string name="settings_phone_host_shared">لا يرى الضيوف رقم هاتفك إلا بعد تأكيد حجزهم ودفعه.</string>
     <string name="settings_change_password">تغيير كلمة المرور</string>
     <string name="settings_password_caption">استخدم 6 أحرف على الأقل.</string>
     <string name="settings_current_password">كلمة المرور الحالية</string>
@@ -376,9 +376,7 @@
     <string name="reservation_guests_label">الضيوف</string>
     <string name="reservation_host_phone">هاتف المضيف</string>
     <string name="reservation_show_qr">اعرض رمز QR هذا عند تسجيل الوصول.</string>
-    <string name="reservation_no_code">لا يوجد رمز</string>
-    <string name="reservation_scan_or_tap">امسح الرمز أو اضغط لفتح بطاقة إقامتك</string>
-    <string name="cd_stay_pass_qr">رمز QR لبطاقة الإقامة</string>
+    <string name="reservation_tap_to_open">اضغط لفتح بطاقة إقامتك</string>
     <!-- From your host (notes) -->
     <string name="reservation_from_host">من مضيفك</string>
     <string name="reservation_host_notes_hint">أضف ملاحظات لضيفك — تفاصيل الوصول، الواي فاي، قواعد المنزل…</string>
@@ -826,9 +824,9 @@
     <string name="host_apply_error">تعذّر إرسال طلبك. يرجى المحاولة مرة أخرى.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
-    <string name="reservation_qr_pending">سيظهر رمز QR هنا بمجرد تأكيد حجزك.</string>
-    <string name="reservation_qr_unpaid">وافق المضيف على هذه الإقامة. سيظهر رمز QR هنا بمجرد تأكيد دفعتك.</string>
-    <string name="reservation_qr_none">لا توجد بطاقة إقامة لهذا الحجز.</string>
+    <string name="reservation_pass_pending">ستظهر بطاقة إقامتك هنا بمجرد تأكيد حجزك.</string>
+    <string name="reservation_pass_unpaid">وافق المضيف على هذه الإقامة. ستظهر بطاقة إقامتك هنا بمجرد تأكيد دفعتك.</string>
+    <string name="reservation_pass_none">لا توجد بطاقة إقامة لهذا الحجز.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
     <string name="stay_guide_title">دليل إقامتك</string>
@@ -1017,4 +1015,25 @@
     <string name="reservation_filter_empty_partially_refunded">لا توجد حجوزات مستردة جزئياً.</string>
     <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
     <string name="explore_km_marker">كم %1$s</string>
+    <!-- Signup identity: phone + ID at signup, Complete your account, rejected-ID notice. -->
+    <string name="identity_section_title">الهاتف والهوية</string>
+    <string name="identity_section_intro">يتم التحقق من كل حساب جديد في Quick In. أضف رقم هاتفك وصورة لوجهي بطاقة هويتك. سيراجعها فريقنا، ويمكنك التصفح والحجز في هذه الأثناء.</string>
+    <string name="identity_phone">رقم الهاتف</string>
+    <string name="identity_phone_required">رقم الهاتف مطلوب</string>
+    <string name="identity_phone_invalid">أدخل رقم هاتف صحيحًا، مثل 010 1234 5678</string>
+    <string name="identity_id_number">رقم المستند</string>
+    <string name="identity_id_number_national">رقم الهوية الوطنية مكوّن من 14 رقمًا</string>
+    <string name="identity_id_number_other">استخدم من 5 إلى 24 حرفًا ورقمًا</string>
+    <string name="identity_front_required">أضف صورة للوجه الأمامي من هويتك</string>
+    <string name="identity_back_required">أضف صورة للوجه الخلفي من هويتك</string>
+    <string name="identity_required_hint">أضف رقم هاتفك ورقم المستند وصورتي الهوية للمتابعة.</string>
+    <string name="identity_photos_unreadable">تعذّرت قراءة هذه الصور. يُرجى اختيارها مرة أخرى.</string>
+    <string name="complete_account_title">أكمل حسابك</string>
+    <string name="complete_account_intro">قبل المتابعة، أضف رقم هاتفك ومستند هوية. كل حساب جديد في Quick In يحتاج إليهما.</string>
+    <string name="complete_account_submit">حفظ ومتابعة</string>
+    <string name="identity_rejected_title">لم تتم الموافقة على هويتك</string>
+    <string name="identity_rejected_body">السبب: %1$s. ارفع هوية جديدة لتتمكن من الحجز.</string>
+    <string name="identity_rejected_body_no_reason">ارفع هوية جديدة لتتمكن من الحجز.</string>
+    <string name="identity_reupload">رفع هوية جديدة</string>
+    <string name="identity_booking_blocked_title">لا يمكنك الحجز بعد</string>
 </resources>

@@ -28,6 +28,11 @@ struct AuthUser: Codable, Equatable {
     let hostStatus: HostStatus
     /// The admin's reason, set only when `hostStatus == .rejected`.
     let hostReviewNote: String?
+    /// Signup identity (phone + ID document) — `identity_required`,
+    /// `identity_complete`, `verification_status`, `verification_note`. Decoded
+    /// tolerantly: a backend that doesn't send them yields `.legacy` (complete),
+    /// so an older server never locks anyone behind the completion screen.
+    let identity: AccountIdentity
 
     enum CodingKeys: String, CodingKey {
         case id, email, provider, role
@@ -49,7 +54,8 @@ struct AuthUser: Codable, Equatable {
         isHost: Bool = false,
         hostType: String? = nil,
         hostStatus: HostStatus = .none,
-        hostReviewNote: String? = nil
+        hostReviewNote: String? = nil,
+        identity: AccountIdentity = .legacy
     ) {
         self.id = id
         self.email = email
@@ -62,6 +68,7 @@ struct AuthUser: Codable, Equatable {
         // Keep the invariant the contract demands: a host is always `approved`.
         self.hostStatus = isHost ? .approved : hostStatus
         self.hostReviewNote = hostReviewNote
+        self.identity = identity
     }
 
     init(from decoder: Decoder) throws {
@@ -84,6 +91,41 @@ struct AuthUser: Codable, Equatable {
         let decodedStatus = HostStatus(raw: try c.decodeIfPresent(String.self, forKey: .hostStatus))
         hostStatus = resolvedIsHost ? .approved : decodedStatus
         hostReviewNote = try c.decodeIfPresent(String.self, forKey: .hostReviewNote)
+        // Same JSON object, its own keys (see `AccountIdentity.CodingKeys`).
+        identity = (try? AccountIdentity(from: decoder)) ?? .legacy
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(email, forKey: .email)
+        try c.encodeIfPresent(fullName, forKey: .fullName)
+        try c.encodeIfPresent(provider, forKey: .provider)
+        try c.encodeIfPresent(avatarURL, forKey: .avatarURL)
+        try c.encodeIfPresent(role, forKey: .role)
+        try c.encode(isHost, forKey: .isHost)
+        try c.encodeIfPresent(hostType, forKey: .hostType)
+        try c.encode(hostStatus.rawValue, forKey: .hostStatus)
+        try c.encodeIfPresent(hostReviewNote, forKey: .hostReviewNote)
+        try identity.encode(to: encoder)
+    }
+
+    /// A copy of this account carrying a new identity state (after the
+    /// completion step or a re-upload echoed one).
+    func withIdentity(_ identity: AccountIdentity) -> AuthUser {
+        AuthUser(
+            id: id,
+            email: email,
+            fullName: fullName,
+            provider: provider,
+            avatarURL: avatarURL,
+            role: role,
+            isHost: isHost,
+            hostType: hostType,
+            hostStatus: hostStatus,
+            hostReviewNote: hostReviewNote,
+            identity: identity
+        )
     }
 
     /// A copy of this account carrying a new application state. Never touches
@@ -99,7 +141,8 @@ struct AuthUser: Codable, Equatable {
             isHost: isHost,
             hostType: hostType ?? self.hostType,
             hostStatus: status,
-            hostReviewNote: reviewNote
+            hostReviewNote: reviewNote,
+            identity: identity
         )
     }
 }
@@ -159,6 +202,10 @@ final class AuthStore: ObservableObject {
     @Published var user: AuthUser?
     @Published var errorMessage: String?
     @Published var isLoading = false
+    /// Per-field messages from the last signup's `400 { error, fields }`
+    /// (phone / doc_type / id_number / id_front / id_back), shown under each
+    /// input. Cleared at the start of every signup.
+    @Published var signupFieldErrors: [IdentityField: String] = [:]
 
     static let tokenKey = "qk_token"
     private static let userKey = "qk_user"
@@ -356,17 +403,21 @@ final class AuthStore: ObservableObject {
     /// **no** token, so this returns `.needsVerification(email:)` to drive the
     /// OTP screen.
     @discardableResult
-    func signup(name: String, email: String, password: String) async -> AuthOutcome {
+    func signup(name: String, email: String, password: String, identity: SignupIdentityPayload) async -> AuthOutcome {
         isLoading = true
         errorMessage = nil
+        signupFieldErrors = [:]
         defer { isLoading = false }
 
-        let body = [
+        var body = [
             "email": email,
             "password": password,
             "full_name": name,
         ]
-        let result = await send(path: "/api/auth/signup", body: body)
+        // Phone + identity document — required for every new account.
+        body.merge(identity.body) { _, new in new }
+        // Two ID photos ride along, so allow longer than the 15s default.
+        let result = await send(path: "/api/auth/signup", body: body, timeout: 60)
 
         switch result {
         case .success(let data):
@@ -377,12 +428,22 @@ final class AuthStore: ObservableObject {
             // Tolerate a backend that returns a session directly.
             return decodeSession(data)
         case .failure(let http, let data):
+            signupFieldErrors = IdentityFieldErrors.parse(data)
             setErrorFromResponse(data, status: http.statusCode)
             return .failed
         case .transport(let message):
             errorMessage = message
             return .failed
         }
+    }
+
+    /// Adopt an identity state the server just echoed (the completion endpoint,
+    /// a re-upload) so the blocking screen / rejection notice update at once,
+    /// then re-read `/api/auth/me` for the authoritative copy.
+    func applyIdentity(_ identity: AccountIdentity) {
+        guard let current = user else { return }
+        applyUser(current.withIdentity(identity))
+        Task { await refreshSession() }
     }
 
     /// Verify the 6-digit code emailed after signup. On success stores the
@@ -609,7 +670,8 @@ final class AuthStore: ObservableObject {
             // untouched rather than resetting it to the defaults.
             hostType: current.hostType,
             hostStatus: current.hostStatus,
-            hostReviewNote: current.hostReviewNote
+            hostReviewNote: current.hostReviewNote,
+            identity: current.identity
         )
         applyUser(merged)
     }
@@ -690,12 +752,13 @@ final class AuthStore: ObservableObject {
     /// POST a JSON body to `path` and classify the response. Does not mutate
     /// any published state beyond what the caller manages — endpoint methods
     /// own `isLoading` / `errorMessage`.
-    private func send(path: String, body: [String: String]) async -> SendResult {
+    private func send(path: String, body: [String: String], timeout: TimeInterval? = nil) async -> SendResult {
         guard let url = URL(string: Config.apiBaseURL + path) else {
             return .transport("Invalid server URL.")
         }
 
         var request = URLRequest(url: url)
+        if let timeout { request.timeoutInterval = timeout }
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

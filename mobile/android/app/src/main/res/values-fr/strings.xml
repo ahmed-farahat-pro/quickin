@@ -111,9 +111,9 @@
     <string name="settings_save_changes">Enregistrer les modifications</string>
     <string name="settings_profile_saved">Profil enregistré</string>
     <string name="settings_phone_private">Votre numéro de téléphone est privé et n\'est jamais communiqué aux voyageurs.</string>
-    <string name="settings_phone_host_shared">Les voyageurs ne voient votre numéro qu\'une fois leur réservation confirmée et payée.</string>
-    <string name="settings_phone_required_error">Les hôtes doivent indiquer un numéro de téléphone pour que les voyageurs confirmés puissent les joindre.</string>
     <string name="settings_phone_required_label">Téléphone (obligatoire)</string>
+    <string name="settings_phone_required_error">Les hôtes doivent indiquer un numéro de téléphone pour que les voyageurs confirmés puissent les joindre.</string>
+    <string name="settings_phone_host_shared">Les voyageurs ne voient votre numéro qu\'une fois leur réservation confirmée et payée.</string>
     <string name="settings_change_password">Modifier le mot de passe</string>
     <string name="settings_password_caption">Utilisez au moins 6 caractères.</string>
     <string name="settings_current_password">Mot de passe actuel</string>
@@ -328,9 +328,7 @@
     <string name="reservation_guests_label">Voyageurs</string>
     <string name="reservation_host_phone">Téléphone de l\'hôte</string>
     <string name="reservation_show_qr">Présentez ce code QR à l\'arrivée.</string>
-    <string name="reservation_no_code">Aucun code</string>
-    <string name="reservation_scan_or_tap">Scannez ou appuyez pour ouvrir votre pass de séjour</string>
-    <string name="cd_stay_pass_qr">Code QR du pass de séjour</string>
+    <string name="reservation_tap_to_open">Appuyez pour ouvrir votre pass de séjour</string>
     <string name="reservation_from_host">De la part de votre hôte</string>
     <string name="reservation_host_notes_hint">Ajoutez des notes pour votre voyageur — détails d\'arrivée, Wi-Fi, règlement intérieur…</string>
     <string name="reservation_save_notes">Enregistrer les notes</string>
@@ -730,9 +728,9 @@
     <string name="host_apply_error">Impossible d\'envoyer votre candidature. Veuillez réessayer.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
-    <string name="reservation_qr_pending">Votre QR code apparaîtra ici dès que votre réservation sera confirmée.</string>
-    <string name="reservation_qr_unpaid">Votre hôte a accepté ce séjour. Votre QR code apparaîtra ici dès que votre paiement sera confirmé.</string>
-    <string name="reservation_qr_none">Il n\'y a pas de pass séjour pour cette réservation.</string>
+    <string name="reservation_pass_pending">Votre pass de séjour apparaîtra ici dès que votre réservation sera confirmée.</string>
+    <string name="reservation_pass_unpaid">Votre hôte a accepté ce séjour. Votre pass de séjour apparaîtra ici dès que votre paiement sera confirmé.</string>
+    <string name="reservation_pass_none">Il n\'y a pas de pass séjour pour cette réservation.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
     <string name="stay_guide_title">Votre guide de séjour</string>
@@ -921,4 +919,25 @@
     <string name="reservation_filter_empty_partially_refunded">Aucune réservation partiellement remboursée.</string>
     <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
     <string name="explore_km_marker">km %1$s</string>
+    <!-- Signup identity: phone + ID at signup, Complete your account, rejected-ID notice. -->
+    <string name="identity_section_title">Téléphone et identité</string>
+    <string name="identity_section_intro">Chaque nouveau compte Quick In est vérifié. Ajoutez votre numéro de téléphone et une photo des deux faces de votre pièce d\'identité. Notre équipe la vérifie, et vous pouvez parcourir et réserver en attendant.</string>
+    <string name="identity_phone">Numéro de téléphone</string>
+    <string name="identity_phone_required">Le numéro de téléphone est obligatoire</string>
+    <string name="identity_phone_invalid">Saisissez un numéro de téléphone valide, par ex. 010 1234 5678</string>
+    <string name="identity_id_number">Numéro du document</string>
+    <string name="identity_id_number_national">Un numéro de carte d\'identité nationale comporte 14 chiffres</string>
+    <string name="identity_id_number_other">Utilisez 5 à 24 lettres et chiffres</string>
+    <string name="identity_front_required">Ajoutez une photo du recto de votre pièce d\'identité</string>
+    <string name="identity_back_required">Ajoutez une photo du verso de votre pièce d\'identité</string>
+    <string name="identity_required_hint">Ajoutez votre téléphone, le numéro du document et les deux photos pour continuer.</string>
+    <string name="identity_photos_unreadable">Impossible de lire ces photos. Veuillez les choisir à nouveau.</string>
+    <string name="complete_account_title">Complétez votre compte</string>
+    <string name="complete_account_intro">Avant de continuer, ajoutez votre numéro de téléphone et une pièce d\'identité. Tout nouveau compte Quick In en a besoin.</string>
+    <string name="complete_account_submit">Enregistrer et continuer</string>
+    <string name="identity_rejected_title">Votre pièce d\'identité n\'a pas été approuvée</string>
+    <string name="identity_rejected_body">Motif : %1$s. Téléversez une nouvelle pièce d\'identité pour réserver.</string>
+    <string name="identity_rejected_body_no_reason">Téléversez une nouvelle pièce d\'identité pour réserver.</string>
+    <string name="identity_reupload">Téléverser une nouvelle pièce</string>
+    <string name="identity_booking_blocked_title">Réservation impossible pour l\'instant</string>
 </resources>

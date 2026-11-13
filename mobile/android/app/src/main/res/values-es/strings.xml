@@ -111,9 +111,9 @@
     <string name="settings_save_changes">Guardar cambios</string>
     <string name="settings_profile_saved">Perfil guardado</string>
     <string name="settings_phone_private">Su teléfono es privado y nunca se muestra a los huéspedes.</string>
-    <string name="settings_phone_host_shared">Los huéspedes solo ven su teléfono cuando su reserva está confirmada y pagada.</string>
-    <string name="settings_phone_required_error">Los anfitriones necesitan un número de teléfono para que los huéspedes confirmados puedan contactarlos.</string>
     <string name="settings_phone_required_label">Teléfono (obligatorio)</string>
+    <string name="settings_phone_required_error">Los anfitriones necesitan un número de teléfono para que los huéspedes confirmados puedan contactarlos.</string>
+    <string name="settings_phone_host_shared">Los huéspedes solo ven su teléfono cuando su reserva está confirmada y pagada.</string>
     <string name="settings_change_password">Cambiar contraseña</string>
     <string name="settings_password_caption">Use al menos 6 caracteres.</string>
     <string name="settings_current_password">Contraseña actual</string>
@@ -328,9 +328,7 @@
     <string name="reservation_guests_label">Huéspedes</string>
     <string name="reservation_host_phone">Teléfono del anfitrión</string>
     <string name="reservation_show_qr">Muestre este código QR al registrarse.</string>
-    <string name="reservation_no_code">Sin código</string>
-    <string name="reservation_scan_or_tap">Escanee o toque para abrir su pase de estancia</string>
-    <string name="cd_stay_pass_qr">Código QR del pase de estancia</string>
+    <string name="reservation_tap_to_open">Toque para abrir su pase de estancia</string>
     <string name="reservation_from_host">De su anfitrión</string>
     <string name="reservation_host_notes_hint">Añada notas para su huésped — detalles de llegada, Wi-Fi, normas de la casa…</string>
     <string name="reservation_save_notes">Guardar notas</string>
@@ -730,9 +728,9 @@
     <string name="host_apply_error">No se pudo enviar tu solicitud. Inténtalo de nuevo.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
-    <string name="reservation_qr_pending">Tu código QR aparecerá aquí en cuanto se confirme tu reserva.</string>
-    <string name="reservation_qr_unpaid">Tu anfitrión ha aprobado esta estancia. Tu código QR aparecerá aquí en cuanto se confirme tu pago.</string>
-    <string name="reservation_qr_none">Esta reserva no tiene pase de estancia.</string>
+    <string name="reservation_pass_pending">Tu pase de estancia aparecerá aquí en cuanto se confirme tu reserva.</string>
+    <string name="reservation_pass_unpaid">Tu anfitrión ha aprobado esta estancia. Tu pase de estancia aparecerá aquí en cuanto se confirme tu pago.</string>
+    <string name="reservation_pass_none">Esta reserva no tiene pase de estancia.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
     <string name="stay_guide_title">Tu guía de estancia</string>
@@ -921,4 +919,25 @@
     <string name="reservation_filter_empty_partially_refunded">No hay reservas reembolsadas parcialmente.</string>
     <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
     <string name="explore_km_marker">km %1$s</string>
+    <!-- Signup identity: phone + ID at signup, Complete your account, rejected-ID notice. -->
+    <string name="identity_section_title">Teléfono e identidad</string>
+    <string name="identity_section_intro">Todas las cuentas nuevas de Quick In se verifican. Añade tu número de teléfono y una foto de ambas caras de tu documento. Nuestro equipo lo revisará y, mientras tanto, puedes explorar y reservar.</string>
+    <string name="identity_phone">Número de teléfono</string>
+    <string name="identity_phone_required">El número de teléfono es obligatorio</string>
+    <string name="identity_phone_invalid">Introduce un número de teléfono válido, como 010 1234 5678</string>
+    <string name="identity_id_number">Número del documento</string>
+    <string name="identity_id_number_national">Un número de DNI nacional tiene 14 dígitos</string>
+    <string name="identity_id_number_other">Usa entre 5 y 24 letras y números</string>
+    <string name="identity_front_required">Añade una foto del anverso de tu documento</string>
+    <string name="identity_back_required">Añade una foto del reverso de tu documento</string>
+    <string name="identity_required_hint">Añade tu teléfono, el número del documento y las dos fotos para continuar.</string>
+    <string name="identity_photos_unreadable">No se pudieron leer esas fotos. Vuelve a elegirlas.</string>
+    <string name="complete_account_title">Completa tu cuenta</string>
+    <string name="complete_account_intro">Antes de continuar, añade tu número de teléfono y un documento de identidad. Todas las cuentas nuevas de Quick In los necesitan.</string>
+    <string name="complete_account_submit">Guardar y continuar</string>
+    <string name="identity_rejected_title">Tu documento no fue aprobado</string>
+    <string name="identity_rejected_body">Motivo: %1$s. Sube un documento nuevo para reservar.</string>
+    <string name="identity_rejected_body_no_reason">Sube un documento nuevo para reservar.</string>
+    <string name="identity_reupload">Subir un documento nuevo</string>
+    <string name="identity_booking_blocked_title">Aún no puedes reservar</string>
 </resources>

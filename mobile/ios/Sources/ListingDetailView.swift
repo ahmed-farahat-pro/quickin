@@ -71,6 +71,11 @@ struct ListingDetailView: View {
     @State private var reserveError: String?
     @State private var confirmation: Booking?
     @State private var showingAuth = false
+    /// A reservation refused with `identity_incomplete` → the completion screen.
+    @State private var showingCompleteAccount = false
+    /// A reservation refused with `identity_rejected` → the ID re-upload sheet,
+    /// carrying the server's message (which includes the reviewer's reason).
+    @State private var reuploadReason: String?
 
     // Seasonal pricing quote — the authoritative price for the chosen dates from
     // `POST /api/local/listings/:id/quote`. Fetched (debounced) whenever the
@@ -215,6 +220,20 @@ struct ListingDetailView: View {
         }
         .sheet(isPresented: $showingAuth) {
             AuthView().environmentObject(auth)
+        }
+        .fullScreenCover(isPresented: $showingCompleteAccount) {
+            CompleteAccountView(onFinished: { showingCompleteAccount = false })
+                .environmentObject(auth)
+                .environmentObject(loc)
+        }
+        .sheet(isPresented: Binding(
+            get: { reuploadReason != nil },
+            set: { if !$0 { reuploadReason = nil } }
+        )) {
+            IdentityReuploadSheet(fallbackReason: reuploadReason)
+                .environmentObject(auth)
+                .environmentObject(loc)
+                .presentationDragIndicator(.visible)
         }
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
@@ -1140,6 +1159,10 @@ struct ListingDetailView: View {
             // back to the naive base-nightly × nights estimate.
             priceBreakdown
 
+            // Signup ID rejected: say so before the guest taps Reserve, with the
+            // reason and a re-upload. Renders nothing otherwise.
+            IdentityRejectedNotice()
+
             if let reserveError {
                 Text(reserveError)
                     .font(.footnote)
@@ -1316,6 +1339,17 @@ struct ListingDetailView: View {
             confirmation = booking
         } catch BookingError.notSignedIn {
             showingAuth = true
+        } catch BookingError.identity(let block, let message) {
+            // Switched on the server's `code`, never on the message.
+            switch block {
+            case .incomplete:
+                showingCompleteAccount = true
+            case .rejected:
+                reserveError = message.isEmpty ? nil : message
+                reuploadReason = message
+            }
+            // The cached account was stale — re-read it so the notices match.
+            Task { await auth.refreshSession() }
         } catch {
             // 400 → server's { error } (e.g. dates unavailable); anything else.
             reserveError = error.localizedDescription

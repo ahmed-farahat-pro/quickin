@@ -32,7 +32,13 @@ data class AuthResult(
     /** The applicant's host type ("individual" | "company" | "brokerage"), or null when unset. */
     val hostType: String? = null,
     /** The admin's reason when [hostStatus] is "rejected"; null otherwise. */
-    val hostReviewNote: String? = null
+    val hostReviewNote: String? = null,
+    /**
+     * The signup-identity state (`identity_required` / `identity_complete` / `verification_status` /
+     * `verification_note`). Defaults to "not required, complete" so an older backend — or a biometric
+     * session restored without these fields — never traps anyone on "Complete your account".
+     */
+    val identity: AccountIdentity = AccountIdentity()
 )
 
 /** No host application on file — the profile shows the "Become a host" CTA. */
@@ -77,6 +83,33 @@ object AuthService {
     class HttpError(val code: Int, message: String) : RuntimeException(message)
 
     /**
+     * A 400 `{error, fields}` — the server refused specific fields. [fields] is keyed like the
+     * request body (`phone`, `doc_type`, `id_number`, `id_front`, `id_back`) so each message can be
+     * shown under its own field.
+     */
+    class FieldErrors(val fields: Map<String, String>, message: String) : RuntimeException(message)
+
+    /**
+     * The identity half of a signup (and of the "Complete your account" step): the phone, which
+     * document, its number, and both photos as `data:image/jpeg;base64,…` data URLs.
+     */
+    data class IdentityPayload(
+        val phone: String,
+        val docType: String,
+        val idNumber: String,
+        val idFront: String,
+        val idBack: String
+    ) {
+        fun writeTo(body: JSONObject) {
+            body.put("phone", phone.trim())
+            body.put("doc_type", docType)
+            body.put("id_number", idNumber.trim())
+            body.put("id_front", idFront)
+            body.put("id_back", idBack)
+        }
+    }
+
+    /**
      * Logs in with email + password. One account per person — there is no role selection: the user
      * simply signs in and the backend returns their `is_host` flag (a host keeps all guest
      * abilities). Returns [AuthOutcome.NeedsVerification] when the backend answers 403 with
@@ -109,15 +142,19 @@ object AuthService {
     suspend fun signup(
         name: String,
         email: String,
-        password: String
+        password: String,
+        identity: IdentityPayload
     ): AuthOutcome = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("email", email)
             put("password", password)
             put("full_name", name)
         }
+        // Every new account gives its phone + identity document at signup (signup-identity-core).
+        identity.writeTo(body)
         val (code, text) = request("/api/auth/signup", body)
         if (code !in 200..299) {
+            fieldErrors(text)?.let { throw FieldErrors(it, extractError(text, code)) }
             throw RuntimeException(extractError(text, code))
         }
         val devCode = runCatching { JSONObject(text).optString("devCode") }.getOrNull()
@@ -234,6 +271,46 @@ object AuthService {
         }
     }
 
+    /**
+     * `POST /api/local/account/identity` — the blocking "Complete your account" step for an account
+     * that arrived (first Google sign-in) without its phone + ID. Returns the account's new identity
+     * state. Throws [FieldErrors] on a 400 with a `fields` map, [HttpError] otherwise (401 signed
+     * out, 409 when nothing is owed any more — the caller re-reads `/me`).
+     */
+    suspend fun completeIdentity(token: String, identity: IdentityPayload): AccountIdentity =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().also { identity.writeTo(it) }
+            val (status, text) = authedSend("POST", "/api/local/account/identity", token, body)
+            if (status !in 200..299) {
+                fieldErrors(text)?.let { throw FieldErrors(it, extractError(text, status)) }
+                throw HttpError(status, extractError(text, status))
+            }
+            parseIdentity(JSONObject(text))
+        }
+
+    /** The `fields` map of a 400 `{error, fields}` response, or null when there is none. */
+    private fun fieldErrors(text: String): Map<String, String>? = runCatching {
+        val obj = JSONObject(text).optJSONObject("fields") ?: return null
+        val out = LinkedHashMap<String, String>()
+        obj.keys().forEach { key -> obj.optStringOrNull(key)?.let { out[key] = it } }
+        out.takeUnless { it.isEmpty() }
+    }.getOrNull()
+
+    /**
+     * Reads the identity fields off a user object (or the identity endpoint's bare body). Absent
+     * keys fall back through [AccountIdentity.from]: absent `identity_complete` reads as complete.
+     */
+    private fun parseIdentity(o: JSONObject): AccountIdentity = AccountIdentity.from(
+        required = if (o.has("identity_required") && !o.isNull("identity_required")) {
+            o.optBoolean("identity_required", false)
+        } else null,
+        complete = if (o.has("identity_complete") && !o.isNull("identity_complete")) {
+            o.optBoolean("identity_complete", true)
+        } else null,
+        status = o.optStringOrNull("verification_status"),
+        note = o.optStringOrNull("verification_note")
+    )
+
     /** Pulls the human-readable message out of an {error} response, with a sensible fallback. */
     private fun extractError(text: String, code: Int): String {
         val parsed = runCatching { JSONObject(text).optString("error") }.getOrNull()
@@ -300,7 +377,8 @@ object AuthService {
             // linger on a re-submitted application.
             hostReviewNote = if (hostStatus == HOST_STATUS_REJECTED) {
                 user.optStringOrNull("host_review_note")
-            } else null
+            } else null,
+            identity = parseIdentity(user)
         )
     }
 
@@ -309,7 +387,8 @@ object AuthService {
      * "null", so guard with `isNull` first; blanks collapse to null too.
      */
     private fun JSONObject.optStringOrNull(name: String): String? =
-        if (isNull(name)) null else optString(name).takeUnless { it.isBlank() }
+        if (isNull(name)) null else optString(name).trim()
+            .takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
 
     /**
      * Re-reads the signed-in account from `GET /api/auth/me` with the bearer [token] — the

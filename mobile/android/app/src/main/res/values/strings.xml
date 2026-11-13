@@ -142,9 +142,9 @@
     <string name="settings_save_changes">Save changes</string>
     <string name="settings_profile_saved">Profile saved</string>
     <string name="settings_phone_private">Your phone is private and never shown to guests.</string>
-    <string name="settings_phone_host_shared">Guests see your phone only after their booking is confirmed and paid.</string>
-    <string name="settings_phone_required_error">Hosts must keep a phone number on file so confirmed guests can reach them.</string>
     <string name="settings_phone_required_label">Phone (required)</string>
+    <string name="settings_phone_required_error">Hosts must keep a phone number on file so confirmed guests can reach them.</string>
+    <string name="settings_phone_host_shared">Guests see your phone only after their booking is confirmed and paid.</string>
     <string name="settings_change_password">Change password</string>
     <string name="settings_password_caption">Use at least 6 characters.</string>
     <string name="settings_current_password">Current password</string>
@@ -386,9 +386,7 @@
     <string name="reservation_guests_label">Guests</string>
     <string name="reservation_host_phone">Host phone</string>
     <string name="reservation_show_qr">Show this QR code at check-in.</string>
-    <string name="reservation_no_code">No code</string>
-    <string name="reservation_scan_or_tap">Scan or tap to open your stay pass</string>
-    <string name="cd_stay_pass_qr">Stay pass QR code</string>
+    <string name="reservation_tap_to_open">Tap to open your stay pass</string>
     <!-- From your host (notes) -->
     <string name="reservation_from_host">From your host</string>
     <string name="reservation_host_notes_hint">Add notes for your guest — check-in details, Wi-Fi, house rules…</string>
@@ -844,9 +842,9 @@
     <string name="host_apply_error">Couldn\'t submit your application. Please try again.</string>
 
     <!-- Stay pass: the QR is only issued once the host confirms the reservation -->
-    <string name="reservation_qr_pending">Your QR code will appear here once your reservation is confirmed.</string>
-    <string name="reservation_qr_unpaid">Your host has approved this stay. Your QR code appears here once your payment is confirmed.</string>
-    <string name="reservation_qr_none">There\'s no stay pass for this reservation.</string>
+    <string name="reservation_pass_pending">Your stay pass will appear here once your reservation is confirmed.</string>
+    <string name="reservation_pass_unpaid">Your host has approved this stay. Your stay pass appears here once your payment is confirmed.</string>
+    <string name="reservation_pass_none">There\'s no stay pass for this reservation.</string>
 
     <!-- Stay guide: host-authored info, photos, place QRs and files on a confirmed stay -->
     <string name="stay_guide_title">Your stay guide</string>
@@ -1045,4 +1043,25 @@
     <string name="reservation_filter_empty_partially_refunded">No partially refunded reservations.</string>
     <!-- Explore sub-area chip suffix: the coast-road kilometre marker, e.g. "km 124". -->
     <string name="explore_km_marker">km %1$s</string>
+    <!-- Signup identity: phone + ID at signup, Complete your account, rejected-ID notice. -->
+    <string name="identity_section_title">Phone &amp; identity</string>
+    <string name="identity_section_intro">Every new Quick In account is verified. Add your phone number and a photo of both sides of your ID. Our team reviews it, and you can browse and book meanwhile.</string>
+    <string name="identity_phone">Phone number</string>
+    <string name="identity_phone_required">Phone number is required</string>
+    <string name="identity_phone_invalid">Enter a valid phone number, like 010 1234 5678</string>
+    <string name="identity_id_number">Document number</string>
+    <string name="identity_id_number_national">A national ID number is 14 digits</string>
+    <string name="identity_id_number_other">Use 5 to 24 letters and numbers</string>
+    <string name="identity_front_required">Add a photo of the front of your ID</string>
+    <string name="identity_back_required">Add a photo of the back of your ID</string>
+    <string name="identity_required_hint">Add your phone number, document number and both ID photos to continue.</string>
+    <string name="identity_photos_unreadable">Couldn\'t read those photos. Please choose them again.</string>
+    <string name="complete_account_title">Complete your account</string>
+    <string name="complete_account_intro">Before you continue, add your phone number and an identity document. Every new Quick In account needs them.</string>
+    <string name="complete_account_submit">Save and continue</string>
+    <string name="identity_rejected_title">Your ID was not approved</string>
+    <string name="identity_rejected_body">Reason: %1$s. Upload a new ID to book.</string>
+    <string name="identity_rejected_body_no_reason">Upload a new ID to book.</string>
+    <string name="identity_reupload">Upload a new ID</string>
+    <string name="identity_booking_blocked_title">Can\'t book yet</string>
 </resources>

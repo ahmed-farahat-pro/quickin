@@ -76,6 +76,8 @@ import com.quickin.app.ui.AddListingScreen
 import com.quickin.app.ui.FormDraftsViewModel
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
+import com.quickin.app.ui.CompleteAccountScreen
+import com.quickin.app.ui.IdentityRejectedNotice
 import com.quickin.app.ui.DisputeScreen
 import com.quickin.app.ui.EditListingScreen
 import com.quickin.app.ui.ForgotPasswordScreen
@@ -322,6 +324,7 @@ private fun MainApp() {
     val forgotState by authViewModel.forgot.collectAsState()
     // Drives the "Apply to host" form (submitting spinner, inline error, submitted).
     val hostApplyState by authViewModel.hostApply.collectAsState()
+    val completeIdentityState by authViewModel.completeIdentity.collectAsState()
     // Whether an account deletion is in flight (drives the settings delete dialog's spinner).
     val deletingAccount by authViewModel.deletingAccount.collectAsState()
 
@@ -861,6 +864,68 @@ private fun MainApp() {
         }
     }
 
+    // SIGNUP IDENTITY. A booking refused for `identity_incomplete` means the server holds this
+    // account to a phone + ID our cache thought it had: flip to the blocking screen below.
+    LaunchedEffect(reserveState.identityBlock) {
+        if (reserveState.identityBlock == IdentityBlock.Incomplete) {
+            bookingsViewModel.resetReserve()
+            authViewModel.markIdentityIncomplete()
+        }
+    }
+    // A re-uploaded ID is pending again, which lifts the booking block — re-read /me so the
+    // rejected-ID notice goes away now rather than on the next launch.
+    LaunchedEffect(verificationState.status) {
+        if (authState.isAuthenticated && authState.identity.rejected &&
+            verificationState.status == AccountIdentity.STATUS_PENDING
+        ) authViewModel.refreshSession()
+    }
+    // Opens the existing ID re-upload flow (the Profile tab's verification card,
+    // `POST /api/local/verification`) from anywhere.
+    val openIdReupload: () -> Unit = {
+        bookingsViewModel.resetReserve()
+        selectedListing = null
+        previewingAsGuest = false
+        selectedTab = tabs.indexOfFirst { it.key == "Profile" }.coerceAtLeast(0)
+        trustViewModel.loadVerification()
+        authViewModel.refreshSession()
+    }
+    // A booking refused for `identity_rejected`: the server's message carries the reviewer's
+    // reason; the action is the re-upload flow.
+    if (reserveState.identityBlock == IdentityBlock.Rejected) {
+        AlertDialog(
+            onDismissRequest = { bookingsViewModel.resetReserve() },
+            title = { Text(stringResource(R.string.identity_booking_blocked_title)) },
+            text = { Text(reserveState.error.orEmpty()) },
+            confirmButton = {
+                TextButton(onClick = openIdReupload) {
+                    Text(stringResource(R.string.identity_reupload))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { bookingsViewModel.resetReserve() }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
+
+    // "Complete your account" — BLOCKING. A new account that still owes its phone + ID (a first
+    // Google sign-in arrives without them) sees nothing else until it posts them; Back leaves the
+    // app rather than slipping past, and signing out stays possible. Re-checked on every launch by
+    // refreshSession() (`GET /api/auth/me`).
+    if (authState.isAuthenticated && authState.identity.needsCompletion) {
+        CompleteAccountScreen(
+            state = completeIdentityState,
+            onSubmit = { phone, docType, idNumber, front, back ->
+                authViewModel.submitCompleteIdentity(phone, docType, idNumber, front, back)
+            },
+            onFieldEdited = authViewModel::clearCompleteIdentityFieldError,
+            onSignOut = authViewModel::logout,
+            onExitApp = { activity?.moveTaskToBack(true) }
+        )
+        return
+    }
+
     // MOCK payment sheet — floats (its own scrim window) over whatever screen is active. Opened
     // after a guest creates a booking (and from an unpaid reservation's "Pay now"). On pay success
     // it shows a paid confirmation; "Done" then continues to the reservation's QR-card detail.
@@ -1075,7 +1140,11 @@ private fun MainApp() {
                 selectedListing = null
                 previewingAsGuest = false
             },
-            reserveState = reserveState,
+            // An identity refusal is answered by its own dialog / screen, not the inline error.
+            reserveState = if (reserveState.identityBlock != null) reserveState.copy(error = null) else reserveState,
+            reserveNotice = if (authState.isAuthenticated && authState.identity.rejected) {
+                { IdentityRejectedNotice(note = authState.identity.note, onReupload = openIdReupload) }
+            } else null,
             onReserve = { checkIn, checkOut, adults, children, infants, pets ->
                 bookingsViewModel.createBooking(current.id, checkIn, checkOut, adults, children, infants, pets)
             },
@@ -1505,9 +1574,10 @@ private fun MainApp() {
             // Unified account: one account per person, no "sign in/register as host". The backend
             // returns the account's is_host flag, and a user becomes a host in-app from their profile.
             onLogin = { email, password -> authViewModel.login(email, password) },
-            onSignup = { name, email, password ->
-                authViewModel.signup(name, email, password)
+            onSignup = { name, email, password, phone, docType, idNumber, idFront, idBack ->
+                authViewModel.signup(name, email, password, phone, docType, idNumber, idFront, idBack)
             },
+            onClearSignupFieldError = authViewModel::clearSignupFieldError,
             onGoogleLaunch = { _, _ ->
                 val ctx = activity ?: return@AuthScreen
                 val intent = GoogleSignIn.signInIntent(ctx)

@@ -24,7 +24,16 @@ import java.net.URL
 object BookingService {
 
     /** Thrown so callers can distinguish "sign in to reserve" (401) from validation (400). */
-    class HttpError(val code: Int, message: String) : RuntimeException(message)
+    class HttpError(
+        val code: Int,
+        message: String,
+        /**
+         * The machine-readable `code` of the error body, when the server sent one — e.g.
+         * `identity_incomplete` / `identity_rejected` on a 403 from `POST /api/local/bookings`.
+         * Switch on this, never on the message.
+         */
+        val errorCode: String? = null
+    ) : RuntimeException(message)
 
     /**
      * How long to wait for a reply to a request that carries photos. The server uploads every
@@ -97,7 +106,8 @@ object BookingService {
             val code = conn.responseCode
             val text = readBody(conn, code)
             if (code !in 200..299) {
-                throw HttpError(code, extractError(text, code))
+                val errorCode = runCatching { JSONObject(text).optStringOrNull("code") }.getOrNull()
+                throw HttpError(code, extractError(text, code), errorCode)
             }
             parseBooking(JSONObject(text))
         } finally {

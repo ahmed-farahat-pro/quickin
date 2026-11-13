@@ -19,6 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -102,6 +104,7 @@ private val DeleteRed = HostRejectedRed
  * bio, a role/provider pill, and a logout button. Styled to match AuthScreen. [profile] carries
  * the editable profile (bio + avatar) loaded from `/api/local/profile`; it's empty until loaded.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // BringIntoViewRequester
 @Composable
 fun ProfileScreen(
     state: AuthUiState,
@@ -111,7 +114,7 @@ fun ProfileScreen(
     /** Identity-verification state for the "Verify your identity" card. */
     verificationState: com.quickin.app.VerificationUiState = com.quickin.app.VerificationUiState(),
     /** Submits the picked FRONT + BACK ID photos + SELFIE (and an optional id number). */
-    onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri, idNumber: String?) -> Unit = { _, _, _, _ -> },
+    onSubmitVerification: (front: android.net.Uri, back: android.net.Uri, selfie: android.net.Uri?, idNumber: String?) -> Unit = { _, _, _, _ -> },
     /** Payout-method state for the host's "Payment information" card. */
     payoutState: com.quickin.app.PayoutUiState = com.quickin.app.PayoutUiState(),
     /** Saves (or replaces) where Quick In sends this host's earnings. */
@@ -154,6 +157,10 @@ fun ProfileScreen(
     val isHost = state.isHost
     // Host -> "Host", otherwise "Guest".
     val roleLabel = stringResource(if (isHost) R.string.profile_host else R.string.profile_guest)
+    // "Upload a new ID" on the rejected-ID notice brings the verification card (the re-upload
+    // flow, `POST /api/local/verification`) into view.
+    val verificationCardRequester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val noticeScope = androidx.compose.runtime.rememberCoroutineScope()
 
     Column(
         modifier = modifier
@@ -181,6 +188,18 @@ fun ProfileScreen(
                 .padding(horizontal = 20.dp)
                 .padding(top = 20.dp, bottom = 32.dp)
         ) {
+            // A rejected ID stops new bookings until a new one is uploaded — say so first, with the
+            // reviewer's reason, rather than leave it to a refused booking.
+            if (state.identity.rejected) {
+                IdentityRejectedNotice(
+                    note = state.identity.note,
+                    onReupload = {
+                        noticeScope.launch { verificationCardRequester.bringIntoView() }
+                    },
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
             // Header card: avatar + name + email + role/provider pills, on a white boutique card.
             BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
                 Column(
@@ -303,7 +322,10 @@ fun ProfileScreen(
             VerificationCard(
                 state = verificationState,
                 onSubmit = onSubmitVerification,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .bringIntoViewRequester(verificationCardRequester),
+                selfieRequired = state.identity.selfieRequired
             )
             Spacer(modifier = Modifier.height(12.dp))
 

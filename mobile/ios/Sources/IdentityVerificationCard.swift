@@ -256,6 +256,11 @@ struct IdentityVerificationCard: View {
             selfiePickerItem = nil
             Task { await model.refresh() }
         }
+        // A re-upload from the rejection notice (or the completion screen)
+        // changes the account's status — reflect it here too.
+        .onChange(of: auth.user?.identity.status) { _, _ in
+            Task { await model.refresh() }
+        }
         .onChange(of: frontPickerItem) { _, item in
             Task { await model.loadPicked(item, side: .front) }
         }
@@ -427,7 +432,11 @@ struct IdentityVerificationCard: View {
     // MARK: - Derived values
 
     private var canUpload: Bool {
-        model.status == .unverified || model.status == .rejected
+        // A rejected SIGNUP document is re-filed through `IdentityRejectedNotice`
+        // just above this card (reason + type + number + front/back), so the card
+        // doesn't offer a second, different upload for the same thing.
+        if model.status == .rejected, auth.user?.identity.isRejected == true { return false }
+        return model.status == .unverified || model.status == .rejected
     }
 
     private var introText: String {

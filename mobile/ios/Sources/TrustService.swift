@@ -58,7 +58,7 @@ struct TrustService {
     /// flips the status to "pending", and echoes the new state. HTTPS only
     /// (normal `apiBaseURL`).
     @discardableResult
-    func submitVerification(front: String, back: String, selfie: String? = nil, idNumber: String? = nil) async throws -> VerificationState {
+    func submitVerification(front: String, back: String, selfie: String? = nil, idNumber: String? = nil, docType: String? = nil) async throws -> VerificationState {
         guard let token else { throw TrustError.notSignedIn }
 
         let url = URL(string: "\(Config.apiBaseURL)/api/local/verification")!
@@ -73,6 +73,9 @@ struct TrustService {
         }
         if let idNumber = idNumber?.trimmingCharacters(in: .whitespacesAndNewlines), !idNumber.isEmpty {
             body["id_number"] = idNumber
+        }
+        if let docType, !docType.isEmpty {
+            body["doc_type"] = docType
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -89,6 +92,49 @@ struct TrustService {
             return state
         }
         return VerificationState(status: "pending", verifiedAt: nil)
+    }
+
+    // MARK: - Signup identity (Google "Complete your account")
+
+    /// The outcome of `POST /api/local/account/identity`.
+    enum AccountIdentityResult {
+        /// 200 (or 409 — nothing owed any more): the echoed identity state.
+        case saved(AccountIdentity)
+        /// 400: the server's summary plus the per-field messages.
+        case invalid(message: String, fields: [IdentityField: String])
+    }
+
+    /// File the phone + ID a first Google sign-in still owes
+    /// (`POST /api/local/account/identity` (Bearer)
+    /// `{ phone, doc_type, id_number, id_front, id_back }`). A 409 means the
+    /// account is already complete, which is treated as success — the screen
+    /// should simply go away.
+    func submitAccountIdentity(_ payload: SignupIdentityPayload) async throws -> AccountIdentityResult {
+        guard let token else { throw TrustError.notSignedIn }
+
+        let url = URL(string: "\(Config.apiBaseURL)/api/local/account/identity")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload.body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw TrustError.message("Invalid response from the server.")
+        }
+        if http.statusCode == 401 { throw TrustError.notSignedIn }
+        if (200...299).contains(http.statusCode) || http.statusCode == 409 {
+            let state = (try? JSONDecoder().decode(AccountIdentity.self, from: data))
+                ?? AccountIdentity(required: true, complete: true, status: "pending", note: nil)
+            return .saved(state)
+        }
+        if http.statusCode == 400 {
+            return .invalid(message: Self.decodeError(data) ?? "", fields: IdentityFieldErrors.parse(data))
+        }
+        throw TrustError.message(Self.decodeError(data) ?? "Couldn't save your details (\(http.statusCode)).")
     }
 
     // MARK: - Reporting

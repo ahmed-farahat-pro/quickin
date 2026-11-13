@@ -99,6 +99,74 @@ enum PhoneRules {
         return kept
     }
 
+    // MARK: - Signup / account phone (any country)
+
+    /// Longest input the account phone field accepts — `MAX_PHONE_CHARS` in the
+    /// backend's `phone-core.ts`. E.164 caps a number at 15 digits; the rest is
+    /// room for the spaces and brackets people type.
+    static let maxAccountPhoneChars = 24
+
+    /// Arabic-Indic (٠–٩) and Persian (۰–۹) digits folded to ASCII. An Arabic
+    /// keyboard types ٠١٠…; those are digits, and a filter that dropped them would
+    /// empty the field of someone typing their own number correctly. Twin of
+    /// `toAsciiDigits` in phone-core.ts.
+    static func asciiDigits(_ raw: String) -> String {
+        var out = String.UnicodeScalarView()
+        for scalar in raw.unicodeScalars {
+            switch scalar.value {
+            case 0x0660...0x0669: out.append(Unicode.Scalar(0x30 + scalar.value - 0x0660)!)
+            case 0x06F0...0x06F9: out.append(Unicode.Scalar(0x30 + scalar.value - 0x06F0)!)
+            default: out.append(scalar)
+            }
+        }
+        return String(out)
+    }
+
+    /// What the account phone field holds after a keystroke: the typed text with
+    /// anything that isn't part of a written phone number dropped (letters,
+    /// symbols), Arabic-Indic digits folded to ASCII, a `+` kept only in front.
+    /// Twin of `filterPhoneInput` in phone-core.ts — it only filters; whether
+    /// what is left is a real number is `isValidAccountPhone`'s call.
+    static func filterAccountInput(_ raw: String) -> String {
+        let s = asciiDigits(raw)
+        let trimmedStart = s.drop(while: { $0 == " " || $0 == "\t" || $0 == "\n" })
+        let plus = trimmedStart.hasPrefix("+") ? "+" : ""
+        let kept = s.filter { ch in
+            guard ch.isASCII else { return false }
+            return ch.isNumber || ch == " " || ch == "(" || ch == ")" || ch == "." || ch == "-"
+        }
+        let body = kept.drop(while: { $0 == " " })
+        return String((plus + body).prefix(maxAccountPhoneChars))
+    }
+
+    /// Whether the backend's `normalizePhone` would accept `raw` for an account:
+    /// an Egyptian mobile (`01` + 9 digits) or landline written nationally or
+    /// with `+20`/`0020`, or any other international number of 8–15 digits.
+    /// Unlike `isValid` (Egypt only — host applications), a guest abroad still
+    /// has to be able to sign up.
+    static func isValidAccountPhone(_ raw: String) -> Bool {
+        let text = asciiDigits(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= maxAccountPhoneChars else { return false }
+        guard text.range(of: #"^\+?[0-9\s().-]+$"#, options: .regularExpression) != nil else { return false }
+        var digits = text.filter { $0.isASCII && $0.isNumber }
+        if digits.hasPrefix("00") { digits = String(digits.dropFirst(2)) }
+        let local: String?
+        if digits.hasPrefix("20") {
+            local = "0" + digits.dropFirst(2)
+        } else if digits.hasPrefix("0") {
+            local = digits
+        } else {
+            local = nil
+        }
+        if let local {
+            if local.hasPrefix("01") {
+                return local.range(of: #"^01[0-9]{9}$"#, options: .regularExpression) != nil
+            }
+            return local.range(of: #"^0[2-9][0-9]{6,9}$"#, options: .regularExpression) != nil
+        }
+        return digits.count >= 8 && digits.count <= 15
+    }
+
     /// How many leading digits of `raw` are country code and trunk `0` rather
     /// than part of the number itself.
     private static func countryPrefixLength(_ raw: String) -> Int {

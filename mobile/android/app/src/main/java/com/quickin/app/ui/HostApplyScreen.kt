@@ -470,7 +470,7 @@ private fun HostApplyField(
  * which is why the API refuses an unknown value rather than assuming National ID.
  */
 @Composable
-private fun DocTypePicker(
+internal fun DocTypePicker(
     selected: IdDocType,
     enabled: Boolean,
     onSelected: (IdDocType) -> Unit,

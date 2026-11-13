@@ -27,6 +27,10 @@ struct AuthView: View {
 
     @FocusState private var focusedField: Field?
 
+    /// Sign-up only: phone + identity document (type, number, front + back).
+    /// Every new account gives them before the email code is sent.
+    @StateObject private var identityDraft = IdentityDocumentDraft()
+
     /// Set once the user has left the email field (or hit return on it) with
     /// something typed. Until then we stay quiet — nagging about a malformed
     /// address while it's still being typed reads as broken.
@@ -124,9 +128,12 @@ struct AuthView: View {
             // New account: a real name + a password that clears the strength bar,
             // typed identically twice. Non-empty is not the test — `12345` is
             // non-empty and is not a name.
+            // Phone + ID must be filled in too; their format is checked on
+            // submit so the user is told which field is wrong.
             return NameRules.isValid(name)
                 && PasswordRules.meetsMin(password)
                 && confirmPassword == password
+                && identityDraft.isFilled(includePhone: true)
         }
         // Sign-in just needs a non-empty password; strength is enforced at signup.
         return password.count >= 1
@@ -334,6 +341,18 @@ struct AuthView: View {
                     isRevealed: $showConfirmPassword,
                     errorMessage: confirmError
                 )
+                Divider().padding(.vertical, 4)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(loc.t("signupId.section"), systemImage: "person.text.rectangle")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.qkInk)
+                    Text(loc.t("signupId.section.intro"))
+                        .font(.caption)
+                        .foregroundStyle(Color.qkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                IdentityDocumentFields(draft: identityDraft, showPhone: true, disabled: auth.isLoading)
             }
             if !isSignUp {
                 Button {
@@ -589,7 +608,19 @@ struct AuthView: View {
             // Same again for the confirmation: the button is disabled on a
             // mismatch, but the return key shouldn't be able to slip one past.
             guard confirmPassword == password else { return }
-            let outcome = await auth.signup(name: name, email: email, password: password)
+            // Phone + ID: the same checks the API runs, each printed under its
+            // field. Nothing is sent until they pass.
+            guard identityDraft.validate(includePhone: true) else { return }
+            guard let identity = identityDraft.makePayload() else {
+                auth.setError(loc.t("trust.uploadError"))
+                return
+            }
+            let outcome = await auth.signup(name: name, email: email, password: password, identity: identity)
+            if case .failed = outcome, !auth.signupFieldErrors.isEmpty {
+                // 400 { error, fields } — e.g. the phone is already on another
+                // account. Each message goes under its own input.
+                identityDraft.errors = auth.signupFieldErrors
+            }
             await handle(outcome, session: nil)
             return
         }

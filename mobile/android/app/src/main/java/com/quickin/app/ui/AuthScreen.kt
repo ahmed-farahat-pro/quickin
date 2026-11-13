@@ -83,7 +83,20 @@ private val ErrorRed = Color(0xFFB3261E)
 fun AuthScreen(
     state: AuthUiState,
     onLogin: (email: String, password: String) -> Unit,
-    onSignup: (name: String, email: String, password: String) -> Unit,
+    /**
+     * Creates the account. Every new account gives its phone + an identity document here, before
+     * the email OTP: [docType] is the API value, [idFront] / [idBack] the picked photos.
+     */
+    onSignup: (
+        name: String,
+        email: String,
+        password: String,
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: android.net.Uri,
+        idBack: android.net.Uri
+    ) -> Unit,
     onGoogleLaunch: (nonce: String, state: String) -> Unit,
     onGoogleNotConfigured: () -> Unit,
     onForgotPassword: () -> Unit,
@@ -93,6 +106,8 @@ fun AuthScreen(
      * the account the user is now trying to create, so it must not follow them across the toggle.
      */
     onClearError: () -> Unit = {},
+    /** Drops the server's refusal of one identity field (keyed like the API's `fields`) once edited. */
+    onClearSignupFieldError: (field: String) -> Unit = {},
     /**
      * True when the device has an enrolled biometric AND a previously-stored biometric session
      * exists, so the "Sign in with fingerprint/face" button should be shown. [onBiometricLogin]
@@ -151,6 +166,9 @@ fun AuthScreen(
     }
 
     val loading = state.isLoading
+
+    // Sign-up only: phone + identity document (signup-identity-core on the API).
+    val identityForm = rememberIdentityFormState()
 
     Box(
         modifier = Modifier
@@ -315,6 +333,16 @@ fun AuthScreen(
                 }
             }
 
+            if (isSignUp) {
+                Spacer(Modifier.height(22.dp))
+                IdentityFormFields(
+                    form = identityForm,
+                    enabled = !loading,
+                    serverErrors = state.signupFieldErrors,
+                    onFieldEdited = onClearSignupFieldError
+                )
+            }
+
             // "Forgot password?" — sign-in mode only. Opens the standalone reset route.
             if (!isSignUp) {
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -351,11 +379,21 @@ fun AuthScreen(
             // with an `@` in it and let the user find out from a 400.
             // `12345` is non-empty and is not a name — the name is held to the
             // same rule the server applies, not just to being filled in.
-            val canSubmit = !loading && emailAcceptable && (!isSignUp || otherFieldsReady)
+            val canSubmit = !loading && emailAcceptable &&
+                (!isSignUp || (otherFieldsReady && identityForm.isReady))
             GradientButton(
                 onClick = {
-                    if (isSignUp) onSignup(NameRules.normalized(name), email, password)
-                    else onLogin(email, password)
+                    val front = identityForm.front
+                    val back = identityForm.back
+                    if (isSignUp) {
+                        if (front != null && back != null) {
+                            onSignup(
+                                NameRules.normalized(name), email, password,
+                                identityForm.phone, identityForm.docType.apiValue,
+                                identityForm.idNumber, front, back
+                            )
+                        }
+                    } else onLogin(email, password)
                 },
                 enabled = canSubmit,
                 pulse = canSubmit,
@@ -376,6 +414,19 @@ fun AuthScreen(
                         fontSize = 16.sp
                     )
                 }
+            }
+
+            // The button waits on the identity fields too; say what is missing rather than leave it
+            // dead in silence once everything else is filled in.
+            if (isSignUp && otherFieldsReady && !identityForm.isReady) {
+                Text(
+                    stringResource(R.string.identity_required_hint),
+                    color = Muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                )
             }
 
             Spacer(Modifier.height(24.dp))

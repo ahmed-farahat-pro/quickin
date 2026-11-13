@@ -642,6 +642,24 @@ struct HostService {
         /// check the declared name and national ID against is refused.
         var idFront: String?
         var idBack: String?
+        /// The profile fields this form asked for (`HostApplicantProfile.toAsk`).
+        /// Only these are sent: the server takes the rest from the profile and
+        /// ignores a submitted value for them anyway. Defaults to all three for
+        /// an older server that sends no `profile`.
+        var askedProfileFields: [HostProfileField] = HostProfileField.allCases
+        /// Explicit acceptance of the host terms — sent as `terms_accepted`.
+        var termsAccepted = false
+        /// The payout destination to file with the application (`payout`).
+        /// Nil when one is already on file, which the server then keeps.
+        var payout: PayoutService.Draft?
+    }
+
+    /// A refused application: the server's message plus its per-field map, so
+    /// the form can outline the offending input (`terms`, `payout`, …).
+    struct HostApplicationRefusal: LocalizedError {
+        let message: String
+        let fields: [HostApplicationField: String]
+        var errorDescription: String? { message }
     }
 
     /// The signed-in account's application + its server-derived status. Used to
@@ -677,12 +695,24 @@ struct HostService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         var body: [String: Any] = [
-            "full_name": draft.fullName.trimmingCharacters(in: .whitespacesAndNewlines),
-            "national_id": draft.nationalID.trimmingCharacters(in: .whitespacesAndNewlines),
-            "phone": draft.phone.trimmingCharacters(in: .whitespacesAndNewlines),
             "address": draft.address.trimmingCharacters(in: .whitespacesAndNewlines),
             "host_type": draft.hostType.rawValue,
+            "terms_accepted": draft.termsAccepted,
         ]
+        // Only the profile fields the form asked for — the rest come from the
+        // profile server-side, and re-sending them would only invite drift.
+        for field in draft.askedProfileFields {
+            let value: String
+            switch field {
+            case .fullName: value = draft.fullName
+            case .phone: value = draft.phone
+            case .nationalID: value = draft.nationalID
+            }
+            body[field.rawValue] = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let payout = draft.payout {
+            body["payout"] = payout.jsonBody
+        }
         // Company only applies to the business host types; notes are optional.
         let company = draft.company.trimmingCharacters(in: .whitespacesAndNewlines)
         if draft.hostType.isBusiness, !company.isEmpty {
@@ -717,7 +747,12 @@ struct HostService {
             return status == .none ? .pending : status
         }
         if http.statusCode == 401 { throw HostError.notSignedIn }
-        throw HostError.message(Self.decodeError(data) ?? "Couldn't submit your application (\(http.statusCode)).")
+        let message = Self.decodeError(data) ?? "Couldn't submit your application (\(http.statusCode))."
+        let fields = HostApplicationFieldErrors.parse(data)
+        if !fields.isEmpty {
+            throw HostApplicationRefusal(message: message, fields: fields)
+        }
+        throw HostError.message(message)
     }
 
     // MARK: - Host reservations

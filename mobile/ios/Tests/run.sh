@@ -115,3 +115,21 @@ swiftc -o "$OUT/signup-identity-rules" \
   Sources/SignupIdentityRules.swift \
   Sources/PhoneRules.swift
 "$OUT/signup-identity-rules"
+
+echo "\nGuideRules — the first-launch tour and the become-a-host tour: steps, copy, closing buttons\n"
+swiftc -o "$OUT/guide-rules" \
+  Tests/GuideRulesTests/main.swift \
+  Sources/GuideRules.swift
+"$OUT/guide-rules"
+
+echo "\nHostApplicationRules — become a host on the same account: profile read-only, missing asked, payout + terms\n"
+swiftc -o "$OUT/host-application-rules" \
+  Tests/HostApplicationRulesTests/main.swift \
+  Sources/HostApplicationRules.swift
+"$OUT/host-application-rules"
+
+echo "\nSignupRoleRules — the stepped Guest/Host signup: pages per role, error → page, request body\n"
+swiftc -o "$OUT/signup-role-rules" \
+  Tests/SignupRoleRulesTests/main.swift \
+  Sources/SignupRoleRules.swift
+"$OUT/signup-role-rules"

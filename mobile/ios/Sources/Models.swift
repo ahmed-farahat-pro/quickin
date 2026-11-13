@@ -1972,23 +1972,45 @@ struct HostApplication: Decodable, Equatable {
     }()
 }
 
-/// `GET /api/local/host/application` → `{ host_status, application }`. The
-/// status is authoritative (server-derived); `application` is nil when nothing
-/// has been submitted.
+/// `GET /api/local/host/application` → `{ host_status, application, profile,
+/// payout_method, terms_version }`. The status is authoritative
+/// (server-derived); `application` is nil when nothing has been submitted.
+///
+/// `profile`, `payout_method` and `terms_version` arrived with the same-account
+/// application (2026-11-13) and all decode optionally: an older server sends
+/// none, and the form then falls back to asking for everything
+/// (`HostApplicantProfile.legacy`).
 struct HostApplicationState: Decodable, Equatable {
     let status: HostStatus
     let application: HostApplication?
+    /// What the profile already holds — shown read-only, never asked again.
+    let profile: HostApplicantProfile?
+    /// The payout destination on file, when there is one.
+    let payoutMethod: HostPayoutMethod?
+    /// The host terms version the server records with an acceptance.
+    let termsVersion: String?
 
     enum CodingKeys: String, CodingKey {
         case status = "host_status"
         case application
+        case profile
+        case payoutMethod = "payout_method"
+        case termsVersion = "terms_version"
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         status = HostStatus(raw: try c.decodeIfPresent(String.self, forKey: .status))
         application = try c.decodeIfPresent(HostApplication.self, forKey: .application)
+        // `try?` on the new keys: a malformed extra must never cost the
+        // status, which the profile's cards depend on.
+        profile = (try? c.decodeIfPresent(HostApplicantProfile.self, forKey: .profile)) ?? nil
+        payoutMethod = (try? c.decodeIfPresent(HostPayoutMethod.self, forKey: .payoutMethod)) ?? nil
+        termsVersion = (try? c.decodeIfPresent(String.self, forKey: .termsVersion)) ?? nil
     }
+
+    /// True when the server speaks the same-account contract (it sent `profile`).
+    var knowsProfile: Bool { profile != nil }
 }
 
 // MARK: - Money — host earnings / payouts

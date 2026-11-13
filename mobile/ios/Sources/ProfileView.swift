@@ -13,6 +13,10 @@ struct ProfileView: View {
     @StateObject private var hostApplication = HostApplicationModel()
     /// Drives the "Become a host" application sheet.
     @State private var showHostApply = false
+    /// The "App guide" chooser (replay the tour / how to become a host).
+    @State private var showGuide = false
+    @ObservedObject private var guide = GuideController.shared
+    private static let scrollTopID = "profile.top"
     /// Drives the "Delete your account?" confirmation sheet.
     @State private var showDeleteConfirm = false
     /// True while the account-deletion request is in flight.
@@ -41,9 +45,11 @@ struct ProfileView: View {
                         }
                     }
 
+                    ScrollViewReader { scroller in
                     ScrollView {
                         VStack(spacing: 24) {
                             avatar
+                                .id(Self.scrollTopID)
                             identity
                             // Hosting sits right under the identity for EVERY account, so the
                             // surface a host needs most is the first thing they see. It used to
@@ -53,6 +59,7 @@ struct ProfileView: View {
                             if isHost {
                                 if showHostWelcome { hostWelcomeCard }
                                 hostEntry
+                                    .guideAnchor(GuideAnchor.hostDashboard)
                             } else {
                                 // Renders whichever of the four application states applies.
                                 hostApplicationSection
@@ -80,6 +87,13 @@ struct ProfileView: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 24)
                         .padding(.bottom, 32)
+                    }
+                    // The host tour is usually started from the App guide row at
+                    // the bottom; bring the hosting card back into view for it.
+                    .onChange(of: guide.step?.tab) { _, tab in
+                        guard tab == .profile else { return }
+                        withAnimation { scroller.scrollTo(Self.scrollTopID, anchor: .top) }
+                    }
                     }
                 }
             }
@@ -117,12 +131,20 @@ struct ProfileView: View {
                 refreshHostWelcome()
             }
         }
+        .guideChooser(isPresented: $showGuide)
+        // The host tour's closing "Apply now" lands here.
+        .onReceive(guide.$pendingAction) { action in
+            guard action == .applyNow else { return }
+            guide.pendingAction = nil
+            if hostStatus.canApply { showHostApply = true }
+        }
         // Become a host: the application form (also used to reapply after a
         // rejection). Submitting files it for admin review — it never grants
         // host, so on success we only flip the local status to `pending`.
         .sheet(isPresented: $showHostApply) {
             HostApplicationSheet(
                 existing: hostApplication.application,
+                initialState: hostApplication.state,
                 fallbackName: auth.user?.fullName,
                 onSubmitted: { hostType in
                     auth.applyHostApplicationSubmitted(hostType: hostType)
@@ -263,6 +285,13 @@ struct ProfileView: View {
             Text(loc.t("profile.supportLegal"))
                 .font(.system(.title3, design: .serif).weight(.semibold))
                 .foregroundStyle(Color.qkInk)
+            Button {
+                showGuide = true
+            } label: {
+                entryLabel(icon: "questionmark.circle.fill", title: loc.t("guide.entry.title"),
+                           subtitle: loc.t("guide.entry.subtitle"))
+            }
+            .buttonStyle(.qkTap)
             legalRow(icon: "doc.plaintext.fill", title: loc.t("legal.terms"), path: "/terms")
             legalRow(icon: "hand.raised.fill", title: loc.t("legal.privacy"), path: "/privacy")
             legalRow(icon: "info.circle.fill", title: loc.t("legal.about"), path: "/about")
@@ -505,9 +534,10 @@ struct ProfileView: View {
     @ViewBuilder
     private var hostApplicationSection: some View {
         switch hostStatus {
-        case .none:     becomeHostButton
-        case .pending:  hostPendingCard
-        case .rejected: hostRejectedCard
+        case .none:     becomeHostButton.guideAnchor(GuideAnchor.hostApply)
+        case .pending:  hostPendingCard.guideAnchor(GuideAnchor.hostPending)
+        // A rejected applicant may reapply, so the host tour treats them as a guest.
+        case .rejected: hostRejectedCard.guideAnchor(GuideAnchor.hostApply)
         case .approved: EmptyView()
         }
     }
@@ -732,9 +762,13 @@ struct ProfileView: View {
 @MainActor
 final class HostApplicationModel: ObservableObject {
     @Published var application: HostApplication?
+    /// The whole response — `profile`, `payout_method`, `terms_version` — so
+    /// the form can open already knowing what not to ask.
+    @Published var state: HostApplicationState?
 
     func refresh() async {
         guard let state = try? await HostService.shared.fetchHostApplication() else { return }
+        self.state = state
         application = state.application
     }
 
@@ -742,13 +776,18 @@ final class HostApplicationModel: ObservableObject {
     /// previous one's application.
     func reset() {
         application = nil
+        state = nil
     }
 }
 
 /// The "Become a host" application form, presented as a sheet from
-/// `ProfileView`. Collects what an admin needs to review — full name, national
-/// ID, phone, address, host type, an optional company name and optional notes —
-/// and POSTs them to `/api/local/host/apply`.
+/// `ProfileView`. A guest becomes a host on the SAME account, so the name, phone
+/// and ID number the profile already holds are shown read-only ("From your
+/// profile") and never asked again — only what `profile.missing` names gets an
+/// input (`HostApplicantProfile.toAsk`). The form adds the host-only facts: host
+/// type, address, optional company / notes, a payout destination (unless one is
+/// on file) and acceptance of the host terms, and POSTs them to
+/// `/api/local/host/apply`.
 ///
 /// Submitting does **not** make the account a host: the backend files the
 /// application as `pending` and an admin approves it in `/ops`. The same form
@@ -760,12 +799,25 @@ private struct HostApplicationSheet: View {
 
     /// The previous submission, when there is one (drives the prefill).
     let existing: HostApplication?
+    /// The last `GET /api/local/host/application`, if the profile has one —
+    /// lets the form open without a flash of fields it will not ask for.
+    let initialState: HostApplicationState?
     /// The account's name, used when the application has none yet.
     let fallbackName: String?
     /// Called after a successful submit so the profile can flip to `pending`.
     let onSubmitted: (HostType) -> Void
 
     @State private var draft = HostService.HostApplicationDraft()
+    /// The fresh application read (profile, payout on file, terms version).
+    /// Nil until it lands; `stateResolved` turns true once it lands OR fails, at
+    /// which point a nil state means the legacy full form.
+    @State private var appState: HostApplicationState?
+    @State private var stateResolved = false
+    /// The payout destination typed here — filed with the application when none
+    /// is on file. Same draft type and form as the profile's payout editor.
+    @State private var payoutDraft = PayoutService.Draft()
+    @State private var termsAccepted = false
+    @State private var showTerms = false
     /// True once the National ID came from an approved document, which makes the
     /// field read-only (`IdentityRules`).
     @State private var nationalIDLocked = false
@@ -792,7 +844,23 @@ private struct HostApplicationSheet: View {
     /// Guards the one-shot seed so a re-appearance never overwrites typing.
     @State private var didPrefill = false
 
-    private enum Field { case fullName, nationalID, phone, address, idDocuments }
+    private enum Field { case hostType, fullName, nationalID, phone, address, idDocuments, payout, terms }
+
+    // MARK: - Derived
+
+    /// What the profile holds. `.legacy` (nothing on file → ask for all three)
+    /// for an older server, or when the read failed.
+    private var profile: HostApplicantProfile { appState?.profile ?? .legacy }
+    /// The profile fields this form asks for, in form order.
+    private var askedFields: [HostProfileField] { profile.toAsk }
+    private func asks(_ field: HostProfileField) -> Bool { askedFields.contains(field) }
+    /// The server speaks the same-account contract — only then is a payout
+    /// filed with the application (an older server would drop it).
+    private var serverKnowsProfile: Bool { appState?.knowsProfile == true }
+    private var payoutOnFile: HostPayoutMethod? { appState?.payoutMethod }
+    private var needsPayout: Bool {
+        serverKnowsProfile && HostApplicationRules.payoutRequired(hasPayoutOnFile: payoutOnFile != nil)
+    }
 
     var body: some View {
         ZStack {
@@ -805,6 +873,7 @@ private struct HostApplicationSheet: View {
                     VStack(alignment: .leading, spacing: 18) {
                         intro
                         formCard
+                        termsCard
                         if let errorMessage {
                             errorBanner(errorMessage)
                         }
@@ -820,6 +889,22 @@ private struct HostApplicationSheet: View {
         .tint(.qkBurgundy)
         .interactiveDismissDisabled(isSubmitting)
         .onAppear(perform: prefill)
+        // Re-read on open: the profile (and so what is missing) may have
+        // changed since the profile tab cached it. A failed read keeps the
+        // cached state, or falls back to the legacy full form.
+        .task {
+            if let fresh = try? await HostService.shared.fetchHostApplication() {
+                appState = fresh
+            }
+            stateResolved = true
+            seedPayoutName()
+        }
+        .sheet(isPresented: $showTerms) {
+            if let url = HostApplicationRules.termsURL(webBase: AppLinks.webBase) {
+                SafariView(url: url) { showTerms = false }
+                    .ignoresSafeArea()
+            }
+        }
         // One identity, verified once from the profile, serves guest and host
         // alike — so the number on a verified ID is read from what we already
         // hold instead of being asked for again. Failing silently is right: the
@@ -850,40 +935,49 @@ private struct HostApplicationSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             hostTypePicker
             Divider()
-            field(
-                loc.t("hostApply.fullName"),
-                systemImage: "person.fill",
-                placeholder: loc.t("hostApply.fullName.placeholder"),
-                text: $draft.fullName,
-                field: .fullName,
-                contentType: .name,
-                capitalization: .words
-            )
-            Divider()
-            field(
-                loc.t("hostApply.nationalId"),
-                systemImage: "creditcard.fill",
-                placeholder: loc.t("hostApply.nationalId.placeholder"),
-                text: $draft.nationalID,
-                field: .nationalID,
-                capitalization: .characters,
-                isLocked: nationalIDLocked,
-                lockedNote: loc.t("hostApply.nationalId.locked")
-            )
-            Divider()
-            field(
-                loc.t("hostApply.phone"),
-                systemImage: "phone.fill",
-                placeholder: loc.t("hostApply.phone.placeholder"),
-                text: $draft.phone,
-                field: .phone,
-                contentType: .telephoneNumber,
-                keyboard: .phonePad,
-                // Stop at a full Egyptian number rather than accepting digits
-                // an operator could never dial.
-                sanitize: PhoneRules.capped
-            )
-            Divider()
+            profileSection
+            // Inputs only for what the profile cannot supply — an account from
+            // before the signup rule, or an ID whose document was rejected.
+            if asks(.fullName) {
+                field(
+                    loc.t("hostApply.fullName"),
+                    systemImage: "person.fill",
+                    placeholder: loc.t("hostApply.fullName.placeholder"),
+                    text: $draft.fullName,
+                    field: .fullName,
+                    contentType: .name,
+                    capitalization: .words
+                )
+                Divider()
+            }
+            if asks(.nationalID) {
+                field(
+                    loc.t("hostApply.nationalId"),
+                    systemImage: "creditcard.fill",
+                    placeholder: loc.t("hostApply.nationalId.placeholder"),
+                    text: $draft.nationalID,
+                    field: .nationalID,
+                    capitalization: .characters,
+                    isLocked: nationalIDLocked,
+                    lockedNote: loc.t("hostApply.nationalId.locked")
+                )
+                Divider()
+            }
+            if asks(.phone) {
+                field(
+                    loc.t("hostApply.phone"),
+                    systemImage: "phone.fill",
+                    placeholder: loc.t("hostApply.phone.placeholder"),
+                    text: $draft.phone,
+                    field: .phone,
+                    contentType: .telephoneNumber,
+                    keyboard: .phonePad,
+                    // Stop at a full Egyptian number rather than accepting digits
+                    // an operator could never dial.
+                    sanitize: PhoneRules.capped
+                )
+                Divider()
+            }
             field(
                 loc.t("hostApply.address"),
                 systemImage: "mappin.and.ellipse",
@@ -907,11 +1001,143 @@ private struct HostApplicationSheet: View {
             }
             Divider()
             identitySection
+            if serverKnowsProfile {
+                Divider()
+                payoutSection
+            }
             Divider()
             notesField
         }
         .padding(18)
         .qkCard(lifts: false)
+    }
+
+    /// "From your profile" — the name, phone and ID number the account already
+    /// holds, read-only. The server files these from the profile whatever the
+    /// app sends, so an input here would only invite a contradiction.
+    @ViewBuilder
+    private var profileSection: some View {
+        if !stateResolved && appState == nil {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text(loc.t("hostApply.profile.loading"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+        } else if !profile.onFile.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(loc.t("hostApply.profile.title"), systemImage: "person.crop.circle.badge.checkmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.qkMuted)
+                VStack(spacing: 0) {
+                    ForEach(profile.onFile, id: \.self) { field in
+                        profileRow(field)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 4)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Label(loc.t("hostApply.profile.hint"), systemImage: "lock.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Divider()
+        }
+    }
+
+    private func profileRow(_ field: HostProfileField) -> some View {
+        let label: String
+        let icon: String
+        switch field {
+        case .fullName: label = loc.t("hostApply.fullName"); icon = "person.fill"
+        case .phone: label = loc.t("hostApply.phone"); icon = "phone.fill"
+        case .nationalID: label = loc.t("hostApply.nationalId"); icon = "creditcard.fill"
+        }
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundStyle(Color.qkMuted)
+                .frame(width: 16)
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            Spacer(minLength: 8)
+            Text(profile.value(for: field) ?? "")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.qkInk)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Where Quick In will send the host's earnings — the same form and body as
+    /// the profile's payout editor. A destination already on file (a
+    /// re-applicant) is shown read-only and not asked again.
+    @ViewBuilder
+    private var payoutSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(loc.t("hostApply.payout"), systemImage: "banknote.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            if let payoutOnFile {
+                PayoutMethodPreview(saved: payoutOnFile)
+                Text(loc.t("hostApply.payout.onFile"))
+                    .font(.caption2)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(loc.t("hostApply.payout.intro"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                PayoutDraftForm(draft: $payoutDraft, carded: false) {
+                    if invalidField == .payout { invalidField = nil; errorMessage = nil }
+                }
+                .disabled(isSubmitting)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(invalidField == .payout ? Color.qkBurgundy : .clear, lineWidth: 1)
+                        .padding(-6)
+                )
+            }
+        }
+    }
+
+    /// The required host-terms acceptance, with a link to read them first.
+    private var termsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: $termsAccepted) {
+                Text(loc.t("hostApply.terms.accept"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.qkInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .tint(.qkBurgundy)
+            .disabled(isSubmitting)
+            .onChange(of: termsAccepted) { _, accepted in
+                if accepted, invalidField == .terms { invalidField = nil; errorMessage = nil }
+            }
+            Button {
+                showTerms = true
+            } label: {
+                Label(loc.t("hostApply.terms.read"), systemImage: "doc.plaintext")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.qkBurgundy)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(18)
+        .qkCard(lifts: false)
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(invalidField == .terms ? Color.qkBurgundy : .clear, lineWidth: 1.5)
+        )
     }
 
     /// Proof of identity — the document the reviewer reads the name and national
@@ -1161,6 +1387,16 @@ private struct HostApplicationSheet: View {
         draft.company = existing?.company ?? ""
         draft.notes = existing?.notes ?? ""
         draft.hostType = HostType(raw: existing?.hostType)
+        appState = initialState
+        if initialState != nil { stateResolved = true }
+        seedPayoutName()
+    }
+
+    /// Start the payout account name on the applicant's own name — the usual
+    /// answer — without ever overwriting what they typed.
+    private func seedPayoutName() {
+        guard payoutDraft.accountName.isEmpty else { return }
+        payoutDraft.accountName = profile.fullName ?? existing?.fullName ?? fallbackName ?? ""
     }
 
     /// Fold the identity we already hold into the form.
@@ -1231,7 +1467,10 @@ private struct HostApplicationSheet: View {
         // Send the phone in one canonical `+20…` form, so the same number typed
         // as `01001234567` and `+20 100 123 4567` is filed identically.
         var payload = draft
-        payload.phone = PhoneRules.normalized(draft.phone)
+        payload.askedProfileFields = askedFields
+        if asks(.phone) { payload.phone = PhoneRules.normalized(draft.phone) }
+        payload.termsAccepted = HostApplicationRules.termsAccepted(termsAccepted)
+        payload.payout = needsPayout ? payoutDraft : nil
         // Encode the ID photos only for an applicant who has to send them; an
         // already-verified one sends none, which is how the server knows to reuse
         // the submission it already holds.
@@ -1254,6 +1493,16 @@ private struct HostApplicationSheet: View {
             try await HostService.shared.submitHostApplication(payload)
             onSubmitted(draft.hostType)
             didSubmit = true
+        } catch let refusal as HostService.HostApplicationRefusal {
+            // A 400 with per-field messages: outline the first refused input and
+            // show its own sentence (the payout one names the exact problem,
+            // e.g. a bad IBAN checksum).
+            if let first = HostApplicationFieldErrors.first(refusal.fields) {
+                invalidField = Self.slot(for: first.0)
+                errorMessage = first.0 == .terms ? loc.t("hostApply.error.terms") : first.1
+            } else {
+                errorMessage = refusal.message
+            }
         } catch {
             // Prefer the server's own text ("Already a host", "Application
             // already under review", a 400's message) over a generic line.
@@ -1265,12 +1514,12 @@ private struct HostApplicationSheet: View {
     /// The first required field that fails, and the message key that explains it.
     /// Mirrors the backend's own validation so the round-trip is rarely needed.
     private func firstValidationFailure() -> (Field, String)? {
-        let checks: [(slot: Field, value: String, messageKey: String)] = [
-            (.fullName, draft.fullName, "hostApply.error.fullName"),
-            (.nationalID, draft.nationalID, "hostApply.error.nationalId"),
-            (.phone, draft.phone, "hostApply.error.phone"),
-            (.address, draft.address, "hostApply.error.address"),
-        ]
+        // Only the profile fields this form asked for — the rest are on file.
+        var checks: [(slot: Field, value: String, messageKey: String)] = []
+        if asks(.fullName) { checks.append((.fullName, draft.fullName, "hostApply.error.fullName")) }
+        if asks(.nationalID) { checks.append((.nationalID, draft.nationalID, "hostApply.error.nationalId")) }
+        if asks(.phone) { checks.append((.phone, draft.phone, "hostApply.error.phone")) }
+        checks.append((.address, draft.address, "hostApply.error.address"))
         for check in checks
         where check.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return (check.slot, check.messageKey)
@@ -1278,14 +1527,26 @@ private struct HostApplicationSheet: View {
         // Non-empty is not enough for the name: an operator reads it against the
         // ID photos, and "12345" is not a name. Same rule and same sentences as
         // sign-up — `NameRules` is the Swift twin of the API's name-policy.ts.
-        if let problem = NameRules.problem(with: draft.fullName) {
+        if asks(.fullName), let problem = NameRules.problem(with: draft.fullName) {
             return (.fullName, problem.messageKey)
         }
         // The field already refuses over-long input, but a short or malformed
         // number still has to be caught before an operator tries to call it.
         // `PhoneRules` is the Swift twin of the web's EG_MOBILE/LANDLINE regex.
-        if !PhoneRules.isValid(draft.phone) {
+        if asks(.phone), !PhoneRules.isValid(draft.phone) {
             return (.phone, "hostApply.error.phoneFormat")
+        }
+        // Presence only — the server owns the IBAN / InstaPay format and its
+        // sentence comes back under `fields.payout`.
+        if needsPayout, let key = HostApplicationRules.payoutDraftProblem(
+            kind: payoutDraft.method == .instapay ? .instapay : .bankAccount,
+            accountName: payoutDraft.accountName,
+            bankName: payoutDraft.bankName,
+            iban: payoutDraft.iban,
+            accountNumber: payoutDraft.accountNumber,
+            instapayAddress: payoutDraft.instapayAddress
+        ) {
+            return (.payout, key)
         }
         // An application with no document behind it is refused by the API — there
         // is nothing for the reviewer to read the name and number above against —
@@ -1293,7 +1554,24 @@ private struct HostApplicationSheet: View {
         if needsIdentityDocuments, idFrontImage == nil || idBackImage == nil {
             return (.idDocuments, "hostApply.error.idDocuments")
         }
+        if !HostApplicationRules.termsAccepted(termsAccepted) {
+            return (.terms, "hostApply.error.terms")
+        }
         return nil
+    }
+
+    /// The input a server-refused field is outlined on.
+    private static func slot(for field: HostApplicationField) -> Field {
+        switch field {
+        case .hostType: return .hostType
+        case .fullName: return .fullName
+        case .phone: return .phone
+        case .nationalID: return .nationalID
+        case .address: return .address
+        case .docType, .idFront, .idBack: return .idDocuments
+        case .payout: return .payout
+        case .terms: return .terms
+        }
     }
 }
 

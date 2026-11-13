@@ -55,6 +55,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import com.quickin.app.Config
+import com.quickin.app.HostApplicationRules
+import com.quickin.app.PayoutDraft
 import com.quickin.app.HostApplyUiState
 import com.quickin.app.HostType
 import com.quickin.app.IdDocType
@@ -69,46 +81,49 @@ import com.quickin.app.ui.theme.Tan
 
 private val HostApplyErrorRed = Color(0xFFB3261E)
 
+/** What the form hands back on submit — everything `POST /api/local/host/apply` takes. */
+data class HostApplySubmission(
+    /** Only the profile fields the profile is MISSING; the server takes the rest from the profile. */
+    val profileValues: Map<String, String>,
+    val address: String,
+    val company: String?,
+    val hostType: String,
+    val notes: String?,
+    val termsAccepted: Boolean,
+    /** Null when a payout method is on file and the applicant keeps it. */
+    val payout: PayoutDraft?,
+    /** All three are null for an applicant whose documents are already on file. */
+    val docType: String?,
+    val idFront: Uri?,
+    val idBack: Uri?
+)
+
 /**
  * "Apply to host" form (reached from the Profile tab's host card, for a first application or a
- * re-application after a rejection). Collects the data the admin queue needs — full name, national
- * ID, phone, address, an optional company/brokerage, the host type, optional notes and a photo of
- * both sides of an identity document — and posts it to `POST /api/local/host/apply`.
+ * re-application after a rejection). A guest becomes a host on the SAME account, so the form never
+ * re-asks what the profile already holds: `GET /api/local/host/application` ([onLoad]) returns the
+ * name, phone and ID number on file — shown read-only under "From your profile" — and the list of
+ * fields the profile is missing, which are the only profile inputs shown. The application adds the
+ * host-only facts: host type, address, optional company/notes, a payout destination (reusing the
+ * Profile tab's payout fields; the one on file is shown read-only), and acceptance of the host terms.
+ * Rules live in [HostApplicationRules] (unit-tested).
  *
  * Submitting NEVER grants hosting: the application lands in the admin queue as "pending" and only
  * an approval flips `is_host`, so the profile card switches to the read-only "under review" state
  * once [HostApplyUiState.submitted] flips and [onSubmitted] closes this screen.
  *
- * [accountName] prefills the name field, [hostType] the picker (so a rejected applicant re-applies
- * with what they chose before). Styled to match the profile-settings fields; RTL-safe.
+ * Identity documents: asked for only when nothing usable is on file
+ * ([IdentityRules.needsIdentityDocuments], the twin of the API's rule).
  *
- * Identity is verified ONCE and serves guest and host alike, so [verificationStatus] /
- * [verifiedIdNumber] carry any submission we already hold into this form: a verified applicant's
- * national ID is shown and locked rather than retyped, and their documents are not asked for at all
- * ([IdentityRules], the twin of the API's `nationalIdForApplication` and `needsIdentityDocuments`).
- *
- * Everyone else photographs their document HERE, as part of applying. A reviewer decides an
- * application by reading the declared name and national ID against that document, so the API
- * refuses an application carrying none — this form asks for exactly what it requires.
+ * Full-screen and vertically scrollable (never a bottom sheet — those have clipped before).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostApplyScreen(
     state: HostApplyUiState,
     onBack: () -> Unit,
-    onSubmit: (
-        fullName: String,
-        nationalId: String,
-        phone: String,
-        address: String,
-        company: String?,
-        hostType: String,
-        notes: String?,
-        /** All three are null for an applicant whose documents are already on file. */
-        docType: String?,
-        idFront: Uri?,
-        idBack: Uri?
-    ) -> Unit,
+    onLoad: () -> Unit,
+    onSubmit: (HostApplySubmission) -> Unit,
     /** Called once the application is on file, so the caller can close this screen. */
     onSubmitted: () -> Unit,
     accountName: String? = null,
@@ -118,22 +133,38 @@ fun HostApplyScreen(
     /** The national ID on that submission, when it carried one. */
     verifiedIdNumber: String? = null
 ) {
-    // What the identity we already hold says this field should be. Recomputed if the verification
-    // read lands after the screen opens; the applicant's own typing wins from then on, because it
-    // is passed back in as the previous value.
+    LaunchedEffect(Unit) { onLoad() }
+
+    val info = state.info
+    val profile = info?.profile
+    // Which profile fields get an input. Without a `profile` (older server, or the read failed)
+    // this is all three — the pre-2026-11-13 form, which such a server still reads.
+    val askedFields = HostApplicationRules.fieldsToAsk(profile)
+    val onFile = HostApplicationRules.onFile(profile)
+
+    // Seeds for the profile inputs, used only when that field is asked for.
     val idField = IdentityRules.nationalId(verificationStatus, verifiedIdNumber)
-    var fullName by remember { mutableStateOf(accountName.orEmpty()) }
-    var nationalId by remember(idField) { mutableStateOf(idField.value) }
-    var phone by remember { mutableStateOf("") }
+    var fullName by remember(profile) {
+        mutableStateOf(profile?.fullName ?: accountName.orEmpty())
+    }
+    var nationalId by remember(idField, profile) { mutableStateOf(idField.value) }
+    var phone by remember(profile) { mutableStateOf(profile?.phone.orEmpty()) }
     var address by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(HostType.from(hostType)) }
+    var termsAccepted by remember { mutableStateOf(false) }
 
-    // The identity documents. Asked for only when there is nothing usable on file — the same rule
-    // the API enforces, so the form never asks for a photo the server would ignore, nor omits one
-    // it demands. The system Photo Picker needs no storage permission.
-    val needsId = IdentityRules.needsIdentityDocuments(verificationStatus)
+    // Payout: required unless one is on file; the on-file one is shown read-only and kept unless
+    // the applicant chooses to replace it.
+    val payoutOnFile = info?.payoutMethod
+    var replacingPayout by remember(payoutOnFile) { mutableStateOf(false) }
+    var payoutDraft by remember { mutableStateOf(initialPayoutDraft(null)) }
+    val sendPayout = HostApplicationRules.sendPayout(payoutOnFile != null, replacingPayout)
+
+    // The identity documents. The server's own status wins when it sent one.
+    val identityStatus = profile?.verificationStatus ?: verificationStatus
+    val needsId = IdentityRules.needsIdentityDocuments(identityStatus)
     var docType by remember { mutableStateOf(IdDocType.NationalId) }
     var idFront by remember { mutableStateOf<Uri?>(null) }
     var idBack by remember { mutableStateOf<Uri?>(null) }
@@ -149,21 +180,31 @@ fun HostApplyScreen(
         if (state.submitted) onSubmitted()
     }
 
-    // A name has to be a name, not just non-empty: an operator reads this against the ID photos,
-    // and "12345" is not one. [NameRules] is the same rule the API applies (name-policy.ts, and
-    // NameRules.swift on iOS) — letters in any script and nothing else, so the reason a guest is
-    // given here is the reason the server would have given after the round trip. This screen used
-    // to keep its own thinner copy of the rule (any letter anywhere), which let a name the API
-    // refuses reach it.
-    val nameProblem = NameRules.problemWith(fullName)
-    // Only complain once they've typed something; an untouched field is not an error.
-    val showNameError = fullName.isNotBlank() && nameProblem != null
+    val asksName = HostApplicationRules.FULL_NAME in askedFields
+    val nameProblem = if (asksName) NameRules.problemWith(fullName) else null
+    val showNameError = asksName && fullName.isNotBlank() && nameProblem != null
 
-    // Everything the backend validates as required — the documents included — so the button stays
-    // disabled until they're filled and an incomplete form never costs the user a round-trip.
-    val idReady = !needsId || (idFront != null && idBack != null)
-    val ready = nameProblem == null && nationalId.isNotBlank() &&
-        phone.isNotBlank() && address.isNotBlank() && idReady
+    val askedValues = mapOf(
+        HostApplicationRules.FULL_NAME to fullName,
+        HostApplicationRules.PHONE to phone,
+        HostApplicationRules.NATIONAL_ID to nationalId
+    ).filterKeys { it in askedFields }
+
+    val ready = HostApplicationRules.canSubmit(
+        HostApplicationRules.Readiness(
+            askedValues = askedValues,
+            askedFields = askedFields,
+            nameOk = nameProblem == null,
+            address = address,
+            idDocumentsReady = !needsId || (idFront != null && idBack != null),
+            payoutOnFile = payoutOnFile != null && !replacingPayout,
+            payoutDraft = payoutDraft,
+            termsAccepted = termsAccepted
+        )
+    )
+    val busy = state.isSubmitting
+    val errors = state.fieldErrors
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = CreamPage,
@@ -195,95 +236,115 @@ fun HostApplyScreen(
                 .padding(padding)
                 .background(CreamPage)
         ) {
+            if (!state.loaded && state.isLoading) {
+                CircularProgressIndicator(color = Burgundy, modifier = Modifier.align(Alignment.Center))
+                return@Box
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .imePadding()
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    stringResource(R.string.host_apply_intro),
+                    stringResource(R.string.host_apply_intro_v2),
                     color = Muted,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
 
-                HostApplyField(
-                    value = fullName,
-                    onValueChange = { fullName = it },
-                    label = stringResource(R.string.host_apply_full_name),
-                    icon = Icons.Filled.Person,
-                    enabled = !state.isSubmitting,
-                    isError = showNameError,
-                    // The shared sentence for the problem, so this screen, sign-up and Edit
-                    // profile cannot disagree about how the same name reads.
-                    errorText = if (showNameError && nameProblem != null) {
-                        nameProblemMessage(nameProblem)
-                    } else {
-                        null
-                    }
-                )
-                HostApplyField(
-                    value = nationalId,
-                    onValueChange = { nationalId = it },
-                    label = stringResource(R.string.host_apply_national_id),
-                    icon = Icons.Filled.Badge,
-                    // Locked, not removed: the value still travels with the request, and the
-                    // field is still read out by TalkBack.
-                    enabled = !state.isSubmitting && !idField.locked,
-                    supportingText = if (idField.locked) {
-                        stringResource(R.string.host_apply_national_id_locked)
-                    } else {
-                        null
-                    }
-                )
-                HostApplyField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = stringResource(R.string.host_apply_phone),
-                    icon = Icons.Filled.Phone,
-                    enabled = !state.isSubmitting,
-                    keyboardType = KeyboardType.Phone
-                )
+                // ---- From your profile (read-only) ----
+                if (onFile.isNotEmpty()) {
+                    FromProfileCard(
+                        rows = onFile,
+                        errors = errors
+                    )
+                }
+
+                // ---- Only what the profile is missing ----
+                if (askedFields.isNotEmpty() && profile != null) {
+                    Text(
+                        stringResource(R.string.host_apply_profile_missing),
+                        color = Muted,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+                if (asksName) {
+                    HostApplyField(
+                        value = fullName,
+                        onValueChange = { fullName = it },
+                        label = stringResource(R.string.host_apply_full_name),
+                        icon = Icons.Filled.Person,
+                        enabled = !busy,
+                        isError = showNameError || errors.containsKey(HostApplicationRules.FULL_NAME),
+                        errorText = when {
+                            showNameError && nameProblem != null -> nameProblemMessage(nameProblem)
+                            else -> errors[HostApplicationRules.FULL_NAME]
+                        }
+                    )
+                }
+                if (HostApplicationRules.NATIONAL_ID in askedFields) {
+                    HostApplyField(
+                        value = nationalId,
+                        onValueChange = { nationalId = it },
+                        label = stringResource(R.string.host_apply_national_id),
+                        icon = Icons.Filled.Badge,
+                        enabled = !busy && !idField.locked,
+                        isError = errors.containsKey(HostApplicationRules.NATIONAL_ID),
+                        errorText = errors[HostApplicationRules.NATIONAL_ID],
+                        supportingText = if (idField.locked) {
+                            stringResource(R.string.host_apply_national_id_locked)
+                        } else {
+                            null
+                        }
+                    )
+                }
+                if (HostApplicationRules.PHONE in askedFields) {
+                    HostApplyField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = stringResource(R.string.host_apply_phone),
+                        icon = Icons.Filled.Phone,
+                        enabled = !busy,
+                        keyboardType = KeyboardType.Phone,
+                        isError = errors.containsKey(HostApplicationRules.PHONE),
+                        errorText = errors[HostApplicationRules.PHONE]
+                    )
+                }
+
+                // ---- The application itself ----
                 HostApplyField(
                     value = address,
                     onValueChange = { address = it },
                     label = stringResource(R.string.host_apply_address),
                     icon = Icons.Filled.LocationOn,
-                    enabled = !state.isSubmitting
+                    enabled = !busy,
+                    isError = errors.containsKey(HostApplicationRules.ADDRESS),
+                    errorText = errors[HostApplicationRules.ADDRESS]
                 )
                 HostApplyField(
                     value = company,
                     onValueChange = { company = it },
                     label = stringResource(R.string.host_apply_company),
                     icon = Icons.Filled.Business,
-                    enabled = !state.isSubmitting
+                    enabled = !busy
                 )
 
                 // Host type — the canonical apiValue ("individual"/"company"/"brokerage") is sent,
                 // the label follows the app's locale.
-                Text(
-                    stringResource(R.string.host_apply_host_type),
-                    color = Ink,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                SectionTitle(stringResource(R.string.host_apply_host_type))
                 HostTypePicker(
                     selected = selectedType,
-                    enabled = !state.isSubmitting,
+                    enabled = !busy,
                     onSelected = { selectedType = it }
                 )
+                FieldErrorText(errors[HostApplicationRules.HOST_TYPE])
 
-                // Proof of identity. Shown as a settled fact for an applicant we already hold
-                // documents for — they verified once from the Profile tab, and the server links
-                // this application to that submission rather than asking for the same photos.
-                Text(
-                    stringResource(R.string.host_apply_id_section),
-                    color = Ink,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                // ---- Proof of identity ----
+                SectionTitle(stringResource(R.string.host_apply_id_section))
                 Text(
                     stringResource(
                         if (needsId) R.string.host_apply_id_intro else R.string.host_apply_id_on_file
@@ -293,15 +354,10 @@ fun HostApplyScreen(
                     lineHeight = 20.sp
                 )
                 if (needsId) {
-                    Text(
-                        stringResource(R.string.host_apply_doc_type),
-                        color = Ink,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    SectionTitle(stringResource(R.string.host_apply_doc_type))
                     DocTypePicker(
                         selected = docType,
-                        enabled = !state.isSubmitting,
+                        enabled = !busy,
                         onSelected = { docType = it }
                     )
                     Row(
@@ -311,7 +367,7 @@ fun HostApplyScreen(
                         IdPhotoSlot(
                             label = stringResource(R.string.trust_front_photo),
                             uri = idFront,
-                            enabled = !state.isSubmitting,
+                            enabled = !busy,
                             onPick = {
                                 pickFront.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -322,7 +378,7 @@ fun HostApplyScreen(
                         IdPhotoSlot(
                             label = stringResource(R.string.trust_back_photo),
                             uri = idBack,
-                            enabled = !state.isSubmitting,
+                            enabled = !busy,
                             onPick = {
                                 pickBack.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -332,6 +388,50 @@ fun HostApplyScreen(
                         )
                     }
                 }
+                FieldErrorText(
+                    listOf("doc_type", "id_front", "id_back", "id_number")
+                        .mapNotNull { errors[it] }
+                        .distinct()
+                        .joinToString("\n")
+                        .ifBlank { null }
+                )
+
+                // ---- Payout destination ----
+                SectionTitle(stringResource(R.string.host_apply_payout_section))
+                if (payoutOnFile != null && !replacingPayout) {
+                    Text(
+                        stringResource(R.string.host_apply_payout_on_file),
+                        color = Muted,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                    PayoutPreview(payoutOnFile)
+                    HostApplyTextButton(
+                        text = stringResource(R.string.host_apply_payout_replace),
+                        enabled = !busy,
+                        onClick = { replacingPayout = true }
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.host_apply_payout_intro),
+                        color = Muted,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                    PayoutDraftFields(
+                        draft = payoutDraft,
+                        onChange = { payoutDraft = it },
+                        enabled = !busy
+                    )
+                    if (payoutOnFile != null) {
+                        HostApplyTextButton(
+                            text = stringResource(R.string.host_apply_payout_keep),
+                            enabled = !busy,
+                            onClick = { replacingPayout = false }
+                        )
+                    }
+                }
+                FieldErrorText(errors[HostApplicationRules.PAYOUT])
 
                 // Notes — free text for anything the reviewer should know (optional).
                 OutlinedTextField(
@@ -339,7 +439,7 @@ fun HostApplyScreen(
                     onValueChange = { notes = it },
                     label = { Text(stringResource(R.string.host_apply_notes)) },
                     minLines = 3,
-                    enabled = !state.isSubmitting,
+                    enabled = !busy,
                     shape = RoundedCornerShape(18.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Burgundy,
@@ -350,6 +450,50 @@ fun HostApplyScreen(
                         unfocusedContainerColor = Color.White
                     ),
                     modifier = Modifier.fillMaxWidth()
+                )
+
+                // ---- Host terms (required) ----
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = termsAccepted,
+                            enabled = !busy,
+                            role = Role.Checkbox,
+                            onValueChange = { termsAccepted = it }
+                        )
+                ) {
+                    Checkbox(
+                        checked = termsAccepted,
+                        onCheckedChange = null,
+                        enabled = !busy,
+                        colors = CheckboxDefaults.colors(checkedColor = Burgundy, uncheckedColor = Muted)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.host_apply_terms_accept),
+                        color = Ink,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+                HostApplyTextButton(
+                    text = stringResource(R.string.host_apply_terms_link),
+                    enabled = true,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(HostApplicationRules.termsUrl(Config.SHARE_WEB_BASE_URL))
+                                )
+                            )
+                        }
+                    }
+                )
+                FieldErrorText(
+                    errors[HostApplicationRules.TERMS]?.let { stringResource(R.string.host_apply_terms_required) }
                 )
 
                 if (state.error != null) {
@@ -364,24 +508,26 @@ fun HostApplyScreen(
                 GradientButton(
                     onClick = {
                         onSubmit(
-                            fullName,
-                            nationalId,
-                            phone,
-                            address,
-                            company.trim().ifBlank { null },
-                            selectedType.apiValue,
-                            notes.trim().ifBlank { null },
-                            // Omitted, not blanked, when the identity is already on file — the
-                            // server takes their absence as "use the submission you already have".
-                            if (needsId) docType.apiValue else null,
-                            if (needsId) idFront else null,
-                            if (needsId) idBack else null
+                            HostApplySubmission(
+                                profileValues = askedValues,
+                                address = address,
+                                company = company.trim().ifBlank { null },
+                                hostType = selectedType.apiValue,
+                                notes = notes.trim().ifBlank { null },
+                                termsAccepted = termsAccepted,
+                                payout = if (sendPayout) payoutDraft else null,
+                                // Omitted, not blanked, when the identity is already on file — the
+                                // server takes their absence as "use the submission you already have".
+                                docType = if (needsId) docType.apiValue else null,
+                                idFront = if (needsId) idFront else null,
+                                idBack = if (needsId) idBack else null
+                            )
                         )
                     },
-                    enabled = ready && !state.isSubmitting,
+                    enabled = ready && !busy,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (state.isSubmitting) {
+                    if (busy) {
                         CircularProgressIndicator(
                             color = Color.White,
                             strokeWidth = 2.dp,
@@ -400,7 +546,7 @@ fun HostApplyScreen(
                 if (!ready) {
                     Text(
                         stringResource(
-                            if (needsId) R.string.host_apply_required_id else R.string.host_apply_required
+                            if (needsId) R.string.host_apply_required_id else R.string.host_apply_required_v2
                         ),
                         color = Muted,
                         fontSize = 13.sp
@@ -410,6 +556,100 @@ fun HostApplyScreen(
                 Spacer(Modifier.height(8.dp))
             }
         }
+    }
+}
+
+/**
+ * The read-only "From your profile" card: the name, phone and ID number the application files,
+ * taken from the account. Edited from Profile, not here. A server error on one of them (e.g. a
+ * name from before the name policy) is shown under its row.
+ */
+@Composable
+private fun FromProfileCard(rows: List<Pair<String, String>>, errors: Map<String, String>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(18.dp))
+            .border(1.dp, Tan, RoundedCornerShape(18.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            stringResource(R.string.host_apply_from_profile),
+            color = Ink,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        rows.forEach { (field, value) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    when (field) {
+                        HostApplicationRules.PHONE -> Icons.Filled.Phone
+                        HostApplicationRules.NATIONAL_ID -> Icons.Filled.Badge
+                        else -> Icons.Filled.Person
+                    },
+                    contentDescription = null,
+                    tint = Burgundy,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(
+                            when (field) {
+                                HostApplicationRules.PHONE -> R.string.host_apply_phone
+                                HostApplicationRules.NATIONAL_ID -> R.string.host_apply_national_id
+                                else -> R.string.host_apply_full_name
+                            }
+                        ),
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                    Text(value, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    errors[field]?.let {
+                        Text(it, color = HostApplyErrorRed, fontSize = 12.sp, lineHeight = 16.sp)
+                    }
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.host_apply_from_profile_hint),
+            color = Muted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+}
+
+/** A server field error under a section; renders nothing when there is none. */
+@Composable
+private fun FieldErrorText(text: String?) {
+    if (text.isNullOrBlank()) return
+    Text(text, color = HostApplyErrorRed, fontSize = 13.sp, lineHeight = 18.sp)
+}
+
+@Composable
+private fun HostApplyTextButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text,
+            color = if (enabled) Burgundy else Muted,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
     }
 }
 

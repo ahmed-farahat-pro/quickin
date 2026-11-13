@@ -139,6 +139,21 @@ struct PayoutService {
         var swiftBic = ""
         var branch = ""
         var instapayAddress = ""
+
+        /// The JSON body `PUT /api/local/host/payout-method` takes — and the
+        /// `payout` object `POST /api/local/host/apply` files with an application.
+        var jsonBody: [String: Any] {
+            [
+                "method": method.rawValue,
+                "account_name": accountName,
+                "bank_name": bankName,
+                "iban": iban,
+                "account_number": accountNumber,
+                "swift_bic": swiftBic,
+                "branch": branch,
+                "instapay_address": instapayAddress,
+            ]
+        }
     }
 
     func fetch() async throws -> HostPayoutState {
@@ -147,17 +162,7 @@ struct PayoutService {
 
     @discardableResult
     func save(_ draft: Draft) async throws -> HostPayoutState {
-        let body: [String: Any] = [
-            "method": draft.method.rawValue,
-            "account_name": draft.accountName,
-            "bank_name": draft.bankName,
-            "iban": draft.iban,
-            "account_number": draft.accountNumber,
-            "swift_bic": draft.swiftBic,
-            "branch": draft.branch,
-            "instapay_address": draft.instapayAddress,
-        ]
-        return try await send(method: "PUT", body: body, failure: "Couldn't save your payout method")
+        return try await send(method: "PUT", body: draft.jsonBody, failure: "Couldn't save your payout method")
     }
 
     func remove() async throws {
@@ -275,7 +280,7 @@ struct HostPayoutCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     header
                     if let saved = model.saved {
-                        preview(saved)
+                        PayoutMethodPreview(saved: saved)
                     } else {
                         emptyState
                     }
@@ -334,74 +339,6 @@ struct HostPayoutCard: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// What is on file, so the host can confirm it went in correctly — which is
-    /// the whole reason this section shows anything back at all.
-    private func preview(_ saved: HostPayoutMethod) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(saved.kind?.label ?? saved.method)
-                .font(.system(size: 11, weight: .bold))
-                .tracking(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(Color.qkBurgundy)
-
-            Text(saved.display)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Color.qkInk)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(spacing: 0) {
-                previewRow(loc.t("payout.field.accountName"), saved.accountName)
-                if saved.kind == .bankAccount {
-                    if !saved.bankName.isEmpty {
-                        previewRow(loc.t("payout.field.bank"), saved.bankName)
-                    }
-                    if !saved.ibanFormatted.isEmpty {
-                        previewRow(loc.t("payout.field.iban"), saved.ibanFormatted)
-                    }
-                    if !saved.accountNumber.isEmpty {
-                        previewRow(loc.t("payout.field.accountNumber"), saved.accountNumber)
-                    }
-                    if !saved.swiftBic.isEmpty {
-                        previewRow(loc.t("payout.field.swift"), saved.swiftBic)
-                    }
-                    if !saved.branch.isEmpty {
-                        previewRow(loc.t("payout.field.branch"), saved.branch)
-                    }
-                }
-            }
-
-            if saved.kind?.isRetired == true {
-                Text(loc.t("payout.retiredNotice"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.red)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Color.qkTan.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private func previewRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
-            Spacer(minLength: 8)
-            Text(value)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.qkInk)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.vertical, 7)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.qkInk.opacity(0.08))
-                .frame(height: 1)
-        }
-    }
-
     private var actionButton: some View {
         Button {
             showEditor = true
@@ -447,8 +384,7 @@ private struct PayoutMethodSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     intro
-                    methodPicker
-                    formCard
+                    PayoutDraftForm(draft: $draft) { errorMessage = nil }
                     if let errorMessage {
                         errorBanner(errorMessage)
                     }
@@ -482,137 +418,6 @@ private struct PayoutMethodSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
-    }
-
-    private var methodPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(loc.t("payout.chooseMethod"), systemImage: "banknote.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
-            HStack(spacing: 8) {
-                ForEach(PayoutMethodKind.choosable) { kind in
-                    QKChip(title: kind.label, isSelected: draft.method == kind) {
-                        draft.method = kind
-                        errorMessage = nil
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private var formCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            field(
-                loc.t("payout.field.accountName"),
-                systemImage: "person.fill",
-                placeholder: loc.t("payout.placeholder.accountName"),
-                text: $draft.accountName,
-                contentType: .name,
-                capitalization: .words
-            )
-
-            switch draft.method {
-            case .bankAccount:
-                Divider()
-                field(
-                    loc.t("payout.field.bank"),
-                    systemImage: "building.columns.fill",
-                    placeholder: loc.t("payout.placeholder.bank"),
-                    text: $draft.bankName,
-                    capitalization: .words
-                )
-                Divider()
-                field(
-                    loc.t("payout.field.iban"),
-                    systemImage: "number",
-                    placeholder: loc.t("payout.placeholder.iban"),
-                    text: $draft.iban,
-                    capitalization: .characters
-                )
-                Text(loc.t("payout.bankHint"))
-                    .font(.caption)
-                    .foregroundStyle(Color.qkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-                Divider()
-                field(
-                    loc.t("payout.field.accountNumber"),
-                    systemImage: "creditcard.fill",
-                    placeholder: loc.t("payout.placeholder.accountNumber"),
-                    text: $draft.accountNumber,
-                    keyboard: .numbersAndPunctuation,
-                    capitalization: .characters
-                )
-                Divider()
-                field(
-                    loc.t("payout.field.swiftOptional"),
-                    systemImage: "globe",
-                    placeholder: loc.t("payout.placeholder.swift"),
-                    text: $draft.swiftBic,
-                    capitalization: .characters
-                )
-                Divider()
-                field(
-                    loc.t("payout.field.branchOptional"),
-                    systemImage: "mappin.and.ellipse",
-                    placeholder: loc.t("payout.placeholder.branch"),
-                    text: $draft.branch,
-                    capitalization: .words
-                )
-
-            case .instapay:
-                Divider()
-                field(
-                    loc.t("payout.field.instapayAddress"),
-                    systemImage: "at",
-                    placeholder: loc.t("payout.placeholder.instapayAddress"),
-                    text: $draft.instapayAddress,
-                    keyboard: .emailAddress,
-                    capitalization: .never
-                )
-                Text(loc.t("payout.instapayHint"))
-                    .font(.caption)
-                    .foregroundStyle(Color.qkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-
-            case .wallet:
-                // Retired — never offered by `methodPicker`, and `prefill`
-                // moves a saved wallet onto a bank account.
-                EmptyView()
-            }
-        }
-        .padding(18)
-        .qkCard(lifts: false)
-    }
-
-    private func field(
-        _ label: String,
-        systemImage: String,
-        placeholder: String,
-        text: Binding<String>,
-        contentType: UITextContentType? = nil,
-        keyboard: UIKeyboardType = .default,
-        capitalization: TextInputAutocapitalization = .sentences
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(label, systemImage: systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.qkMuted)
-            TextField(placeholder, text: text)
-                .textContentType(contentType)
-                .keyboardType(keyboard)
-                .textInputAutocapitalization(capitalization)
-                .disableAutocorrection(true)
-                .foregroundStyle(Color.qkInk)
-                .padding(.horizontal, 14)
-                .frame(height: 48)
-                .background(Color.qkCream)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
-                )
-        }
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -724,6 +529,238 @@ private struct PayoutMethodSheet: View {
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Shared pieces (profile card, editor sheet, host application)
+
+/// A saved payout method shown back read-only — on the profile card, and in the
+/// host application when one is already on file.
+struct PayoutMethodPreview: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    let saved: HostPayoutMethod
+
+    /// What is on file, so the host can confirm it went in correctly — which is
+    /// the whole reason this section shows anything back at all.
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(saved.kind?.label ?? saved.method)
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.qkBurgundy)
+
+            Text(saved.display)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Color.qkInk)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 0) {
+                previewRow(loc.t("payout.field.accountName"), saved.accountName)
+                if saved.kind == .bankAccount {
+                    if !saved.bankName.isEmpty {
+                        previewRow(loc.t("payout.field.bank"), saved.bankName)
+                    }
+                    if !saved.ibanFormatted.isEmpty {
+                        previewRow(loc.t("payout.field.iban"), saved.ibanFormatted)
+                    }
+                    if !saved.accountNumber.isEmpty {
+                        previewRow(loc.t("payout.field.accountNumber"), saved.accountNumber)
+                    }
+                    if !saved.swiftBic.isEmpty {
+                        previewRow(loc.t("payout.field.swift"), saved.swiftBic)
+                    }
+                    if !saved.branch.isEmpty {
+                        previewRow(loc.t("payout.field.branch"), saved.branch)
+                    }
+                }
+            }
+
+            if saved.kind?.isRetired == true {
+                Text(loc.t("payout.retiredNotice"))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.qkTan.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func previewRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.qkInk)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 7)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.qkInk.opacity(0.08))
+                .frame(height: 1)
+        }
+    }
+}
+
+/// The method chips + the fields for the chosen method, bound to a
+/// `PayoutService.Draft`. Used by the payout editor and by the host
+/// application, which files the same body (`payout`) with the application.
+/// `carded` wraps the fields in their own card; the application passes false
+/// because it already sits inside one.
+struct PayoutDraftForm: View {
+    @EnvironmentObject private var loc: LocalizationManager
+    @Binding var draft: PayoutService.Draft
+    var carded: Bool = true
+    /// Called when the method changes, so the host screen can clear a stale error.
+    var onMethodChange: () -> Void = {}
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: carded ? 18 : 16) {
+            methodPicker
+            if carded {
+                fields
+                    .padding(18)
+                    .qkCard(lifts: false)
+            } else {
+                fields
+            }
+        }
+    }
+
+    private var methodPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(loc.t("payout.chooseMethod"), systemImage: "banknote.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            HStack(spacing: 8) {
+                ForEach(PayoutMethodKind.choosable) { kind in
+                    QKChip(title: kind.label, isSelected: draft.method == kind) {
+                        draft.method = kind
+                        onMethodChange()
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var fields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            field(
+                loc.t("payout.field.accountName"),
+                systemImage: "person.fill",
+                placeholder: loc.t("payout.placeholder.accountName"),
+                text: $draft.accountName,
+                contentType: .name,
+                capitalization: .words
+            )
+
+            switch draft.method {
+            case .bankAccount:
+                Divider()
+                field(
+                    loc.t("payout.field.bank"),
+                    systemImage: "building.columns.fill",
+                    placeholder: loc.t("payout.placeholder.bank"),
+                    text: $draft.bankName,
+                    capitalization: .words
+                )
+                Divider()
+                field(
+                    loc.t("payout.field.iban"),
+                    systemImage: "number",
+                    placeholder: loc.t("payout.placeholder.iban"),
+                    text: $draft.iban,
+                    capitalization: .characters
+                )
+                Text(loc.t("payout.bankHint"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Divider()
+                field(
+                    loc.t("payout.field.accountNumber"),
+                    systemImage: "creditcard.fill",
+                    placeholder: loc.t("payout.placeholder.accountNumber"),
+                    text: $draft.accountNumber,
+                    keyboard: .numbersAndPunctuation,
+                    capitalization: .characters
+                )
+                Divider()
+                field(
+                    loc.t("payout.field.swiftOptional"),
+                    systemImage: "globe",
+                    placeholder: loc.t("payout.placeholder.swift"),
+                    text: $draft.swiftBic,
+                    capitalization: .characters
+                )
+                Divider()
+                field(
+                    loc.t("payout.field.branchOptional"),
+                    systemImage: "mappin.and.ellipse",
+                    placeholder: loc.t("payout.placeholder.branch"),
+                    text: $draft.branch,
+                    capitalization: .words
+                )
+
+            case .instapay:
+                Divider()
+                field(
+                    loc.t("payout.field.instapayAddress"),
+                    systemImage: "at",
+                    placeholder: loc.t("payout.placeholder.instapayAddress"),
+                    text: $draft.instapayAddress,
+                    keyboard: .emailAddress,
+                    capitalization: .never
+                )
+                Text(loc.t("payout.instapayHint"))
+                    .font(.caption)
+                    .foregroundStyle(Color.qkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+
+            case .wallet:
+                // Retired — never offered by `methodPicker`, and `prefill`
+                // moves a saved wallet onto a bank account.
+                EmptyView()
+            }
+        }
+    }
+
+    private func field(
+        _ label: String,
+        systemImage: String,
+        placeholder: String,
+        text: Binding<String>,
+        contentType: UITextContentType? = nil,
+        keyboard: UIKeyboardType = .default,
+        capitalization: TextInputAutocapitalization = .sentences
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(label, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.qkMuted)
+            TextField(placeholder, text: text)
+                .textContentType(contentType)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(capitalization)
+                .disableAutocorrection(true)
+                .foregroundStyle(Color.qkInk)
+                .padding(.horizontal, 14)
+                .frame(height: 48)
+                .background(Color.qkCream)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.qkInk.opacity(0.1), lineWidth: 1)
+                )
         }
     }
 }

@@ -46,6 +46,7 @@ struct ListingsView: View {
                         // Discovery chrome — also scrolls with the page.
                         VStack(spacing: 12) {
                             SearchHeader(viewModel: viewModel)
+                                .guideAnchor(GuideAnchor.search)
                                 .padding(.horizontal, 16)
                                 .padding(.top, 8)
                             RegionSortBar(viewModel: viewModel, onOpenFilters: { showingFilters = true })
@@ -652,6 +653,7 @@ struct RegionSortBar: View {
     var body: some View {
         VStack(spacing: 10) {
             regionRail
+                .guideAnchor(GuideAnchor.regions)
 
             // Full width of its own so long compound names never squeeze
             // Filters / Sort into truncation.
@@ -661,8 +663,11 @@ struct RegionSortBar: View {
 
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
-                filtersButton
-                sortMenu
+                HStack(spacing: 8) {
+                    filtersButton
+                    sortMenu
+                }
+                .guideAnchor(GuideAnchor.filters)
             }
             .padding(.horizontal, 16)
         }

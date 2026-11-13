@@ -73,7 +73,8 @@ sealed interface AuthOutcome {
  *   POST {base}/api/auth/login      {email,password}                -> {token,user} | 403 {needsVerification:true,email} | {error}
  *   POST {base}/api/auth/google     {id_token}                      -> {token,user} | {error}
  *   GET  {base}/api/auth/me                                         -> {user} (authoritative host state)
- *   POST {base}/api/local/host/apply {full_name,national_id,…}      -> {ok,host_status,application} | {error}
+ *   GET  {base}/api/local/host/application                          -> {host_status,application,profile,payout_method,terms_version}
+ *   POST {base}/api/local/host/apply {address,host_type,terms_accepted,payout,…} -> {ok,host_status,application} | 400 {error,fields}
  */
 object AuthService {
 
@@ -418,55 +419,99 @@ object AuthService {
     }
 
     /**
+     * What the become-a-host form needs to know before it renders: `GET /api/local/host/application`.
+     * [profile] is null on an older server that does not send it (the form then asks for all three
+     * profile fields, as before); [payoutMethod] is null when none is on file.
+     */
+    data class HostApplicationInfo(
+        val hostStatus: String?,
+        val profile: HostApplicationRules.ApplicantProfile?,
+        val payoutMethod: HostPayoutMethod?,
+        val termsVersion: String?
+    )
+
+    suspend fun fetchHostApplication(token: String): HostApplicationInfo = withContext(Dispatchers.IO) {
+        val (status, text) = authedSend("GET", "/api/local/host/application", token)
+        if (status !in 200..299) throw HttpError(status, extractError(text, status))
+        parseHostApplication(JSONObject(text))
+    }
+
+    /** Tolerant parse: every newer field is optional, and JSON null never becomes the word "null". */
+    internal fun parseHostApplication(body: JSONObject): HostApplicationInfo {
+        val profile = body.optJSONObject("profile")?.let { p ->
+            val missing = p.optJSONArray("missing")?.let { arr ->
+                (0 until arr.length()).map { i -> if (arr.isNull(i)) null else arr.optString(i) }
+            }.orEmpty()
+            HostApplicationRules.ApplicantProfile(
+                fullName = p.optStringOrNull("full_name"),
+                phone = p.optStringOrNull("phone"),
+                nationalId = p.optStringOrNull("national_id"),
+                docType = p.optStringOrNull("doc_type"),
+                verificationStatus = p.optStringOrNull("verification_status"),
+                missing = HostApplicationRules.normalizeMissing(missing)
+            )
+        }
+        val payout = if (body.isNull("payout_method")) null
+        else body.optJSONObject("payout_method")?.let { PayoutService.parseMethod(it) }
+        return HostApplicationInfo(
+            hostStatus = body.optStringOrNull("host_status"),
+            profile = profile,
+            payoutMethod = payout,
+            termsVersion = body.optStringOrNull("terms_version")
+        )
+    }
+
+    /**
      * Submits — or, after a rejection, re-submits — the signed-in account's host application:
      * `POST /api/local/host/apply` with the bearer [token]. This NEVER grants hosting; the
-     * application lands in the admin queue and only an approval flips `is_host`. [company] and
-     * [notes] are optional and omitted when blank; [hostType] is one of
-     * "individual" | "company" | "brokerage". Returns the resulting host_status ("pending").
+     * application lands in the admin queue and only an approval flips `is_host`.
      *
-     * The ID documents travel WITH the application, not as a later step: the server refuses an
-     * application it has nothing to review the declared name and national ID against.
-     * [docType] is one of "national_id" | "passport" | "residence_permit" and [idFront] / [idBack]
-     * are `data:image/jpeg;base64,…` data URLs. All three are omitted — and must be — for an
-     * applicant whose identity is already verified or already in the queue
-     * ([IdentityRules.needsIdentityDocuments]); the server then links the application to the
-     * submission already on file.
+     * Same account, no re-typing: the server takes full_name / phone / national_id from the
+     * PROFILE and ignores submitted ones, so [profileValues] carries only the fields
+     * `profile.missing` asked for (an older account, or an older server). [payout] is the same body
+     * as `PUT /api/local/host/payout-method`, sent when none is on file or the applicant replaces
+     * it; [termsAccepted] must be true. [company] and [notes] are optional and omitted when blank;
+     * [hostType] is one of "individual" | "company" | "brokerage".
      *
-     * Throws [HttpError] — 401 (signed out), 400 (validation), 409 (already a host / already
-     * under review) — carrying the server's `{error}` message.
+     * The ID documents travel WITH the application ([docType], [idFront] / [idBack] as
+     * `data:image/jpeg;base64,…`), omitted for an applicant whose identity is already verified or in
+     * the queue ([IdentityRules.needsIdentityDocuments]).
+     *
+     * Throws [FieldErrors] on a 400 that names fields (`terms`, `payout`, `address`, …), otherwise
+     * [HttpError] — 401 (signed out), 400, 409 (already a host / already under review).
      */
     suspend fun applyToHost(
         token: String,
-        fullName: String,
-        nationalId: String,
-        phone: String,
+        profileValues: Map<String, String>,
         address: String,
         company: String?,
         hostType: String,
         notes: String?,
+        termsAccepted: Boolean,
+        payout: PayoutDraft? = null,
         docType: String? = null,
         idFront: String? = null,
         idBack: String? = null
     ): String = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
-            put("full_name", fullName.trim())
-            put("national_id", nationalId.trim())
-            put("phone", phone.trim())
+            profileValues.forEach { (k, v) -> if (v.isNotBlank()) put(k, v.trim()) }
             put("address", address.trim())
             if (!company.isNullOrBlank()) put("company", company.trim())
             put("host_type", hostType)
             if (!notes.isNullOrBlank()) put("notes", notes.trim())
+            put("terms_accepted", termsAccepted)
+            if (payout != null) put("payout", PayoutService.toJson(payout))
             if (!docType.isNullOrBlank()) put("doc_type", docType)
             if (!idFront.isNullOrBlank()) put("id_front", idFront)
             if (!idBack.isNullOrBlank()) put("id_back", idBack)
         }
         val (status, text) = authedSend("POST", "/api/local/host/apply", token, body)
         if (status !in 200..299) {
+            if (status == 400) fieldErrors(text)?.let { throw FieldErrors(it, extractError(text, status)) }
             throw HttpError(status, extractError(text, status))
         }
         // 200 { ok, host_status, application } — the status is always "pending" on success.
-        runCatching { JSONObject(text).optString("host_status") }.getOrNull()
-            ?.takeUnless { it.isBlank() } ?: HOST_STATUS_PENDING
+        runCatching { JSONObject(text).optStringOrNull("host_status") }.getOrNull() ?: HOST_STATUS_PENDING
     }
 
     /**

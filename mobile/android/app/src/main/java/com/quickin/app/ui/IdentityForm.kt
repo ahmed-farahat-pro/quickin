@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -52,11 +53,15 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.quickin.app.AuthViewModel
 import com.quickin.app.CompleteIdentityUiState
 import com.quickin.app.IdDocType
 import com.quickin.app.PhoneRules
 import com.quickin.app.R
 import com.quickin.app.SignupIdentityRules
+import com.quickin.app.SignupRoleRules
+import com.quickin.app.SignupStep
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.CreamPage
 import com.quickin.app.ui.theme.Ink
@@ -301,19 +306,54 @@ private fun IdentityTextField(
 
 /**
  * The blocking "Complete your account" screen, for an account that owes its phone + ID (a first
- * Google sign-in arrives without them). There is no way back into the app from here — Back leaves
- * the app instead ([onExitApp]) — but signing out always stays possible.
+ * Google sign-in arrives without them). There is no way back into the app from here — Back steps
+ * back through the pages and, on the first one, leaves the app instead ([onExitApp]) — but signing
+ * out always stays possible.
+ *
+ * The same role-aware steps as the email signup minus Account: Guest/Host cards (Guest
+ * preselected) → Identity → (Refund, optional | Hosting → Payout). Everything is posted once at
+ * the end through [AuthViewModel.submitCompleteAccount], which also adopts the host state the
+ * response returns. [onSubmit] is the pre-role entry point, kept so existing callers compile; the
+ * role-aware submit goes through [authViewModel] (the activity's instance, as MainActivity's).
  */
 @Composable
 fun CompleteAccountScreen(
     state: CompleteIdentityUiState,
+    @Suppress("UNUSED_PARAMETER")
     onSubmit: (phone: String, docType: String, idNumber: String, front: Uri, back: Uri) -> Unit,
     onFieldEdited: (field: String) -> Unit,
     onSignOut: () -> Unit,
-    onExitApp: () -> Unit
+    onExitApp: () -> Unit,
+    authViewModel: AuthViewModel = viewModel()
 ) {
-    BackHandler(onBack = onExitApp)
     val form = rememberIdentityFormState()
+    val flow = rememberSignupFlowState(includeAccount = false)
+    BackHandler { if (!flow.goBack()) onExitApp() }
+    val busy = state.isSubmitting
+
+    // Every step's errors arrive together: when a submit ends refused, open the earliest page
+    // that owns one of them.
+    LaunchedEffect(busy) {
+        if (!busy && flow.awaitingResult) {
+            flow.awaitingResult = false
+            if (state.fieldErrors.isNotEmpty()) flow.jumpToFirstError(state.fieldErrors.keys)
+        }
+    }
+
+    val submit: (Boolean) -> Unit = { sendRefund ->
+        val front = form.front
+        val back = form.back
+        if (front != null && back != null) {
+            authViewModel.submitCompleteAccount(
+                form.phone, form.docType.apiValue, form.idNumber, front, back,
+                flow.roleBody(sendRefund)
+            )
+        } else {
+            flow.awaitingResult = false
+            flow.step = SignupStep.Identity
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -329,47 +369,80 @@ fun CompleteAccountScreen(
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
-        Text(
-            stringResource(R.string.complete_account_intro),
-            color = Muted,
-            fontSize = 14.sp,
-            lineHeight = 20.sp
-        )
-        IdentityFormFields(
-            form = form,
-            enabled = !state.isSubmitting,
-            serverErrors = state.fieldErrors,
-            onFieldEdited = onFieldEdited
-        )
+        if (flow.step == SignupStep.Role) {
+            Text(
+                stringResource(R.string.complete_account_intro),
+                color = Muted,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        }
+        SignupStepHeader(flow)
+        when (flow.step) {
+            SignupStep.Role, SignupStep.Account -> SignupRoleCards(
+                selected = flow.role,
+                enabled = !busy,
+                onSelect = { flow.role = it }
+            )
+            SignupStep.Identity -> {
+                IdentityFormFields(
+                    form = form,
+                    enabled = !busy,
+                    serverErrors = state.fieldErrors,
+                    onFieldEdited = onFieldEdited
+                )
+                if (flow.attempted && !form.isReady) {
+                    Text(stringResource(R.string.identity_required_hint), color = Muted, fontSize = 13.sp)
+                }
+            }
+            SignupStep.Refund -> MoneyDestinationStep(
+                intro = stringResource(R.string.signup_refund_intro),
+                draft = flow.refund,
+                onChange = { flow.refund = it; onFieldEdited(SignupRoleRules.FIELD_REFUND_METHOD) },
+                enabled = !busy,
+                showLocal = flow.attempted,
+                serverError = state.fieldErrors[SignupRoleRules.FIELD_REFUND_METHOD]
+            )
+            SignupStep.Hosting -> HostingDetailsFields(
+                draft = flow.hosting,
+                onChange = { flow.hosting = it },
+                enabled = !busy,
+                showLocal = flow.attempted,
+                serverErrors = state.fieldErrors,
+                onFieldEdited = onFieldEdited
+            )
+            SignupStep.Payout -> MoneyDestinationStep(
+                intro = stringResource(R.string.host_apply_payout_intro),
+                draft = flow.payout,
+                onChange = { flow.payout = it; onFieldEdited(SignupRoleRules.FIELD_PAYOUT) },
+                enabled = !busy,
+                showLocal = flow.attempted,
+                serverError = state.fieldErrors[SignupRoleRules.FIELD_PAYOUT]
+            )
+        }
         if (state.error != null) {
             Text(state.error, color = IdentityErrorRed, fontSize = 13.sp)
         }
         Spacer(Modifier.height(4.dp))
-        GradientButton(
-            onClick = {
-                val front = form.front
-                val back = form.back
-                if (front != null && back != null && form.isReady) {
-                    onSubmit(form.phone, form.docType.apiValue, form.idNumber, front, back)
-                }
-            },
-            enabled = form.isReady && !state.isSubmitting,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (state.isSubmitting) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-            } else {
-                Text(
-                    stringResource(R.string.complete_account_submit),
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
+        SignupNavButtons(
+            showBack = flow.step != SignupStep.Role,
+            primaryLabel = stringResource(
+                if (flow.isLast) R.string.complete_account_submit else R.string.signup_next
+            ),
+            busy = busy,
+            onBack = { flow.goBack() },
+            onPrimary = {
+                flow.onPrimary(
+                    identity = form,
+                    accountReady = true,
+                    onAccountIncomplete = {},
+                    submit = submit
                 )
-            }
-        }
-        if (!form.isReady) {
-            Text(stringResource(R.string.identity_required_hint), color = Muted, fontSize = 13.sp)
-        }
+            },
+            onSkip = if (SignupRoleRules.isSkippable(flow.step)) {
+                { flow.awaitingResult = true; submit(false) }
+            } else null
+        )
         TextButton(
             onClick = onSignOut,
             enabled = !state.isSubmitting,

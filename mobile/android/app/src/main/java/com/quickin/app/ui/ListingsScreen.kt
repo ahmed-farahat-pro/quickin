@@ -118,6 +118,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.quickin.app.CurrencyManager
+import com.quickin.app.GuideRules
 import com.quickin.app.Listing
 import com.quickin.app.ListingQuery
 import com.quickin.app.ListingSort
@@ -197,6 +198,19 @@ fun ListingsScreen(
                 .background(CreamPage)
         ) {
             val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+            // The App guide's Explore steps point at the search bar, the region rail and the
+            // filter/sort row, which scroll with the results: bring them back to the top (and
+            // leave map mode, which hides them) while one of those steps is showing.
+            val guideAnchor = LocalGuideTargets.current?.active
+            LaunchedEffect(guideAnchor) {
+                if (guideAnchor == GuideRules.Anchor.EXPLORE_SEARCH ||
+                    guideAnchor == GuideRules.Anchor.EXPLORE_REGIONS ||
+                    guideAnchor == GuideRules.Anchor.EXPLORE_FILTERS
+                ) {
+                    viewMode = ViewMode.List
+                    if (gridState.layoutInfo.totalItemsCount > 0) gridState.animateScrollToItem(0)
+                }
+            }
             // Hoisted so the rails keep their scroll position (and the selected item stays in
             // view) when the screen swaps between loading / error / grid, each of which renders
             // its own copy of the chrome. The sub-area rail restarts when the region changes.
@@ -400,45 +414,52 @@ private fun ExploreChrome(
                 )
             }
         }
-        SearchHeader(
-            query = state.query,
-            onSearch = onSearch,
-            onClear = onClear,
-            placeSuggestions = placeSuggestions,
-            onPlaceQueryChange = onPlaceQueryChange,
-            onClearPlaceSuggestions = onClearPlaceSuggestions
-        )
-        if (state.destinations.isNotEmpty()) {
-            // Two-level destinations: the icon rail, then (for regions that have them) sub-areas.
-            DestinationRail(
-                destinations = state.destinations,
-                selectedRegion = state.query.region,
-                onSelectRegion = onSelectRegion,
-                listState = railState
-            )
-            val selected = com.quickin.app.DestinationRules.find(state.destinations, state.query.region)
-            if (selected != null && selected.subAreas.isNotEmpty()) {
-                SubAreaRow(
-                    destination = selected,
-                    selectedArea = state.query.area,
-                    onSelectArea = onSelectArea,
-                    listState = subAreaState
-                )
-            }
-        } else {
-            // `/destinations` failed or hasn't loaded: the flat region chips still work.
-            RegionChipsRow(
-                regions = state.regions,
-                selectedRegion = state.query.region,
-                onSelectRegion = onSelectRegion
+        Box(modifier = Modifier.guideTarget(GuideRules.Anchor.EXPLORE_SEARCH)) {
+            SearchHeader(
+                query = state.query,
+                onSearch = onSearch,
+                onClear = onClear,
+                placeSuggestions = placeSuggestions,
+                onPlaceQueryChange = onPlaceQueryChange,
+                onClearPlaceSuggestions = onClearPlaceSuggestions
             )
         }
-        SortRow(
-            selected = state.query.sort,
-            onSelect = onSelectSort,
-            filterCount = state.query.discoveryFilterCount,
-            onOpenFilters = onOpenFilters
-        )
+        // The region rail (and its sub-area chips) is one App guide target.
+        Column(modifier = Modifier.guideTarget(GuideRules.Anchor.EXPLORE_REGIONS)) {
+            if (state.destinations.isNotEmpty()) {
+                // Two-level destinations: the icon rail, then (for regions that have them) sub-areas.
+                DestinationRail(
+                    destinations = state.destinations,
+                    selectedRegion = state.query.region,
+                    onSelectRegion = onSelectRegion,
+                    listState = railState
+                )
+                val selected = com.quickin.app.DestinationRules.find(state.destinations, state.query.region)
+                if (selected != null && selected.subAreas.isNotEmpty()) {
+                    SubAreaRow(
+                        destination = selected,
+                        selectedArea = state.query.area,
+                        onSelectArea = onSelectArea,
+                        listState = subAreaState
+                    )
+                }
+            } else {
+                // `/destinations` failed or hasn't loaded: the flat region chips still work.
+                RegionChipsRow(
+                    regions = state.regions,
+                    selectedRegion = state.query.region,
+                    onSelectRegion = onSelectRegion
+                )
+            }
+        }
+        Box(modifier = Modifier.guideTarget(GuideRules.Anchor.EXPLORE_FILTERS)) {
+            SortRow(
+                selected = state.query.sort,
+                onSelect = onSelectSort,
+                filterCount = state.query.discoveryFilterCount,
+                onOpenFilters = onOpenFilters
+            )
+        }
         ViewModeToggle(selected = viewMode, onSelect = onSelectViewMode)
         Spacer(Modifier.height(4.dp))
     }

@@ -7,6 +7,12 @@ struct SignInCTAView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
     @State private var showingAuth = false
+    @State private var showingGuide = false
+    @ObservedObject private var guide = GuideController.shared
+
+    /// The Profile tab's copy: offers the "App guide" link and is where the host
+    /// tour points a signed-out visitor to sign in. The Wishlist tab's is not.
+    var showsGuideEntry: Bool = true
 
     /// Header content — localization keys, defaulting to the Profile tab. The
     /// Wishlist tab passes its own so each tab's headline reads correctly.
@@ -57,8 +63,21 @@ struct SignInCTAView: View {
                             QKPrimaryButtonLabel(title: loc.t("cta.button"))
                         }
                         .buttonStyle(QKPressStyle())
+                        .modifier(GuideSignInAnchor(enabled: showsGuideEntry))
                         .padding(.horizontal, 24)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, showsGuideEntry ? 8 : 24)
+
+                        if showsGuideEntry {
+                            Button {
+                                showingGuide = true
+                            } label: {
+                                Label(loc.t("guide.entry.title"), systemImage: "questionmark.circle")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.qkBurgundy)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.bottom, 20)
+                        }
                     }
                     .frame(maxWidth: 480)
                     .frame(maxWidth: .infinity)
@@ -74,6 +93,27 @@ struct SignInCTAView: View {
         // Auto-dismiss the sheet the moment authentication completes.
         .onChange(of: auth.isAuthenticated) { _, isAuthed in
             if isAuthed { showingAuth = false }
+        }
+        .guideChooser(isPresented: $showingGuide)
+        // The host tour's closing "Sign in" lands here.
+        .onReceive(guide.$pendingAction) { action in
+            guard showsGuideEntry, action == .signIn else { return }
+            guide.pendingAction = nil
+            showingAuth = true
+        }
+    }
+}
+
+/// Tags the Profile tab's sign-in button for the host tour — and only that one,
+/// so the Wishlist tab's copy of this screen can't claim the same spotlight.
+private struct GuideSignInAnchor: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.guideAnchor(GuideAnchor.signIn)
+        } else {
+            content
         }
     }
 }

@@ -100,7 +100,18 @@ data class HostApplyUiState(
     val isSubmitting: Boolean = false,
     /** Inline error for the form (the server's message), or null. */
     val error: String? = null,
-    val submitted: Boolean = false
+    /**
+     * Per-field messages from a 400 `{fields}` — keyed like the request (`terms`, `payout`,
+     * `address`, `full_name`, `id_front`, …) so each shows under its own section.
+     */
+    val fieldErrors: Map<String, String> = emptyMap(),
+    val submitted: Boolean = false,
+    /** True while `GET /api/local/host/application` is in flight. */
+    val isLoading: Boolean = false,
+    /** Whether that read has finished (successfully or not). */
+    val loaded: Boolean = false,
+    /** What the form renders from: the profile on file, the payout on file. Null until loaded / on failure. */
+    val info: AuthService.HostApplicationInfo? = null
 )
 
 /**
@@ -229,6 +240,29 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * The role-aware stepped signup (Guest/Host): account + identity + [roleBody] (built by
+     * [SignupRoleRules.roleBody]) POSTed once, then the same OTP flow as [signup]. Per-field
+     * refusals from every step land in [AuthUiState.signupFieldErrors].
+     */
+    fun signupWithRole(
+        name: String,
+        email: String,
+        password: String,
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: Uri,
+        idBack: Uri,
+        roleBody: Map<String, Any>
+    ) {
+        _state.value = _state.value.copy(signupFieldErrors = emptyMap())
+        runOutcome {
+            val identity = buildIdentityPayload(phone, docType, idNumber, idFront, idBack)
+            SignupFlowService.signup(name.trim(), email.trim(), password, identity, roleBody)
+        }
+    }
+
+    /**
      * Downscales both ID photos off the main thread (≤1024px JPEG data URLs — two of them stay well
      * under Vercel's ~4.5 MB body limit) and packs the identity fields. Phone and document number go
      * out with Arabic-Indic digits folded to ASCII; the server canonicalizes the rest.
@@ -290,6 +324,62 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     error = e.message,
                     fieldErrors = e.fields
                 )
+            } catch (e: AuthService.HttpError) {
+                when (e.code) {
+                    401 -> logout()
+                    409 -> {
+                        _completeIdentity.value = CompleteIdentityUiState()
+                        refreshSession()
+                    }
+                    else -> _completeIdentity.value = CompleteIdentityUiState(
+                        error = humanError(e, "Couldn't save your details.")
+                    )
+                }
+            } catch (e: Exception) {
+                _completeIdentity.value = CompleteIdentityUiState(
+                    error = humanError(e, "Couldn't save your details.")
+                )
+            }
+        }
+    }
+
+    /**
+     * The role-aware "Complete your account" submit: identity + [roleBody] to
+     * `POST /api/local/account/identity`. On 200 both the identity state and the host state the
+     * response carries replace the cached ones (a Host choice is now a pending application).
+     */
+    fun submitCompleteAccount(
+        phone: String,
+        docType: String,
+        idNumber: String,
+        idFront: Uri,
+        idBack: Uri,
+        roleBody: Map<String, Any>
+    ) {
+        if (_completeIdentity.value.isSubmitting) return
+        val token = currentToken() ?: return
+        _completeIdentity.value = CompleteIdentityUiState(isSubmitting = true)
+        viewModelScope.launch {
+            try {
+                val payload = buildIdentityPayload(phone, docType, idNumber, idFront, idBack)
+                val result = SignupFlowService.completeAccount(token, payload, roleBody)
+                prefs.edit()
+                    .putBoolean(KEY_IS_HOST, result.isHost)
+                    .putString(KEY_HOST_STATUS, result.hostStatus)
+                    .putString(KEY_HOST_TYPE, result.hostType)
+                    .putString(KEY_HOST_REVIEW_NOTE, result.hostReviewNote)
+                    .apply()
+                _state.value = _state.value.copy(
+                    isHost = result.isHost,
+                    hostStatus = result.hostStatus,
+                    hostType = result.hostType,
+                    hostReviewNote = result.hostReviewNote
+                )
+                applyIdentity(result.identity)
+                _completeIdentity.value = CompleteIdentityUiState()
+                refreshHostWelcome()
+            } catch (e: AuthService.FieldErrors) {
+                _completeIdentity.value = CompleteIdentityUiState(error = e.message, fieldErrors = e.fields)
             } catch (e: AuthService.HttpError) {
                 when (e.code) {
                     401 -> logout()
@@ -389,21 +479,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * stale, so we re-read the truth from the server before surfacing the message.
      */
     fun submitHostApplication(
-        fullName: String,
-        nationalId: String,
-        phone: String,
+        profileValues: Map<String, String>,
         address: String,
         company: String?,
         hostType: String,
         notes: String?,
+        termsAccepted: Boolean,
+        payout: PayoutDraft?,
         docType: String? = null,
         idFront: Uri? = null,
         idBack: Uri? = null
     ) {
         if (_hostApply.value.isSubmitting || !_state.value.isAuthenticated) return
-        if (fullName.isBlank() || nationalId.isBlank() || phone.isBlank() || address.isBlank()) return
+        if (address.isBlank() || !termsAccepted) return
         val token = currentToken() ?: return
-        _hostApply.value = HostApplyUiState(isSubmitting = true)
+        // Keep what the GET loaded — the form renders from it while (and after) submitting.
+        val loaded = _hostApply.value
+        _hostApply.value = loaded.copy(isSubmitting = true, error = null, fieldErrors = emptyMap())
         val context = getApplication<Application>().applicationContext
         viewModelScope.launch {
             try {
@@ -420,13 +512,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val status = AuthService.applyToHost(
                     token = token,
-                    fullName = fullName,
-                    nationalId = nationalId,
-                    phone = phone,
+                    profileValues = profileValues,
                     address = address,
                     company = company,
                     hostType = hostType,
                     notes = notes,
+                    termsAccepted = termsAccepted,
+                    payout = payout,
                     docType = docType,
                     idFront = front,
                     idBack = back
@@ -441,13 +533,36 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     hostType = hostType,
                     hostReviewNote = null
                 )
-                _hostApply.value = HostApplyUiState(submitted = true)
+                _hostApply.value = loaded.copy(isSubmitting = false, submitted = true)
+            } catch (e: AuthService.FieldErrors) {
+                _hostApply.value = loaded.copy(
+                    isSubmitting = false,
+                    error = e.message,
+                    fieldErrors = e.fields
+                )
             } catch (e: Exception) {
                 if (e is AuthService.HttpError && e.code == 409) refreshSession()
-                _hostApply.value = HostApplyUiState(
+                _hostApply.value = loaded.copy(
+                    isSubmitting = false,
                     error = humanError(e, "Couldn't submit your application.")
                 )
             }
+        }
+    }
+
+    /**
+     * Loads what the apply form renders from (`GET /api/local/host/application`): the profile on
+     * file, which profile fields are missing, and any payout method on file. A failure leaves
+     * [HostApplyUiState.info] null; the form then falls back to asking for everything, which the
+     * server tolerates (it still prefers the profile's values).
+     */
+    fun loadHostApplication() {
+        val token = currentToken() ?: return
+        if (_hostApply.value.isLoading) return
+        _hostApply.value = _hostApply.value.copy(isLoading = true)
+        viewModelScope.launch {
+            val info = runCatching { AuthService.fetchHostApplication(token) }.getOrNull()
+            _hostApply.value = _hostApply.value.copy(isLoading = false, loaded = true, info = info)
         }
     }
 

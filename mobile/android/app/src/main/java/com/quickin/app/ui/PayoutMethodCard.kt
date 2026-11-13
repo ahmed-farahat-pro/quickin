@@ -202,7 +202,7 @@ private fun PayoutAddedPill() {
 
 /** What is on file — the point of the section is that a host can read it back and confirm it. */
 @Composable
-private fun PayoutPreview(saved: HostPayoutMethod) {
+internal fun PayoutPreview(saved: HostPayoutMethod) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -276,29 +276,17 @@ private fun PayoutPreviewRow(label: String, value: String) {
 
 // ---- Editor -------------------------------------------------------------------
 
+/**
+ * The payout inputs without a save button — a method picker plus the fields for the chosen method.
+ * Stateless: the caller owns the [draft]. Shared by the Profile card's editor and the become-a-host
+ * application, so both collect exactly what `PUT /api/local/host/payout-method` takes.
+ */
 @Composable
-private fun PayoutEditor(
-    existing: HostPayoutMethod?,
-    isSubmitting: Boolean,
-    onSave: (PayoutDraft) -> Unit,
-    onCancel: (() -> Unit)?
+internal fun PayoutDraftFields(
+    draft: PayoutDraft,
+    onChange: (PayoutDraft) -> Unit,
+    enabled: Boolean
 ) {
-    var method by remember(existing) {
-        // A retired wallet can't be saved again; start its owner on a bank account.
-        mutableStateOf(existing?.kind?.takeUnless { it.isRetired } ?: PayoutMethodKind.BANK_ACCOUNT)
-    }
-    var accountName by remember(existing) { mutableStateOf(existing?.accountName.orEmpty()) }
-    val isBank = existing?.kind == PayoutMethodKind.BANK_ACCOUNT
-    var bankName by remember(existing) { mutableStateOf(if (isBank) existing.bankName else "") }
-    // Seeded in the grouped form a host reads off a statement; the server strips the spaces.
-    var iban by remember(existing) { mutableStateOf(if (isBank) existing.ibanFormatted else "") }
-    var accountNumber by remember(existing) { mutableStateOf(if (isBank) existing.accountNumber else "") }
-    var swiftBic by remember(existing) { mutableStateOf(if (isBank) existing.swiftBic else "") }
-    var branch by remember(existing) { mutableStateOf(if (isBank) existing.branch else "") }
-    var instapayAddress by remember(existing) {
-        mutableStateOf(if (existing?.kind == PayoutMethodKind.INSTAPAY) existing.accountRef else "")
-    }
-
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             stringResource(R.string.payout_choose_method),
@@ -307,36 +295,36 @@ private fun PayoutEditor(
             fontWeight = FontWeight.SemiBold
         )
         PayoutMethodPicker(
-            selected = method,
-            enabled = !isSubmitting,
-            onSelected = { method = it }
+            selected = draft.method,
+            enabled = enabled,
+            onSelected = { onChange(draft.copy(method = it)) }
         )
 
         PayoutField(
-            value = accountName,
-            onValueChange = { accountName = it },
+            value = draft.accountName,
+            onValueChange = { onChange(draft.copy(accountName = it)) },
             label = stringResource(R.string.payout_field_account_name),
             icon = Icons.Filled.Person,
-            enabled = !isSubmitting,
+            enabled = enabled,
             placeholder = stringResource(R.string.payout_placeholder_account_name)
         )
 
-        when (method) {
+        when (draft.method) {
             PayoutMethodKind.BANK_ACCOUNT -> {
                 PayoutField(
-                    value = bankName,
-                    onValueChange = { bankName = it },
+                    value = draft.bankName,
+                    onValueChange = { onChange(draft.copy(bankName = it)) },
                     label = stringResource(R.string.payout_field_bank),
                     icon = Icons.Filled.AccountBalance,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_bank)
                 )
                 PayoutField(
-                    value = iban,
-                    onValueChange = { iban = it },
+                    value = draft.iban,
+                    onValueChange = { onChange(draft.copy(iban = it)) },
                     label = stringResource(R.string.payout_field_iban),
                     icon = Icons.Filled.Numbers,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_iban)
                 )
                 Text(
@@ -346,39 +334,39 @@ private fun PayoutEditor(
                     lineHeight = 17.sp
                 )
                 PayoutField(
-                    value = accountNumber,
-                    onValueChange = { accountNumber = it },
+                    value = draft.accountNumber,
+                    onValueChange = { onChange(draft.copy(accountNumber = it)) },
                     label = stringResource(R.string.payout_field_account_number),
                     icon = Icons.Filled.CreditCard,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_account_number),
                     keyboardType = KeyboardType.Number
                 )
                 PayoutField(
-                    value = swiftBic,
-                    onValueChange = { swiftBic = it },
+                    value = draft.swiftBic,
+                    onValueChange = { onChange(draft.copy(swiftBic = it)) },
                     label = stringResource(R.string.payout_field_swift_optional),
                     icon = Icons.Filled.Public,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_swift)
                 )
                 PayoutField(
-                    value = branch,
-                    onValueChange = { branch = it },
+                    value = draft.branch,
+                    onValueChange = { onChange(draft.copy(branch = it)) },
                     label = stringResource(R.string.payout_field_branch_optional),
                     icon = Icons.Filled.Place,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_branch)
                 )
             }
 
             PayoutMethodKind.INSTAPAY -> {
                 PayoutField(
-                    value = instapayAddress,
-                    onValueChange = { instapayAddress = it },
+                    value = draft.instapayAddress,
+                    onValueChange = { onChange(draft.copy(instapayAddress = it)) },
                     label = stringResource(R.string.payout_field_instapay_address),
                     icon = Icons.Filled.AlternateEmail,
-                    enabled = !isSubmitting,
+                    enabled = enabled,
                     placeholder = stringResource(R.string.payout_placeholder_instapay_address),
                     keyboardType = KeyboardType.Email
                 )
@@ -393,23 +381,42 @@ private fun PayoutEditor(
             // Retired — never offered by the picker, and the editor moves a saved wallet onto a bank.
             PayoutMethodKind.WALLET -> Unit
         }
+    }
+}
 
+/**
+ * The draft an editor starts from: what is saved, or a blank bank account. A retired wallet can't
+ * be saved again, so its owner starts on a bank account.
+ */
+internal fun initialPayoutDraft(existing: HostPayoutMethod?): PayoutDraft {
+    val bank = existing?.takeIf { it.kind == PayoutMethodKind.BANK_ACCOUNT }
+    return PayoutDraft(
+        method = existing?.kind?.takeUnless { it.isRetired } ?: PayoutMethodKind.BANK_ACCOUNT,
+        accountName = existing?.accountName.orEmpty(),
+        bankName = bank?.bankName.orEmpty(),
+        // Seeded in the grouped form a host reads off a statement; the server strips the spaces.
+        iban = bank?.ibanFormatted.orEmpty(),
+        accountNumber = bank?.accountNumber.orEmpty(),
+        swiftBic = bank?.swiftBic.orEmpty(),
+        branch = bank?.branch.orEmpty(),
+        instapayAddress = existing?.takeIf { it.kind == PayoutMethodKind.INSTAPAY }?.accountRef.orEmpty()
+    )
+}
+
+@Composable
+private fun PayoutEditor(
+    existing: HostPayoutMethod?,
+    isSubmitting: Boolean,
+    onSave: (PayoutDraft) -> Unit,
+    onCancel: (() -> Unit)?
+) {
+    var draft by remember(existing) { mutableStateOf(initialPayoutDraft(existing)) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PayoutDraftFields(draft = draft, onChange = { draft = it }, enabled = !isSubmitting)
         Spacer(Modifier.height(4.dp))
         GradientButton(
-            onClick = {
-                onSave(
-                    PayoutDraft(
-                        method = method,
-                        accountName = accountName,
-                        bankName = bankName,
-                        iban = iban,
-                        accountNumber = accountNumber,
-                        swiftBic = swiftBic,
-                        branch = branch,
-                        instapayAddress = instapayAddress
-                    )
-                )
-            },
+            onClick = { onSave(draft) },
             enabled = !isSubmitting,
             modifier = Modifier.fillMaxWidth()
         ) {

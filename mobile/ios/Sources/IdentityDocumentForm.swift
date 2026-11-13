@@ -357,12 +357,14 @@ struct IdentityDocumentFields: View {
 /// in practice a first Google sign-in, which brings no phone or ID with it. It
 /// can't be dismissed into the app; signing out is the only other way off it.
 /// Posts to `POST /api/local/account/identity`.
+///
+/// Since 2026-11-13 it walks the same stepped, role-aware pages as the email
+/// signup minus Account: role cards → Identity → (Refund | Hosting → Payout).
+/// See `SignupFlow.swift`.
 struct CompleteAccountView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var loc: LocalizationManager
-    @StateObject private var draft = IdentityDocumentDraft()
-    @State private var isSubmitting = false
-    @State private var errorMessage: String?
+    @StateObject private var flow = SignupFlowModel(includeAccount: false)
     /// Called after a successful save, for a caller that presented this itself
     /// (the root overlay simply disappears once the account is complete).
     var onFinished: (() -> Void)? = nil
@@ -390,28 +392,7 @@ struct CompleteAccountView: View {
                         }
                     }
 
-                    IdentityDocumentFields(draft: draft, showPhone: true, disabled: isSubmitting)
-                        .padding(18)
-                        .qkCard(lifts: false)
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(Color.qkBurgundy)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    Button {
-                        Task { await submit() }
-                    } label: {
-                        QKPrimaryButtonLabel(
-                            title: loc.t("complete.submit"),
-                            isLoading: isSubmitting
-                        )
-                        .opacity(draft.isFilled(includePhone: true) && !isSubmitting ? 1 : 0.5)
-                    }
-                    .buttonStyle(QKPressStyle())
-                    .disabled(isSubmitting)
+                    SignupFlowView(model: flow, submitTitle: loc.t("complete.submit"), submit: submit)
 
                     Button {
                         auth.logout()
@@ -424,7 +405,7 @@ struct CompleteAccountView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .disabled(isSubmitting)
+                    .disabled(flow.isSubmitting)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 48)
@@ -438,29 +419,26 @@ struct CompleteAccountView: View {
         .interactiveDismissDisabled(true)
     }
 
-    private func submit() async {
-        errorMessage = nil
-        guard draft.validate(includePhone: true) else { return }
-        guard let payload = draft.makePayload() else {
-            errorMessage = loc.t("trust.uploadError")
-            return
-        }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            switch try await TrustService.shared.submitAccountIdentity(payload) {
-            case .saved(let identity):
-                auth.applyIdentity(identity)
-                onFinished?()
-            case .invalid(let message, let fields):
-                draft.errors = fields
-                errorMessage = message.isEmpty ? nil : message
+    /// Identity + role fields in one POST. The answer carries the identity
+    /// state AND the host state: a host signup files its application, so the
+    /// account reads as `pending` at once (the `/api/auth/me` re-read that
+    /// `applyIdentity` triggers then confirms it).
+    private func submit(_ body: [String: Any]) async -> SignupFlowOutcome {
+        switch await SignupFlowService.completeAccount(body: body) {
+        case .saved(let identity, let hostStatus, let hostType):
+            auth.applyIdentity(identity)
+            if hostStatus == .pending, auth.user?.isHost != true {
+                auth.applyHostApplicationSubmitted(hostType: HostType(raw: hostType))
             }
-        } catch TrustError.notSignedIn {
+            onFinished?()
+            return .done
+        case .invalid(let message, let fields):
+            return .invalid(message: message, fields: fields)
+        case .notSignedIn:
             auth.logout()
-        } catch {
-            let text = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-            errorMessage = text.isEmpty ? loc.t("complete.error") : text
+            return .done
+        case .failed(let message):
+            return .failed(message.isEmpty ? loc.t("complete.error") : message)
         }
     }
 }

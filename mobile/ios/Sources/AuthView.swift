@@ -27,9 +27,10 @@ struct AuthView: View {
 
     @FocusState private var focusedField: Field?
 
-    /// Sign-up only: phone + identity document (type, number, front + back).
-    /// Every new account gives them before the email code is sent.
-    @StateObject private var identityDraft = IdentityDocumentDraft()
+    /// Sign-up only: the stepped, role-aware signup (role cards → Account →
+    /// Identity → Refund | Hosting → Payout). Owned here so switching modes or
+    /// stepping Back / Next never loses a value. See `SignupFlow.swift`.
+    @StateObject private var signupFlow = SignupFlowModel(includeAccount: true)
 
     /// Set once the user has left the email field (or hit return on it) with
     /// something typed. Until then we stay quiet — nagging about a malformed
@@ -133,7 +134,7 @@ struct AuthView: View {
             return NameRules.isValid(name)
                 && PasswordRules.meetsMin(password)
                 && confirmPassword == password
-                && identityDraft.isFilled(includePhone: true)
+                && signupFlow.identity.isFilled(includePhone: true)
         }
         // Sign-in just needs a non-empty password; strength is enforced at signup.
         return password.count >= 1
@@ -147,21 +148,37 @@ struct AuthView: View {
                 VStack(spacing: 24) {
                     header
                     modePicker
-                    formCard
-                    if let error = auth.errorMessage {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(Color.qkBurgundy)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .transition(.opacity)
+                    if isSignUp {
+                        // Stepped signup: the Account page is this screen's own
+                        // name / email / password card.
+                        SignupFlowView(
+                            model: signupFlow,
+                            submitTitle: loc.t("auth.createAccount"),
+                            accountIsValid: signupAccountIsValid,
+                            account: { formCard },
+                            submit: submitSignup
+                        )
+                    } else {
+                        formCard
+                        if let error = auth.errorMessage {
+                            Text(error)
+                                .font(.footnote)
+                                .foregroundStyle(Color.qkBurgundy)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .transition(.opacity)
+                        }
+                        primaryButton
                     }
-                    primaryButton
                     if canUseBiometricSignIn {
                         biometricButton
                     }
-                    orDivider
-                    socialButtons
+                    // Google stays on the sign-in form and the role cards; it
+                    // would be a detour in the middle of the stepped pages.
+                    if !isSignUp || signupFlow.stepIndex == nil {
+                        orDivider
+                        socialButtons
+                    }
                     Spacer(minLength: 8)
                 }
                 .padding(.horizontal, 24)
@@ -341,18 +358,6 @@ struct AuthView: View {
                     isRevealed: $showConfirmPassword,
                     errorMessage: confirmError
                 )
-                Divider().padding(.vertical, 4)
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(loc.t("signupId.section"), systemImage: "person.text.rectangle")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.qkInk)
-                    Text(loc.t("signupId.section.intro"))
-                        .font(.caption)
-                        .foregroundStyle(Color.qkMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                IdentityDocumentFields(draft: identityDraft, showPhone: true, disabled: auth.isLoading)
             }
             if !isSignUp {
                 Button {
@@ -596,34 +601,8 @@ struct AuthView: View {
             return
         }
 
-        if isSignUp {
-            // Same guard as the address: the button is disabled for `12345`, but
-            // the return key shouldn't be able to slip one past. Send the
-            // collapsed form, which is what the server stores.
-            let name = NameRules.normalized(self.name)
-            guard NameRules.isValid(name) else {
-                nameTouched = true
-                return
-            }
-            // Same again for the confirmation: the button is disabled on a
-            // mismatch, but the return key shouldn't be able to slip one past.
-            guard confirmPassword == password else { return }
-            // Phone + ID: the same checks the API runs, each printed under its
-            // field. Nothing is sent until they pass.
-            guard identityDraft.validate(includePhone: true) else { return }
-            guard let identity = identityDraft.makePayload() else {
-                auth.setError(loc.t("trust.uploadError"))
-                return
-            }
-            let outcome = await auth.signup(name: name, email: email, password: password, identity: identity)
-            if case .failed = outcome, !auth.signupFieldErrors.isEmpty {
-                // 400 { error, fields } — e.g. the phone is already on another
-                // account. Each message goes under its own input.
-                identityDraft.errors = auth.signupFieldErrors
-            }
-            await handle(outcome, session: nil)
-            return
-        }
+        // Sign-up runs through `SignupFlowView` → `submitSignup`.
+        guard !isSignUp else { return }
 
         // Sign in. When the device can offer Face ID / Touch ID and no session
         // is stored yet, log in *deferred* so we can show the "Enable Face ID?"
@@ -635,6 +614,44 @@ struct AuthView: View {
         } else {
             let outcome = await auth.login(email: email, password: password)
             await handle(outcome, session: nil)
+        }
+    }
+
+    /// The Account page's check before Next: a real name, an address the
+    /// sign-up policy accepts, a password that clears the strength bar, typed
+    /// identically twice. Arms the inline hints so the user sees what's wrong.
+    private func signupAccountIsValid() -> Bool {
+        emailTouched = true
+        nameTouched = true
+        auth.setError(nil)
+        return emailProblem == nil
+            && NameRules.isValid(name)
+            && PasswordRules.meetsMin(password)
+            && confirmPassword == password
+    }
+
+    /// The stepped signup's single POST: the account fields plus everything the
+    /// flow collected. `pending` → the OTP screen, exactly as before.
+    private func submitSignup(_ flowBody: [String: Any]) async -> SignupFlowOutcome {
+        let email = EmailRules.normalized(self.email)
+        var body = flowBody
+        body["email"] = email
+        body["password"] = password
+        body["full_name"] = NameRules.normalized(name)
+        auth.setError(nil)
+        auth.isLoading = true
+        defer { auth.isLoading = false }
+        switch await SignupFlowService.signup(body: body, fallbackEmail: email) {
+        case .pending(let pendingEmail, let devCode):
+            otpSession = OTPSession(email: pendingEmail, devCode: devCode)
+            return .done
+        case .session(let session):
+            auth.adopt(token: session.token, user: session.user)
+            return .done
+        case .invalid(let message, let fields):
+            return .invalid(message: message, fields: fields)
+        case .failed(let message):
+            return .failed(message)
         }
     }
 

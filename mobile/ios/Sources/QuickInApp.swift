@@ -126,6 +126,10 @@ struct RootView: View {
     @State private var selectedTab = DebugRoute.initialTab
     // Lets Siri App Intents (see QuickInShortcuts) jump to a tab.
     @ObservedObject private var nav = AppNavigation.shared
+    @EnvironmentObject private var deepLink: DeepLinkRouter
+    // The in-app guide, and the notifications primer it must never cover.
+    @ObservedObject private var guide = GuideController.shared
+    @ObservedObject private var push = PushManager.shared
 
     var body: some View {
         ZStack {
@@ -154,8 +158,32 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(50)
             }
+
+            // The first-launch tour and the host tour (`GuideRules`), above the
+            // tabs and below the signup completion screen.
+            if !showSplash, guide.isActive {
+                GuideOverlay()
+                    .zIndex(40)
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: auth.user?.identity.needsCompletion)
+        .animation(.easeInOut(duration: 0.25), value: guide.isActive)
+        // The guide moves between tabs as its steps need them.
+        .onChange(of: guide.requestedTab) { _, tab in
+            guard let tab else { return }
+            selectedTab = tab.rawValue
+            guide.requestedTab = nil
+        }
+        // Greet a first launch once whatever else wants the screen is gone —
+        // re-run each time that changes, after a beat so the tabs have laid out.
+        .task(id: guideBlocked) {
+            guard !guideBlocked else { return }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            guard !Task.isCancelled, !guide.isActive,
+                  GuideRules.shouldAutoStart(seen: GuideController.hasSeenMainTour, blocked: guideBlocked)
+            else { return }
+            guide.start(.main, state: .current(auth))
+        }
         // App-level "Added/Removed from wishlist" toast — floats above the tab
         // bar so every heart toggle (cards, detail hero, Saved) confirms visibly.
         .wishlistToast()
@@ -163,6 +191,15 @@ struct RootView: View {
         // when it arrives or on cold launch.
         .onChange(of: nav.pendingSection) { _, section in applyPending(section) }
         .onAppear { applyPending(nav.pendingSection) }
+    }
+
+    /// Something the first-launch tour must not start on top of.
+    private var guideBlocked: Bool {
+        showSplash
+            || DebugRoute.suppressGuide
+            || auth.user?.identity.needsCompletion == true
+            || push.shouldPromptForPermission
+            || deepLink.route != nil
     }
 
     /// Map a Siri-requested section to the correct tab index in the unified
@@ -263,6 +300,11 @@ enum DebugRoute {
     static var skipSplash: Bool {
         UserDefaults.standard.bool(forKey: "uitest")
     }
+    /// CLI screenshot runs start on a fresh simulator, where the first-launch
+    /// tour would cover every screen. Off under `-uitest` unless `-uitestGuide 1`.
+    static var suppressGuide: Bool {
+        skipSplash && !UserDefaults.standard.bool(forKey: "uitestGuide")
+    }
     static var initialTab: Int {
         UserDefaults.standard.object(forKey: "uitestTab") != nil
             ? UserDefaults.standard.integer(forKey: "uitestTab")
@@ -302,6 +344,7 @@ struct WishlistTab: View {
                 .tint(.qkBurgundy)
             } else {
                 SignInCTAView(
+                    showsGuideEntry: false,
                     eyebrowKey: "saved.eyebrow",
                     titleKey: "saved.title",
                     subtitleKey: "saved.subtitle",

@@ -1,5 +1,6 @@
 package com.quickin.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,10 +36,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +58,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.AuthUiState
+import com.quickin.app.AuthViewModel
 import com.quickin.app.GoogleSignIn
 import com.quickin.app.EmailRules
 import com.quickin.app.NameRules
 import com.quickin.app.R
+import com.quickin.app.SignupRoleRules
+import com.quickin.app.SignupStep
 import com.quickin.app.ui.theme.Burgundy
 import com.quickin.app.ui.theme.Cream
 import com.quickin.app.ui.theme.CreamPage
@@ -115,30 +122,37 @@ fun AuthScreen(
      */
     canBiometricLogin: Boolean = false,
     onBiometricLogin: () -> Unit = {},
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    /**
+     * The activity's AuthViewModel (the same instance MainActivity holds). The role-aware stepped
+     * sign-up submits through [AuthViewModel.signupWithRole]; [onSignup] is the pre-role entry
+     * point, kept so existing callers compile.
+     */
+    authViewModel: AuthViewModel = viewModel()
 ) {
-    var isSignUp by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    // Saveable: the stepped sign-up keeps every value across Back/Next and a rotation.
+    var isSignUp by rememberSaveable { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
     // Sign-up only: the password typed a second time. A new account whose password holds a typo
     // can't be signed into at all, so we ask twice. Cleared by the mode toggle below — switching
     // modes hides the field, so coming back to sign-up starts from a clean, un-armed hint.
-    var confirmPassword by remember { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
 
     // An empty confirmation is not yet a wrong answer — the hint waits until something is typed.
     val passwordsMismatch = isSignUp && confirmPassword.isNotEmpty() && confirmPassword != password
 
     // Armed once the name field has been left, so a name is never called wrong
     // while it is still being typed. Sign-up only — sign-in has no name field.
-    var nameTouched by remember { mutableStateOf(false) }
+    var nameTouched by rememberSaveable { mutableStateOf(false) }
     val nameError = nameFieldError(raw = name, touched = isSignUp && nameTouched)
 
     // Armed once the email field has been left, so an address is never called
     // wrong while it is still being typed. Sign-up is subject to the full rule
     // (temp-mail included); sign-in is not, because it only ever touches an
     // account that already exists. See `emailFieldError`.
-    var emailTouched by remember { mutableStateOf(false) }
+    var emailTouched by rememberSaveable { mutableStateOf(false) }
     var emailFocused by remember { mutableStateOf(false) }
 
     // Everything the current mode needs except the address. Doubles as the fallback trigger for
@@ -169,6 +183,47 @@ fun AuthScreen(
 
     // Sign-up only: phone + identity document (signup-identity-core on the API).
     val identityForm = rememberIdentityFormState()
+
+    // Sign-up only: the role-aware steps (Guest/Host → Account → Identity → Refund | Hosting → Payout).
+    val flow = rememberSignupFlowState(includeAccount = true)
+    val onAccountStep = isSignUp && flow.step == SignupStep.Account
+    // The sign-in form, or the sign-up's Account page, shows the email + password fields.
+    val showCredentials = !isSignUp || onAccountStep
+    // Server refusals of the account fields (a taken email, a weak password, a refused name).
+    val accountServerError = if (onAccountStep) {
+        listOf(SignupRoleRules.FIELD_FULL_NAME, SignupRoleRules.FIELD_EMAIL, SignupRoleRules.FIELD_PASSWORD)
+            .firstNotNullOfOrNull { state.signupFieldErrors[it] }
+            // The summary line below already says it when it is the same message.
+            ?.takeUnless { it == state.error }
+    } else null
+
+    // System Back walks the sign-up pages backwards before leaving the screen.
+    BackHandler(enabled = isSignUp && flow.step != SignupStep.Role && !loading) { flow.goBack() }
+
+    // Every step's errors arrive in one 400: when a submit ends refused, open the earliest page
+    // that owns one of them.
+    LaunchedEffect(loading) {
+        if (!loading && flow.awaitingResult) {
+            flow.awaitingResult = false
+            if (state.signupFieldErrors.isNotEmpty()) flow.jumpToFirstError(state.signupFieldErrors.keys)
+        }
+    }
+
+    val submitSignup: (Boolean) -> Unit = { sendRefund ->
+        val front = identityForm.front
+        val back = identityForm.back
+        if (front != null && back != null) {
+            authViewModel.signupWithRole(
+                NameRules.normalized(name), email, password,
+                identityForm.phone, identityForm.docType.apiValue,
+                identityForm.idNumber, front, back,
+                flow.roleBody(sendRefund)
+            )
+        } else {
+            flow.awaitingResult = false
+            flow.step = SignupStep.Identity
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -240,6 +295,7 @@ fun AuthScreen(
                         confirmPassword = ""
                         nameTouched = false
                         emailTouched = false
+                        flow.reset()
                         onClearError()
                     }
                 }
@@ -248,9 +304,25 @@ fun AuthScreen(
             Spacer(Modifier.height(24.dp))
 
             if (isSignUp) {
+                SignupStepHeader(flow)
+                Spacer(Modifier.height(16.dp))
+            }
+            if (isSignUp && flow.step == SignupStep.Role) {
+                SignupRoleCards(
+                    selected = flow.role,
+                    enabled = !loading,
+                    onSelect = { flow.role = it }
+                )
+            }
+
+            if (onAccountStep) {
                 AuthField(
                     value = name,
-                    onValueChange = { name = it; if (nameTouched) nameTouched = false },
+                    onValueChange = {
+                        name = it
+                        if (nameTouched) nameTouched = false
+                        onClearSignupFieldError(SignupRoleRules.FIELD_FULL_NAME)
+                    },
                     label = stringResource(R.string.auth_full_name),
                     enabled = !loading,
                     isError = nameError != null,
@@ -269,9 +341,14 @@ fun AuthScreen(
                 Spacer(Modifier.height(14.dp))
             }
 
+            if (showCredentials) {
             AuthField(
                 value = email,
-                onValueChange = { email = it; if (emailTouched) emailTouched = false },
+                onValueChange = {
+                    email = it
+                    if (emailTouched) emailTouched = false
+                    if (isSignUp) onClearSignupFieldError(SignupRoleRules.FIELD_EMAIL)
+                },
                 label = stringResource(R.string.auth_email),
                 enabled = !loading,
                 keyboardType = KeyboardType.Email,
@@ -298,7 +375,10 @@ fun AuthScreen(
             key(isSignUp) {
                 AuthField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        if (isSignUp) onClearSignupFieldError(SignupRoleRules.FIELD_PASSWORD)
+                    },
                     label = stringResource(R.string.auth_password),
                     enabled = !loading,
                     keyboardType = KeyboardType.Password,
@@ -306,8 +386,10 @@ fun AuthScreen(
                 )
             }
 
+            } // showCredentials
+
             // Animated strength meter + requirements checklist — sign-up only (a new password).
-            if (isSignUp) {
+            if (onAccountStep) {
                 Spacer(Modifier.height(12.dp))
                 PasswordStrength(password = password)
 
@@ -333,13 +415,73 @@ fun AuthScreen(
                 }
             }
 
-            if (isSignUp) {
-                Spacer(Modifier.height(22.dp))
+            if (accountServerError != null) {
+                Text(
+                    accountServerError,
+                    color = ErrorRed,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                )
+            }
+            if (onAccountStep && flow.attempted && !(otherFieldsReady && emailAcceptable)) {
+                Text(
+                    stringResource(R.string.signup_account_incomplete),
+                    color = Muted,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                )
+            }
+
+            if (isSignUp && flow.step == SignupStep.Identity) {
                 IdentityFormFields(
                     form = identityForm,
                     enabled = !loading,
                     serverErrors = state.signupFieldErrors,
                     onFieldEdited = onClearSignupFieldError
+                )
+                if (flow.attempted && !identityForm.isReady) {
+                    Text(
+                        stringResource(R.string.identity_required_hint),
+                        color = Muted,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                    )
+                }
+            }
+            if (isSignUp && flow.step == SignupStep.Refund) {
+                MoneyDestinationStep(
+                    intro = stringResource(R.string.signup_refund_intro),
+                    draft = flow.refund,
+                    onChange = { flow.refund = it; onClearSignupFieldError(SignupRoleRules.FIELD_REFUND_METHOD) },
+                    enabled = !loading,
+                    showLocal = flow.attempted,
+                    serverError = state.signupFieldErrors[SignupRoleRules.FIELD_REFUND_METHOD]
+                )
+            }
+            if (isSignUp && flow.step == SignupStep.Hosting) {
+                HostingDetailsFields(
+                    draft = flow.hosting,
+                    onChange = { flow.hosting = it },
+                    enabled = !loading,
+                    showLocal = flow.attempted,
+                    serverErrors = state.signupFieldErrors,
+                    onFieldEdited = onClearSignupFieldError
+                )
+            }
+            if (isSignUp && flow.step == SignupStep.Payout) {
+                MoneyDestinationStep(
+                    intro = stringResource(R.string.host_apply_payout_intro),
+                    draft = flow.payout,
+                    onChange = { flow.payout = it; onClearSignupFieldError(SignupRoleRules.FIELD_PAYOUT) },
+                    enabled = !loading,
+                    showLocal = flow.attempted,
+                    serverError = state.signupFieldErrors[SignupRoleRules.FIELD_PAYOUT]
                 )
             }
 
@@ -379,22 +521,36 @@ fun AuthScreen(
             // with an `@` in it and let the user find out from a 400.
             // `12345` is non-empty and is not a name — the name is held to the
             // same rule the server applies, not just to being filled in.
-            val canSubmit = !loading && emailAcceptable &&
-                (!isSignUp || (otherFieldsReady && identityForm.isReady))
+            if (isSignUp) {
+                // The stepped sign-up: Back / Next on every page, the last one submits everything
+                // once; the guest's refund page can be skipped.
+                SignupNavButtons(
+                    showBack = flow.step != SignupStep.Role,
+                    primaryLabel = stringResource(
+                        if (flow.isLast) R.string.auth_create_account else R.string.signup_next
+                    ),
+                    busy = loading,
+                    onBack = { flow.goBack() },
+                    onPrimary = {
+                        flow.onPrimary(
+                            identity = identityForm,
+                            // `12345` is non-empty and is not a name — the name is held to the
+                            // same rule the server applies; the address to the full sign-up policy.
+                            accountReady = otherFieldsReady && emailAcceptable,
+                            onAccountIncomplete = { nameTouched = true; emailTouched = true },
+                            submit = submitSignup
+                        )
+                    },
+                    onSkip = if (SignupRoleRules.isSkippable(flow.step)) {
+                        { flow.awaitingResult = true; submitSignup(false) }
+                    } else null
+                )
+            } else {
+            // Primary action — burgundy gradient with a pulsing ring (qkPulse).
+            // An address the server would refuse can never sign in, so the button waits on it.
+            val canSubmit = !loading && emailAcceptable
             GradientButton(
-                onClick = {
-                    val front = identityForm.front
-                    val back = identityForm.back
-                    if (isSignUp) {
-                        if (front != null && back != null) {
-                            onSignup(
-                                NameRules.normalized(name), email, password,
-                                identityForm.phone, identityForm.docType.apiValue,
-                                identityForm.idNumber, front, back
-                            )
-                        }
-                    } else onLogin(email, password)
-                },
+                onClick = { onLogin(email, password) },
                 enabled = canSubmit,
                 pulse = canSubmit,
                 radius = 18.dp,
@@ -408,27 +564,16 @@ fun AuthScreen(
                     )
                 } else {
                     Text(
-                        stringResource(if (isSignUp) R.string.auth_create_account else R.string.auth_sign_in),
+                        stringResource(R.string.auth_sign_in),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )
                 }
             }
-
-            // The button waits on the identity fields too; say what is missing rather than leave it
-            // dead in silence once everything else is filled in.
-            if (isSignUp && otherFieldsReady && !identityForm.isReady) {
-                Text(
-                    stringResource(R.string.identity_required_hint),
-                    color = Muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp)
-                )
             }
 
+            if (!isSignUp || flow.step == SignupStep.Role) {
             Spacer(Modifier.height(24.dp))
 
             DividerWithLabel(stringResource(R.string.auth_or))
@@ -463,6 +608,7 @@ fun AuthScreen(
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.auth_continue_google), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
+            } // Google: sign-in, or the sign-up's role page (completion then asks the rest)
 
             // Biometric sign-in — only in sign-in mode, and only when the device can run a prompt
             // AND a session was previously stored (the caller computes [canBiometricLogin]). Tapping

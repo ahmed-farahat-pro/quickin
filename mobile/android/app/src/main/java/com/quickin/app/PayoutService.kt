@@ -92,17 +92,22 @@ object PayoutService {
 
     /** Saves (or replaces) the host's payout method and returns what was stored. */
     suspend fun save(token: String, draft: PayoutDraft): HostPayoutMethod? = withContext(Dispatchers.IO) {
-        val body = JSONObject().apply {
-            put("method", draft.method.key)
-            put("account_name", draft.accountName)
-            put("bank_name", draft.bankName)
-            put("iban", draft.iban)
-            put("account_number", draft.accountNumber)
-            put("swift_bic", draft.swiftBic)
-            put("branch", draft.branch)
-            put("instapay_address", draft.instapayAddress)
-        }
-        parse(JSONObject(request("PUT", token, body)))
+        parse(JSONObject(request("PUT", token, toJson(draft))))
+    }
+
+    /**
+     * The request body for a [draft] — also what `POST /api/local/host/apply` carries as `payout`
+     * (same contract as the PUT), so the two can never drift apart.
+     */
+    fun toJson(draft: PayoutDraft): JSONObject = JSONObject().apply {
+        put("method", draft.method.key)
+        put("account_name", draft.accountName)
+        put("bank_name", draft.bankName)
+        put("iban", draft.iban)
+        put("account_number", draft.accountNumber)
+        put("swift_bic", draft.swiftBic)
+        put("branch", draft.branch)
+        put("instapay_address", draft.instapayAddress)
     }
 
     /** Removes the host's payout method. Idempotent on the server. */
@@ -116,7 +121,14 @@ object PayoutService {
     private fun parse(raw: JSONObject): HostPayoutMethod? {
         // `payout_method` is JSON null when nothing is set, which is not an error.
         if (raw.isNull("payout_method")) return null
-        val o = raw.optJSONObject("payout_method") ?: return null
+        return parseMethod(raw.optJSONObject("payout_method") ?: return null)
+    }
+
+    /**
+     * One `payout_method` object (the PUT/GET envelope's, or the one `GET
+     * /api/local/host/application` carries), or null when it names no method.
+     */
+    fun parseMethod(o: JSONObject): HostPayoutMethod? {
         val method = o.optStringOrNull("method") ?: return null
         return HostPayoutMethod(
             method = method,

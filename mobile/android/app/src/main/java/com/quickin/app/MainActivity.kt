@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -50,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,12 +69,20 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.quickin.app.ui.AddListingScreen
+import com.quickin.app.ui.AppGuideChooser
+import com.quickin.app.ui.AppGuideOverlay
+import com.quickin.app.ui.AppGuidePrefs
+import com.quickin.app.ui.GuideTargets
+import com.quickin.app.ui.LocalGuideTargets
+import com.quickin.app.ui.guideTarget
 import com.quickin.app.ui.FormDraftsViewModel
 import com.quickin.app.ui.qkSwap
 import com.quickin.app.ui.AuthScreen
@@ -260,10 +270,19 @@ private fun GlossyTabBar(tabs: List<TabItem>, selected: Int, onSelect: (Int) -> 
                         if (isSelected) 10.dp else 0.dp,
                         animationSpec = tween(320), label = "elev"
                     )
+                    // The App guide highlights the Wishlist / Trips / Profile tabs. Reported before
+                    // the scale, so the cutout sits on the full-size pill whichever tab is selected.
+                    val guideAnchor = when (tab.key) {
+                        "wishlist" -> GuideRules.Anchor.TAB_WISHLIST
+                        "Trips" -> GuideRules.Anchor.TAB_TRIPS
+                        "Profile" -> GuideRules.Anchor.TAB_PROFILE
+                        else -> null
+                    }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(3.dp),
                         modifier = Modifier
+                            .then(if (guideAnchor != null) Modifier.guideTarget(guideAnchor) else Modifier)
                             .scale(pillScale)
                             .clip(RoundedCornerShape(22.dp))
                             .clickable(
@@ -485,6 +504,50 @@ private fun MainApp() {
     var showAuth by remember { mutableStateOf(false) }
     // True while the standalone "Forgot password" route (email → code + new password) is open.
     var showForgot by remember { mutableStateOf(false) }
+
+    // ---- App guide (onboarding walkthrough; mobile/APP-GUIDE-SPEC.md) ---------------------------
+    // Held up here, above every early return, so a full-screen route opening mid-tour (a deep
+    // link) pauses the tour instead of resetting it. The steps are re-derived from the account on
+    // every recomposition — both tours have a fixed length, so a sign-in only swaps a variant.
+    var guideTour by remember { mutableStateOf<GuideRules.Tour?>(null) }
+    var guideIndex by remember { mutableIntStateOf(0) }
+    var showGuideChooser by remember { mutableStateOf(false) }
+    val guideTargets = remember { GuideTargets() }
+    val hostApplicationPending = !authState.isHost && authState.hostStatus == HOST_STATUS_PENDING
+    val guideSteps = guideTour?.let {
+        GuideRules.steps(it, authState.isAuthenticated, authState.isHost, hostApplicationPending)
+    }.orEmpty()
+    val guideStep = guideSteps.getOrNull(guideIndex)
+    val guideContext = LocalContext.current
+    val startGuide: (GuideRules.Tour) -> Unit = { tour ->
+        showGuideChooser = false
+        guideIndex = 0
+        guideTour = tour
+    }
+    // Ends the tour however it ends (Done, Skip, X, Back). The main tour is then "seen" on this
+    // device and returns to Explore; the host tour has no flag and stays where it is.
+    val endGuide: () -> Unit = {
+        if (guideTour == GuideRules.Tour.MAIN) {
+            AppGuidePrefs.markSeen(guideContext)
+            selectedTab = 0
+        }
+        guideTour = null
+        guideIndex = 0
+    }
+    val nextGuideStep: () -> Unit = {
+        if (guideIndex >= guideSteps.lastIndex) endGuide() else guideIndex += 1
+    }
+    // Each step's anchor is published (so Explore / Profile can scroll it into view) and the tab
+    // it lives on is brought forward.
+    LaunchedEffect(guideTour, guideStep) {
+        guideTargets.active = guideStep?.anchor
+        val key = when (guideStep?.screen) {
+            GuideRules.Screen.EXPLORE -> "Explore"
+            GuideRules.Screen.PROFILE -> "Profile"
+            null -> null
+        }
+        if (key != null) selectedTab = GUEST_TABS.indexOfFirst { it.key == key }.coerceAtLeast(0)
+    }
 
     val activity = LocalContext.current as? MainActivity
     // Resolved here (composable scope) so it can be passed into the non-composable Google callback.
@@ -862,6 +925,20 @@ private fun MainApp() {
             authOpen -> { authViewModel.clearError(); showAuth = false }
             selectedTab != 0 -> selectedTab = 0
         }
+    }
+
+    // While a tour is up, Back closes it (same as X) — unless a full-screen route opened over it,
+    // which the handler above pops first. Registered later, so it takes precedence.
+    BackHandler(enabled = guideTour != null && !anyOverlay) { endGuide() }
+
+    // "Become a host" / "Apply again" on the Profile card, and the host tour's "Apply now".
+    val openHostApplication: () -> Unit = {
+        authViewModel.resetHostApply()
+        // Re-read the identity we hold, so the form opens with the number on an approved ID
+        // rather than an empty field the applicant retypes — and asks for the ID photos only
+        // when we hold none.
+        trustViewModel.loadVerification()
+        showHostApply = true
     }
 
     // SIGNUP IDENTITY. A booking refused for `identity_incomplete` means the server holds this
@@ -1290,11 +1367,21 @@ private fun MainApp() {
                 authViewModel.resetHostApply()
                 showHostApply = false
             },
-            onSubmit = { fullName, nationalId, phone, address, company, hostType, notes,
-                         docType, idFront, idBack ->
+            // Profile on file + missing fields + payout on file (GET /api/local/host/application),
+            // so the form never re-asks what the account already holds.
+            onLoad = authViewModel::loadHostApplication,
+            onSubmit = { s ->
                 authViewModel.submitHostApplication(
-                    fullName, nationalId, phone, address, company, hostType, notes,
-                    docType, idFront, idBack
+                    profileValues = s.profileValues,
+                    address = s.address,
+                    company = s.company,
+                    hostType = s.hostType,
+                    notes = s.notes,
+                    termsAccepted = s.termsAccepted,
+                    payout = s.payout,
+                    docType = s.docType,
+                    idFront = s.idFront,
+                    idBack = s.idBack
                 )
             },
             onSubmitted = {
@@ -1607,190 +1694,264 @@ private fun MainApp() {
         return
     }
 
-    Scaffold(
-        containerColor = CreamPage,
-        bottomBar = {
-            GlossyTabBar(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
+    // App guide auto-start: only here, in the tabbed shell (the splash, the signup completion
+    // screen and every full-screen route return before this point), only on Explore, and only
+    // while nothing else is up. A dialog, a bottom sheet (Filters, the date picker) or the system
+    // notification primer each take window focus away from this window, so focus is the catch-all
+    // for "a sheet is showing"; the app's own pop-ups are listed too. Anything appearing re-keys
+    // the effect and cancels the pending start — the next calm moment on Explore tries again.
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    val guideBlocked = !windowFocused || showGuideChooser || pendingPayment != null ||
+        biometricOffer != null || reviewSubmitState.submittedBookingId != null ||
+        reserveState.identityBlock != null
+    LaunchedEffect(currentTabKey, guideBlocked, guideTour) {
+        if (guideTour != null || currentTabKey != "Explore") return@LaunchedEffect
+        if (!GuideRules.shouldAutoStart(AppGuidePrefs.seen(context), guideBlocked)) return@LaunchedEffect
+        // Settle first: the notification primer is requested right after sign-in lands.
+        kotlinx.coroutines.delay(900)
+        if (GuideRules.shouldAutoStart(AppGuidePrefs.seen(context), blockingUIShown = false)) {
+            startGuide(GuideRules.Tour.MAIN)
         }
-    ) { padding ->
-        // Animate the screen when the active tab changes: the incoming screen fades and
-        // slides a touch in the direction of travel while the outgoing one fades away,
-        // so tab switches feel deliberate rather than instant.
-        AnimatedContent(
-            targetState = selectedTab,
-            transitionSpec = {
-                // The signature qkSwap: 420ms cubic-bezier(0.22,1,0.36,1), sliding in the
-                // direction of travel. RTL-safe — Compose mirrors the slide offset for us.
-                qkSwap(forward = targetState >= initialState)
-            },
-            label = "tab"
-        ) { tabIndex ->
-            // Everyone shares the guest tab set (Explore · Wishlist · Trips · Profile);
-            // host features are reached from the Profile tab. getOrNull guards a transient index.
-            when (tabs.getOrNull(tabIndex)?.key) {
-                "Explore" -> ListingsScreen(
-                    state = listingsState,
-                    onRetry = listingsViewModel::load,
-                    onSelect = { selectedListing = it },
-                    onSearch = listingsViewModel::search,
-                    onClear = listingsViewModel::clear,
-                    onSelectRegion = listingsViewModel::selectRegion,
-                    onSelectArea = listingsViewModel::selectArea,
-                    onSelectSort = listingsViewModel::setSort,
-                    onApplyFilters = listingsViewModel::applyFilters,
-                    onClearFilters = listingsViewModel::clearFilters,
-                    onSearchArea = listingsViewModel::searchArea,
-                    isAuthenticated = authState.isAuthenticated,
-                    // The banner's hosting shortcut — the always-visible way into the dashboard,
-                    // rendered only for an account the SERVER calls a host.
-                    isHost = isHost,
-                    onOpenHost = { showHost = true },
-                    onSignIn = {
-                        authViewModel.clearError()
-                        showAuth = true
-                    },
-                    userInitials = avatarInitials(authState.userName, authState.email),
-                    onOpenProfile = {
-                        selectedTab = tabs.indexOfFirst { it.key == "Profile" }.coerceAtLeast(0)
-                    },
-                    unreadCount = notificationsState.unreadCount,
-                    onOpenNotifications = {
-                        notificationsViewModel.load()
-                        showNotifications = true
-                    },
-                    savedListingIds = wishlistState.listingIds,
-                    onToggleSaved = { listing ->
-                        if (authState.isAuthenticated) {
-                            wishlistViewModel.toggleListing(listing)
-                        } else {
-                            authViewModel.clearError()
-                            showAuth = true
-                        }
-                    },
-                    // Section 10 — natural-language ("Ask AI") search.
-                    aiSearchState = aiSearchState,
-                    onAiSearch = listingsViewModel::aiSearch,
-                    onClearAiSearch = listingsViewModel::clearAiSearch,
-                    // Place autocomplete for the location search field.
-                    placeSuggestions = placeSuggestionsState,
-                    onPlaceQueryChange = listingsViewModel::suggestPlaces,
-                    onClearPlaceSuggestions = listingsViewModel::clearPlaceSuggestions,
-                    contentPadding = padding
-                )
-                // Guest "Wishlist" = the user's saved stays. A top-level tab,
-                // so it shows no back affordance. The screen itself distinguishes signed-out
-                // (sign-in prompt) from signed-in-but-empty (friendly empty state) using the
-                // authoritative auth flag — an empty/401 API result while signed in is treated
-                // as empty, never as signed-out.
-                "wishlist" -> WishlistScreen(
-                    state = wishlistState,
-                    isAuthenticated = authState.isAuthenticated,
-                    onLoad = wishlistViewModel::load,
-                    onSignIn = {
-                        authViewModel.clearError()
-                        showAuth = true
-                    },
-                    onOpenListing = { listing -> selectedListing = listing },
-                    onToggleListing = wishlistViewModel::toggleListing,
-                    contentPadding = padding
-                )
-                // Guest "Trips" = the user's own bookings. The screen distinguishes signed-out
-                // (sign-in prompt) from signed-in-but-empty (friendly empty state + Explore CTA)
-                // using the authoritative auth flag — an empty/401 result while signed in is treated
-                // as empty/error, never as signed-out.
-                "Trips" -> ReservationsScreen(
-                    isAuthenticated = authState.isAuthenticated,
-                    state = reservationsState,
-                    onSignIn = {
-                        authViewModel.clearError()
-                        showAuth = true
-                    },
-                    onRetry = bookingsViewModel::loadReservations,
-                    isHost = isHost,
-                    onOpenHost = { showHost = true },
-                    onExplore = { selectedTab = 0 },
-                    onOpen = { booking -> selectedReservationId = booking.id },
-                    canReview = { booking -> reviewsViewModel.canReview(booking.id) },
-                    reviewSubmitting = reviewSubmitState.submitting,
-                    reviewError = reviewSubmitState.error,
-                    onSubmitReview = { bookingId, rating, comment, photos ->
-                        reviewsViewModel.submitReview(bookingId, rating, comment, photos)
-                    },
-                    contentPadding = padding
-                )
-                "Profile" -> if (authState.isAuthenticated) {
-                    // Load the reviews this user has received (host → guest) for the profile section.
-                    LaunchedEffect(authState.userId) {
-                        reviewsViewModel.loadReceivedReviews(authState.userId)
-                    }
-                    ProfileScreen(
-                        state = authState,
-                        onLogout = authViewModel::logout,
-                        profile = profileSettingsState.profile,
-                        receivedReviews = receivedReviewsState,
-                        verificationState = verificationState,
-                        onSubmitVerification = { front, back, selfie, idNumber ->
-                            trustViewModel.submitVerification(front, back, selfie, idNumber)
-                        },
-                        payoutState = payoutState,
-                        onSavePayout = { draft -> payoutViewModel.save(draft) },
-                        onRemovePayout = { payoutViewModel.remove() },
-                        // Unified account: "Become a host" (or "Apply again" after a rejection)
-                        // opens the application form — hosting is granted by an admin approval,
-                        // never by the tap itself. The card renders the server's host_status.
-                        onOpenHostApplication = {
-                            authViewModel.resetHostApply()
-                            // Re-read the identity we hold, so the form opens with the number on
-                            // an approved ID rather than an empty field the applicant retypes —
-                            // and asks for the ID photos only when we hold none.
-                            trustViewModel.loadVerification()
-                            showHostApply = true
-                        },
-                        onOpenHost = { showHost = true },
-                        // The one-time "you're an approved host" welcome above the dashboard card.
-                        hostWelcome = hostWelcome,
-                        onDismissHostWelcome = authViewModel::dismissHostWelcome,
-                        onOpenSettings = {
-                            profileSettingsViewModel.load()
-                            showProfileSettings = true
-                        },
-                        onOpenGuestQuestions = { showGuestQuestions = true },
-                        guestQuestionsUnanswered = hostCommentsState.unanswered,
-                        onOpenReceipts = {
-                            moneyViewModel.loadReceipts()
-                            showReceipts = true
-                        },
-                        onOpenEarnings = {
-                            moneyViewModel.loadEarnings()
-                            showEarnings = true
-                        },
-                        onOpenAnalytics = {
-                            hostViewModel.loadAnalytics()
-                            showAnalytics = true
-                        },
-                        // Account deletion (Google Play policy): DELETE /api/local/account, then
-                        // the auth state flips signed-out — the LaunchedEffect(isAuthenticated)
-                        // above clears every per-account view-model and returns to the auth screen.
-                        deletingAccount = deletingAccount,
-                        onDeleteAccount = { authViewModel.deleteAccount() },
-                        // The brand banner's bell — the same notifications list Explore opens.
-                        unreadCount = notificationsState.unreadCount,
-                        onOpenNotifications = {
-                            notificationsViewModel.load()
-                            showNotifications = true
-                        },
-                        modifier = Modifier.padding(padding)
-                    )
-                } else {
-                    ProfileSignInCta(
-                        onSignIn = {
-                            authViewModel.clearError()
-                            showAuth = true
-                        },
-                        modifier = Modifier.padding(padding)
-                    )
+    }
+
+    if (showGuideChooser) {
+        AppGuideChooser(
+            onMainTour = { startGuide(GuideRules.Tour.MAIN) },
+            onHostTour = { startGuide(GuideRules.Tour.HOST) },
+            onDismiss = { showGuideChooser = false }
+        )
+    }
+
+    CompositionLocalProvider(LocalGuideTargets provides guideTargets) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = CreamPage,
+                // Under a tour, TalkBack reads the guide card only.
+                modifier = if (guideStep != null) Modifier.clearAndSetSemantics { } else Modifier,
+                bottomBar = {
+                    GlossyTabBar(tabs = tabs, selected = selectedTab, onSelect = { selectedTab = it })
                 }
-                else -> {}
+            ) { padding ->
+                // Animate the screen when the active tab changes: the incoming screen fades and
+                // slides a touch in the direction of travel while the outgoing one fades away,
+                // so tab switches feel deliberate rather than instant.
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        // The signature qkSwap: 420ms cubic-bezier(0.22,1,0.36,1), sliding in the
+                        // direction of travel. RTL-safe — Compose mirrors the slide offset for us.
+                        qkSwap(forward = targetState >= initialState)
+                    },
+                    label = "tab"
+                ) { tabIndex ->
+                    // Everyone shares the guest tab set (Explore · Wishlist · Trips · Profile);
+                    // host features are reached from the Profile tab. getOrNull guards a transient index.
+                    when (tabs.getOrNull(tabIndex)?.key) {
+                        "Explore" -> ListingsScreen(
+                            state = listingsState,
+                            onRetry = listingsViewModel::load,
+                            onSelect = { selectedListing = it },
+                            onSearch = listingsViewModel::search,
+                            onClear = listingsViewModel::clear,
+                            onSelectRegion = listingsViewModel::selectRegion,
+                            onSelectArea = listingsViewModel::selectArea,
+                            onSelectSort = listingsViewModel::setSort,
+                            onApplyFilters = listingsViewModel::applyFilters,
+                            onClearFilters = listingsViewModel::clearFilters,
+                            onSearchArea = listingsViewModel::searchArea,
+                            isAuthenticated = authState.isAuthenticated,
+                            // The banner's hosting shortcut — the always-visible way into the dashboard,
+                            // rendered only for an account the SERVER calls a host.
+                            isHost = isHost,
+                            onOpenHost = { showHost = true },
+                            onSignIn = {
+                                authViewModel.clearError()
+                                showAuth = true
+                            },
+                            userInitials = avatarInitials(authState.userName, authState.email),
+                            onOpenProfile = {
+                                selectedTab = tabs.indexOfFirst { it.key == "Profile" }.coerceAtLeast(0)
+                            },
+                            unreadCount = notificationsState.unreadCount,
+                            onOpenNotifications = {
+                                notificationsViewModel.load()
+                                showNotifications = true
+                            },
+                            savedListingIds = wishlistState.listingIds,
+                            onToggleSaved = { listing ->
+                                if (authState.isAuthenticated) {
+                                    wishlistViewModel.toggleListing(listing)
+                                } else {
+                                    authViewModel.clearError()
+                                    showAuth = true
+                                }
+                            },
+                            // Section 10 — natural-language ("Ask AI") search.
+                            aiSearchState = aiSearchState,
+                            onAiSearch = listingsViewModel::aiSearch,
+                            onClearAiSearch = listingsViewModel::clearAiSearch,
+                            // Place autocomplete for the location search field.
+                            placeSuggestions = placeSuggestionsState,
+                            onPlaceQueryChange = listingsViewModel::suggestPlaces,
+                            onClearPlaceSuggestions = listingsViewModel::clearPlaceSuggestions,
+                            contentPadding = padding
+                        )
+                        // Guest "Wishlist" = the user's saved stays. A top-level tab,
+                        // so it shows no back affordance. The screen itself distinguishes signed-out
+                        // (sign-in prompt) from signed-in-but-empty (friendly empty state) using the
+                        // authoritative auth flag — an empty/401 API result while signed in is treated
+                        // as empty, never as signed-out.
+                        "wishlist" -> WishlistScreen(
+                            state = wishlistState,
+                            isAuthenticated = authState.isAuthenticated,
+                            onLoad = wishlistViewModel::load,
+                            onSignIn = {
+                                authViewModel.clearError()
+                                showAuth = true
+                            },
+                            onOpenListing = { listing -> selectedListing = listing },
+                            onToggleListing = wishlistViewModel::toggleListing,
+                            contentPadding = padding
+                        )
+                        // Guest "Trips" = the user's own bookings. The screen distinguishes signed-out
+                        // (sign-in prompt) from signed-in-but-empty (friendly empty state + Explore CTA)
+                        // using the authoritative auth flag — an empty/401 result while signed in is treated
+                        // as empty/error, never as signed-out.
+                        "Trips" -> ReservationsScreen(
+                            isAuthenticated = authState.isAuthenticated,
+                            state = reservationsState,
+                            onSignIn = {
+                                authViewModel.clearError()
+                                showAuth = true
+                            },
+                            onRetry = bookingsViewModel::loadReservations,
+                            isHost = isHost,
+                            onOpenHost = { showHost = true },
+                            onExplore = { selectedTab = 0 },
+                            onOpen = { booking -> selectedReservationId = booking.id },
+                            canReview = { booking -> reviewsViewModel.canReview(booking.id) },
+                            reviewSubmitting = reviewSubmitState.submitting,
+                            reviewError = reviewSubmitState.error,
+                            onSubmitReview = { bookingId, rating, comment, photos ->
+                                reviewsViewModel.submitReview(bookingId, rating, comment, photos)
+                            },
+                            contentPadding = padding
+                        )
+                        "Profile" -> if (authState.isAuthenticated) {
+                            // Load the reviews this user has received (host → guest) for the profile section.
+                            LaunchedEffect(authState.userId) {
+                                reviewsViewModel.loadReceivedReviews(authState.userId)
+                            }
+                            ProfileScreen(
+                                state = authState,
+                                onLogout = authViewModel::logout,
+                                profile = profileSettingsState.profile,
+                                receivedReviews = receivedReviewsState,
+                                verificationState = verificationState,
+                                onSubmitVerification = { front, back, selfie, idNumber ->
+                                    trustViewModel.submitVerification(front, back, selfie, idNumber)
+                                },
+                                payoutState = payoutState,
+                                onSavePayout = { draft -> payoutViewModel.save(draft) },
+                                onRemovePayout = { payoutViewModel.remove() },
+                                // Unified account: "Become a host" (or "Apply again" after a rejection)
+                                // opens the application form — hosting is granted by an admin approval,
+                                // never by the tap itself. The card renders the server's host_status.
+                                onOpenHostApplication = openHostApplication,
+                                onOpenHost = { showHost = true },
+                                // The one-time "you're an approved host" welcome above the dashboard card.
+                                hostWelcome = hostWelcome,
+                                onDismissHostWelcome = authViewModel::dismissHostWelcome,
+                                onOpenSettings = {
+                                    profileSettingsViewModel.load()
+                                    showProfileSettings = true
+                                },
+                                onOpenGuestQuestions = { showGuestQuestions = true },
+                                guestQuestionsUnanswered = hostCommentsState.unanswered,
+                                onOpenReceipts = {
+                                    moneyViewModel.loadReceipts()
+                                    showReceipts = true
+                                },
+                                onOpenEarnings = {
+                                    moneyViewModel.loadEarnings()
+                                    showEarnings = true
+                                },
+                                onOpenAnalytics = {
+                                    hostViewModel.loadAnalytics()
+                                    showAnalytics = true
+                                },
+                                // Account deletion (Google Play policy): DELETE /api/local/account, then
+                                // the auth state flips signed-out — the LaunchedEffect(isAuthenticated)
+                                // above clears every per-account view-model and returns to the auth screen.
+                                deletingAccount = deletingAccount,
+                                onDeleteAccount = { authViewModel.deleteAccount() },
+                                onOpenAppGuide = { showGuideChooser = true },
+                                // The brand banner's bell — the same notifications list Explore opens.
+                                unreadCount = notificationsState.unreadCount,
+                                onOpenNotifications = {
+                                    notificationsViewModel.load()
+                                    showNotifications = true
+                                },
+                                modifier = Modifier.padding(padding)
+                            )
+                        } else {
+                            ProfileSignInCta(
+                                onSignIn = {
+                                    authViewModel.clearError()
+                                    showAuth = true
+                                },
+                                modifier = Modifier.padding(padding),
+                                onOpenAppGuide = { showGuideChooser = true }
+                            )
+                        }
+                        else -> {}
+                    }
+                }
+            }
+
+            // The guide layer, above the Scaffold and its tab bar.
+            val step = guideStep
+            if (step != null) {
+                AppGuideOverlay(
+                    step = step,
+                    index = guideIndex,
+                    count = guideSteps.size,
+                    target = guideTargets.boundsOf(step.anchor),
+                    finalButtons = if (guideIndex == guideSteps.lastIndex) {
+                        GuideRules.finalButtons(step.id, authState.isAuthenticated, authState.isHost, hostApplicationPending)
+                    } else emptyList(),
+                    onNext = nextGuideStep,
+                    onBack = { if (guideIndex > 0) guideIndex -= 1 },
+                    onSkip = endGuide,
+                    onClose = endGuide,
+                    // A tab target switches to that tab and advances; any other target is just Next —
+                    // nothing underneath (the search form, the application) opens beneath the tour.
+                    onTargetTap = {
+                        GuideRules.tabForTap(step.anchor)?.let { key ->
+                            selectedTab = tabs.indexOfFirst { it.key == key }.coerceAtLeast(0)
+                        }
+                        nextGuideStep()
+                    },
+                    onFinalButton = { button ->
+                        when (button) {
+                            GuideRules.FinalButton.SHOW_ME_HOW -> {
+                                // Ends the main tour (and marks it seen) and goes straight into the host tour.
+                                AppGuidePrefs.markSeen(context)
+                                startGuide(GuideRules.Tour.HOST)
+                            }
+                            GuideRules.FinalButton.APPLY_NOW -> {
+                                endGuide()
+                                openHostApplication()
+                            }
+                            GuideRules.FinalButton.SIGN_IN -> {
+                                endGuide()
+                                authViewModel.clearError()
+                                showAuth = true
+                            }
+                            GuideRules.FinalButton.DONE -> endGuide()
+                        }
+                    }
+                )
             }
         }
     }

@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quickin.app.AuthUiState
 import com.quickin.app.CurrencyManager
+import com.quickin.app.GuideRules
 import com.quickin.app.HOST_STATUS_APPROVED
 import com.quickin.app.HOST_STATUS_PENDING
 import com.quickin.app.HOST_STATUS_REJECTED
@@ -147,6 +148,8 @@ fun ProfileScreen(
     unreadCount: Int = 0,
     /** Opens the notifications list from the banner's bell. */
     onOpenNotifications: () -> Unit = {},
+    /** Opens the "App guide" chooser (replay the app tour / how to become a host). */
+    onOpenAppGuide: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val name = state.userName?.takeUnless { it.isBlank() } ?: stringResource(R.string.profile_guest)
@@ -161,6 +164,15 @@ fun ProfileScreen(
     // flow, `POST /api/local/verification`) into view.
     val verificationCardRequester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val noticeScope = androidx.compose.runtime.rememberCoroutineScope()
+    // The App guide's host step points at the hosting card at the top; the guide is usually
+    // started from the Help row at the bottom, so bring the top back into view for that step.
+    val scrollState = rememberScrollState()
+    val guideAnchor = LocalGuideTargets.current?.active
+    androidx.compose.runtime.LaunchedEffect(guideAnchor) {
+        if (guideAnchor == GuideRules.Anchor.PROFILE_HOST_CARD ||
+            guideAnchor == GuideRules.Anchor.PROFILE_HOST_DASHBOARD
+        ) scrollState.animateScrollTo(0)
+    }
 
     Column(
         modifier = modifier
@@ -184,7 +196,7 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp)
                 .padding(top = 20.dp, bottom = 32.dp)
         ) {
@@ -297,15 +309,19 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
-                HostDashboardCard(onClick = onOpenHost)
+                Box(modifier = Modifier.guideTarget(GuideRules.Anchor.PROFILE_HOST_DASHBOARD)) {
+                    HostDashboardCard(onClick = onOpenHost)
+                }
             } else {
                 // The card renders whichever of the four application states the SERVER reports
                 // (none / pending / rejected / approved).
-                HostApplicationCard(
-                    status = state.hostStatus,
-                    reviewNote = state.hostReviewNote,
-                    onApply = onOpenHostApplication
-                )
+                Box(modifier = Modifier.guideTarget(GuideRules.Anchor.PROFILE_HOST_CARD)) {
+                    HostApplicationCard(
+                        status = state.hostStatus,
+                        reviewNote = state.hostReviewNote,
+                        onApply = onOpenHostApplication
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -411,6 +427,9 @@ fun ProfileScreen(
             // Support & legal — the public web pages, same links as the site footer.
             Spacer(modifier = Modifier.height(24.dp))
             SectionHeader(stringResource(R.string.profile_support_legal), modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+            // "App guide" — replay the walkthrough, or the host tour on its own.
+            AppGuideRow(onClick = onOpenAppGuide)
+            Spacer(modifier = Modifier.height(12.dp))
             LegalLinks()
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -627,7 +646,9 @@ private fun DeleteBulletItem(text: String) {
 @Composable
 fun ProfileSignInCta(
     onSignIn: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Opens the "App guide" chooser — signed-out visitors can replay it too. */
+    onOpenAppGuide: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -683,7 +704,9 @@ fun ProfileSignInCta(
                     onClick = onSignIn,
                     pulse = true,
                     radius = 18.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .guideTarget(GuideRules.Anchor.PROFILE_SIGN_IN)
                 ) {
                     Text(
                         stringResource(R.string.profile_cta_button),
@@ -691,6 +714,11 @@ fun ProfileSignInCta(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )
+                }
+
+                if (onOpenAppGuide != null) {
+                    Spacer(Modifier.height(20.dp))
+                    AppGuideRow(onClick = onOpenAppGuide)
                 }
             }
         }

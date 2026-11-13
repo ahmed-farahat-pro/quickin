@@ -111,6 +111,9 @@
     <string name="settings_save_changes">Enregistrer les modifications</string>
     <string name="settings_profile_saved">Profil enregistré</string>
     <string name="settings_phone_private">Votre numéro de téléphone est privé et n\'est jamais communiqué aux voyageurs.</string>
+    <string name="settings_phone_host_shared">Les voyageurs ne voient votre numéro qu\'une fois leur réservation confirmée et payée.</string>
+    <string name="settings_phone_required_error">Les hôtes doivent indiquer un numéro de téléphone pour que les voyageurs confirmés puissent les joindre.</string>
+    <string name="settings_phone_required_label">Téléphone (obligatoire)</string>
     <string name="settings_change_password">Modifier le mot de passe</string>
     <string name="settings_password_caption">Utilisez au moins 6 caractères.</string>
     <string name="settings_current_password">Mot de passe actuel</string>
@@ -323,6 +326,7 @@
     <string name="reservation_code_label">Code de réservation</string>
     <string name="reservation_dates">Dates</string>
     <string name="reservation_guests_label">Voyageurs</string>
+    <string name="reservation_host_phone">Téléphone de l\'hôte</string>
     <string name="reservation_show_qr">Présentez ce code QR à l\'arrivée.</string>
     <string name="reservation_no_code">Aucun code</string>
     <string name="reservation_scan_or_tap">Scannez ou appuyez pour ouvrir votre pass de séjour</string>

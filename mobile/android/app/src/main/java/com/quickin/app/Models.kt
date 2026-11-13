@@ -637,7 +637,13 @@ data class Booking(
     /** ISO-8601 timestamp the booking was cancelled, or null when still active (from "cancelled_at"). */
     val cancelledAt: String? = null,
     /** Percent of the total refunded on cancel (0–100), or null when never cancelled (from "refund_percent"). */
-    val refundPercent: Int? = null
+    val refundPercent: Int? = null,
+    /**
+     * The host's phone number (from "host_phone"). The backend sends it ONLY once the booking is
+     * confirmed/completed AND paid; otherwise null. Render it when non-null — never compute
+     * visibility on the client.
+     */
+    val hostPhone: String? = null
 ) {
     /** The listing photo URL, or null when there is none (render a placeholder instead). */
     val imageUrl: String?
@@ -839,7 +845,13 @@ data class Reservation(
      * backend's `BOOKING_COLS` selects as `l.host_id`). Null only when a backend predating the field
      * answers without it — read it through [isViewerHost], never directly.
      */
-    val hostId: String? = null
+    val hostId: String? = null,
+    /**
+     * The host's phone number (from "host_phone"). The backend sends it ONLY once the booking is
+     * confirmed/completed AND paid; otherwise null. Render it when non-null — never compute
+     * visibility on the client.
+     */
+    val hostPhone: String? = null
 ) {
     val totalText: String
         get() = "EGP " + totalPrice.toInt()

@@ -111,6 +111,9 @@
     <string name="settings_save_changes">Guardar cambios</string>
     <string name="settings_profile_saved">Perfil guardado</string>
     <string name="settings_phone_private">Su teléfono es privado y nunca se muestra a los huéspedes.</string>
+    <string name="settings_phone_host_shared">Los huéspedes solo ven su teléfono cuando su reserva está confirmada y pagada.</string>
+    <string name="settings_phone_required_error">Los anfitriones necesitan un número de teléfono para que los huéspedes confirmados puedan contactarlos.</string>
+    <string name="settings_phone_required_label">Teléfono (obligatorio)</string>
     <string name="settings_change_password">Cambiar contraseña</string>
     <string name="settings_password_caption">Use al menos 6 caracteres.</string>
     <string name="settings_current_password">Contraseña actual</string>
@@ -323,6 +326,7 @@
     <string name="reservation_code_label">Código de reserva</string>
     <string name="reservation_dates">Fechas</string>
     <string name="reservation_guests_label">Huéspedes</string>
+    <string name="reservation_host_phone">Teléfono del anfitrión</string>
     <string name="reservation_show_qr">Muestre este código QR al registrarse.</string>
     <string name="reservation_no_code">Sin código</string>
     <string name="reservation_scan_or_tap">Escanee o toque para abrir su pase de estancia</string>

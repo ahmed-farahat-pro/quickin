@@ -1183,10 +1183,40 @@ struct ReservationDetailView: View {
             detailRow(icon: "person.2.fill", label: "Guests", value: "\(detail.guests) guest\(detail.guests == 1 ? "" : "s")")
             Divider()
             detailRow(icon: "creditcard.fill", label: "Total", value: detail.totalText)
+            // Sent by the server only once the stay is confirmed and paid.
+            if let phone = detail.hostPhoneText, let url = detail.hostPhoneURL {
+                Divider()
+                hostPhoneRow(phone: phone, url: url)
+            }
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 16)
         .qkCard()
+    }
+
+    /// "Host phone" row styled like `detailRow`, tapping it dials the host.
+    private func hostPhoneRow(phone: String, url: URL) -> some View {
+        Link(destination: url) {
+            HStack(spacing: 12) {
+                Image(systemName: "phone.fill")
+                    .foregroundStyle(Color.qkBurgundy)
+                    .frame(width: 24)
+                Text(loc.t("reservation.hostPhone"))
+                    .foregroundStyle(Color.qkMuted)
+                Spacer()
+                // Digits stay left-to-right even in the Arabic layout.
+                Text(verbatim: "\u{2066}\(phone)\u{2069}")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.qkBurgundy)
+                Image(systemName: "phone.arrow.up.right")
+                    .font(.caption)
+                    .foregroundStyle(Color.qkBurgundy)
+            }
+            .font(.subheadline)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("\(loc.t("reservation.callHost")), \(phone)")
     }
 
     private func detailRow(icon: String, label: String, value: String) -> some View {

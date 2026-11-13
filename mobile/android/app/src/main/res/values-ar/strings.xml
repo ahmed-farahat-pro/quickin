@@ -133,6 +133,9 @@
     <string name="settings_save_changes">حفظ التغييرات</string>
     <string name="settings_profile_saved">تم حفظ الملف الشخصي</string>
     <string name="settings_phone_private">رقم هاتفك خاص ولا يظهر للضيوف أبدًا.</string>
+    <string name="settings_phone_host_shared">لا يرى الضيوف رقم هاتفك إلا بعد تأكيد حجزهم ودفعه.</string>
+    <string name="settings_phone_required_error">يجب على المضيفين إضافة رقم هاتف ليتمكن الضيوف المؤكَّدون من التواصل معهم.</string>
+    <string name="settings_phone_required_label">الهاتف (مطلوب)</string>
     <string name="settings_change_password">تغيير كلمة المرور</string>
     <string name="settings_password_caption">استخدم 6 أحرف على الأقل.</string>
     <string name="settings_current_password">كلمة المرور الحالية</string>
@@ -371,6 +374,7 @@
     <string name="reservation_code_label">رمز الحجز</string>
     <string name="reservation_dates">التواريخ</string>
     <string name="reservation_guests_label">الضيوف</string>
+    <string name="reservation_host_phone">هاتف المضيف</string>
     <string name="reservation_show_qr">اعرض رمز QR هذا عند تسجيل الوصول.</string>
     <string name="reservation_no_code">لا يوجد رمز</string>
     <string name="reservation_scan_or_tap">امسح الرمز أو اضغط لفتح بطاقة إقامتك</string>

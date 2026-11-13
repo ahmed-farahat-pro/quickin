@@ -17,6 +17,12 @@ data class ProfileSettingsUiState(
     val loaded: Boolean = false,
     val profile: Profile = Profile(),
     val error: String? = null,
+    /**
+     * The server's own message when it refused the PHONE field (`400 {field:'phone'}` — e.g. a
+     * host trying to clear the number guests reach them on). Shown under the phone field rather
+     * than in the general [error] slot.
+     */
+    val phoneError: String? = null,
     /** Set to true after a successful save (drives a "Saved" confirmation). */
     val saved: Boolean = false,
     // ---- Change-password section (POST /api/local/change-password) ----
@@ -106,7 +112,15 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
             )
             return
         }
-        _state.value = _state.value.copy(isSaving = true, error = null, saved = false)
+        // Hosts must keep a phone on file (the server says so via `phone_required` and refuses a
+        // blank one). The screen already blocks this in the user's language; this is the backstop.
+        if (_state.value.profile.phoneRequired && phone.isBlank()) {
+            _state.value = _state.value.copy(
+                phoneError = getApplication<Application>().getString(R.string.settings_phone_required_error)
+            )
+            return
+        }
+        _state.value = _state.value.copy(isSaving = true, error = null, phoneError = null, saved = false)
         viewModelScope.launch {
             try {
                 val updated = ProfileService.updateProfile(
@@ -121,15 +135,29 @@ class ProfileSettingsViewModel(application: Application) : AndroidViewModel(appl
                 )
                 _state.value = _state.value.copy(
                     isSaving = false,
-                    profile = updated,
+                    // Saving can't change whether the account hosts, so keep the flag if the PATCH
+                    // answer happens not to repeat it.
+                    profile = updated.copy(
+                        phoneRequired = updated.phoneRequired || _state.value.profile.phoneRequired
+                    ),
                     saved = true,
-                    error = null
+                    error = null,
+                    phoneError = null
                 )
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    isSaving = false,
-                    error = humanError(e, "Couldn't save your profile.")
-                )
+                if (e is ProfileService.HttpError && e.field == "phone") {
+                    // The server's own wording (e.g. code 'phone_required'), under the phone field.
+                    _state.value = _state.value.copy(
+                        isSaving = false,
+                        phoneError = e.message?.takeIf { it.isNotBlank() }
+                            ?: getApplication<Application>().getString(R.string.settings_phone_required_error)
+                    )
+                } else {
+                    _state.value = _state.value.copy(
+                        isSaving = false,
+                        error = humanError(e, "Couldn't save your profile.")
+                    )
+                }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.quickin.app.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Button
@@ -559,6 +561,25 @@ private fun ReservationPassBody(
         Spacer(Modifier.height(10.dp))
         DetailRow(Icons.Filled.People, stringResource(R.string.reservation_guests_label), "${reservation.guests}")
         Spacer(Modifier.height(10.dp))
+        // The backend only sends host_phone once the stay is confirmed/completed AND paid — the
+        // client never decides visibility, it just renders what it is given. Tapping dials.
+        val hostPhone = reservation.hostPhone
+        if (hostPhone != null) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            DetailRow(
+                Icons.Filled.Phone,
+                stringResource(R.string.reservation_host_phone),
+                hostPhone,
+                onClick = {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_DIAL,
+                        android.net.Uri.parse("tel:" + android.net.Uri.encode(hostPhone))
+                    )
+                    runCatching { context.startActivity(intent) }
+                }
+            )
+            Spacer(Modifier.height(10.dp))
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -957,16 +978,25 @@ private fun HostNotesCard(
 private fun DetailRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    value: String
+    value: String,
+    onClick: (() -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = Burgundy, modifier = Modifier.height(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(label, color = Muted, fontSize = 14.sp)
         Spacer(Modifier.weight(1f))
-        Text(value, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(
+            value,
+            // A tappable value (the host's phone) reads as a link; plain values stay Ink.
+            color = if (onClick != null) Burgundy else Ink,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

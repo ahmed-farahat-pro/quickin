@@ -19,6 +19,10 @@ struct Profile: Codable, Equatable {
     /// "unverified" when the backend omits it — drives the "Verify your
     /// identity" card on the profile.
     var verificationStatus: String
+    /// `phone_required` from `GET /api/local/profile`: `true` for hosts, whose
+    /// phone the server refuses to clear. `nil` when the backend omits it (older
+    /// deployments, or a PATCH echo without it) — callers then keep what they had.
+    var phoneRequired: Bool?
 
     enum CodingKeys: String, CodingKey {
         case age, phone, email, bio
@@ -26,6 +30,7 @@ struct Profile: Codable, Equatable {
         case idDocument = "id_document"
         case avatarURL = "avatar_url"
         case verificationStatus = "verification_status"
+        case phoneRequired = "phone_required"
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +44,7 @@ struct Profile: Codable, Equatable {
         avatarURL = try c.decodeIfPresent(String.self, forKey: .avatarURL)
         verificationStatus = (try c.decodeIfPresent(String.self, forKey: .verificationStatus))
             .flatMap { $0.isEmpty ? nil : $0 } ?? "unverified"
+        phoneRequired = try? c.decodeIfPresent(Bool.self, forKey: .phoneRequired)
     }
 
     /// Memberwise initializer (kept because the custom `init(from:)` above
@@ -51,7 +57,8 @@ struct Profile: Codable, Equatable {
         email: String?,
         bio: String?,
         avatarURL: String?,
-        verificationStatus: String = "unverified"
+        verificationStatus: String = "unverified",
+        phoneRequired: Bool? = nil
     ) {
         self.fullName = fullName
         self.age = age
@@ -61,6 +68,7 @@ struct Profile: Codable, Equatable {
         self.bio = bio
         self.avatarURL = avatarURL
         self.verificationStatus = verificationStatus
+        self.phoneRequired = phoneRequired
     }
 }
 

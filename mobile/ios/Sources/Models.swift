@@ -522,9 +522,14 @@ struct Booking: Codable, Identifiable, Hashable {
     /// The refund percentage applied on cancellation (0–100), from
     /// `refund_percent`. `nil` until cancelled.
     let refundPercent: Int?
+    /// The host's phone, from `host_phone`. The backend sends it non-null ONLY
+    /// once the stay is confirmed/completed AND paid; clients render it when
+    /// present and never decide visibility themselves. Older backends omit it.
+    let hostPhone: String?
 
     enum CodingKeys: String, CodingKey {
         case id, guests, status, title, location, region, image
+        case hostPhone = "host_phone"
         case listingId = "listing_id"
         case checkIn = "check_in"
         case checkOut = "check_out"
@@ -658,7 +663,8 @@ extension Booking {
             image: image,
             cancellationPolicy: cancellationPolicy,
             cancelledAt: cancelledAt,
-            refundPercent: refundPercent
+            refundPercent: refundPercent,
+            hostPhone: hostPhone
         )
     }
 }
@@ -794,9 +800,14 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
     /// The refund percentage applied on cancellation (0–100), from
     /// `refund_percent`. `nil` until cancelled.
     let refundPercent: Int?
+    /// The host's phone, from `host_phone`. The backend sends it non-null ONLY
+    /// once the stay is confirmed/completed AND paid; clients render it when
+    /// present and never decide visibility themselves. Older backends omit it.
+    let hostPhone: String?
 
     enum CodingKeys: String, CodingKey {
         case id, title, location, region, guests, status
+        case hostPhone = "host_phone"
         case reservationCode = "reservation_code"
         case checkIn = "check_in"
         case checkOut = "check_out"
@@ -880,6 +891,19 @@ struct ReservationDetail: Codable, Identifiable, Hashable {
         if let r, !r.isEmpty { return r }
         let l = location?.trimmingCharacters(in: .whitespacesAndNewlines)
         return (l?.isEmpty == false) ? l! : ""
+    }
+
+    /// Trimmed host phone, or `nil` when the server didn't send one.
+    var hostPhoneText: String? {
+        let p = hostPhone?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (p?.isEmpty == false) ? p : nil
+    }
+
+    /// `tel:` link for the host phone — whitespace stripped. `nil` without one.
+    var hostPhoneURL: URL? {
+        guard let p = hostPhoneText else { return nil }
+        let dialable = p.filter { !$0.isWhitespace }
+        return URL(string: "tel:\(dialable)")
     }
 
     /// Trimmed host notes, or `nil` when the host hasn't written any.

@@ -147,6 +147,15 @@ fun ProfileSettingsScreen(
     // field used to ask only that the string be non-empty, so `12345` went through and came back
     // as a 400 the user read at the bottom of a scrolling form, in the server's English.
     val nameError = nameFieldError(fullName, didAttemptSave || fullName != state.profile.fullName)
+    // Hosts must keep a phone (`phone_required` from the server): guests reach them on it once a
+    // booking is confirmed and paid. Blank is refused here, in the user's language, before the
+    // server refuses it too. Like the name, the hint waits for an edit or a Save attempt.
+    val phoneRequired = state.profile.phoneRequired
+    val phoneBlankError = if (
+        phoneRequired && phone.isBlank() && (didAttemptSave || phone != state.profile.phone)
+    ) stringResource(R.string.settings_phone_required_error) else null
+    // Local check first; otherwise whatever the server said about the phone on the last save.
+    val phoneError = phoneBlankError ?: state.phoneError
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -261,10 +270,16 @@ fun ProfileSettingsScreen(
                     SettingsField(
                         phone,
                         { phone = it },
-                        stringResource(R.string.settings_phone),
+                        stringResource(
+                            if (phoneRequired) R.string.settings_phone_required_label else R.string.settings_phone
+                        ),
                         Icons.Filled.Phone,
-                        keyboardType = KeyboardType.Phone
+                        keyboardType = KeyboardType.Phone,
+                        isError = phoneError != null
                     )
+                    if (phoneError != null) {
+                        Text(phoneError, color = SettingsErrorRed, fontSize = 13.sp)
+                    }
                     BioField(value = bio, onValueChange = { bio = it })
 
                     if (state.error != null) {
@@ -295,6 +310,7 @@ fun ProfileSettingsScreen(
                         onClick = {
                             didAttemptSave = true
                             if (NameRules.problemWith(fullName) != null) return@GradientButton
+                            if (phoneRequired && phone.isBlank()) return@GradientButton
                             onSavedAck()
                             // Normalized the way the server normalizes it, so the name that is
                             // stored is the name that was judged.
@@ -312,7 +328,11 @@ fun ProfileSettingsScreen(
                     }
 
                     Text(
-                        stringResource(R.string.settings_phone_private),
+                        // A host's number IS shared — with guests whose booking is confirmed and
+                        // paid — so the "never shown to guests" promise is only for guests.
+                        stringResource(
+                            if (phoneRequired) R.string.settings_phone_host_shared else R.string.settings_phone_private
+                        ),
                         color = Muted,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Start

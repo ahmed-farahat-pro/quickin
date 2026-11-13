@@ -28,7 +28,14 @@ data class Profile(
      * defaults to "unverified"): "unverified" | "pending" | "verified" | "rejected". Drives the
      * "Verify your identity" card on the profile-settings screen.
      */
-    val verificationStatus: String = "unverified"
+    val verificationStatus: String = "unverified",
+    /**
+     * True when this account MUST keep a phone on file (parsed from "phone_required"; the server
+     * sets it for hosts, whose number is shared with guests once a booking is confirmed and paid).
+     * The edit screen then marks the field required and refuses to save it blank — the server
+     * refuses too (`400 {field:'phone', code:'phone_required'}`).
+     */
+    val phoneRequired: Boolean = false
 )
 
 /**
@@ -82,7 +89,14 @@ enum class IdDocumentType(val key: String, val labelRes: Int) {
 object ProfileService {
 
     /** Thrown so callers can distinguish "sign in" (401) from validation (400). */
-    class HttpError(val code: Int, message: String) : RuntimeException(message)
+    class HttpError(
+        val code: Int,
+        message: String,
+        /** The offending field the server named (`{field}`), e.g. "phone"; null when none. */
+        val field: String? = null,
+        /** The server's machine-readable reason (`{code}`), e.g. "phone_required"; null when none. */
+        val errorCode: String? = null
+    ) : RuntimeException(message)
 
     /** Loads the signed-in user's editable profile. Throws [HttpError] (401 when signed out). */
     suspend fun fetchProfile(token: String): Profile = withContext(Dispatchers.IO) {
@@ -207,7 +221,7 @@ object ProfileService {
         try {
             val code = conn.responseCode
             val text = readBody(conn, code)
-            if (code !in 200..299) throw HttpError(code, extractError(text, code))
+            if (code !in 200..299) throw httpError(code, text)
             return text
         } finally {
             conn.disconnect()
@@ -228,7 +242,7 @@ object ProfileService {
             conn.outputStream.use { out -> out.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
             val text = readBody(conn, code)
-            if (code !in 200..299) throw HttpError(code, extractError(text, code))
+            if (code !in 200..299) throw httpError(code, text)
             return text
         } finally {
             conn.disconnect()
@@ -247,7 +261,7 @@ object ProfileService {
         try {
             val code = conn.responseCode
             val text = readBody(conn, code)
-            if (code !in 200..299) throw HttpError(code, extractError(text, code))
+            if (code !in 200..299) throw httpError(code, text)
             return text
         } finally {
             conn.disconnect()
@@ -259,8 +273,19 @@ object ProfileService {
         return stream?.bufferedReader()?.use { it.readText() }.orEmpty()
     }
 
+    /** Builds the [HttpError] for a non-2xx answer, keeping the server's `{field, code}` hints. */
+    private fun httpError(code: Int, text: String): HttpError {
+        val obj = runCatching { JSONObject(text) }.getOrNull()
+        return HttpError(
+            code,
+            extractError(text, code),
+            field = obj?.optStringOrNull("field"),
+            errorCode = obj?.optStringOrNull("code")
+        )
+    }
+
     private fun extractError(text: String, code: Int): String {
-        val parsed = runCatching { JSONObject(text).optString("error") }.getOrNull()
+        val parsed = runCatching { JSONObject(text).optStringOrNull("error") }.getOrNull()
         return if (!parsed.isNullOrBlank()) parsed else "Request failed ($code)"
     }
 
@@ -291,7 +316,8 @@ object ProfileService {
             phone = if (o.isNull("phone")) "" else o.optString("phone"),
             bio = if (o.isNull("bio")) "" else o.optString("bio"),
             avatarUrl = avatar,
-            verificationStatus = o.optString("verification_status").ifBlank { "unverified" }
+            verificationStatus = o.optString("verification_status").ifBlank { "unverified" },
+            phoneRequired = o.optBoolean("phone_required", raw.optBoolean("phone_required", false))
         )
     }
 }

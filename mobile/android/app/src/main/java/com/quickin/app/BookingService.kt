@@ -1319,7 +1319,8 @@ object BookingService {
         hostNotes = o.optStringOrNull("host_notes"),
         cancellationPolicy = o.optStringOr("cancellation_policy", "moderate"),
         cancelledAt = o.optStringOrNull("cancelled_at"),
-        refundPercent = if (o.isNull("refund_percent") || !o.has("refund_percent")) null else o.optInt("refund_percent")
+        refundPercent = if (o.isNull("refund_percent") || !o.has("refund_percent")) null else o.optInt("refund_percent"),
+        hostPhone = o.optStringOrNull("host_phone")
     )
 
     private fun parseReservation(o: JSONObject): Reservation = Reservation(
@@ -1349,7 +1350,9 @@ object BookingService {
         // WHO hosts this stay. Dropping it is what forced the detail screen back onto the
         // account-level "do you own any listing" flag, which handed the host's stay-guide builder
         // to a guest who happens to host something — see Reservation.isViewerHost.
-        hostId = o.optStringOrNull("host_id")
+        hostId = o.optStringOrNull("host_id"),
+        // Server-gated: present only once confirmed/completed AND paid. Rendered as-is.
+        hostPhone = o.optStringOrNull("host_phone")
     )
 
     private fun parsePaymentReceipt(o: JSONObject): PaymentReceipt = PaymentReceipt(

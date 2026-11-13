@@ -49,6 +49,10 @@ final class ProfileSettingsViewModel: ObservableObject {
     /// The latest request to change it, and whether a new one may be filed.
     @Published var idChange: IDChangeState?
     @Published var phone = ""
+    /// From the server's `phone_required` (true for hosts). The server refuses
+    /// to clear a host's phone; this only lets the form say so before the round
+    /// trip. Never computed on the device.
+    @Published var phoneRequired = false
     @Published var bio = ""
     /// Current avatar as a `data:`/`http` URL string (nil → initials fallback).
     @Published var avatarURL: String?
@@ -139,6 +143,15 @@ final class ProfileSettingsViewModel: ObservableObject {
         return L.t(problem.messageKey)
     }
 
+    /// "Phone is required" under the field, once Save has been pressed with a
+    /// blank phone on an account whose phone the server says is required.
+    var phoneError: String? {
+        guard phoneRequired, didAttemptSave,
+              phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return nil }
+        return L.t("settings.phone.requiredError")
+    }
+
     /// Parsed age (nil when empty → cleared on save). Never a phone number:
     /// `save()` refuses anything `AgeRules` has a problem with before it gets
     /// this far.
@@ -190,6 +203,7 @@ final class ProfileSettingsViewModel: ObservableObject {
         idDocument = ""
         idChange = nil
         phone = ""
+        phoneRequired = false
         bio = ""
         avatarURL = nil
         currentPassword = ""
@@ -226,6 +240,12 @@ final class ProfileSettingsViewModel: ObservableObject {
             return
         }
         refusedForAge = false
+        // A host's phone can't be cleared — the server answers 400
+        // `phone_required`. Refused here too so the reason lands at the field.
+        if phoneError != nil {
+            saveError = L.t("settings.phone.requiredError")
+            return
+        }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -300,6 +320,7 @@ final class ProfileSettingsViewModel: ObservableObject {
         // assigning it unconditionally would blank the row after every save.
         if let stored = profile.idDocument { idDocument = stored }
         phone = profile.phone ?? ""
+        if let required = profile.phoneRequired { phoneRequired = required }
         bio = profile.bio ?? ""
         avatarURL = profile.avatarURL
     }
@@ -425,12 +446,13 @@ struct ProfileSettingsView: View {
 
             Divider()
             field(
-                loc.t("settings.phone"),
+                loc.t(viewModel.phoneRequired ? "settings.phone.required" : "settings.phone"),
                 systemImage: "phone.fill",
                 placeholder: loc.t("settings.phone.placeholder"),
                 text: $viewModel.phone,
                 contentType: .telephoneNumber,
-                keyboard: .phonePad
+                keyboard: .phonePad,
+                errorMessage: viewModel.phoneError
             )
             Divider()
             bioField

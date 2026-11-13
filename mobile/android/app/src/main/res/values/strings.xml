@@ -142,6 +142,9 @@
     <string name="settings_save_changes">Save changes</string>
     <string name="settings_profile_saved">Profile saved</string>
     <string name="settings_phone_private">Your phone is private and never shown to guests.</string>
+    <string name="settings_phone_host_shared">Guests see your phone only after their booking is confirmed and paid.</string>
+    <string name="settings_phone_required_error">Hosts must keep a phone number on file so confirmed guests can reach them.</string>
+    <string name="settings_phone_required_label">Phone (required)</string>
     <string name="settings_change_password">Change password</string>
     <string name="settings_password_caption">Use at least 6 characters.</string>
     <string name="settings_current_password">Current password</string>
@@ -381,6 +384,7 @@
     <string name="reservation_code_label">Reservation code</string>
     <string name="reservation_dates">Dates</string>
     <string name="reservation_guests_label">Guests</string>
+    <string name="reservation_host_phone">Host phone</string>
     <string name="reservation_show_qr">Show this QR code at check-in.</string>
     <string name="reservation_no_code">No code</string>
     <string name="reservation_scan_or_tap">Scan or tap to open your stay pass</string>

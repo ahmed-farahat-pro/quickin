@@ -112,7 +112,11 @@ targets:
         # version record is in is one CLOSED_APP_STORE_STATES does not list, so
         # the guard is a denylist that fails OPEN. 1.6.0 is what that closing
         # opened.
-        MARKETING_VERSION: "1.12.0"
+        # 2.0.0 was approved on App Store Connect while this still read 1.12.0,
+        # and the 2026-11-13 upload failed with 90478/90186/90062 after a full
+        # archive. The guard is now an allowlist of OPEN states (see
+        # OPEN_APP_STORE_STATES in the Fastfile), so an unknown state fails CLOSED.
+        MARKETING_VERSION: "2.1.0"
         # Build number must be unique across every train, forever — a number is
         # burned even by an upload that later goes INVALID. fastlane's beta lane
         # overrides this at build time with (highest number it can find) + 1, and

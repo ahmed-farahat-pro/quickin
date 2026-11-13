@@ -49,17 +49,21 @@ def profile_certificate_sha1(profile_path)
   Digest::SHA1.hexdigest(der).upcase
 end
 
-# App Store version states that are closed to new builds. Once a version reaches
-# any of these, Apple refuses every upload carrying that CFBundleShortVersionString
-# with 90186 ("train version is closed") and 90062 ("must contain a higher version
-# than that of the previously approved version").
-CLOSED_APP_STORE_STATES = %w[
-  ACCEPTED
-  PROCESSING_FOR_APP_STORE PROCESSING_FOR_DISTRIBUTION
-  PENDING_APPLE_RELEASE PENDING_DEVELOPER_RELEASE
-  READY_FOR_SALE READY_FOR_DISTRIBUTION PREORDER_READY_FOR_SALE
-  REPLACED_WITH_NEW_VERSION REPLACED_WITH_NEW_BUILD
-  REMOVED_FROM_SALE DEVELOPER_REMOVED_FROM_SALE
+# App Store version states that still accept new builds. Every OTHER state is
+# treated as closed: once a version is approved, Apple refuses every upload
+# carrying that CFBundleShortVersionString (or a lower one) with 90186 ("train
+# version is closed") and 90062 ("must contain a higher version than that of the
+# previously approved version").
+#
+# This used to be a denylist of closed states, which failed OPEN on any state it
+# did not list — 1.5.0 (2026-09-15), 1.8.0 (2026-10-20) and 2.0.0 (2026-11-13)
+# each slipped through and cost a full archive before Apple refused the upload.
+# An allowlist fails CLOSED instead: an unfamiliar state stops the lane in a
+# second with the version list printed, rather than 15 minutes later.
+OPEN_APP_STORE_STATES = %w[
+  PREPARE_FOR_SUBMISSION
+  READY_FOR_REVIEW WAITING_FOR_REVIEW IN_REVIEW
+  DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY
 ].freeze
 
 # Authenticates spaceship with the same key the fastlane actions use, and
@@ -126,7 +130,7 @@ def highest_closed_marketing_version(api_key)
     # app_version_state, and which one is populated depends on the API version
     # spaceship negotiates. Read whichever is there.
     state = version.app_version_state || version.app_store_state
-    CLOSED_APP_STORE_STATES.include?(state)
+    !OPEN_APP_STORE_STATES.include?(state.to_s)
   end
 
   closed.filter_map { |version| Gem::Version.new(version.version_string) rescue nil }.max

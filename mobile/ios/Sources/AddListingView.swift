@@ -1804,7 +1804,7 @@ private struct AmenitiesPicker: View {
                     HStack(spacing: 6) {
                         Image(systemName: Amenities.icon(for: amenity))
                             .font(.footnote)
-                        Text(amenity)
+                        Text(Amenities.label(for: amenity))
                             .font(.subheadline.weight(.medium))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
@@ -1821,7 +1821,7 @@ private struct AmenitiesPicker: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(amenity)
+                .accessibilityLabel(Amenities.label(for: amenity))
                 .accessibilityAddTraits(isOn ? .isSelected : [])
             }
         }
@@ -1919,7 +1919,7 @@ private struct ReviewStep: View {
                        value: photoCount == 0 ? "None" : "\(photoCount)")
             Divider()
             SummaryRow(label: "Amenities",
-                       value: amenities.isEmpty ? "None" : amenities.joined(separator: ", "))
+                       value: amenities.isEmpty ? "None" : amenities.map(Amenities.label(for:)).joined(separator: ", "))
             Divider()
             SummaryRow(label: L.t("cancel.policyLabel"), value: cancellationPolicy.name)
             Divider()
@@ -3019,7 +3019,7 @@ private struct EditReviewStep: View {
             Divider()
             SummaryRow(label: loc.t("listing.edit.field.amenities"),
                        value: amenities.isEmpty ? loc.t("listing.edit.none")
-                                                : amenities.joined(separator: ", "))
+                                                : amenities.map(Amenities.label(for:)).joined(separator: ", "))
             Divider()
             SummaryRow(label: loc.t("cancel.policyLabel"), value: cancellationPolicy.name)
             Divider()

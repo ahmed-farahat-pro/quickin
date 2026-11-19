@@ -2094,6 +2094,18 @@ private fun ReviewGuestCard(
 /** The six property types offered in Step 1. */
 internal val PROPERTY_TYPES = listOf("Apartment", "Villa", "House", "Chalet", "Cabin", "Guest House")
 
+/** Localized label for a canonical property type; the English value stays what's stored. */
+@Composable
+internal fun propertyTypeLabel(type: String): String = when (type.trim().lowercase()) {
+    "apartment" -> stringResource(com.quickin.app.R.string.property_type_apartment)
+    "villa" -> stringResource(com.quickin.app.R.string.property_type_villa)
+    "house" -> stringResource(com.quickin.app.R.string.property_type_house)
+    "chalet" -> stringResource(com.quickin.app.R.string.property_type_chalet)
+    "cabin" -> stringResource(com.quickin.app.R.string.property_type_cabin)
+    "guest house" -> stringResource(com.quickin.app.R.string.property_type_guest_house)
+    else -> type
+}
+
 /** Curated browse areas (Step 2). The host picks one before pinning the precise location. */
 internal val REGIONS = listOf(
     "North Coast", "Ain Sokhna", "Ras Sudr", "Cairo", "New Cairo", "Giza",
@@ -2105,6 +2117,40 @@ internal val AMENITY_OPTIONS = listOf(
     "WiFi", "Pool", "Kitchen", "Air conditioning", "Free parking", "Washer", "TV",
     "Heating", "Workspace", "Gym", "Beach access", "Pets allowed", "Hot tub", "BBQ grill", "Breakfast"
 )
+
+/**
+ * The canonical amenities paired with their localized label. The English value is what's stored /
+ * sent to the API (and what the `amenities=` filter matches); the string resource is only what's
+ * shown, so Arabic users see Arabic labels on every surface (filters, host chips, listing detail).
+ */
+internal val AMENITY_FILTERS = listOf(
+    "WiFi" to com.quickin.app.R.string.amenity_wifi,
+    "Pool" to com.quickin.app.R.string.amenity_pool,
+    "Kitchen" to com.quickin.app.R.string.amenity_kitchen,
+    "Air conditioning" to com.quickin.app.R.string.amenity_air_conditioning,
+    "Free parking" to com.quickin.app.R.string.amenity_free_parking,
+    "Washer" to com.quickin.app.R.string.amenity_washer,
+    "TV" to com.quickin.app.R.string.amenity_tv,
+    "Heating" to com.quickin.app.R.string.amenity_heating,
+    "Workspace" to com.quickin.app.R.string.amenity_workspace,
+    "Gym" to com.quickin.app.R.string.amenity_gym,
+    "Beach access" to com.quickin.app.R.string.amenity_beach_access,
+    "Pets allowed" to com.quickin.app.R.string.amenity_pets_allowed,
+    "Hot tub" to com.quickin.app.R.string.amenity_hot_tub,
+    "BBQ grill" to com.quickin.app.R.string.amenity_bbq_grill,
+    "Breakfast" to com.quickin.app.R.string.amenity_breakfast
+)
+
+/** String resource for a canonical amenity value (case/whitespace-insensitive), or null if unknown. */
+internal fun amenityLabelRes(amenity: String): Int? {
+    val key = amenity.trim()
+    return AMENITY_FILTERS.firstOrNull { it.first.equals(key, ignoreCase = true) }?.second
+}
+
+/** Display label for an amenity in the app locale; an unknown (host-typed) value shows as-is. */
+@Composable
+internal fun amenityLabel(amenity: String): String =
+    amenityLabelRes(amenity)?.let { stringResource(it) } ?: amenity
 
 private const val TOTAL_STEPS = 4
 
@@ -2220,7 +2266,7 @@ private fun AddListingTab(
                     onClick = onReset,
                     height = 52.dp,
                     modifier = Modifier.fillMaxWidth().padding(top = 24.dp)
-                ) { Text("Add another listing", color = Color.White, fontWeight = FontWeight.SemiBold) }
+                ) { Text(stringResource(com.quickin.app.R.string.wizard_add_another), color = Color.White, fontWeight = FontWeight.SemiBold) }
             }
         }
         return
@@ -2561,7 +2607,7 @@ private fun AddListingTab(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Burgundy),
                         colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Burgundy),
                         modifier = Modifier.weight(1f).height(54.dp)
-                    ) { Text("Back", fontWeight = FontWeight.SemiBold) }
+                    ) { Text(stringResource(com.quickin.app.R.string.wizard_back), fontWeight = FontWeight.SemiBold) }
                 }
 
                 val isLast = step == TOTAL_STEPS - 1
@@ -2589,7 +2635,7 @@ private fun AddListingTab(
                     if (isLast && state.isSubmitting) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                     } else {
-                        Text(if (isLast) "Publish listing" else "Next", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        Text(if (isLast) stringResource(com.quickin.app.R.string.wizard_publish) else stringResource(com.quickin.app.R.string.wizard_next), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     }
                 }
             }
@@ -2630,11 +2676,16 @@ internal fun StepBlockerNote(message: String?) {
 /** "Step N of 4" label, a one-line step title, and the 4-dot progress indicator. */
 @Composable
 private fun StepHeader(step: Int) {
-    val titles = listOf("Basics", "Location", "Details", "Review")
+    val titles = listOf(
+        stringResource(com.quickin.app.R.string.wizard_step_basics),
+        stringResource(com.quickin.app.R.string.wizard_step_location),
+        stringResource(com.quickin.app.R.string.wizard_step_details),
+        stringResource(com.quickin.app.R.string.wizard_step_review)
+    )
     Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                "Step ${step + 1} of $TOTAL_STEPS",
+                stringResource(com.quickin.app.R.string.wizard_step_of, step + 1, TOTAL_STEPS),
                 color = Muted,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -2742,7 +2793,7 @@ private fun PropertyTypeDropdown(selected: String, onSelected: (String) -> Unit)
         modifier = Modifier.fillMaxWidth()
     ) {
         OutlinedTextField(
-            value = selected,
+            value = propertyTypeLabel(selected),
             onValueChange = {},
             readOnly = true,
             label = {
@@ -2768,7 +2819,7 @@ private fun PropertyTypeDropdown(selected: String, onSelected: (String) -> Unit)
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             PROPERTY_TYPES.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option, color = Ink) },
+                    text = { Text(propertyTypeLabel(option), color = Ink) },
                     onClick = {
                         onSelected(option)
                         expanded = false
@@ -2800,7 +2851,7 @@ internal fun StepLocation(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Filled.Place, null, tint = Burgundy, modifier = Modifier.height(18.dp))
         Spacer(Modifier.width(6.dp))
-        RequiredSectionLabel("Choose an area", fontSize = 14.sp)
+        RequiredSectionLabel(stringResource(com.quickin.app.R.string.wizard_choose_area), fontSize = 14.sp)
     }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2842,7 +2893,7 @@ internal fun StepLocation(
         HostField(
             resort.name.orEmpty(),
             { onResort(ResortChoice.Selection.other(it)) },
-            "Type the resort or compound name"
+            stringResource(com.quickin.app.R.string.wizard_resort_type_name)
         )
         // Said under the box the offending text is in — but not while it is still empty, which the
         // blocker note above Next already asks for.
@@ -2852,9 +2903,9 @@ internal fun StepLocation(
     }
     Text(
         if (resort.isOther) {
-            "We'll show what you type to guests, and our team will add it to the list."
+            stringResource(com.quickin.app.R.string.wizard_resort_other_note)
         } else {
-            "Pick the compound your place is in. Choosing one also sets the area."
+            stringResource(com.quickin.app.R.string.wizard_resort_pick_note)
         },
         color = Muted,
         fontSize = 13.sp
@@ -2869,7 +2920,7 @@ internal fun StepLocation(
     )
     // Searchable, Egypt-first country picker (parity with web's country dropdown and the
     // iOS CountryPickerField) instead of a free-text field.
-    CountrySelector(value = country, onSelect = onCountry, label = "Country")
+    CountrySelector(value = country, onSelect = onCountry, label = stringResource(com.quickin.app.R.string.wizard_country))
 
     // The pin and the words around it used to be independent: a host could pick Egypt →
     // North Coast and drop the pin in Germany, and it saved silently. This says so — and
@@ -2886,9 +2937,38 @@ internal fun StepLocation(
                 .padding(12.dp)
         ) {
             Icon(Icons.Filled.Warning, null, tint = Burgundy, modifier = Modifier.size(18.dp))
-            Text(problem.message, color = Burgundy, fontSize = 13.sp)
+            Text(geoProblemMessage(problem), color = Burgundy, fontSize = 13.sp)
         }
     }
+}
+
+/**
+ * The map-pin warning in the app language. The policy hands back the canonical English country or
+ * area; the country is localized via the platform's own country names (matched on its English
+ * name), the area via [com.quickin.app.DestinationRules.regionDisplayName].
+ */
+@Composable
+internal fun geoProblemMessage(problem: ListingGeoPolicy.Problem): String {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0] ?: java.util.Locale.getDefault()
+    return when (problem.code) {
+        ListingGeoPolicy.ProblemCode.OUT_OF_RANGE ->
+            stringResource(com.quickin.app.R.string.geo_out_of_range)
+        ListingGeoPolicy.ProblemCode.OUTSIDE_COUNTRY ->
+            stringResource(com.quickin.app.R.string.geo_outside_country, localizedCountryName(problem.scope, locale))
+        ListingGeoPolicy.ProblemCode.OUTSIDE_REGION ->
+            stringResource(
+                com.quickin.app.R.string.geo_outside_region,
+                com.quickin.app.DestinationRules.regionDisplayName(problem.scope, arabic = locale.language == "ar")
+            )
+    }
+}
+
+/** An English country name ("Egypt") in [locale] ("مصر"); unknown names are returned unchanged. */
+internal fun localizedCountryName(englishName: String, locale: java.util.Locale): String {
+    val code = java.util.Locale.getISOCountries().firstOrNull {
+        java.util.Locale("", it).getDisplayCountry(java.util.Locale.ENGLISH).equals(englishName, ignoreCase = true)
+    } ?: return englishName
+    return java.util.Locale("", code).getDisplayCountry(locale).ifBlank { englishName }
 }
 
 /**
@@ -2907,9 +2987,9 @@ private fun ResortDropdown(
     // A catalog id whose row isn't in the list — an area switched under a chosen resort — reads as
     // the neutral wording rather than leaving the field blank.
     val label = when {
-        selection.isOther -> RESORT_OTHER_LABEL
-        selection.id != null -> resorts.firstOrNull { it.id == selection.id }?.name ?: "Selected resort"
-        else -> RESORT_NONE_LABEL
+        selection.isOther -> stringResource(com.quickin.app.R.string.wizard_resort_other)
+        selection.id != null -> resorts.firstOrNull { it.id == selection.id }?.name ?: stringResource(com.quickin.app.R.string.wizard_resort_selected)
+        else -> stringResource(com.quickin.app.R.string.wizard_resort_none)
     }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -2920,7 +3000,7 @@ private fun ResortDropdown(
             value = label,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Resort / compound") },
+            label = { Text(stringResource(com.quickin.app.R.string.wizard_resort_label)) },
             trailingIcon = {
                 if (loading) {
                     CircularProgressIndicator(
@@ -2945,7 +3025,7 @@ private fun ResortDropdown(
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text(RESORT_NONE_LABEL, color = Ink) },
+                text = { Text(stringResource(com.quickin.app.R.string.wizard_resort_none), color = Ink) },
                 onClick = {
                     onSelection(ResortChoice.Selection.NONE)
                     expanded = false
@@ -2961,7 +3041,7 @@ private fun ResortDropdown(
                 )
             }
             DropdownMenuItem(
-                text = { Text(RESORT_OTHER_LABEL, color = Ink) },
+                text = { Text(stringResource(com.quickin.app.R.string.wizard_resort_other), color = Ink) },
                 onClick = {
                     // Keeps whatever was already typed, so re-opening the menu doesn't erase it.
                     onSelection(ResortChoice.Selection.other(selection.name.orEmpty()))
@@ -2972,8 +3052,6 @@ private fun ResortDropdown(
     }
 }
 
-internal const val RESORT_NONE_LABEL = "Not in a resort or compound"
-internal const val RESORT_OTHER_LABEL = "Other — not listed"
 
 /** What is wrong with the resort answer, or null when nothing is. Only "Other" is ever refused. */
 internal fun resortNameProblem(selection: ResortChoice.Selection): ResortChoice.Problem? =
@@ -3055,12 +3133,12 @@ internal fun ListingGateBlocked(gate: ListingGate) {
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text("Reason given by our team", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text(stringResource(com.quickin.app.R.string.wizard_gate_reason), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Text(gate.reason, fontSize = 13.sp, color = Muted)
             }
         }
         Text(
-            "Your existing listings are not affected by this.",
+            stringResource(com.quickin.app.R.string.wizard_gate_existing),
             fontSize = 12.sp,
             color = Muted,
             textAlign = TextAlign.Center
@@ -3079,15 +3157,18 @@ internal fun ListingGateBlocked(gate: ListingGate) {
 @Composable
 internal fun GuestPriceHint(priceText: String, commission: Commission?) {
     val guest = commission?.guestPrice(priceText.trim().toDoubleOrNull() ?: 0.0) ?: return
+    val guestsWillSee = stringResource(com.quickin.app.R.string.wizard_guests_will_see)
+    val amount = stringResource(com.quickin.app.R.string.wizard_egp_amount, guest.toInt().toString())
+    val commissionNote = stringResource(com.quickin.app.R.string.wizard_commission_note, commission.percentText)
     Text(
         buildAnnotatedString {
-            withStyle(SpanStyle(color = Muted)) { append("Guests will see ") }
+            withStyle(SpanStyle(color = Muted)) { append(guestsWillSee) }
             withStyle(SpanStyle(color = Burgundy, fontWeight = FontWeight.SemiBold)) {
-                append("EGP ${guest.toInt()}")
+                append(amount)
             }
             if (commission.rate > 0.0) {
                 withStyle(SpanStyle(color = Muted)) {
-                    append(" · includes Quick In's ${commission.percentText}% commission — you receive the price you entered")
+                    append(commissionNote)
                 }
             }
         },
@@ -3205,16 +3286,16 @@ internal fun StepDetails(
     // them together, and four asterisks down a column of steppers reads as decoration rather
     // than as a rule. A stepper is never empty, so the mark matters most in the editor, where
     // a listing saved before the floor existed opens holding a 0 and cannot be saved back.
-    RequiredSectionLabel("Capacity")
+    RequiredSectionLabel(stringResource(com.quickin.app.R.string.wizard_capacity))
     CounterStepper(
-        label = "Max guests",
+        label = stringResource(com.quickin.app.R.string.wizard_max_guests),
         value = maxGuests,
         min = ListingCapacityPolicy.MINIMUM,
         max = ListingCapacityPolicy.MAX_GUESTS_CEILING,
         onChange = onMaxGuests
     )
     CounterStepper(
-        label = "Bedrooms",
+        label = stringResource(com.quickin.app.R.string.wizard_bedrooms),
         value = bedrooms,
         min = ListingCapacityPolicy.MINIMUM,
         // A Cabin stops at 3, a Villa at 8 — the control itself refuses what the rule refuses,
@@ -3223,14 +3304,14 @@ internal fun StepDetails(
         onChange = onBedrooms
     )
     CounterStepper(
-        label = "Beds",
+        label = stringResource(com.quickin.app.R.string.wizard_beds),
         value = beds,
         min = ListingCapacityPolicy.MINIMUM,
         max = ListingCapacityPolicy.BEDS_CEILING,
         onChange = onBeds
     )
     CounterStepper(
-        label = "Bathrooms",
+        label = stringResource(com.quickin.app.R.string.wizard_bathrooms),
         value = bathrooms,
         min = ListingCapacityPolicy.MINIMUM,
         max = ListingCapacityPolicy.BATHROOMS_CEILING,
@@ -3257,7 +3338,7 @@ internal fun StepDetails(
     HostField(
         price,
         { onPrice(it.filterNumeric(decimal = true)) },
-        "Price / night (EGP)",
+        stringResource(com.quickin.app.R.string.wizard_price_night_egp),
         keyboardType = KeyboardType.Number,
         required = true
     )
@@ -3315,7 +3396,7 @@ internal fun StepDetails(
     )
 
     // Amenities multi-select — tap chips to toggle. Sent to the backend as `amenities`.
-    Text("Amenities", fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+    Text(stringResource(com.quickin.app.R.string.wizard_amenities), fontWeight = FontWeight.SemiBold, color = Ink, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3323,7 +3404,7 @@ internal fun StepDetails(
     ) {
         amenityOptions.forEach { amenity ->
             AmenityChip(
-                label = amenity,
+                label = amenityLabel(amenity),
                 selected = selectedAmenities.contains(amenity),
                 onClick = { onToggleAmenity(amenity) }
             )
@@ -3402,9 +3483,9 @@ private fun ListingPhotoPicker(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        RequiredSectionLabel("Photos", modifier = Modifier.padding(top = 4.dp))
+        RequiredSectionLabel(stringResource(com.quickin.app.R.string.wizard_photos), modifier = Modifier.padding(top = 4.dp))
         Text(
-            "Add at least one photo, up to $MAX_LISTING_PHOTOS. The first one is your cover photo.",
+            stringResource(com.quickin.app.R.string.wizard_photos_hint, MAX_LISTING_PHOTOS),
             color = Muted,
             fontSize = 13.sp
         )
@@ -3426,7 +3507,7 @@ private fun ListingPhotoPicker(
             } else {
                 Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Add photos", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(com.quickin.app.R.string.wizard_add_photos), fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -3450,7 +3531,7 @@ private fun ListingPhotoPicker(
                                         .padding(start = 4.dp, bottom = 4.dp)
                                 ) {
                                     Text(
-                                        "Cover",
+                                        stringResource(com.quickin.app.R.string.wizard_cover),
                                         color = Color.White,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -3469,7 +3550,7 @@ private fun ListingPhotoPicker(
                             ) {
                                 Icon(
                                     Icons.Filled.Close,
-                                    contentDescription = "Remove photo",
+                                    contentDescription = stringResource(com.quickin.app.R.string.wizard_remove_photo),
                                     tint = Color.White,
                                     modifier = Modifier.padding(4.dp)
                                 )
@@ -3748,21 +3829,21 @@ private fun StepReview(
     weeklyDiscount: String = "0", monthlyDiscount: String = "0",
     weekendPrice: String = "", monthlyPricesCount: Int = 0
 ) {
-    SectionHeader("Review your listing")
+    SectionHeader(stringResource(com.quickin.app.R.string.wizard_review_your_listing))
     BoutiqueCard(modifier = Modifier.fillMaxWidth(), shadow = 6.dp) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ReviewRow("Title", title.ifBlank { "—" })
-            ReviewRow("Type", propertyType)
-            ReviewRow("Area", region ?: "—")
-            if (!resort.isNullOrBlank()) ReviewRow("Resort / compound", resort)
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_title), title.ifBlank { "—" })
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_type), propertyTypeLabel(propertyType))
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_area), region?.let { com.quickin.app.DestinationRules.regionDisplayName(it, arabic = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]?.language == "ar") } ?: "—")
+            if (!resort.isNullOrBlank()) ReviewRow(stringResource(com.quickin.app.R.string.wizard_resort_label), resort)
             ReviewRow(
-                "Location",
+                stringResource(com.quickin.app.R.string.wizard_row_location),
                 listOf(location, country).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "—" }
             )
-            ReviewRow("Price / night", if (price.isBlank()) "—" else "EGP $price")
-            ReviewRow("Guests", maxGuests.ifBlank { "—" })
-            ReviewRow("Rooms", "$bedrooms bd · $beds beds · $bathrooms ba")
-            ReviewRow("Amenities", amenities.joinToString(", ").ifBlank { "None selected" })
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_price), if (price.isBlank()) "—" else stringResource(com.quickin.app.R.string.wizard_egp_amount, price))
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_guests), maxGuests.ifBlank { "—" })
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_row_rooms), stringResource(com.quickin.app.R.string.wizard_rooms_value, bedrooms, beds, bathrooms))
+            ReviewRow(stringResource(com.quickin.app.R.string.wizard_amenities), amenities.map { amenityLabel(it) }.joinToString(", ").ifBlank { stringResource(com.quickin.app.R.string.wizard_none_selected) })
             ReviewRow(
                 stringResource(com.quickin.app.R.string.cancel_policy_label),
                 stringResource(com.quickin.app.CancellationPolicy.from(cancellationPolicy).labelRes)
@@ -3793,8 +3874,8 @@ private fun StepReview(
                 } else "—"
             )
             ReviewRow(
-                "Coordinates",
-                picked?.let { "%.5f, %.5f".format(it.latitude, it.longitude) } ?: "Not pinned"
+                stringResource(com.quickin.app.R.string.wizard_coordinates),
+                picked?.let { "%.5f, %.5f".format(it.latitude, it.longitude) } ?: stringResource(com.quickin.app.R.string.wizard_not_pinned)
             )
         }
     }
@@ -3951,6 +4032,10 @@ private fun LocationPicker(
     var query by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
+    // Resolved here because the search callbacks below run outside composition.
+    val msgNoMatch = stringResource(com.quickin.app.R.string.wizard_search_no_match)
+    val msgNoLocation = stringResource(com.quickin.app.R.string.wizard_search_no_location)
+    val msgPermissionDenied = stringResource(com.quickin.app.R.string.wizard_search_permission_denied)
     var locating by remember { mutableStateOf(false) }
 
     // Ease the camera to the freshly-picked point and keep the marker in sync.
@@ -3980,7 +4065,7 @@ private fun LocationPicker(
             val result = geocodePlace(context, q)
             searching = false
             if (result == null) {
-                searchError = "No match found. Try a more specific place."
+                searchError = msgNoMatch
             } else {
                 if (result.address.isNotBlank()) onLocation(result.address)
                 onPick(result.latLng) // LaunchedEffect(picked) recenters camera + marker
@@ -3998,7 +4083,7 @@ private fun LocationPicker(
             val latLng = fetchCurrentLatLng(context)
             if (latLng == null) {
                 locating = false
-                searchError = "Couldn't get your location. Try searching instead."
+                searchError = msgNoLocation
                 return@launch
             }
             onPick(latLng) // recenters camera + marker via LaunchedEffect(picked)
@@ -4018,7 +4103,7 @@ private fun LocationPicker(
         if (granted) {
             useCurrentLocation()
         } else {
-            searchError = "Location permission denied. Search for a place instead."
+            searchError = msgPermissionDenied
         }
     }
 
@@ -4045,7 +4130,7 @@ private fun LocationPicker(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Place, null, tint = Burgundy, modifier = Modifier.height(18.dp))
             Spacer(Modifier.width(6.dp))
-            RequiredSectionLabel("Pin the exact location", fontSize = 14.sp)
+            RequiredSectionLabel(stringResource(com.quickin.app.R.string.wizard_pin_exact), fontSize = 14.sp)
         }
         Spacer(Modifier.height(8.dp))
 
@@ -4053,7 +4138,7 @@ private fun LocationPicker(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it; searchError = null },
-            label = { Text("Search a place") },
+            label = { Text(stringResource(com.quickin.app.R.string.wizard_search_place)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { runSearch() }),
@@ -4062,7 +4147,7 @@ private fun LocationPicker(
                     CircularProgressIndicator(color = Burgundy, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
                     IconButton(onClick = { runSearch() }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Search", tint = Burgundy)
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(com.quickin.app.R.string.wizard_search), tint = Burgundy)
                     }
                 }
             },
@@ -4097,7 +4182,7 @@ private fun LocationPicker(
             } else {
                 Icon(Icons.Filled.MyLocation, null, tint = Burgundy, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Use my current location", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(com.quickin.app.R.string.wizard_use_current_location), fontWeight = FontWeight.SemiBold)
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -4106,7 +4191,7 @@ private fun LocationPicker(
         // both wizards gate on it reaching [MIN_LOCATION_LETTERS], and the search field above
         // it (which is genuinely optional) is the one place a host could reasonably assume the
         // opposite.
-        HostField(location, onLocation, "Location (e.g. Malibu, California)", required = true)
+        HostField(location, onLocation, stringResource(com.quickin.app.R.string.wizard_location_field), required = true)
         Spacer(Modifier.height(8.dp))
 
         Surface(
@@ -4124,7 +4209,7 @@ private fun LocationPicker(
                 if (picked != null) {
                     Marker(
                         state = markerState,
-                        title = "Listing location",
+                        title = stringResource(com.quickin.app.R.string.wizard_map_marker),
                         draggable = true
                     )
                 }
@@ -4133,7 +4218,7 @@ private fun LocationPicker(
         Spacer(Modifier.height(6.dp))
         if (picked != null) {
             Text(
-                "Pinned: ${"%.5f".format(picked.latitude)}, ${"%.5f".format(picked.longitude)} — drag the pin to fine-tune.",
+                stringResource(com.quickin.app.R.string.wizard_pinned, "%.5f".format(picked.latitude), "%.5f".format(picked.longitude)),
                 color = Burgundy,
                 fontWeight = FontWeight.Medium,
                 fontSize = 13.sp
@@ -4141,7 +4226,7 @@ private fun LocationPicker(
         } else {
             // How to place the pin, not that it is needed — the heading's mark says that.
             Text(
-                "Search above or tap the map to drop a pin.",
+                stringResource(com.quickin.app.R.string.wizard_pin_hint),
                 color = Muted,
                 fontSize = 13.sp
             )

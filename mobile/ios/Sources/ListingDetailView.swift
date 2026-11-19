@@ -834,7 +834,7 @@ struct ListingDetailView: View {
                             .font(.system(size: 17))
                             .foregroundStyle(Color.qkBurgundy)
                             .frame(width: 24)
-                        Text(amenity)
+                        Text(Amenities.label(for: amenity))
                             .font(.subheadline)
                             .foregroundStyle(Color.qkInk)
                             .lineLimit(2)

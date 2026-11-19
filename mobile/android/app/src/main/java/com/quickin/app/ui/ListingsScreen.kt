@@ -1017,27 +1017,6 @@ private val PROPERTY_TYPE_FILTERS = listOf(
     "Villa" to R.string.property_type_villa
 )
 
-/**
- * The canonical amenities the `amenities=` filter matches (same vocabulary the host add-listing
- * flow uses). The English [value] is what's sent to the API; [labelRes] is the localized label.
- */
-private val AMENITY_FILTERS = listOf(
-    "WiFi" to R.string.amenity_wifi,
-    "Pool" to R.string.amenity_pool,
-    "Kitchen" to R.string.amenity_kitchen,
-    "Air conditioning" to R.string.amenity_air_conditioning,
-    "Free parking" to R.string.amenity_free_parking,
-    "Washer" to R.string.amenity_washer,
-    "TV" to R.string.amenity_tv,
-    "Heating" to R.string.amenity_heating,
-    "Workspace" to R.string.amenity_workspace,
-    "Gym" to R.string.amenity_gym,
-    "Beach access" to R.string.amenity_beach_access,
-    "Pets allowed" to R.string.amenity_pets_allowed,
-    "Hot tub" to R.string.amenity_hot_tub,
-    "BBQ grill" to R.string.amenity_bbq_grill,
-    "Breakfast" to R.string.amenity_breakfast
-)
 
 /**
  * The discovery-filters bottom sheet: a single-select property-type row (led by an "Any type"

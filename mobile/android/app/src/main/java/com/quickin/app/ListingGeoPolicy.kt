@@ -45,20 +45,9 @@ object ListingGeoPolicy {
      * [ProblemCode.OUTSIDE_COUNTRY] and the area name for [ProblemCode.OUTSIDE_REGION], so
      * the caller drops it into a sentence without re-deriving which field was at fault.
      */
-    data class Problem(val code: ProblemCode, val scope: String) {
-        /** What the host reads under the map. English, like the rest of this wizard. */
-        val message: String
-            get() = when (code) {
-                ProblemCode.OUT_OF_RANGE ->
-                    "That isn't a valid spot on the map. Tap the map again to place the pin."
-                ProblemCode.OUTSIDE_COUNTRY ->
-                    "This pin is outside $scope — guests will see your place there on the map. " +
-                        "Move the pin, or change the country."
-                ProblemCode.OUTSIDE_REGION ->
-                    "This pin is outside $scope — guests browsing that area will see your place " +
-                        "here. Move the pin, or change the area."
-            }
-    }
+    data class Problem(val code: ProblemCode, val scope: String)
+    // The sentence the host reads is built in the UI (`geoProblemMessage` in HostScreen.kt) from
+    // string resources, so it follows the app language; [scope] stays the canonical English name.
 
     /**
      * Country boxes for the countries the host form offers, padded outward from each country's

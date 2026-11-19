@@ -1632,7 +1632,7 @@ private fun AmenitiesSection(amenities: List<String>) {
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text(amenity, color = Ink, fontSize = 14.sp, maxLines = 2)
+                        Text(amenityLabel(amenity), color = Ink, fontSize = 14.sp, maxLines = 2)
                     }
                 }
             }

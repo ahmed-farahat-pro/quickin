@@ -133,3 +133,9 @@ swiftc -o "$OUT/signup-role-rules" \
   Tests/SignupRoleRulesTests/main.swift \
   Sources/SignupRoleRules.swift
 "$OUT/signup-role-rules"
+
+echo "\nHostCalendarSelection — the host pricing calendar: tap start/tap end, runs, paging, swipes\n"
+swiftc -o "$OUT/host-calendar-selection" \
+  Tests/HostCalendarSelectionTests/main.swift \
+  Sources/HostCalendarSelection.swift
+"$OUT/host-calendar-selection"

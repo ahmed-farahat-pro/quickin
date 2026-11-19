@@ -958,6 +958,36 @@
     <string name="calendar_error_save_failed">No se pudieron guardar esas fechas. Inténtalo de nuevo.</string>
     <string name="calendar_error_sign_in">Inicia sesión como anfitrión para gestionar tu calendario.</string>
     <string name="calendar_nightly_prices">Precios por noche</string>
+    <!-- Host pricing calendar: paged months, tap start / tap end, bottom editor -->
+    <string name="calendar_prev_month">Mes anterior</string>
+    <string name="calendar_next_month">Mes siguiente</string>
+    <string name="calendar_today">Hoy</string>
+    <string name="calendar_jump_to_month">Ir a un mes</string>
+    <string name="calendar_unselect_month">Deseleccionar mes</string>
+    <string name="calendar_empty_title">Fija precios por noche</string>
+    <string name="calendar_howto_start">Toca la primera noche.</string>
+    <string name="calendar_howto_end">Toca la última noche: se seleccionan todos los días intermedios.</string>
+    <string name="calendar_howto_price">Escribe un precio por noche y pulsa Fijar precio.</string>
+    <string name="calendar_howto_tip">Toca un día seleccionado para quitarlo.</string>
+    <string name="calendar_currently">Ahora %1$s %2$s</string>
+    <string name="calendar_currently_range">Ahora %1$s – %2$s %3$s</string>
+    <string name="calendar_pending_hint">Ahora toca la última noche del rango, o vuelve a tocar %1$s para quedarte solo con ese día.</string>
+    <string name="calendar_legend_selected">Seleccionado</string>
+    <plurals name="calendar_more_ranges">
+        <item quantity="one">+%1$d más</item>
+        <item quantity="many">+%1$d más</item>
+        <item quantity="other">+%1$d más</item>
+    </plurals>
+    <plurals name="calendar_error_too_long">
+        <item quantity="one">Ese rango supera %1$d día. Elige una fecha final más cercana.</item>
+        <item quantity="many">Ese rango supera los %1$d días. Elige una fecha final más cercana.</item>
+        <item quantity="other">Ese rango supera los %1$d días. Elige una fecha final más cercana.</item>
+    </plurals>
+    <plurals name="calendar_nights_selected_count">
+        <item quantity="one">%1$d noche seleccionada</item>
+        <item quantity="many">%1$d noches seleccionadas</item>
+        <item quantity="other">%1$d noches seleccionadas</item>
+    </plurals>
     <string name="money_cancelled">Cancelada</string>
     <string name="money_cancelled_no_refund">No se emitió ningún reembolso: conservas esta reserva íntegra.</string>
     <string name="money_cancelled_partial">Se reembolsó el %1$d%% al huésped: tú conservas el resto.</string>

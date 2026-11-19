@@ -1077,6 +1077,33 @@
     <string name="calendar_error_save_failed">Couldn’t save those dates. Please try again.</string>
     <string name="calendar_error_sign_in">Sign in as a host to manage your calendar.</string>
     <string name="calendar_nightly_prices">Nightly prices</string>
+    <!-- Host pricing calendar: paged months, tap start / tap end, bottom editor -->
+    <string name="calendar_prev_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_jump_to_month">Jump to a month</string>
+    <string name="calendar_unselect_month">Unselect month</string>
+    <string name="calendar_empty_title">Set nightly prices</string>
+    <string name="calendar_howto_start">Tap the first night.</string>
+    <string name="calendar_howto_end">Tap the last night — every day in between is selected.</string>
+    <string name="calendar_howto_price">Type a price per night and press Set price.</string>
+    <string name="calendar_howto_tip">Tap a selected day to remove it.</string>
+    <string name="calendar_currently">Currently %1$s %2$s</string>
+    <string name="calendar_currently_range">Currently %1$s – %2$s %3$s</string>
+    <string name="calendar_pending_hint">Now tap the last night of the range — or tap %1$s again to keep just that day.</string>
+    <string name="calendar_legend_selected">Selected</string>
+    <plurals name="calendar_more_ranges">
+        <item quantity="one">+%1$d more</item>
+        <item quantity="other">+%1$d more</item>
+    </plurals>
+    <plurals name="calendar_error_too_long">
+        <item quantity="one">That range is longer than %1$d day. Pick a closer end date.</item>
+        <item quantity="other">That range is longer than %1$d days. Pick a closer end date.</item>
+    </plurals>
+    <plurals name="calendar_nights_selected_count">
+        <item quantity="one">%1$d night selected</item>
+        <item quantity="other">%1$d nights selected</item>
+    </plurals>
     <!-- Earnings breakdown: a cancelled booking the host still kept money on. The row is shown
          because a cancellation refunds a SHARE of the stay, not always all of it. -->
     <string name="money_cancelled">Cancelled</string>

@@ -1054,6 +1054,45 @@
     <string name="calendar_error_save_failed">تعذر حفظ هذه التواريخ. حاول مرة أخرى.</string>
     <string name="calendar_error_sign_in">سجّل الدخول كمضيف لإدارة التقويم.</string>
     <string name="calendar_nightly_prices">أسعار الليالي</string>
+    <!-- Host pricing calendar: paged months, tap start / tap end, bottom editor -->
+    <string name="calendar_prev_month">الشهر السابق</string>
+    <string name="calendar_next_month">الشهر التالي</string>
+    <string name="calendar_today">اليوم</string>
+    <string name="calendar_jump_to_month">الانتقال إلى شهر</string>
+    <string name="calendar_unselect_month">إلغاء تحديد الشهر</string>
+    <string name="calendar_empty_title">حدّد أسعار الليالي</string>
+    <string name="calendar_howto_start">اضغط على أول ليلة.</string>
+    <string name="calendar_howto_end">اضغط على آخر ليلة — سيتم تحديد كل الأيام بينهما.</string>
+    <string name="calendar_howto_price">اكتب سعر الليلة واضغط «تحديد السعر».</string>
+    <string name="calendar_howto_tip">اضغط على يوم محدد لإزالته.</string>
+    <string name="calendar_currently">السعر الحالي %1$s %2$s</string>
+    <string name="calendar_currently_range">السعر الحالي %1$s – %2$s %3$s</string>
+    <string name="calendar_pending_hint">الآن اضغط على آخر ليلة في الفترة — أو اضغط على %1$s مرة أخرى للاكتفاء بهذا اليوم.</string>
+    <string name="calendar_legend_selected">محدد</string>
+    <plurals name="calendar_more_ranges">
+        <item quantity="zero">+%1$d أخرى</item>
+        <item quantity="one">+%1$d أخرى</item>
+        <item quantity="two">+%1$d أخرى</item>
+        <item quantity="few">+%1$d أخرى</item>
+        <item quantity="many">+%1$d أخرى</item>
+        <item quantity="other">+%1$d أخرى</item>
+    </plurals>
+    <plurals name="calendar_error_too_long">
+        <item quantity="zero">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+        <item quantity="one">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+        <item quantity="two">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+        <item quantity="few">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+        <item quantity="many">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+        <item quantity="other">هذه الفترة أطول من %1$d يومًا. اختر تاريخ نهاية أقرب.</item>
+    </plurals>
+    <plurals name="calendar_nights_selected_count">
+        <item quantity="zero">لم تحدد ليالٍ</item>
+        <item quantity="one">ليلة واحدة محددة</item>
+        <item quantity="two">ليلتان محددتان</item>
+        <item quantity="few">%1$d ليالٍ محددة</item>
+        <item quantity="many">%1$d ليلة محددة</item>
+        <item quantity="other">%1$d ليلة محددة</item>
+    </plurals>
     <string name="money_cancelled">ملغي</string>
     <string name="money_cancelled_no_refund">لم يُصرف أي استرداد — تحتفظ بقيمة هذا الحجز كاملة.</string>
     <string name="money_cancelled_partial">تم استرداد %1$d%% للضيف — وتحتفظ أنت بالباقي.</string>

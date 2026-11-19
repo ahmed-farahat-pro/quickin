@@ -23,11 +23,17 @@ import java.util.TimeZone
  */
 data class HostCalendarUiState(
     val listingId: String? = null,
-    val isLoading: Boolean = false,
+    /** Months (keyed by their first day) whose days are being fetched right now. */
+    val loadingMonths: Set<String> = emptySet(),
     val isSaving: Boolean = false,
     val days: Map<String, CalendarDay> = emptyMap(),
     /** Days the host has selected, `yyyy-MM-dd`. */
     val selected: Set<String> = emptySet(),
+    /**
+     * The first day of a range still waiting for its end — "tap start, tap end". Null when no range
+     * is half-made. See [HostCalendarSelection.tapDay].
+     */
+    val anchor: String? = null,
     /** The platform markup in force, for the "guests will see X" hint. */
     val commissionRate: Double = 0.0,
     val currency: String = "EGP",
@@ -35,8 +41,17 @@ data class HostCalendarUiState(
     /** Result of the last save, for a one-line confirmation. Null once cleared. */
     val savedUpdated: Int? = null,
     /** How many selected days the last save refused because they are booked. */
-    val savedSkipped: Int = 0
+    val savedSkipped: Int = 0,
+    /** Bumped on every successful save, so the screen can show one confirmation per save. */
+    val saveSeq: Int = 0
 ) {
+    val isLoading: Boolean
+        get() = loadingMonths.isNotEmpty()
+
+    /** An anchor is pending only while it is still selected. */
+    val pendingAnchor: String?
+        get() = anchor?.takeIf { it in selected }
+
     /** Selected days that are currently closed — enables an "Open" action. */
     val selectedBlocked: Int
         get() = selected.count { days[it]?.status == DayStatus.BLOCKED }
@@ -81,30 +96,38 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * Fetch one month, INCLUSIVE of both ends. Cheap to call repeatedly — a month already loaded
-     * is a no-op, and a month that failed is dropped from the set so it can be retried.
+     * Fetch one month, INCLUSIVE of both ends. The screen calls it for the month(s) on screen plus
+     * one ahead whenever the page changes, so the next arrow tap already has prices on it — never
+     * for the whole two-year horizon up front. Cheap to call repeatedly: a month already loaded
+     * (or loading) is a no-op, and a month that failed is dropped from the set so a later visit
+     * retries it. The current month starts at today, like the web: the past can't be priced.
      */
     fun loadMonth(firstOfMonth: String) {
         val listingId = _state.value.listingId ?: return
         val token = token() ?: return
-        if (!loadedMonths.add(firstOfMonth)) return
         val last = lastDayOfMonth(firstOfMonth) ?: return
+        if (!loadedMonths.add(firstOfMonth)) return
+        val today = today()
+        val start = if (firstOfMonth < today) today else firstOfMonth
 
-        _state.value = _state.value.copy(isLoading = true)
+        _state.value = _state.value.copy(loadingMonths = _state.value.loadingMonths + firstOfMonth)
         viewModelScope.launch {
             try {
-                val calendar = BookingService.fetchCalendar(token, listingId, firstOfMonth, last)
+                val calendar = BookingService.fetchCalendar(token, listingId, start, last)
+                // A listing switch while this was in flight must not paint the old listing's days.
+                if (_state.value.listingId != listingId) return@launch
                 _state.value = _state.value.copy(
-                    isLoading = false,
+                    loadingMonths = _state.value.loadingMonths - firstOfMonth,
                     days = _state.value.days + calendar.days.associateBy { it.date },
                     commissionRate = calendar.commissionRate,
                     currency = calendar.currency
                 )
             } catch (e: Exception) {
+                if (_state.value.listingId != listingId) return@launch
                 loadedMonths.remove(firstOfMonth)
                 // A month that fails shows its days unpriced and stays editable; not worth an
                 // error banner over the whole screen.
-                _state.value = _state.value.copy(isLoading = false)
+                _state.value = _state.value.copy(loadingMonths = _state.value.loadingMonths - firstOfMonth)
             }
         }
     }
@@ -115,20 +138,30 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
         return _state.value.days[date]?.isEditable ?: true
     }
 
-    /** Add or remove one day. */
+    /**
+     * One tap on a day — "tap start, tap end" ([HostCalendarSelection.tapDay]): the first tap
+     * selects a day and leaves it pending, the next fills the range between them, tapping the
+     * pending day again keeps it alone, and tapping a selected day with nothing pending removes
+     * it. A range longer than one save accepts is refused with `error = "tooLong"` and the anchor
+     * stays pending so the host can pick a closer end.
+     */
     fun toggle(date: String) {
-        if (!isEditable(date)) return
-        val selected = _state.value.selected
-        _state.value = _state.value.copy(
-            selected = if (date in selected) selected - date else selected + date,
-            error = null,
-            savedUpdated = null
-        )
+        val s = _state.value
+        val r = HostCalendarSelection.tapDay(s.selected, s.anchor, date, ::isEditable)
+        if (r.tooLong) {
+            _state.value = s.copy(error = "tooLong", savedUpdated = null)
+            return
+        }
+        if (r.selected == s.selected && r.anchor == s.anchor) return
+        _state.value = s.copy(selected = r.selected, anchor = r.anchor, error = null, savedUpdated = null)
     }
 
     /**
      * Apply a swept range. [adding] is fixed when the drag starts, so sweeping back and forth over
      * a day doesn't flip it repeatedly.
+     *
+     * No longer reachable from the calendar screen (the long-press sweep was replaced by tap
+     * start / tap end); kept because MainActivity still wires it into the screen's signature.
      */
     fun sweep(anchor: String, to: String, adding: Boolean) {
         val span = expandRange(anchor, to).filter(::isEditable)
@@ -136,6 +169,7 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
         val selected = _state.value.selected
         _state.value = _state.value.copy(
             selected = if (adding) selected + span else selected - span.toSet(),
+            anchor = null,
             error = null,
             savedUpdated = null
         )
@@ -148,16 +182,16 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
     fun toggleMonth(firstOfMonth: String) {
         val days = daysOfMonth(firstOfMonth).filter(::isEditable)
         if (days.isEmpty()) return
-        val selected = _state.value.selected
         _state.value = _state.value.copy(
-            selected = if (days.all { it in selected }) selected - days.toSet() else selected + days,
+            selected = HostCalendarSelection.toggleMonth(_state.value.selected, days),
+            anchor = null,
             error = null,
             savedUpdated = null
         )
     }
 
     fun clearSelection() {
-        _state.value = _state.value.copy(selected = emptySet(), error = null, savedUpdated = null)
+        _state.value = _state.value.copy(selected = emptySet(), anchor = null, error = null, savedUpdated = null)
     }
 
     fun clearNotice() {
@@ -188,8 +222,10 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
                     days = _state.value.days + result.calendar.days.associateBy { it.date },
                     commissionRate = result.calendar.commissionRate,
                     selected = emptySet(),
+                    anchor = null,
                     savedUpdated = result.updated,
-                    savedSkipped = result.skipped.size
+                    savedSkipped = result.skipped.size,
+                    saveSeq = _state.value.saveSeq + 1
                 )
             } catch (e: AuthService.HttpError) {
                 _state.value = _state.value.copy(isSaving = false, error = e.message ?: "saveFailed")
@@ -219,8 +255,8 @@ class HostCalendarViewModel(application: Application) : AndroidViewModel(applica
     // which day a price lands on. Same rule as `date-pricing-core.ts` on the server.
 
     companion object {
-        /** How many months the grid paints. */
-        const val MONTHS_VISIBLE = 12
+        /** How many months ahead the calendar pages through (the API's horizon). */
+        const val MAX_MONTHS_AHEAD = HostCalendarSelection.MAX_MONTHS_AHEAD
 
         private val UTC: TimeZone = TimeZone.getTimeZone("UTC")
 

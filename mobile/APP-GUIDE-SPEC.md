@@ -54,7 +54,7 @@ only the anchors differ per surface.
 | 3 | regions | Explore region rail | Browse by region | Pick a region, then a resort, to narrow down the stays. |
 | 4 | filters | filter / sort control | Filter and sort | Narrow results by price, property type and more. |
 | 5 | wishlist | Wishlist tab (web: Saved link) | Save your favourites | Tap the heart on any stay to keep it here for later. |
-| 6 | trips | Trips tab (web: Reservations link) | Your trips | Your bookings, payments and receipts all live here. |
+| 6 | trips | Trips tab (web: Reservations link) | Your bookings | Your bookings, payments and receipts all live here. |
 | 7 | profile | Profile tab (web: account/menu) | Your profile | Edit your details, change language and currency, get help — and become a host. |
 | 7′ | profile (signed out) | same anchor | Sign in to do more | Sign in or create an account to book, save stays and host. |
 | 8 | finish | — | You're all set | Want to earn from your place? We can show you how to become a host. |
@@ -114,7 +114,7 @@ Web: the same chooser on `/account` and an "App guide" row in the header/mobile 
 | regions | تصفّح حسب المنطقة | اختر منطقة ثم منتجعاً لتضييق نطاق الأماكن. |
 | filters | التصفية والترتيب | ضيّق النتائج حسب السعر ونوع العقار والمزيد. |
 | wishlist | احفظ المفضلة | اضغط على القلب في أي مكان لتحتفظ به هنا لوقت لاحق. |
-| trips | رحلاتك | حجوزاتك ومدفوعاتك وإيصالاتك كلها هنا. |
+| trips | حجوزاتك | حجوزاتك ومدفوعاتك وإيصالاتك كلها هنا. |
 | profile | ملفك الشخصي | عدّل بياناتك، وغيّر اللغة والعملة، واحصل على المساعدة — وكن مضيفاً. |
 | profile (signed out) | سجّل الدخول لتفعل المزيد | سجّل الدخول أو أنشئ حساباً لتحجز وتحفظ الأماكن وتستضيف. |
 | finish | أنت جاهز الآن | هل تريد أن تربح من مكانك؟ يمكننا أن نريك كيف تصبح مضيفاً. |

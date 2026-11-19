@@ -1153,7 +1153,7 @@
     <string name="guide_filters_body">Narrow results by price, property type and more.</string>
     <string name="guide_wishlist_title">Save your favourites</string>
     <string name="guide_wishlist_body">Tap the heart on any stay to keep it here for later.</string>
-    <string name="guide_trips_title">Your trips</string>
+    <string name="guide_trips_title">Your bookings</string>
     <string name="guide_trips_body">Your bookings, payments and receipts all live here.</string>
     <string name="guide_profile_title">Your profile</string>
     <string name="guide_profile_body">Edit your details, change language and currency, get help — and become a host.</string>
